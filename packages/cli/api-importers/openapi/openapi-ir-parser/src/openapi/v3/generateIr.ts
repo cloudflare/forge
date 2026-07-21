@@ -34,7 +34,7 @@ import { isReferenceObject } from "../../schema/utils/isReferenceObject.js";
 import { getSchemas } from "../../utils/getSchemas.js";
 import { sanitizeSecurityScopes } from "../../utils/sanitizeSecurityScopes.js";
 import { createSchemaCollisionTracker } from "../../utils/schemaCollision.js";
-import { AbstractOpenAPIV3ParserContext } from "./AbstractOpenAPIV3ParserContext.js";
+import { AbstractOpenAPIV3ParserContext, OpenAPIV3DocumentMetadata } from "./AbstractOpenAPIV3ParserContext.js";
 import { convertPathItem, convertPathItemToWebhooks } from "./converters/convertPathItem.js";
 import { convertSecurityScheme } from "./converters/convertSecurityScheme.js";
 import { convertServer } from "./converters/convertServer.js";
@@ -52,6 +52,7 @@ import { getVariableDefinitions } from "./extensions/getVariableDefinitions.js";
 import { getWebhooksPathsObject } from "./getWebhookPathsObject.js";
 import { hasIncompleteExample } from "./hasIncompleteExample.js";
 import { OpenAPIV3ParserContext } from "./OpenAPIV3ParserContext.js";
+import { resolveSecuritySchemeReference } from "./resolveSecuritySchemeReference.js";
 import { runResolutions } from "./runResolutions.js";
 
 export function generateIr({
@@ -72,20 +73,15 @@ export function generateIr({
     // Reset title collision tracker for this document processing
     resetTitleCollisionTracker();
 
-    // Create a temporary context for reference resolution during security scheme processing
-    const tempContext = new OpenAPIV3ParserContext({
-        document: openApi,
-        taskContext,
-        authHeaders: new Set(), // temporary empty set
-        options,
-        source,
-        namespace
-    });
+    const documentMetadata = new OpenAPIV3DocumentMetadata(openApi, options);
 
     const securitySchemes: Record<string, SecurityScheme> = Object.fromEntries(
         Object.entries(openApi.components?.securitySchemes ?? {})
             .map(([key, securityScheme]) => {
-                const convertedSecurityScheme = convertSecurityScheme(securityScheme, source, taskContext, tempContext);
+                const resolvedSecurityScheme = isReferenceObject(securityScheme)
+                    ? resolveSecuritySchemeReference(openApi, securityScheme)
+                    : securityScheme;
+                const convertedSecurityScheme = convertSecurityScheme(resolvedSecurityScheme, source, taskContext);
                 if (convertedSecurityScheme == null) {
                     return null;
                 }
@@ -126,7 +122,8 @@ export function generateIr({
         authHeaders,
         options,
         source,
-        namespace
+        namespace,
+        documentMetadata
     });
 
     if (context.filter.hasEndpoints()) {
