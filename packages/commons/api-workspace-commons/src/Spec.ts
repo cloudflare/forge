@@ -1,0 +1,62 @@
+import type { AbsoluteFilePath, RelativeFilePath } from "@fern-api/path-utils";
+
+import type { OpenAPISettings } from "./openapi/OpenAPISettings.js";
+import type { Source } from "./Source.js";
+
+export type Spec = OpenAPISpec | ProtobufSpec | OpenRPCSpec | GraphQLSpec;
+
+export interface OpenAPISpec {
+    type: "openapi";
+    absoluteFilepath: AbsoluteFilePath;
+    absoluteFilepathToOverrides: AbsoluteFilePath | AbsoluteFilePath[] | undefined;
+    absoluteFilepathToOverlays: AbsoluteFilePath | undefined;
+    source: Source;
+    namespace?: string;
+    settings?: OpenAPISettings;
+}
+
+export interface OpenRPCSpec {
+    type: "openrpc";
+    absoluteFilepath: AbsoluteFilePath;
+    absoluteFilepathToOverrides: AbsoluteFilePath | AbsoluteFilePath[] | undefined;
+    namespace?: string;
+}
+
+export interface ProtobufSpec {
+    type: "protobuf";
+    absoluteFilepathToProtobufRoot: AbsoluteFilePath;
+    absoluteFilepathToProtobufTarget: AbsoluteFilePath | undefined;
+    absoluteFilepathToOverrides: AbsoluteFilePath | AbsoluteFilePath[] | undefined;
+    relativeFilepathToProtobufRoot: RelativeFilePath;
+    generateLocally: boolean;
+    fromOpenAPI: boolean;
+    dependencies: string[];
+    settings?: OpenAPISettings;
+}
+
+export interface GraphQLSpec {
+    type: "graphql";
+    absoluteFilepath: AbsoluteFilePath;
+    absoluteFilepathToOverrides: AbsoluteFilePath | AbsoluteFilePath[] | undefined;
+    absoluteFilepathToExamples: AbsoluteFilePath | undefined;
+    namespace?: string;
+}
+
+/**
+ * GraphQL specs that share a namespace describe a single schema whose SDL is split across files
+ * (e.g. federation subgraphs, each owned by a different team), so they must be converted together.
+ * Specs in different namespaces remain independent schemas.
+ */
+export function groupGraphQLSpecsByNamespace(specs: readonly GraphQLSpec[]): Map<string, GraphQLSpec[]> {
+    const grouped = new Map<string, GraphQLSpec[]>();
+    for (const spec of specs) {
+        const key = spec.namespace ?? "";
+        const existing = grouped.get(key);
+        if (existing != null) {
+            existing.push(spec);
+        } else {
+            grouped.set(key, [spec]);
+        }
+    }
+    return grouped;
+}
