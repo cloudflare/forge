@@ -143,6 +143,51 @@ function makeObjectSchema({
     });
 }
 
+function makeOptionalSchema(value: SchemaWithExample): SchemaWithExample {
+    return SchemaWithExample.optional({
+        value,
+        description: undefined,
+        availability: undefined,
+        generatedName: "TestOptional",
+        nameOverride: undefined,
+        groupName: undefined,
+        namespace: undefined,
+        title: undefined,
+        inline: undefined
+    });
+}
+
+function makeStringSchema(): SchemaWithExample {
+    return makePrimitiveSchema(
+        PrimitiveSchemaValueWithExample.string({
+            default: undefined,
+            pattern: undefined,
+            format: undefined,
+            minLength: undefined,
+            maxLength: undefined,
+            example: undefined
+        })
+    );
+}
+
+function makeArraySchema(): SchemaWithExample {
+    return SchemaWithExample.array({
+        value: makeStringSchema(),
+        example: undefined,
+        minItems: undefined,
+        maxItems: undefined,
+        default: undefined,
+        description: undefined,
+        availability: undefined,
+        generatedName: "TestArray",
+        nameOverride: undefined,
+        groupName: undefined,
+        namespace: undefined,
+        title: undefined,
+        inline: undefined
+    });
+}
+
 const DEFAULT_OPTIONS: ExampleTypeFactory.Options = {
     ignoreOptionals: false,
     isParameter: false
@@ -509,6 +554,28 @@ describe("ExampleTypeFactory", () => {
                 expect(result.properties.logo).toMatchObject({ type: "null" });
                 expect(result.properties.id).toMatchObject({ type: "primitive" });
             }
+        });
+    });
+
+    describe("explicit empty arrays", () => {
+        it("should preserve an explicit empty array without changing absent array handling", () => {
+            const schema = makeOptionalSchema(makeArraySchema());
+
+            const explicitResult = factory.buildExample({
+                schema,
+                exampleId: undefined,
+                example: [],
+                options: DEFAULT_OPTIONS
+            });
+            const absentResult = factory.buildExample({
+                schema,
+                exampleId: undefined,
+                example: undefined,
+                options: { ...DEFAULT_OPTIONS, ignoreOptionals: true }
+            });
+
+            expect(explicitResult).toMatchObject({ type: "array", value: [] });
+            expect(absentResult).toBeUndefined();
         });
     });
 
