@@ -100,6 +100,9 @@ function createMockBaseContext(opts?: {
                         shape: FernIr.ShapeType.Object
                     });
                 }
+                if (typeRef.type === "container") {
+                    return FernIr.ResolvedTypeReference.container(typeRef.container);
+                }
                 return FernIr.ResolvedTypeReference.primitive({ v1: "STRING", v2: undefined });
             },
             getGeneratedExample: (_example: FernIr.ExampleTypeReference) => ({
@@ -961,6 +964,37 @@ describe("GeneratedUndiscriminatedUnionTypeImpl", () => {
             expect(() => generator.buildExample(example, context, { isForComment: true })).toThrow(
                 "Example is not for an undiscriminated union"
             );
+        });
+    });
+
+    describe("appliesBasePropertiesToMember", () => {
+        it("applies base properties to object and open-map members but not primitives", () => {
+            const objectMember = createUnionMember({
+                type: FernIr.TypeReference.named({ ...createDeclaredTypeName("OtherType"), default: undefined, inline: undefined })
+            });
+            const mapMember = createUnionMember({
+                type: FernIr.TypeReference.container(
+                    FernIr.ContainerType.map({
+                        keyType: FernIr.TypeReference.primitive({ v1: "STRING", v2: undefined }),
+                        valueType: FernIr.TypeReference.unknown()
+                    })
+                )
+            });
+            const stringMember = createUnionMember({
+                type: FernIr.TypeReference.primitive({ v1: "STRING", v2: undefined })
+            });
+            const generator = createGenerator({
+                typeName: "MyUnion",
+                members: [objectMember, mapMember, stringMember],
+                baseProperties: [
+                    createObjectProperty("a", FernIr.TypeReference.primitive({ v1: "BOOLEAN", v2: undefined }))
+                ]
+            });
+            const context = createMockBaseContext();
+
+            expect(generator.appliesBasePropertiesToMember(context, objectMember)).toBe(true);
+            expect(generator.appliesBasePropertiesToMember(context, mapMember)).toBe(true);
+            expect(generator.appliesBasePropertiesToMember(context, stringMember)).toBe(false);
         });
     });
 

@@ -1,0 +1,7 @@
+# yaml-language-server: $schema=../../../../../fern-changes-yml.schema.json
+
+- summary: |
+    Undiscriminated unions whose `anyOf` branches only list `required` keys collapse to an open
+    map member. Their shared `base-properties` are now kept on that member
+    (`{ a?: boolean } & Record<string, unknown>`) instead of being dropped.
+  type: fix

@@ -102,7 +102,12 @@ export class GeneratedUndiscriminatedUnionTypeImpl<Context extends BaseContext>
             return false;
         }
         const resolved = context.type.resolveTypeReference(member.type);
-        return resolved.type === "named" && resolved.shape === FernIr.ShapeType.Object;
+        // Open maps come from `anyOf` branches that only list `required` keys; the shared
+        // properties still belong on the resulting `Record<string, unknown>`.
+        return (
+            (resolved.type === "named" && resolved.shape === FernIr.ShapeType.Object) ||
+            (resolved.type === "container" && resolved.container.type === "map")
+        );
     }
 
     private getBaseProperties(): FernIr.ObjectProperty[] {
