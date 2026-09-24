@@ -68,23 +68,23 @@ if (typeof globalThis.Headers !== "undefined") {
             return this.headers.get("set-cookie") || [];
         }
 
-        *entries(): IterableIterator<[string, string]> {
+        *entries(): HeadersIterator<[string, string]> {
             for (const [key, values] of this.headers.entries()) {
                 yield [key, values.join(", ")];
             }
         }
 
-        *keys(): IterableIterator<string> {
+        *keys(): HeadersIterator<string> {
             yield* this.headers.keys();
         }
 
-        *values(): IterableIterator<string> {
+        *values(): HeadersIterator<string> {
             for (const values of this.headers.values()) {
                 yield values.join(", ");
             }
         }
 
-        [Symbol.iterator](): IterableIterator<[string, string]> {
+        [Symbol.iterator](): HeadersIterator<[string, string]> {
             return this.entries();
         }
     };
