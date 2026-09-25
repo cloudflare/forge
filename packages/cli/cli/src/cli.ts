@@ -111,7 +111,6 @@ import { validateWorkspaces } from "./commands/validate/validateWorkspaces.js";
 import { writeDefinitionForWorkspaces } from "./commands/write-definition/writeDefinitionForWorkspaces.js";
 import { writeDocsDefinitionForProject } from "./commands/write-docs-definition/writeDocsDefinitionForProject.js";
 import { FERN_CWD_ENV_VAR } from "./cwd.js";
-import { rerunFernCliAtVersion } from "./rerunFernCliAtVersion.js";
 import { resolveGroupGithubConfig } from "./resolveGroupGithubConfig.js";
 import { RUNTIME } from "./runtime.js";
 import { installProcessHandlers } from "./telemetry/processHandlers.js";
@@ -199,10 +198,12 @@ async function runCli() {
             if (cliContext.environment.packageVersion === versionOfCliToRun) {
                 await tryRunCli(cliContext);
             } else {
-                await rerunFernCliAtVersion({
-                    version: versionOfCliToRun,
-                    cliContext
-                });
+                // Cloudflare fork: this CLI is vendored; never fetch another build from npm.
+                cliContext.failWithoutThrowing(
+                    `fern.config.json pins version ${versionOfCliToRun}, but this CLI (${cliContext.environment.packageName}) is ${cliContext.environment.packageVersion}. Set the version in fern.config.json to ${cliContext.environment.packageVersion} or vendor a matching build.`,
+                    undefined,
+                    { code: CliError.Code.ConfigError }
+                );
             }
         }
     } catch (error) {
