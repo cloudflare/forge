@@ -2,7 +2,7 @@
 //
 // Shared Fern/OpenAPI generation lives in @cloudflare/fern-config so every SDK
 // language consumes the same spec and generator configuration. That package
-// handles the generator image, the Fern run and the custom runtime overlay; this
+// handles the Fern run and the custom runtime overlay; this
 // wrapper adds the TypeScript-only sdk-map on top.
 import { execFileSync } from 'node:child_process';
 import { existsSync, statSync } from 'node:fs';

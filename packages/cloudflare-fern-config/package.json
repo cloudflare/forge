@@ -13,9 +13,10 @@
     "generate": "tsx scripts/generate-sdk.ts"
   },
   "devDependencies": {
+    "@cloudflare/codegen-cli": "file:../../vendor/codegen-cli/cloudflare-codegen-cli-5.112.0.tgz",
+    "@cloudflare/codegen-typescript-sdk": "file:../../vendor/codegen-cli/cloudflare-codegen-typescript-sdk-3.88.3.tgz",
     "@cloudflare/forge": "workspace:*",
     "@types/node": "26.0.1",
-    "fern-api": "5.112.0",
     "tsx": "4.22.4",
     "typescript": "6.0.3"
   },
