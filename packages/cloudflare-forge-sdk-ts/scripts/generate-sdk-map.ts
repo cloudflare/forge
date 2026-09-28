@@ -470,7 +470,6 @@ function emitOperationTypes(chosen: Map<string, Endpoint>): void {
     '',
     'export type SdkQuery<OperationId extends SdkQueryOperationId> =',
     '  SdkOperationQueryMap[OperationId];',
-    '',
   ];
   writeFileSync(TYPES_OUT, `${lines.join('\n')}\n`);
 
