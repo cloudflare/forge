@@ -1,6 +1,7 @@
 import { AbsoluteFilePath, join, RelativeFilePath } from "@fern-api/fs-utils";
+import { readFileSync, writeFileSync } from "fs";
 import path from "path";
-import { Project, SyntaxKind } from "ts-morph";
+import { ts } from "ts-morph";
 
 // Define the possible import modifications
 const ImportModification = {
@@ -11,6 +12,14 @@ const ImportModification = {
 } as const;
 
 type ImportModificationType = (typeof ImportModification)[keyof typeof ImportModification];
+
+interface SpecifierEdit {
+    /** Offset of the first character inside the quotes. */
+    start: number;
+    /** Offset of the closing quote. */
+    end: number;
+    replacement: string;
+}
 
 /**
  * Fixes imports in a TypeScript project to ensure compatibility with ESM (ECMAScript Modules).
@@ -24,100 +33,121 @@ type ImportModificationType = (typeof ImportModification)[keyof typeof ImportMod
  * - Replacing folder imports with explicit `index.js` imports.
  * - Ensuring compatibility with the generated ESM output.
  *
+ * Each file is parsed once without type checking; specifiers are rewritten in place so the
+ * rest of the file text is untouched and only changed files are written back.
+ *
  * @param pathToProject - The absolute path to the root of the TypeScript project.
  */
 export async function fixImportsForEsm(pathToProject: AbsoluteFilePath): Promise<void> {
-    const project = new Project({
-        tsConfigFilePath: join(pathToProject, RelativeFilePath.of("tsconfig.json"))
-    });
-
-    // Create caches for performance
+    const fileNames = readProjectFileNames(join(pathToProject, RelativeFilePath.of("tsconfig.json")));
+    const fileExistenceCache = new Set(fileNames);
     const importModificationCache = new Map<string, ImportModificationType>();
-    const fileExistenceCache = new Set<string>();
 
-    // Build file existence map for faster lookups
-    for (const file of project.getSourceFiles()) {
-        fileExistenceCache.add(file.getFilePath());
+    // Sequential sync IO: generated SDKs can have tens of thousands of files; unbounded
+    // concurrent reads exhaust file descriptors and parsing dominates the cost anyway.
+    for (const filePath of fileNames) {
+        const text = readFileSync(filePath, "utf8");
+        const edits = collectEdits(filePath, text, fileExistenceCache, importModificationCache);
+        if (edits.length > 0) {
+            writeFileSync(filePath, applyEdits(text, edits));
+        }
     }
+}
 
-    for (const sourceFile of project.getSourceFiles()) {
-        // Handle static imports and exports
-        const allDeclarations = [...sourceFile.getImportDeclarations(), ...sourceFile.getExportDeclarations()];
+function readProjectFileNames(tsConfigFilePath: string): string[] {
+    const config = ts.readConfigFile(tsConfigFilePath, ts.sys.readFile);
+    if (config.error != null) {
+        throw new Error(ts.flattenDiagnosticMessageText(config.error.messageText, "\n"));
+    }
+    return ts.parseJsonConfigFileContent(
+        config.config,
+        ts.sys,
+        path.dirname(tsConfigFilePath),
+        undefined,
+        tsConfigFilePath
+    ).fileNames;
+}
 
-        for (const importDecl of allDeclarations) {
-            const moduleSpecifier = importDecl.getModuleSpecifierValue();
+function collectEdits(
+    filePath: string,
+    text: string,
+    fileExistenceCache: Set<string>,
+    importModificationCache: Map<string, ImportModificationType>
+): SpecifierEdit[] {
+    const sourceFile = ts.createSourceFile(filePath, text, ts.ScriptTarget.Latest, false, getScriptKind(filePath));
+    const edits: SpecifierEdit[] = [];
 
-            // Skip if not a relative import or already has .js extension
-            if (!moduleSpecifier || !moduleSpecifier.startsWith(".") || moduleSpecifier.endsWith(".js")) {
-                continue;
-            }
-
-            // Check cache or determine modification type
-            const normalizedPath = getNormalizedPath(moduleSpecifier, sourceFile.getFilePath());
-            let modification = importModificationCache.get(normalizedPath);
-
-            if (!modification) {
-                modification = determineModification(moduleSpecifier, sourceFile.getFilePath(), fileExistenceCache);
-                importModificationCache.set(normalizedPath, modification);
-            }
-
-            // Apply modification if needed
-            if (modification !== ImportModification.NONE) {
-                const newSpecifier = getModifiedSpecifier(moduleSpecifier, modification);
-                importDecl.setModuleSpecifier(newSpecifier);
-            }
+    const visitSpecifier = (literal: ts.StringLiteral) => {
+        const moduleSpecifier = literal.text;
+        // Skip if not a relative import or already has .js extension
+        if (!moduleSpecifier || !moduleSpecifier.startsWith(".") || moduleSpecifier.endsWith(".js")) {
+            return;
         }
-
-        // Handle dynamic imports - highly optimized for large projects
-        // First check if file even contains 'import(' to skip files without dynamic imports
-        const sourceText = sourceFile.getFullText();
-        if (!sourceText.includes("import(")) {
-            continue;
+        const normalizedPath = getNormalizedPath(moduleSpecifier, filePath);
+        let modification = importModificationCache.get(normalizedPath);
+        if (modification == null) {
+            modification = determineModification(moduleSpecifier, filePath, fileExistenceCache);
+            importModificationCache.set(normalizedPath, modification);
         }
+        if (modification !== ImportModification.NONE) {
+            edits.push({
+                start: literal.getStart(sourceFile) + 1,
+                end: literal.getEnd() - 1,
+                replacement: getModifiedSpecifier(moduleSpecifier, modification)
+            });
+        }
+    };
 
-        // Only get call expressions, then filter for import calls
-        const importCalls = sourceFile
-            .getDescendantsOfKind(SyntaxKind.CallExpression)
-            .filter((callExpression) => callExpression.getExpression().getKind() === SyntaxKind.ImportKeyword);
-
-        for (const callExpression of importCalls) {
-            const args = callExpression.getArguments();
-            if (args.length === 0) {
-                continue;
-            }
-            const firstArg = args[0];
-            if (!firstArg) {
-                continue;
-            }
-            if (firstArg.getKind() !== SyntaxKind.StringLiteral) {
-                continue;
-            }
-            const stringLiteral = firstArg.asKindOrThrow(SyntaxKind.StringLiteral);
-            const moduleSpecifier = stringLiteral.getLiteralValue();
-
-            // Skip if not a relative import or already has .js extension
-            if (!moduleSpecifier || !moduleSpecifier.startsWith(".") || moduleSpecifier.endsWith(".js")) {
-                continue;
-            }
-
-            // Check cache or determine modification type
-            const normalizedPath = getNormalizedPath(moduleSpecifier, sourceFile.getFilePath());
-            let modification = importModificationCache.get(normalizedPath);
-
-            if (!modification) {
-                modification = determineModification(moduleSpecifier, sourceFile.getFilePath(), fileExistenceCache);
-                importModificationCache.set(normalizedPath, modification);
-            }
-
-            // Apply modification if needed
-            if (modification !== ImportModification.NONE) {
-                const newSpecifier = getModifiedSpecifier(moduleSpecifier, modification);
-                stringLiteral.replaceWithText(`"${newSpecifier}"`);
-            }
+    // Handle static imports and exports
+    for (const statement of sourceFile.statements) {
+        if (
+            (ts.isImportDeclaration(statement) || ts.isExportDeclaration(statement)) &&
+            statement.moduleSpecifier != null &&
+            ts.isStringLiteral(statement.moduleSpecifier)
+        ) {
+            visitSpecifier(statement.moduleSpecifier);
         }
     }
 
-    await project.save();
+    // Handle dynamic imports; skip the full tree walk for files that cannot contain one
+    if (text.includes("import(")) {
+        const visit = (node: ts.Node): void => {
+            if (ts.isCallExpression(node) && node.expression.kind === ts.SyntaxKind.ImportKeyword) {
+                const firstArg = node.arguments[0];
+                if (firstArg != null && ts.isStringLiteral(firstArg)) {
+                    visitSpecifier(firstArg);
+                }
+            }
+            ts.forEachChild(node, visit);
+        };
+        visit(sourceFile);
+    }
+
+    return edits;
+}
+
+function getScriptKind(filePath: string): ts.ScriptKind {
+    if (filePath.endsWith(".tsx")) {
+        return ts.ScriptKind.TSX;
+    }
+    if (filePath.endsWith(".js") || filePath.endsWith(".cjs") || filePath.endsWith(".mjs")) {
+        return ts.ScriptKind.JS;
+    }
+    if (filePath.endsWith(".jsx")) {
+        return ts.ScriptKind.JSX;
+    }
+    return ts.ScriptKind.TS;
+}
+
+function applyEdits(text: string, edits: SpecifierEdit[]): string {
+    edits.sort((a, b) => a.start - b.start);
+    let result = "";
+    let cursor = 0;
+    for (const edit of edits) {
+        result += text.slice(cursor, edit.start) + edit.replacement;
+        cursor = edit.end;
+    }
+    return result + text.slice(cursor);
 }
 
 // Get the modified import specifier based on modification type
