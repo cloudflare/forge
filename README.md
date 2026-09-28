@@ -33,9 +33,9 @@ Forge separates the API definition from surface implementations:
 +--------------------------------------------------------------------+
 |                         @cloudflare/forge                          |
 |                                                                    |
-|  - OpenApiResolver: $ref dereferencing, parameter/body extraction   |
-|  - Schema model: typed command/method hierarchy                     |
-|  - Plugin lifecycle: init -> transform -> finalize                |
+|  - OpenApiResolver: $ref dereferencing, parameter/body extraction  |
+|  - Schema model: typed command/method hierarchy                    |
+|  - Plugin lifecycle: init -> transform -> finalize                 |
 +---------------------------------+----------------------------------+
                                   |
             +---------------------+---------------------+
