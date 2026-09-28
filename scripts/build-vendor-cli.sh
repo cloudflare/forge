@@ -8,7 +8,7 @@ set -euo pipefail
 # The package installs the `fern` command.
 #
 # Usage: scripts/build-vendor-cli.sh [output-dir]   (default: ./vendor-out)
-# Writes cloudflare-codegen-cli-<version>.tgz and SHA256SUMS into output-dir.
+# Writes cloudflare-codegen-cli-<version>.tgz and appends to SHA256SUMS in output-dir.
 #
 # The version is the upstream CLI version this branch is based on, so the
 # CLI's version check matches the fern.config.json consumers write. Two builds
@@ -33,7 +33,7 @@ pnpm turbo run compile --concurrency=2 --filter @fern-api/cli
 rm -f "$OUT_DIR/$TARBALL"
 (cd packages/cli/cli/dist/prod && npm pack --pack-destination "$OUT_DIR" >/dev/null)
 tar -xzOf "$OUT_DIR/$TARBALL" package/cli.cjs >/dev/null
-(cd "$OUT_DIR" && shasum -a 256 "$TARBALL" > SHA256SUMS)
+(cd "$OUT_DIR" && touch SHA256SUMS && grep -v " $TARBALL\$" SHA256SUMS > SHA256SUMS.tmp || true; mv SHA256SUMS.tmp SHA256SUMS; shasum -a 256 "$TARBALL" >> SHA256SUMS)
 
 echo "==> Wrote $OUT_DIR/$TARBALL (gitHead ${CLI_GIT_HEAD})"
-cat "$OUT_DIR/SHA256SUMS"
+grep " $TARBALL\$" "$OUT_DIR/SHA256SUMS"
