@@ -1,0 +1,30 @@
+{
+  "$comment": [
+    "Language table for .github/workflows/sdk-languages.yml.",
+    "",
+    "The GitLab pipeline defined all nine generate-sdk-<lang> jobs and disabled",
+    "the eight non-TypeScript ones with a one-line `rules: [when: never]`",
+    "override, so enabling a language was a single-line edit. `auto` preserves",
+    "that: flip it to true and the language starts generating on pull requests",
+    "and pushes to main. Disabled languages stay runnable on demand through the",
+    "workflow_dispatch input.",
+    "",
+    "Only the schedule flag lives here. The generator image, output directory and",
+    "Fern group all derive from the language name via",
+    "packages/cloudflare-fern-config/fern/generators.yml, so there is nothing to",
+    "keep in sync.",
+    "",
+    "TypeScript is not listed: its package is @cloudflare/forge-sdk-ts rather than",
+    "-typescript and it also generates sdk-map, so it lives in sdk-typescript.yml."
+  ],
+  "languages": [
+    { "language": "python", "auto": false },
+    { "language": "go", "auto": false },
+    { "language": "java", "auto": false },
+    { "language": "php", "auto": false },
+    { "language": "csharp", "auto": false },
+    { "language": "ruby", "auto": false },
+    { "language": "swift", "auto": false },
+    { "language": "rust", "auto": false }
+  ]
+}

@@ -1,0 +1,12 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noUncheckedIndexedAccess": false,
+    "exactOptionalPropertyTypes": false,
+    "noImplicitReturns": false,
+    "noFallthroughCasesInSwitch": false,
+    "noPropertyAccessFromIndexSignature": false
+  },
+  "include": ["src/index.ts", "src/_generated/**/*.ts"],
+  "exclude": ["node_modules", "dist"]
+}

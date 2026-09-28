@@ -1,0 +1,7 @@
+# Cloudflare custom runtime. Installed after each generate (generate-fern.ts wipes
+# the output dir first). Sources: packages/cloudflare-forge-sdk-ts/custom/.
+#   - getResponseBody / unwrapCloudflareEnvelope: envelope unwrap for payload-first types (fix-26).
+#   - url/join: preserve query/fragment suffixes so passthrough callers can pass query params in the path.
+core/fetcher/getResponseBody.ts
+core/fetcher/unwrapCloudflareEnvelope.ts
+core/url/join.ts

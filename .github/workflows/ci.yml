@@ -1,0 +1,35 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main, feat/*]
+  push:
+    branches: [main, feat/*]
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: Check, Typecheck & Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v7.0.1
+
+      - uses: ./.github/actions/setup-workspace
+
+      - name: Lint and format check
+        run: pnpm check
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Run unit tests
+        run: pnpm -r run test
+
+      - name: Install Playwright browser
+        run: pnpm --filter astro-fern exec playwright install --with-deps chromium
+
+      - name: Run end-to-end tests
+        run: pnpm test:e2e

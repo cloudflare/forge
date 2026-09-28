@@ -1,0 +1,162 @@
+---
+import StarlightPage from '@astrojs/starlight/components/StarlightPage.astro';
+import ApiIndex from '../../components/ApiIndex.astro';
+import CommandReference from '../../components/commands/CommandReference.astro';
+import Operation from '../../components/Operation.astro';
+import { getApiPage, getApiRouter } from '../../api-server.ts';
+import { commandTitle } from '../../command-reference/routing.ts';
+import { getCommandRouter } from '../../command-reference/server.ts';
+
+const [resolved, router, commandRouter] = await Promise.all([
+  getApiPage(Astro.url, Astro.request, Astro.locals),
+  getApiRouter(),
+  getCommandRouter(),
+]);
+const command = resolved ? undefined : commandRouter.resolve(Astro.url, router.plan.catalog.products);
+if (!resolved && !command) return new Response('Not found', { status: 404 });
+const target = resolved?.lang;
+const page = resolved?.kind === 'operation' ? resolved.page : undefined;
+
+// Markdown is a sister of the current route: on a per-target page link to that
+// target's Markdown (which carries that target's code sample); otherwise the
+// canonical page Markdown (which carries every target's sample).
+// `agentLinks.markdown` is absent when Markdown routes are disabled, so this may
+// be undefined; the alternate <link> and the visible link are omitted in that case.
+const markdownHref = page
+  ? router.operationHref(
+      page.product.id,
+      page.snapshot.id,
+      page.operation.operationId,
+      'markdown',
+      target,
+      page.operation.placement?.projectionId,
+    )
+  : undefined;
+
+// The operation description is enriched to RichText (Markdown + HTML). The meta
+// description needs plain text, so strip tags and decode the handful of entities
+// the Markdown renderer emits, then take a lead-in slice.
+function toPlainText(html: string): string {
+  return html
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+let title: string;
+let metaDescription: string;
+if (command) {
+  title = commandTitle(command);
+  metaDescription = command.description;
+} else {
+  if (!resolved) throw new Error('Expected an API page or tooling command');
+  title =
+    resolved.kind === 'product'
+      ? resolved.product.title
+      : resolved.kind === 'section'
+        ? resolved.section.title
+        : resolved.kind === 'resource'
+          ? resolved.resource.title
+          : resolved.operation.title;
+  if (resolved.kind === 'operation') metaDescription = toPlainText(resolved.page.operation.description.html);
+  else if (resolved.kind === 'product') metaDescription = resolved.product.description;
+  else if (resolved.kind === 'resource') metaDescription = `${resolved.resource.title} API resources and methods.`;
+  else metaDescription = `${resolved.section.title} API operations.`;
+}
+
+const frontmatter = {
+  title,
+  tableOfContents: false,
+  ...(metaDescription ? { description: metaDescription.slice(0, 160) } : {}),
+  head: markdownHref
+    ? [
+        {
+          tag: 'link' as const,
+          attrs: { rel: 'alternate', type: 'text/markdown', href: markdownHref },
+        },
+      ]
+    : [],
+};
+---
+
+<StarlightPage frontmatter={frontmatter}>
+  {
+    command ? (
+      <CommandReference command={command} />
+    ) : resolved?.kind === 'operation' && page ? (
+      <Operation page={page} selectedTarget={target} />
+    ) : resolved && resolved.kind !== 'operation' ? (
+      <ApiIndex selection={resolved} router={router} commandRouter={commandRouter} />
+    ) : null
+  }
+</StarlightPage>
+
+<style is:global>
+  /*
+   * Global API-reference styles. These live here (not in a component's scoped
+   * <style>) because they target HTML injected via `set:html`, which scoped
+   * styles can't reach. Everything component-local is scoped in its own .astro
+   * file.
+   */
+
+  /*
+   * Operation and field descriptions are rendered from Markdown (RichText.html)
+   * and injected with `set:html`. Normalize the injected block children so
+   * paragraphs and lists sit flush inside the compact rows instead of adding
+   * stray leading/trailing margins. The wrappers themselves are styled in
+   * Operation.astro (`.forge-operation-desc`) and SchemaTree.astro
+   * (`.forge-desc`).
+   */
+  .forge-desc > :first-child,
+  .forge-request-body-description > :first-child,
+  .forge-response-description > :first-child,
+  .forge-response-example-description > :first-child,
+  .forge-operation-desc > :first-child {
+    margin-top: 0;
+  }
+  .forge-desc > :last-child,
+  .forge-request-body-description > :last-child,
+  .forge-response-description > :last-child,
+  .forge-response-example-description > :last-child,
+  .forge-operation-desc > :last-child {
+    margin-bottom: 0;
+  }
+  .forge-desc :is(ul, ol),
+  .forge-request-body-description :is(ul, ol),
+  .forge-response-description :is(ul, ol),
+  .forge-response-example-description :is(ul, ol),
+  .forge-operation-desc :is(ul, ol) {
+    padding-inline-start: 1.25rem;
+  }
+  .forge-operation-desc {
+    color: var(--cf-foreground);
+    font-size: 0.9375rem;
+    line-height: 1.7;
+  }
+  .forge-operation-desc > * + * {
+    margin-top: 0.875rem;
+  }
+  .forge-operation-desc a,
+  .forge-request-body-description a,
+  .forge-response-description a,
+  .forge-response-example-description a,
+  .forge-desc a {
+    color: var(--cf-link);
+  }
+  .forge-operation-desc code,
+  .forge-request-body-description code,
+  .forge-response-description code,
+  .forge-response-example-description code,
+  .forge-desc code {
+    border-radius: 0.25rem;
+    padding: 0.1rem 0.3rem;
+    color: var(--cf-foreground);
+    background: var(--cf-accent);
+    font-family: var(--sl-font-mono);
+    font-size: 0.85em;
+  }
+</style>

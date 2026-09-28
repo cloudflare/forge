@@ -1,0 +1,35 @@
+{
+  "name": "astro-fern",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./index.ts",
+    "./agents": "./agents/index.ts",
+    "./collections": "./collections.ts",
+    "./components/SnapshotSwitcher.astro": "./components/SnapshotSwitcher.astro",
+    "./content": "./content/index.ts",
+    "./locals": "./locals.d.ts",
+    "./live": "./operation-live-loader.ts",
+    "./runtime": "./runtime.ts",
+    "./server": "./server.ts"
+  },
+  "scripts": {
+    "test": "node --experimental-strip-types --test \"**/*.test.ts\"",
+    "test:e2e": "playwright test",
+    "test:e2e:watch": "playwright test --ui",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@astrojs/markdown-satteri": "^0.3.8",
+    "@playwright/test": "1.63.0",
+    "@types/node": "25.3.5",
+    "astro": "^7.2.8",
+    "satteri": "^0.10.5",
+    "typescript": "5.9.3"
+  },
+  "peerDependencies": {
+    "@astrojs/markdown-satteri": "^0.3.8",
+    "astro": "^7.2.8",
+    "satteri": "^0.10.5"
+  }
+}

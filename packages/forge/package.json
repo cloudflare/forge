@@ -1,0 +1,58 @@
+{
+  "name": "@cloudflare/forge",
+  "version": "0.1.0",
+  "description": "Schema-first OpenAPI code generation and surface tooling framework",
+  "keywords": [
+    "api",
+    "cloudflare",
+    "code-generation",
+    "openapi",
+    "sdk",
+    "typescript"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/cloudflare/forge"
+  },
+  "files": [
+    "schema",
+    "shared",
+    "index.ts",
+    "init.ts",
+    "init-from-openapi.ts",
+    "openapi-resolver.ts",
+    "forge.ts",
+    "overlay-source.ts",
+    "overlay-types.ts",
+    "public-openapi.ts",
+    "tsconfig.json",
+    "!**/*.map"
+  ],
+  "type": "module",
+  "exports": {
+    ".": {
+      "import": "./index.ts"
+    },
+    "./fern-openapi-compat": {
+      "import": "./shared/fern-openapi-compat.ts"
+    }
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "node --import tsx --test openapi-resolver.test.ts overlay-source.test.ts shared/fern-openapi-compat.test.ts shared/sdk-method-names.test.ts"
+  },
+  "dependencies": {
+    "openapi-format": "^1.33.5",
+    "openapi-types": "12.1.3",
+    "yaml": "^2.9.0"
+  },
+  "devDependencies": {
+    "@types/node": "26.0.1",
+    "tsx": "4.22.4",
+    "typescript": "6.0.3"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

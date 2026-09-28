@@ -1,0 +1,10 @@
+{
+  "name": "@cloudflare/forge-sdk-java",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Workspace wrapper for the Fern-generated Cloudflare Java SDK",
+  "type": "module",
+  "scripts": {
+    "generate": "pnpm --filter @cloudflare/fern-config run generate java"
+  }
+}

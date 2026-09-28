@@ -1,0 +1,25 @@
+{
+  "name": "@cloudflare/fern-config",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Shared Fern SDK generator configuration for Cloudflare APIs",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/cloudflare/forge"
+  },
+  "type": "module",
+  "scripts": {
+    "generate": "tsx scripts/generate-sdk.ts"
+  },
+  "devDependencies": {
+    "@cloudflare/forge": "workspace:*",
+    "@types/node": "26.0.1",
+    "fern-api": "5.68.0",
+    "tsx": "4.22.4",
+    "typescript": "6.0.3"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

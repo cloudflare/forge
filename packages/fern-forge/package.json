@@ -1,0 +1,22 @@
+{
+  "name": "fern-forge",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./index.ts"
+  },
+  "scripts": {
+    "test": "node --experimental-strip-types --test \"**/*.test.ts\"",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/node": "25.3.5",
+    "astro": "^7.0.2",
+    "astro-fern": "workspace:*",
+    "typescript": "5.9.3"
+  },
+  "peerDependencies": {
+    "astro": "^7.0.2",
+    "astro-fern": "*"
+  }
+}

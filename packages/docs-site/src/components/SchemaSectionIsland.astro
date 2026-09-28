@@ -1,0 +1,28 @@
+---
+/**
+ * Server island: renders one operation section's schema tree on demand.
+ *
+ * Used (via `server:defer`) only for very large sections (big `oneOf` unions),
+ * so their thousands of rows stay out of the initial HTML. Props are tiny
+ * (operation entry ID + snapshot ID + section); the heavy tree is read directly
+ * from the exact live operation snapshot rather than rebuilding the source.
+ */
+import { loadApiOperation } from '../api-server.ts';
+import { type SectionId, sectionNodes } from '../operation-sections.ts';
+import SchemaTree from './SchemaTree.astro';
+
+interface Props {
+  entryId: string;
+  snapshotId: string;
+  section: SectionId;
+  context: 'request' | 'response';
+}
+
+const { entryId, snapshotId, section, context } = Astro.props;
+const nodes = sectionNodes(
+  (await loadApiOperation(entryId, snapshotId, Astro.request, Astro.locals)).operation,
+  section,
+);
+---
+
+<SchemaTree nodes={nodes} context={context} />

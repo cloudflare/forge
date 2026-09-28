@@ -1,0 +1,6 @@
+__screenshots__/
+__traces__/
+__test-results__/
+playwright-report/
+fixtures/*/.astro/
+fixtures/*/public/_astro-fern/

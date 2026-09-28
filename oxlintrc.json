@@ -1,0 +1,12 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "rules": {
+    "curly": ["error", "all"],
+    "no-unused-vars": "warn",
+    "no-console": "off",
+    "eqeqeq": "error",
+    "typescript/no-floating-promises": "warn",
+    "typescript/no-misused-promises": "warn"
+  },
+  "ignorePatterns": ["node_modules", "dist", "**/_generated/**", ".wrangler"]
+}

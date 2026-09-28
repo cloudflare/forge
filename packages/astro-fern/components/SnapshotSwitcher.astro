@@ -1,0 +1,49 @@
+---
+/**
+ * Default snapshot switcher. Renders real anchor links to the current operation
+ * in every available API snapshot containing that operation, so it works with
+ * zero client JS and is crawlable by agents.
+ *
+ * This is a plain, unstyled default: it ships no CSS and no class hooks. To build
+ * a custom switcher, read the same data from `Astro.locals.fern` (a
+ * {@link FernRouteContext} populated by astro-fern's middleware) — or call
+ * `getFernRouteContext(pathname)` / `buildSnapshotSwitch(data, pathname)` — and
+ * emit your own markup.
+ *
+ * Data comes from `Astro.locals.fern`; the `context` prop overrides it, and as a
+ * last resort the component resolves it from the current pathname. Nothing is
+ * rendered when no snapshots are available.
+ */
+import type { FernRouteContext } from '../route-context.ts';
+import { getFernRouteContext } from '../server.ts';
+
+/** Optional route-context and label overrides for the unstyled snapshot switcher. */
+interface Props {
+  /** Explicit context; defaults to `Astro.locals.fern`, then a pathname lookup. */
+  context?: FernRouteContext;
+  /** Visible label for the control. */
+  label?: string;
+}
+
+const { context, label = 'API version' } = Astro.props;
+const resolved = context ?? Astro.locals.fern ?? (await getFernRouteContext(Astro.url.pathname));
+const options = resolved.snapshots;
+const current = options.find((option) => option.current);
+---
+
+{
+  options.length > 0 && (
+    <details>
+      <summary>{label}: {current?.label ?? 'Select version'}</summary>
+      <ul>
+        {options.map((option) => (
+          <li>
+            <a href={option.href} aria-current={option.current ? 'true' : undefined}>
+              {option.label}{option.default ? ' (default)' : ''}
+            </a>
+          </li>
+        ))}
+      </ul>
+    </details>
+  )
+}

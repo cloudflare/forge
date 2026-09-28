@@ -1,0 +1,7 @@
+# Patched full OpenAPI written by generate:from-openapi and copied to dist/
+openapi.json
+
+# Runtime artifacts
+dist/
+node_modules/
+*.log

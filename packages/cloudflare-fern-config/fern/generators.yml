@@ -1,0 +1,120 @@
+# yaml-language-server: $schema=https://schema.buildwithfern.dev/generators-yml.json
+#
+# Generates SDKs from ./openapi.json, which is language-agnostic and shared by
+# every generator group. Run via `pnpm --filter @cloudflare/fern-config generate
+# <language>`; see ../scripts/generate-sdk.ts.
+#
+# This directory must be named `fern`: the CLI discovers a workspace by walking
+# up from the cwd looking for that exact name. Generator `output.path` values are
+# resolved relative to this file, hence the ../../ prefixes.
+#
+# - TypeScript is the cf-facing npm package; it generates into
+#   packages/cloudflare-forge-sdk-ts/src/_generated, which @cloudflare/forge-sdk-ts
+#   builds and publishes.
+# - The other eight languages generate one folder per language under
+#   packages/cloudflare-forge-sdk-{lang}.
+#
+# The TypeScript generator needs a larger heap than the official image ships
+# with: Cloudflare's IR is ~242 MB and node exits 133 on it with the default
+# max-old-space-size. generate-sdk.ts retags a heap-tuned wrapper over the
+# official fernapi/* name before invoking Fern.
+api:
+  specs:
+    - openapi: ./openapi.json
+      settings:
+        # Keep all declarations. Fern's referenced-schema pruning can retain a
+        # reference while dropping its declaration for nested union shapes.
+        only-include-referenced-schemas: false
+        # Cloudflare query bags are often deep objects (filters, search).
+        object-query-parameters: true
+        # Keep real nullability instead of collapsing everything to optional.
+        respect-nullable-schemas: true
+        # Prefer literal unions for small enums — better cf call sites.
+        coerce-enums-to-literals: true
+        # Stable positional / path order for CLI codegen.
+        path-parameter-order: url-order
+        # Soften schema-name collisions on the CF surface.
+        resolve-schema-collisions: true
+default-group: typescript-sdk
+groups:
+  typescript-sdk:
+    generators:
+      - name: fernapi/fern-typescript-sdk
+        version: 3.80.1
+        output:
+          location: local-file-system
+          path: ../../cloudflare-forge-sdk-ts/src/_generated
+        # Fern TS customConfig — replaces postgen/runtime workarounds where the
+        # generator already has a first-class switch. Envelope unwrap still lives
+        # in packages/cloudflare-forge-sdk-ts/custom/core/fetcher/getResponseBody.ts (Fern
+        # has no Cloudflare envelope plugin / runtime peel yet).
+        config:
+          allowCustomFetcher: true
+          # Biome is slow on the 18k-file generated tree.
+          formatter: oxfmt
+          linter: oxlint
+          skipResponseValidation: true
+          fetchSupport: native
+          formDataSupport: Node18
+          fileResponseType: binary-response
+          streamType: web
+          omitUndefined: true
+          offsetSemantics: page-index
+          maxRetries: 2
+          retryStatusCodes: recommended
+  python-sdk:
+    generators:
+      - name: fernapi/fern-python-sdk
+        version: 5.18.1
+        output:
+          location: local-file-system
+          path: ../../cloudflare-forge-sdk-python
+  go-sdk:
+    generators:
+      - name: fernapi/fern-go-sdk
+        version: 1.47.2
+        output:
+          location: local-file-system
+          path: ../../cloudflare-forge-sdk-go
+  java-sdk:
+    generators:
+      - name: fernapi/fern-java-sdk
+        version: 4.13.2
+        output:
+          location: local-file-system
+          path: ../../cloudflare-forge-sdk-java
+  php-sdk:
+    generators:
+      - name: fernapi/fern-php-sdk
+        version: 2.11.1
+        output:
+          location: local-file-system
+          path: ../../cloudflare-forge-sdk-php
+  csharp-sdk:
+    generators:
+      - name: fernapi/fern-csharp-sdk
+        version: 2.73.1
+        output:
+          location: local-file-system
+          path: ../../cloudflare-forge-sdk-csharp
+  ruby-sdk:
+    generators:
+      - name: fernapi/fern-ruby-sdk
+        version: 1.15.0
+        output:
+          location: local-file-system
+          path: ../../cloudflare-forge-sdk-ruby
+  swift-sdk:
+    generators:
+      - name: fernapi/fern-swift-sdk
+        version: 0.35.16
+        output:
+          location: local-file-system
+          path: ../../cloudflare-forge-sdk-swift
+  rust-sdk:
+    generators:
+      - name: fernapi/fern-rust-sdk
+        version: 0.42.1
+        output:
+          location: local-file-system
+          path: ../../cloudflare-forge-sdk-rust

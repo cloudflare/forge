@@ -1,0 +1,26 @@
+{
+  "name": "@cloudflare/forge-monorepo",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "format": "oxfmt --write .",
+    "lint": "oxlint .",
+    "check": "pnpm format && pnpm lint",
+    "typecheck": "pnpm -r run typecheck",
+    "test": "pnpm -r run test",
+    "test:e2e": "pnpm --filter astro-fern test:e2e",
+    "build": "pnpm -r run build"
+  },
+  "devDependencies": {
+    "@types/node": "26.0.1",
+    "oxfmt": "0.57.0",
+    "oxlint": "1.72.0",
+    "tsx": "4.22.4",
+    "typescript": "6.0.3"
+  },
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "packageManager": "pnpm@10.27.0"
+}

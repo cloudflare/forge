@@ -1,0 +1,9 @@
+dist/
+.astro/
+.wrangler/
+public/_astro-fern/
+
+# The repo-root .gitignore ignores any `docs/` directory; Starlight's content
+# collection lives at src/content/docs/, so re-include it here.
+!src/content/docs/
+!src/content/docs/**

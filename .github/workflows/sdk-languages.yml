@@ -1,0 +1,125 @@
+# Generate the non-TypeScript Fern SDKs from the root OpenAPI spec.
+#
+# Ported from the generate-sdk-{python,go,java,php,csharp,ruby,swift,rust} jobs
+# in .gitlab-ci.yml. Generation only: nothing is published, committed or pushed.
+#
+# Each job runs the workspace's own target, `pnpm --filter
+# @cloudflare/forge-sdk-<lang> generate`, which is the same command a contributor
+# runs locally. The language table lives in .github/sdk-languages.json; see the
+# $comment there for how to enable a language.
+#
+# fail-fast is off for the same reason the GitLab file used one job per language
+# rather than one sequential job over the matrix: a slow or broken generator
+# should only fail its own language.
+name: SDK / Languages
+
+# GitHub Actions does not support YAML anchors, so the path filter is repeated.
+on:
+  pull_request:
+    paths:
+      - openapi.json
+      - packages/cloudflare-fern-config/**
+      - packages/cloudflare-forge-sdk-*/**
+      - packages/forge/**
+      - pnpm-lock.yaml
+      - .github/actions/**
+      - .github/scripts/**
+      - .github/sdk-languages.json
+      - .github/workflows/sdk-languages.yml
+  push:
+    branches: [main]
+    paths:
+      - openapi.json
+      - packages/cloudflare-fern-config/**
+      - packages/cloudflare-forge-sdk-*/**
+      - packages/forge/**
+      - pnpm-lock.yaml
+      - .github/actions/**
+      - .github/scripts/**
+      - .github/sdk-languages.json
+      - .github/workflows/sdk-languages.yml
+  workflow_dispatch:
+    inputs:
+      language:
+        description: Language to generate.
+        required: true
+        default: all
+        type: choice
+        options:
+          - all
+          - python
+          - go
+          - java
+          - php
+          - csharp
+          - ruby
+          - swift
+          - rust
+      spec:
+        description: Path to the OpenAPI spec (defaults to openapi.json at the repo root).
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  plan:
+    name: Select languages
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      matrix: ${{ steps.select.outputs.matrix }}
+      any: ${{ steps.select.outputs.any }}
+    steps:
+      - uses: actions/checkout@v7.0.1
+
+      - id: select
+        env:
+          SDK_LANGUAGE: ${{ github.event.inputs.language || '' }}
+        # Node is preinstalled on the runner image and the script has no
+        # dependencies, so this job skips pnpm setup entirely.
+        run: node .github/scripts/select-sdk-languages.mjs
+
+  generate:
+    name: Generate ${{ matrix.language }} SDK
+    needs: plan
+    # An empty matrix is a workflow error, so guard the whole job. With every
+    # language disabled this is the only job that runs.
+    if: needs.plan.outputs.any == 'true'
+    runs-on: ubuntu-latest
+    # Matches the 30m ceiling on GitLab's .sdk-vm-base; only TypeScript needed
+    # more.
+    timeout-minutes: 30
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.plan.outputs.matrix) }}
+
+    steps:
+      - uses: actions/checkout@v7.0.1
+
+      - uses: ./.github/actions/setup-workspace
+
+      - uses: ./.github/actions/fern-generate
+        with:
+          language: ${{ matrix.language }}
+          package: ${{ matrix.package }}
+          output-path: ${{ matrix.output-path }}
+          spec: ${{ github.event.inputs.spec || '' }}
+
+      - uses: actions/upload-artifact@v7.0.1
+        with:
+          name: forge-sdk-${{ matrix.language }}
+          path: |
+            ${{ matrix.output-path }}
+            packages/cloudflare-fern-config/fern/openapi.json
+          # Generators emit dotfiles (.fernignore, .gitignore, .editorconfig).
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 1

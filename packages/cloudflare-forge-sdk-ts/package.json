@@ -1,0 +1,43 @@
+{
+  "name": "@cloudflare/forge-sdk-ts",
+  "version": "0.1.0",
+  "description": "Fern-generated TypeScript SDK for Cloudflare APIs",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/cloudflare/forge"
+  },
+  "files": [
+    "dist",
+    "!**/*.map"
+  ],
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./sdk-map.json": "./dist/_generated/sdk-map.json"
+  },
+  "scripts": {
+    "generate": "tsx scripts/generate-fern.ts",
+    "build": "([ ! -f src/_generated/index.ts ] || rm -rf dist) && ([ ! -f src/_generated/index.ts ] || tsc -p tsconfig.generated.json) && ([ ! -f src/_generated/index.ts ] || tsx scripts/verify-sdk-map.ts)",
+    "dev": "tsc -p tsconfig.generated.json --watch",
+    "typecheck": "pnpm run typecheck:scripts && ([ ! -f src/_generated/index.ts ] || tsc -p tsconfig.generated.json --noEmit)",
+    "typecheck:scripts": "tsc -p tsconfig.scripts.json --noEmit",
+    "test": "node --import tsx --test scripts/test-envelope-unwrap.ts scripts/test-sdk-map-ast.ts scripts/test-passthrough-query-join.ts"
+  },
+  "devDependencies": {
+    "@cloudflare/fern-config": "workspace:*",
+    "@cloudflare/forge": "workspace:*",
+    "@types/node": "26.0.1",
+    "fern-api": "5.68.0",
+    "tsx": "4.22.4",
+    "typescript": "6.0.3"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

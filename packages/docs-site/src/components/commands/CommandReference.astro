@@ -1,0 +1,41 @@
+---
+import type { CommandMetadata } from '../../command-reference/schema.ts';
+import CommandParameters from './CommandParameters.astro';
+import CopyableCommand from './CopyableCommand.astro';
+
+interface Props {
+  command: CommandMetadata;
+}
+
+const { command } = Astro.props;
+---
+
+<article class="command-reference">
+  <CopyableCommand command={command.usage} label={`Copy ${command.command} usage`} />
+  <p class="command-description">{command.description}</p>
+  {
+    command.arguments.length > 0 ? (
+      <CommandParameters id="arguments" title="Arguments" kind="argument" parameters={command.arguments} />
+    ) : null
+  }
+  {
+    command.options.length > 0 ? (
+      <CommandParameters id="options" title="Options" kind="option" parameters={command.options} />
+    ) : null
+  }
+</article>
+
+<style>
+  .command-reference {
+    max-width: 58rem;
+  }
+
+  .command-description {
+    max-width: 46rem;
+    margin: 1.5rem 0 0;
+    color: var(--cf-muted-foreground);
+    font-size: 0.9375rem;
+    line-height: 1.7;
+    white-space: pre-line;
+  }
+</style>

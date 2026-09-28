@@ -1,0 +1,983 @@
+---
+import type { FernExecutionTargetSchema } from 'astro-fern';
+import {
+  classifyResponseStatus,
+  isJsonMediaType,
+  preferredResponse,
+  preferredResponseRepresentation,
+  type JsonValueSchema,
+  type OperationCodeSampleSchema,
+  type OperationExampleSchema,
+  type RenderedOperationResponseSchema,
+  type RenderedResponseExampleSchema,
+} from 'astro-fern/content';
+import { LEGACY_API_VERSION } from '../version.ts';
+import CopyableCode from './CopyableCode.astro';
+
+interface Props {
+  targets: FernExecutionTargetSchema[];
+  selectedTarget?: string;
+  snapshotId: string;
+  preserveVersionQuery?: boolean;
+  httpMethod: string;
+  examples: OperationExampleSchema[];
+  responses: RenderedOperationResponseSchema[];
+}
+
+type AssociatedRequestPart = [string, JsonValueSchema | undefined, string | undefined];
+
+// Render the current query-selected target, falling back to the first configured target.
+const {
+  targets,
+  selectedTarget,
+  snapshotId,
+  preserveVersionQuery = false,
+  httpMethod,
+  examples,
+  responses,
+} = Astro.props;
+const current = targets.find((target) => target.id === selectedTarget) ?? targets[0];
+const preferredStatus = preferredResponse(responses);
+const preferredStatusIndex = preferredStatus ? responses.indexOf(preferredStatus) : 0;
+const responseViews = responses.map((response) => {
+  const representation = preferredResponseRepresentation(response.representations);
+  return {
+    response,
+    preferredRepresentationIndex: representation ? response.representations.indexOf(representation) : 0,
+  };
+});
+
+function responseSyntax(mediaType: string): string {
+  if (isJsonMediaType(mediaType)) return 'json';
+  const essence = mediaType.split(';', 1)[0]?.trim().toLowerCase();
+  if (essence === 'text/html' || essence?.endsWith('+xml') || essence?.includes('/xml')) return 'markup';
+  if (essence === 'text/css') return 'css';
+  if (essence?.includes('javascript')) return 'javascript';
+  return 'text';
+}
+
+function formatResponseExample(value: JsonValueSchema, mediaType: string): { code: string; syntax: string } {
+  if (typeof value === 'string' && !isJsonMediaType(mediaType)) {
+    return { code: value, syntax: responseSyntax(mediaType) };
+  }
+  return { code: JSON.stringify(value, null, 2) ?? 'null', syntax: 'json' };
+}
+
+function exampleTitle(example: RenderedResponseExampleSchema, index: number): string {
+  return example.summary ?? example.name ?? `Example ${index + 1}`;
+}
+
+function safeExternalHref(value: string): string | undefined {
+  try {
+    const url = new URL(value);
+    return url.protocol === 'https:' || url.protocol === 'http:' ? url.href : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function jsonExample(value: JsonValueSchema): string {
+  return JSON.stringify(value, null, 2) ?? 'null';
+}
+
+function codeSampleLabel(sample: OperationCodeSampleSchema): string {
+  if (sample.kind === 'language') return sample.language;
+  if (sample.sdk === 'csharp') return 'C#';
+  if (sample.sdk === 'go') return 'Go';
+  if (sample.sdk === 'java') return 'Java';
+  if (sample.sdk === 'javascript') return 'JavaScript';
+  if (sample.sdk === 'ruby') return 'Ruby';
+  if (sample.sdk === 'typescript') return 'TypeScript';
+  return sample.sdk;
+}
+
+function codeSampleSyntax(sample: OperationCodeSampleSchema): string {
+  const language = sample.kind === 'sdk' ? sample.sdk : sample.language.toLowerCase();
+  const aliases: Record<string, string> = {
+    csharp: 'csharp',
+    'c#': 'csharp',
+    curl: 'bash',
+    go: 'go',
+    java: 'java',
+    javascript: 'javascript',
+    js: 'javascript',
+    python: 'python',
+    ruby: 'ruby',
+    shell: 'bash',
+    typescript: 'typescript',
+    ts: 'typescript',
+  };
+  return aliases[language] ?? 'text';
+}
+---
+
+{
+  current || examples.length > 0 || responses.length > 0 ? (
+    <api-scroll-restoration>
+      {examples.map((example, index) => {
+        const requestParts: AssociatedRequestPart[] = [
+          ['Path parameters', example.request?.pathParameters, undefined],
+          ['Query parameters', example.request?.queryParameters, undefined],
+          ['Headers', example.request?.headers, undefined],
+          ['Body', example.request?.body, example.request?.bodyMediaType],
+        ];
+        const populatedRequestParts = requestParts.filter(
+          (part): part is [string, JsonValueSchema, string | undefined] => part[1] !== undefined,
+        );
+        return (
+          <div class="forge-sample-card forge-associated-example">
+            <div class="forge-sample-header">
+              <div class="forge-sample-title">{example.name ?? `Example ${index + 1}`}</div>
+              <span class="forge-authored-label">Authored example</span>
+            </div>
+            {populatedRequestParts.length > 0 ? (
+              <section class="forge-associated-section">
+                <h3>Request</h3>
+                {populatedRequestParts.map(([label, value, mediaType]) => {
+                  const formatted = mediaType ? formatResponseExample(value, mediaType) : undefined;
+                  return (
+                    <div class="forge-associated-value">
+                      <h4>{label}</h4>
+                      <CopyableCode
+                        code={formatted?.code ?? jsonExample(value)}
+                        lang={formatted?.syntax ?? 'json'}
+                        label={`Copy ${label.toLowerCase()}`}
+                      />
+                    </div>
+                  );
+                })}
+              </section>
+            ) : null}
+            {example.codeSamples.map((sample) => (
+              <section class="forge-associated-section">
+                <h3>{codeSampleLabel(sample)} custom sample</h3>
+                {sample.kind === 'language' && sample.install ? (
+                  <div class="forge-associated-value">
+                    <h4>Install</h4>
+                    <CopyableCode code={sample.install} lang="bash" label="Copy install command" />
+                  </div>
+                ) : null}
+                <CopyableCode
+                  code={sample.code}
+                  lang={codeSampleSyntax(sample)}
+                  label={`Copy ${codeSampleLabel(sample)} custom sample`}
+                />
+              </section>
+            ))}
+            {example.response
+              ? (() => {
+                  const formatted = formatResponseExample(
+                    example.response.body,
+                    example.response.mediaType ?? 'application/json',
+                  );
+                  return (
+                    <section class="forge-associated-section">
+                      <h3>Response</h3>
+                      <CopyableCode code={formatted.code} lang={formatted.syntax} label="Copy response example" />
+                    </section>
+                  );
+                })()
+              : null}
+            {populatedRequestParts.length === 0 && example.codeSamples.length === 0 && !example.response ? (
+              <p class="forge-response-empty forge-associated-empty">No values are declared for this example.</p>
+            ) : null}
+          </div>
+        );
+      })}
+      {current ? (
+        <div class="forge-sample-card forge-request-card" data-after-associated={examples.length > 0 || undefined}>
+          <div class="forge-sample-header">
+            <div class="forge-sample-title">
+              <span class="forge-sample-method" data-verb={httpMethod}>{httpMethod}</span>
+              <span>Request</span>
+            </div>
+            <form class="forge-target-form" method="get">
+              <label class="forge-target-select">
+                <span class="sr-only">Execution target</span>
+                <select name="lang" data-forge-target aria-label="Execution target">
+                  {targets.map((target) => (
+                    <option value={target.id} selected={target.id === current.id}>
+                      {target.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              {preserveVersionQuery && <input type="hidden" name="version" value={snapshotId} />}
+            </form>
+          </div>
+          <div class="forge-sample-code">
+            {current.code ? (
+              <CopyableCode
+                code={current.code}
+                lang={current.syntax}
+                label={`Copy ${current.label} request example`}
+              />
+            ) : (
+              <p class="forge-coming-soon">{current.label} samples are coming soon.</p>
+            )}
+          </div>
+          {snapshotId !== LEGACY_API_VERSION && (
+            <p class="forge-version-note">
+              Samples are version-neutral. Version selection currently changes documentation only.
+            </p>
+          )}
+        </div>
+      ) : null}
+      {responses.length > 0 ? (
+        <div class="forge-sample-card forge-response-card">
+          <div class="forge-sample-header">
+            <div class="forge-sample-title">Responses</div>
+          </div>
+          <api-response-tabs>
+            <div class="forge-response-tabs" role="tablist" aria-label="Response statuses">
+              {responseViews.map(({ response }, index) => {
+                const selected = index === preferredStatusIndex;
+                return (
+                  <button
+                    type="button"
+                    id={`forge-response-tab-${index}`}
+                    role="tab"
+                    aria-selected={selected ? 'true' : 'false'}
+                    aria-controls={`forge-response-panel-${index}`}
+                    tabindex={selected ? 0 : -1}
+                    data-response-tab
+                    data-category={classifyResponseStatus(response.status)}
+                  >
+                    {response.status}
+                  </button>
+                );
+              })}
+            </div>
+            <div class="forge-response-panels">
+              {responseViews.map(({ response, preferredRepresentationIndex }, responseIndex) => (
+                <section
+                  id={`forge-response-panel-${responseIndex}`}
+                   class="forge-response-panel"
+                   role="tabpanel"
+                 aria-labelledby={`forge-response-tab-${responseIndex}`}
+                 data-response-panel
+               >
+                  <h3 class="forge-response-fallback-heading">Response {response.status}</h3>
+                  {response.description.html ? (
+                    <div class="forge-response-description" set:html={response.description.html} />
+                  ) : null}
+                  {response.representations.length > 1 ? (
+                    <label class="forge-response-representation-select">
+                      <span>Representation</span>
+                      <select data-response-representation aria-label={`Response ${response.status} representation`}>
+                        {response.representations.map((representation, index) => (
+                          <option value={index} selected={index === preferredRepresentationIndex}>
+                            {representation.mediaType}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  ) : response.representations[0] ? (
+                    <p class="forge-response-media-type"><code>{response.representations[0].mediaType}</code></p>
+                  ) : null}
+                  {response.representations.length === 0 ? (
+                    <p class="forge-response-empty">No response body is declared for this status.</p>
+                  ) : (
+                    response.representations.map((representation, representationIndex) => (
+                      <div
+                         class="forge-response-representation"
+                         data-response-representation-panel
+                       data-representation-index={representationIndex}
+                      >
+                        {response.representations.length > 1 ? (
+                          <p class="forge-response-fallback-media-type">
+                            <code>{representation.mediaType}</code>
+                          </p>
+                        ) : null}
+                        {representation.examples.length > 0 ? (
+                          <div class="forge-response-examples">
+                            {representation.examples.map((example, exampleIndex) => {
+                              const formatted =
+                                example.value !== undefined
+                                  ? formatResponseExample(example.value, representation.mediaType)
+                                  : undefined;
+                              const externalHref = example.externalValue
+                                ? safeExternalHref(example.externalValue)
+                                : undefined;
+                              return (
+                                <section class="forge-response-example">
+                                  <div class="forge-response-example-header">
+                                    <span>{exampleTitle(example, exampleIndex)}</span>
+                                    {example.summary && example.name ? <code>{example.name}</code> : null}
+                                  </div>
+                                  {example.description?.html ? (
+                                    <div
+                                      class="forge-response-example-description"
+                                      set:html={example.description.html}
+                                    />
+                                  ) : null}
+                                  {example.externalValue ? (
+                                    <p class="forge-response-external">
+                                      {externalHref ? (
+                                        <a href={externalHref}>Open external example</a>
+                                      ) : (
+                                        <code>{example.externalValue}</code>
+                                      )}
+                                    </p>
+                                  ) : null}
+                                  {formatted ? (
+                                    <div class="forge-sample-code">
+                                      <CopyableCode
+                                        code={formatted.code}
+                                        lang={formatted.syntax}
+                                        label={`Copy ${exampleTitle(example, exampleIndex)} response example`}
+                                      />
+                                    </div>
+                                  ) : null}
+                                </section>
+                              );
+                            })}
+                          </div>
+                        ) : representation.generatedExample !== undefined ? (
+                          <section class="forge-response-example">
+                            <div class="forge-response-example-header">
+                              <span>Example response</span>
+                              <span class="forge-response-generated">Generated from schema</span>
+                            </div>
+                            <div class="forge-sample-code">
+                              <CopyableCode
+                                code={formatResponseExample(
+                                  representation.generatedExample,
+                                  representation.mediaType,
+                                ).code}
+                                lang={formatResponseExample(
+                                  representation.generatedExample,
+                                  representation.mediaType,
+                                ).syntax}
+                                label="Copy generated response example"
+                              />
+                            </div>
+                          </section>
+                        ) : (
+                          <p class="forge-response-empty">No inline example is declared for this representation.</p>
+                        )}
+                      </div>
+                    ))
+                  )}
+                </section>
+              ))}
+            </div>
+          </api-response-tabs>
+        </div>
+      ) : null}
+    </api-scroll-restoration>
+  ) : null
+}
+
+<style>
+  api-scroll-restoration {
+    display: block;
+  }
+
+  .forge-sample-card {
+    overflow: hidden;
+    border: 1px solid var(--cf-border);
+    border-radius: 0.625rem;
+    background: var(--cf-card);
+    box-shadow: var(--cf-shadow-sm);
+  }
+
+  .forge-response-card {
+    margin-top: 1rem;
+  }
+
+  .forge-associated-example + .forge-associated-example,
+  .forge-request-card[data-after-associated] {
+    margin-top: 1rem;
+  }
+
+  .forge-authored-label {
+    color: var(--cf-muted-foreground);
+    font-size: 0.6875rem;
+  }
+
+  .forge-associated-section {
+    border-bottom: 1px solid var(--cf-border);
+    padding: 0.875rem;
+  }
+
+  .forge-associated-section:last-child {
+    border-bottom: 0;
+  }
+
+  .forge-associated-section h3,
+  .forge-associated-section h4 {
+    margin: 0;
+    color: var(--cf-foreground);
+  }
+
+  .forge-associated-section h3 {
+    margin-bottom: 0.625rem;
+    font-size: 0.8125rem;
+  }
+
+  .forge-associated-section h4 {
+    padding: 0.5rem 0.75rem;
+    background: var(--cf-muted);
+    font-size: 0.6875rem;
+  }
+
+  .forge-associated-value {
+    overflow: hidden;
+    border: 1px solid var(--cf-border);
+    border-radius: 0.375rem;
+  }
+
+  .forge-associated-value + .forge-associated-value {
+    margin-top: 0.625rem;
+  }
+
+  .forge-associated-empty {
+    padding: 0 0.875rem 0.875rem;
+  }
+
+  .forge-response-card .forge-sample-code {
+    max-height: none;
+    overflow-x: auto;
+    overflow-y: hidden;
+  }
+
+  api-response-tabs {
+    display: block;
+    min-height: 0;
+  }
+
+  .forge-response-tabs {
+    display: flex;
+    flex: 0 0 auto;
+    gap: 0.25rem;
+    overflow-x: auto;
+    border-bottom: 1px solid var(--cf-border);
+    padding: 0 0.75rem;
+    background: var(--cf-surface-sunken);
+  }
+
+  .forge-response-tabs button {
+    appearance: none;
+    min-width: 3.25rem;
+    border: 0;
+    border-bottom: 2px solid transparent;
+    padding: 0.65rem 0.75rem 0.55rem;
+    color: var(--cf-muted-foreground);
+    background: transparent;
+    font-family: var(--sl-font-mono);
+    font-size: 0.75rem;
+    font-weight: 650;
+    cursor: pointer;
+  }
+
+  .forge-response-tabs button:hover {
+    color: var(--cf-foreground);
+  }
+
+  .forge-response-tabs button:focus-visible {
+    border-radius: 0.25rem 0.25rem 0 0;
+    outline: 2px solid var(--cf-ring);
+    outline-offset: -2px;
+  }
+
+  .forge-response-tabs button[aria-selected='true'] {
+    border-bottom-color: currentColor;
+    color: var(--cf-foreground);
+    background: var(--cf-card);
+  }
+
+  .forge-response-tabs button[data-category='success'] {
+    color: var(--cf-success);
+  }
+
+  .forge-response-tabs button[data-category='client-error'],
+  .forge-response-tabs button[data-category='server-error'] {
+    color: var(--cf-danger);
+  }
+
+  .forge-response-tabs button[data-category='redirect'] {
+    color: var(--cf-info);
+  }
+
+  .forge-response-panel {
+    padding: 1rem;
+  }
+
+  api-response-tabs:defined .forge-response-fallback-heading,
+  api-response-tabs:defined .forge-response-fallback-media-type {
+    display: none;
+  }
+
+  .forge-response-fallback-heading {
+    margin: 0 0 0.75rem;
+    font-size: 0.875rem;
+  }
+
+  .forge-response-fallback-media-type {
+    margin: 0.875rem 0;
+    color: var(--cf-muted-foreground);
+    font-size: 0.75rem;
+  }
+
+  [data-response-panel][data-inactive],
+  [data-response-representation-panel][data-inactive] {
+    display: none;
+  }
+
+  .forge-response-description {
+    color: var(--cf-muted-foreground);
+    font-size: 0.8125rem;
+    line-height: 1.55;
+  }
+
+  .forge-response-representation-select {
+    display: grid;
+    gap: 0.35rem;
+    margin: 0.875rem 0;
+    color: var(--cf-muted-foreground);
+    font-size: 0.6875rem;
+    font-weight: 600;
+  }
+
+  .forge-response-representation-select select {
+    width: 100%;
+    border: 1px solid var(--cf-border);
+    border-radius: 0.375rem;
+    padding: 0.45rem 2rem 0.45rem 0.6rem;
+    color: var(--cf-foreground);
+    background: var(--cf-background);
+    font-family: var(--sl-font-mono);
+    font-size: 0.75rem;
+    cursor: pointer;
+  }
+
+  .forge-response-media-type {
+    margin: 0.875rem 0;
+    color: var(--cf-muted-foreground);
+    font-size: 0.75rem;
+  }
+
+  .forge-response-media-type code,
+  .forge-response-example-header code,
+  .forge-response-external code {
+    font-family: var(--sl-font-mono);
+  }
+
+  .forge-response-examples {
+    display: grid;
+    gap: 0.875rem;
+  }
+
+  .forge-response-example {
+    overflow: hidden;
+    border: 1px solid var(--cf-border);
+    border-radius: 0.5rem;
+    background: var(--cf-surface-sunken);
+  }
+
+  .forge-response-example-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0.65rem 0.75rem;
+    color: var(--cf-foreground);
+    background: var(--cf-muted);
+    font-size: 0.75rem;
+    font-weight: 650;
+  }
+
+  .forge-response-example-header code,
+  .forge-response-generated {
+    color: var(--cf-muted-foreground);
+    font-size: 0.625rem;
+    font-weight: 500;
+  }
+
+  .forge-response-example-description,
+  .forge-response-external {
+    margin: 0;
+    padding: 0.75rem;
+    color: var(--cf-muted-foreground);
+    background: var(--cf-card);
+    font-size: 0.75rem;
+    line-height: 1.5;
+  }
+
+  .forge-response-example-description + .forge-response-external {
+    padding-top: 0;
+  }
+
+  .forge-response-external a {
+    color: var(--cf-link);
+  }
+
+  .forge-response-empty {
+    margin: 0.875rem 0 0;
+    color: var(--cf-muted-foreground);
+    font-size: 0.8125rem;
+    font-style: italic;
+  }
+
+  .forge-sample-header,
+  .forge-sample-title,
+  .forge-target-select {
+    display: flex;
+    align-items: center;
+  }
+
+  .forge-sample-header {
+    justify-content: space-between;
+    gap: 1rem;
+    min-height: 3rem;
+    border-bottom: 1px solid var(--cf-border);
+    padding: 0.5rem 0.75rem;
+  }
+
+  .forge-sample-title {
+    gap: 0.5rem;
+    color: var(--cf-foreground);
+    font-size: 0.8125rem;
+    font-weight: 650;
+  }
+
+  .forge-sample-method {
+    border-radius: 0.25rem;
+    padding: 0.2rem 0.35rem;
+    color: var(--cf-muted-foreground);
+    background: var(--cf-muted);
+    font-family: var(--sl-font-mono);
+    font-size: 0.625rem;
+    line-height: 1;
+  }
+
+  .forge-sample-method[data-verb='GET'] {
+    color: var(--cf-success);
+    background: var(--cf-success-muted);
+  }
+
+  .forge-sample-method[data-verb='POST'] {
+    color: var(--cf-info);
+    background: var(--cf-info-muted);
+  }
+
+  .forge-sample-method[data-verb='PUT'],
+  .forge-sample-method[data-verb='PATCH'] {
+    color: var(--cf-warning);
+    background: var(--cf-warning-muted);
+  }
+
+  .forge-sample-method[data-verb='DELETE'] {
+    color: var(--cf-danger);
+    background: var(--cf-danger-muted);
+  }
+
+  .forge-target-form {
+    margin: 0;
+  }
+
+  .forge-target-select {
+    color: var(--cf-muted-foreground);
+    font-size: 0.75rem;
+  }
+
+  .forge-target-select select {
+    max-width: 10rem;
+    border: 1px solid var(--cf-border);
+    border-radius: 0.375rem;
+    padding: 0.35rem 1.75rem 0.35rem 0.5rem;
+    color: var(--cf-foreground);
+    background: var(--cf-background);
+    cursor: pointer;
+  }
+
+  .forge-sample-code {
+    max-height: 36rem;
+    overflow: auto;
+    background: var(--cf-surface-sunken);
+  }
+
+  :global(.forge-code) {
+    min-width: max-content;
+    margin: 0;
+    border: 0;
+    padding: 1rem 1.125rem;
+    overflow-x: auto;
+    color: var(--cf-foreground);
+    background: transparent;
+    font-size: 0.75rem;
+    line-height: 1.65;
+  }
+  :global(.forge-code code) {
+    font-family: var(--__sl-font-mono);
+    white-space: pre;
+  }
+  :global(.forge-code .token.comment),
+  :global(.forge-code .token.prolog),
+  :global(.forge-code .token.doctype),
+  :global(.forge-code .token.cdata) {
+    color: var(--sl-color-gray-3);
+  }
+  :global(.forge-code .token.punctuation) {
+    color: var(--sl-color-gray-2);
+  }
+  :global(.forge-code .token.property),
+  :global(.forge-code .token.tag),
+  :global(.forge-code .token.boolean),
+  :global(.forge-code .token.number),
+  :global(.forge-code .token.constant),
+  :global(.forge-code .token.symbol),
+  :global(.forge-code .token.deleted) {
+    color: var(--sl-color-red-high);
+  }
+  :global(.forge-code .token.selector),
+  :global(.forge-code .token.attr-name),
+  :global(.forge-code .token.string),
+  :global(.forge-code .token.char),
+  :global(.forge-code .token.builtin),
+  :global(.forge-code .token.inserted) {
+    color: var(--sl-color-green-high);
+  }
+  :global(.forge-code .token.operator),
+  :global(.forge-code .token.entity),
+  :global(.forge-code .token.url) {
+    color: var(--sl-color-blue-high);
+  }
+  :global(.forge-code .token.atrule),
+  :global(.forge-code .token.attr-value),
+  :global(.forge-code .token.keyword) {
+    color: var(--sl-color-purple-high);
+  }
+  :global(.forge-code .token.function),
+  :global(.forge-code .token.class-name) {
+    color: var(--sl-color-blue-high);
+  }
+  :global(.forge-code .token.regex),
+  :global(.forge-code .token.important),
+  :global(.forge-code .token.variable) {
+    color: var(--sl-color-orange-high);
+  }
+  :global(.forge-code .token.important),
+  :global(.forge-code .token.bold) {
+    font-weight: 700;
+  }
+  :global(.forge-code .token.italic) {
+    font-style: italic;
+  }
+  .forge-version-note {
+    margin: 0;
+    border-top: 1px solid var(--cf-border);
+    padding: 0.625rem 0.75rem;
+    color: var(--cf-muted-foreground);
+    font-size: 0.6875rem;
+    line-height: 1.45;
+  }
+
+  .forge-coming-soon {
+    margin: 0;
+    padding: 1rem;
+    color: var(--cf-muted-foreground);
+    font-style: italic;
+  }
+
+  @media (max-width: 30rem) {
+    .forge-sample-header {
+      align-items: flex-start;
+      flex-direction: column;
+    }
+
+    .forge-target-form,
+    .forge-target-select,
+    .forge-target-select select {
+      width: 100%;
+      max-width: none;
+    }
+  }
+
+  @media print {
+    [data-response-panel][data-inactive],
+    [data-response-representation-panel][data-inactive] {
+      display: block;
+    }
+
+    api-response-tabs:defined .forge-response-fallback-heading,
+    api-response-tabs:defined .forge-response-fallback-media-type {
+      display: block;
+    }
+  }
+
+</style>
+
+<script>
+  const scrollStoragePrefix = 'cloudflare-api-scroll:';
+  const pendingScrollKey = `${scrollStoragePrefix}pending`;
+  const scrollDebounceMs = 120;
+
+  class ApiResponseTabs extends HTMLElement {
+    #tabs: HTMLButtonElement[] = [];
+
+    #onClick = (event: MouseEvent) => {
+      if (!(event.target instanceof Element)) return;
+      const tab = event.target.closest<HTMLButtonElement>('[data-response-tab]');
+      if (!tab || !this.contains(tab)) return;
+      this.#activate(tab, false);
+    };
+
+    #onKeyDown = (event: KeyboardEvent) => {
+      if (!(event.target instanceof HTMLButtonElement) || !event.target.matches('[data-response-tab]')) return;
+      const currentIndex = this.#tabs.indexOf(event.target);
+      if (currentIndex < 0) return;
+
+      let nextIndex: number | undefined;
+      if (event.key === 'ArrowRight') nextIndex = (currentIndex + 1) % this.#tabs.length;
+      if (event.key === 'ArrowLeft') nextIndex = (currentIndex - 1 + this.#tabs.length) % this.#tabs.length;
+      if (event.key === 'Home') nextIndex = 0;
+      if (event.key === 'End') nextIndex = this.#tabs.length - 1;
+      if (nextIndex === undefined) return;
+
+      event.preventDefault();
+      const tab = this.#tabs[nextIndex];
+      if (tab) this.#activate(tab, true);
+    };
+
+    #onChange = (event: Event) => {
+      if (!(event.target instanceof HTMLSelectElement) || !event.target.matches('[data-response-representation]'))
+        return;
+      this.#selectRepresentation(event.target);
+    };
+
+    connectedCallback() {
+      this.#tabs = Array.from(this.querySelectorAll<HTMLButtonElement>('[data-response-tab]'));
+      this.addEventListener('click', this.#onClick);
+      this.addEventListener('keydown', this.#onKeyDown);
+      this.addEventListener('change', this.#onChange);
+      const selectedTab =
+        this.#tabs.find((tab) => tab.getAttribute('aria-selected') === 'true') ?? this.#tabs[0];
+      if (selectedTab) this.#activate(selectedTab, false);
+      for (const select of this.querySelectorAll<HTMLSelectElement>('[data-response-representation]')) {
+        this.#selectRepresentation(select);
+      }
+    }
+
+    disconnectedCallback() {
+      this.removeEventListener('click', this.#onClick);
+      this.removeEventListener('keydown', this.#onKeyDown);
+      this.removeEventListener('change', this.#onChange);
+    }
+
+    #activate(activeTab: HTMLButtonElement, focus: boolean) {
+      const panelId = activeTab.getAttribute('aria-controls');
+      for (const tab of this.#tabs) {
+        const selected = tab === activeTab;
+        tab.setAttribute('aria-selected', String(selected));
+        tab.tabIndex = selected ? 0 : -1;
+      }
+      for (const panel of this.querySelectorAll<HTMLElement>('[data-response-panel]')) {
+        const selected = panel.id === panelId;
+        panel.toggleAttribute('data-inactive', !selected);
+        panel.setAttribute('aria-hidden', String(!selected));
+      }
+      if (focus) activeTab.focus();
+    }
+
+    #selectRepresentation(select: HTMLSelectElement) {
+      const responsePanel = select.closest<HTMLElement>('[data-response-panel]');
+      if (!responsePanel) return;
+      for (const panel of responsePanel.querySelectorAll<HTMLElement>('[data-response-representation-panel]')) {
+        const selected = panel.dataset.representationIndex === select.value;
+        panel.toggleAttribute('data-inactive', !selected);
+        panel.setAttribute('aria-hidden', String(!selected));
+      }
+    }
+  }
+
+  function operationScrollKey(): string {
+    const url = new URL(window.location.href);
+    url.searchParams.delete('lang');
+    url.hash = '';
+    return `${scrollStoragePrefix}${url.pathname}${url.search}`;
+  }
+
+  class ApiScrollRestoration extends HTMLElement {
+    #key = operationScrollKey();
+    #pane: HTMLElement | null = null;
+    #paneResizeObserver: ResizeObserver | undefined;
+    #timer: number | undefined;
+    #select: HTMLSelectElement | null = null;
+
+    #onScroll = () => {
+      window.clearTimeout(this.#timer);
+      this.#timer = window.setTimeout(() => this.#save(), scrollDebounceMs);
+    };
+
+    #onPageHide = () => this.#save();
+
+    #measurePane = () => {
+      if (this.#pane) this.#pane.style.setProperty('--forge-example-height', `${this.#pane.offsetHeight}px`);
+    };
+
+    #onTargetChange = () => {
+      this.#save();
+      try {
+        sessionStorage.setItem(pendingScrollKey, JSON.stringify({ key: this.#key, savedAt: Date.now() }));
+      } catch {}
+      this.#select?.form?.requestSubmit();
+    };
+
+    connectedCallback() {
+      this.#select = this.querySelector<HTMLSelectElement>('[data-forge-target]');
+      this.#pane = this.closest<HTMLElement>('.forge-example-pane');
+      this.#select?.addEventListener('change', this.#onTargetChange);
+      window.addEventListener('scroll', this.#onScroll, { passive: true });
+      window.addEventListener('resize', this.#measurePane, { passive: true });
+      window.addEventListener('pagehide', this.#onPageHide);
+      if (this.#pane) {
+        this.#paneResizeObserver = new ResizeObserver(this.#measurePane);
+        this.#paneResizeObserver.observe(this.#pane);
+        this.#measurePane();
+      }
+      this.#restore();
+    }
+
+    disconnectedCallback() {
+      window.clearTimeout(this.#timer);
+      this.#select?.removeEventListener('change', this.#onTargetChange);
+      window.removeEventListener('scroll', this.#onScroll);
+      window.removeEventListener('resize', this.#measurePane);
+      window.removeEventListener('pagehide', this.#onPageHide);
+      this.#paneResizeObserver?.disconnect();
+      this.#pane?.style.removeProperty('--forge-example-height');
+    }
+
+    #save() {
+      try {
+        sessionStorage.setItem(this.#key, String(Math.max(0, window.scrollY)));
+      } catch {}
+    }
+
+    #restore() {
+      try {
+        const pending = JSON.parse(sessionStorage.getItem(pendingScrollKey) ?? 'null') as {
+          key?: string;
+          savedAt?: number;
+        } | null;
+        sessionStorage.removeItem(pendingScrollKey);
+        if (pending?.key !== this.#key || !pending.savedAt || Date.now() - pending.savedAt > 30_000) return;
+
+        const top = Number(sessionStorage.getItem(this.#key));
+        if (!Number.isFinite(top)) return;
+        const restore = () => window.scrollTo(0, top);
+        requestAnimationFrame(() => requestAnimationFrame(restore));
+        if (document.readyState !== 'complete') window.addEventListener('load', restore, { once: true });
+      } catch {}
+    }
+  }
+
+  if (!customElements.get('api-scroll-restoration')) {
+    customElements.define('api-scroll-restoration', ApiScrollRestoration);
+  }
+  if (!customElements.get('api-response-tabs')) {
+    customElements.define('api-response-tabs', ApiResponseTabs);
+  }
+</script>

@@ -1,0 +1,9 @@
+{
+  "extends": "../../tsconfig.json",
+  "exclude": ["node_modules", "server.ts", "middleware.ts", "agents/routes/**"],
+  "compilerOptions": {
+    "strictNullChecks": true,
+    "allowJs": true,
+    "types": ["node", "astro/client"]
+  }
+}

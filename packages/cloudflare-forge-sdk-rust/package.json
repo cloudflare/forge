@@ -1,0 +1,10 @@
+{
+  "name": "@cloudflare/forge-sdk-rust",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Workspace wrapper for the Fern-generated Cloudflare Rust SDK",
+  "type": "module",
+  "scripts": {
+    "generate": "pnpm --filter @cloudflare/fern-config run generate rust"
+  }
+}

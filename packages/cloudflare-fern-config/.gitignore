@@ -1,0 +1,7 @@
+# The OpenAPI bundle is ~24 MB and changes on every upstream refresh, so it is
+# resolved into place by scripts/generate-sdk.ts rather than committed.
+fern/openapi.json
+
+# Runtime artifacts
+node_modules/
+*.log

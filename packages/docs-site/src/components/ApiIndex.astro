@@ -1,0 +1,360 @@
+---
+import AnchorHeading from '@astrojs/starlight/components/AnchorHeading.astro';
+import type {
+  ApiProductSelection,
+  ApiResourceSelection,
+  ApiRouter,
+  ApiSectionSelection,
+} from '../api-routing.ts';
+import type { CommandRouter } from '../command-reference/routing.ts';
+
+interface Props {
+  selection: ApiProductSelection | ApiSectionSelection | ApiResourceSelection;
+  router: ApiRouter;
+  commandRouter?: CommandRouter;
+}
+
+const { selection, router, commandRouter } = Astro.props;
+const productCommands =
+  selection.kind === 'product' && commandRouter ? commandRouter.commandsForProduct(selection.product.id) : [];
+const sections =
+  selection.kind === 'product' ? selection.sections : selection.kind === 'section' ? [selection.section] : [];
+const resources =
+  selection.kind === 'product'
+    ? selection.resources
+    : selection.kind === 'resource'
+      ? selection.resource.resources
+      : [];
+const operations =
+  selection.kind === 'product'
+    ? selection.operations
+    : selection.kind === 'resource'
+      ? selection.resource.operations
+      : [];
+const operationHref = (operation: (typeof selection.snapshot.pages)[number]) =>
+  router.operationHref(
+    selection.product.id,
+    selection.snapshot.id,
+    operation.operationId,
+    'human',
+    selection.lang,
+    operation.placement?.projectionId,
+  );
+---
+
+<div class="forge-api-index">
+  {
+    selection.kind === 'product' && selection.product.description ? (
+      <p class="forge-product-description">{selection.product.description}</p>
+    ) : null
+  }
+  <div class="forge-api-directory">
+    {
+      productCommands.length > 0 ? (
+        <section class="forge-api-section forge-api-tooling">
+          <header>
+            <AnchorHeading level={2} id="developer-tooling" class="forge-api-section-title">
+              Developer Tooling
+            </AnchorHeading>
+            <span>{productCommands.length} {productCommands.length === 1 ? 'command' : 'commands'}</span>
+          </header>
+          <ul>
+            {productCommands.map((command) => (
+              <li>
+                <a href={commandRouter?.commandHref(command, selection.product)}>
+                  <span class="forge-api-command-marker" aria-hidden="true">$</span>
+                  <span class="forge-api-operation">
+                    <strong><code class="forge-api-command">{command.command}</code></strong>
+                    <span>{command.description}</span>
+                  </span>
+                  <span class="forge-api-arrow" aria-hidden="true">&rarr;</span>
+                </a>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null
+    }
+    {
+      resources.length > 0 ? (
+        <section class="forge-api-section forge-api-resources">
+          <header>
+            <AnchorHeading level={2} id="resources" class="forge-api-section-title">Resources</AnchorHeading>
+            <span>{resources.length} {resources.length === 1 ? 'resource' : 'resources'}</span>
+          </header>
+          <ul>
+            {resources.map((resource) => {
+              const href = router.resourceHref(
+                selection.product.id,
+                selection.snapshot.id,
+                resource.path,
+                selection.lang,
+              );
+              return href ? (
+                <li>
+                  <a href={href}>
+                    <span class="forge-api-operation">
+                      <strong>{resource.title}</strong>
+                    </span>
+                    <span class="forge-api-arrow" aria-hidden="true">&rarr;</span>
+                  </a>
+                </li>
+              ) : null;
+            })}
+          </ul>
+        </section>
+      ) : null
+    }
+    {
+      operations.length > 0 ? (
+        <section class="forge-api-section">
+          <header>
+            <AnchorHeading level={2} id="methods" class="forge-api-section-title">Methods</AnchorHeading>
+            <span>{operations.length} {operations.length === 1 ? 'operation' : 'operations'}</span>
+          </header>
+          <ul>
+            {operations.map((operation) => {
+              const href = operationHref(operation);
+              return href ? (
+                <li>
+                  <a href={href}>
+                    <span class="forge-api-method" data-method={operation.httpMethod.toUpperCase()}>
+                      {operation.httpMethod}
+                    </span>
+                    <span class="forge-api-operation">
+                      <strong>{operation.title}</strong>
+                      {operation.description ? <span>{operation.description}</span> : null}
+                    </span>
+                    <span class="forge-api-arrow" aria-hidden="true">&rarr;</span>
+                  </a>
+                </li>
+              ) : null;
+            })}
+          </ul>
+        </section>
+      ) : null
+    }
+    {
+      sections.map((section) => {
+        const sectionHref = router.sectionHref(
+          selection.product.id,
+          selection.snapshot.id,
+          section.id,
+          selection.lang,
+        );
+        return (
+          <section class="forge-api-section" aria-labelledby={selection.kind === 'section' ? '_top' : undefined}>
+            {selection.kind === 'product' ? (
+              <header>
+                <AnchorHeading level={2} id={section.id} class="forge-api-section-title">
+                  {sectionHref ? <a href={sectionHref}>{section.title}</a> : section.title}
+                </AnchorHeading>
+                <span>{section.operations.length} {section.operations.length === 1 ? 'operation' : 'operations'}</span>
+              </header>
+            ) : null}
+            <ul>
+              {section.operations.map((operation) => {
+                const href = operationHref(operation);
+                return href ? (
+                  <li>
+                    <a href={href}>
+                      <span class="forge-api-method" data-method={operation.httpMethod.toUpperCase()}>
+                        {operation.httpMethod}
+                      </span>
+                      <span class="forge-api-operation">
+                        <strong>{operation.title}</strong>
+                        {operation.description ? <span>{operation.description}</span> : null}
+                      </span>
+                      <span class="forge-api-arrow" aria-hidden="true">&rarr;</span>
+                    </a>
+                  </li>
+                ) : null;
+              })}
+            </ul>
+          </section>
+        );
+      })
+    }
+  </div>
+</div>
+
+<style>
+  .forge-api-index {
+    max-width: 58rem;
+  }
+
+  .forge-product-description {
+    max-width: 46rem;
+    margin: 0 0 2.5rem;
+    color: var(--cf-muted-foreground);
+    font-size: 1rem;
+    line-height: 1.7;
+  }
+
+  .forge-api-directory {
+    display: grid;
+    gap: 2.5rem;
+  }
+
+  .forge-api-section header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 0.75rem;
+  }
+
+  .forge-api-section header :global(.sl-heading-wrapper) {
+    margin: 0;
+    font-size: 1.125rem;
+  }
+
+  .forge-api-section :global(.forge-api-section-title) {
+    margin: 0;
+    color: var(--cf-foreground);
+    font-weight: 620;
+    letter-spacing: -0.015em;
+  }
+
+  .forge-api-section :global(.forge-api-section-title a) {
+    color: inherit;
+    text-decoration: none;
+  }
+
+  .forge-api-section :global(.forge-api-section-title a:hover) {
+    color: var(--cf-link);
+  }
+
+  .forge-api-section header > span {
+    flex: 0 0 auto;
+    color: var(--cf-muted-foreground);
+    font-size: 0.75rem;
+  }
+
+  .forge-api-section ul {
+    overflow: hidden;
+    margin: 0;
+    border: 1px solid var(--cf-border);
+    border-radius: 0.5rem;
+    padding: 0;
+    list-style: none;
+  }
+
+  .forge-api-section li + li {
+    border-top: 1px solid var(--cf-border);
+  }
+
+  .forge-api-section li > a {
+    display: grid;
+    grid-template-columns: 4.25rem minmax(0, 1fr) auto;
+    align-items: start;
+    gap: 1rem;
+    padding: 1rem;
+    color: inherit;
+    text-decoration: none;
+  }
+
+  .forge-api-resources li > a {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .forge-api-tooling li > a {
+    grid-template-columns: 1.5rem minmax(0, 1fr) auto;
+  }
+
+  .forge-api-section li > a:hover {
+    background: var(--cf-accent);
+  }
+
+  .forge-api-method {
+    width: fit-content;
+    border-radius: 0.25rem;
+    padding: 0.25rem 0.4rem;
+    color: var(--cf-muted-foreground);
+    background: var(--cf-muted);
+    font-family: var(--sl-font-mono);
+    font-size: 0.6875rem;
+    font-weight: 700;
+    line-height: 1;
+    text-transform: uppercase;
+  }
+
+  .forge-api-method[data-method='GET'] {
+    color: var(--cf-success);
+    background: var(--cf-success-muted);
+  }
+
+  .forge-api-method[data-method='POST'] {
+    color: var(--cf-info);
+    background: var(--cf-info-muted);
+  }
+
+  .forge-api-method[data-method='PUT'],
+  .forge-api-method[data-method='PATCH'] {
+    color: var(--cf-warning);
+    background: var(--cf-warning-muted);
+  }
+
+  .forge-api-method[data-method='DELETE'] {
+    color: var(--cf-danger);
+    background: var(--cf-danger-muted);
+  }
+
+  .forge-api-command-marker {
+    color: var(--cf-primary);
+    font-family: var(--sl-font-mono);
+    font-size: 0.8125rem;
+    font-weight: 700;
+  }
+
+  .forge-api-operation .forge-api-command {
+    padding: 0;
+    color: inherit;
+    background: transparent;
+    font-family: var(--sl-font-mono);
+    font-size: inherit;
+  }
+
+  .forge-api-operation {
+    display: grid;
+    min-width: 0;
+    gap: 0.25rem;
+  }
+
+  .forge-api-operation strong {
+    color: var(--cf-foreground);
+    font-size: 0.875rem;
+    font-weight: 600;
+  }
+
+  .forge-api-operation > span {
+    display: -webkit-box;
+    overflow: hidden;
+    color: var(--cf-muted-foreground);
+    font-size: 0.8125rem;
+    line-height: 1.5;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+  }
+
+  .forge-api-arrow {
+    color: var(--cf-border-strong);
+    line-height: 1;
+  }
+
+  @media (max-width: 39.99rem) {
+    .forge-api-section li > a {
+      grid-template-columns: 3.75rem minmax(0, 1fr);
+      gap: 0.75rem;
+      padding: 0.875rem;
+    }
+
+    .forge-api-tooling li > a {
+      grid-template-columns: 1rem minmax(0, 1fr);
+    }
+
+    .forge-api-arrow {
+      display: none;
+    }
+  }
+</style>

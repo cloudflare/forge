@@ -1,0 +1,49 @@
+---
+import SnapshotSwitcher from 'astro-fern/components/SnapshotSwitcher.astro';
+import { getFernPageForPath } from 'astro-fern/server';
+
+export const prerender = false;
+
+const fetcher = Astro.locals.fernArtifactFetcher;
+const resolved = await getFernPageForPath(Astro.url.pathname, {
+  ...(Astro.locals.fernRequestCache ? { cache: Astro.locals.fernRequestCache } : {}),
+  ...(fetcher ? { request: Astro.request, fetcher } : {}),
+});
+if (!resolved) return new Response('Not found', { status: 404 });
+
+const { page } = resolved;
+const responseFields = page.operation.responses.flatMap((response) =>
+  response.representations.flatMap((representation) => representation.schema?.children?.map((field) => field.name) ?? []),
+);
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width" />
+    <title>{page.operation.title}</title>
+  </head>
+  <body>
+    <main>
+      <h1>{page.operation.title}</h1>
+      <p>Snapshot: {page.snapshot.id}</p>
+      <code>{page.entryId}</code>
+      <div set:html={page.operation.description.html} />
+      <h2>Response fields</h2>
+      <ul>
+        {responseFields.map((field) => <li>{field}</li>)}
+      </ul>
+      <h2>Snippet</h2>
+      <pre>{page.targets[0]?.code}</pre>
+      <SnapshotSwitcher />
+      <nav aria-label="LLM indexes">
+        {
+          page.agentLinks.llms.map((link) => (
+            <a data-scope={link.scope} href={link.href}>{link.scope} llms.txt</a>
+          ))
+        }
+      </nav>
+    </main>
+  </body>
+</html>

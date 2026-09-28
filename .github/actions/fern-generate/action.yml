@@ -1,0 +1,102 @@
+name: Fern generate
+description: >
+  Generate one language's SDK by running the workspace's own generate target.
+  Generates only; never publishes.
+
+inputs:
+  language:
+    description: Language to generate (typescript, python, go, ...). Used for logs and the cache key.
+    required: true
+  package:
+    description: >
+      Workspace package whose `generate` target to run. Passed explicitly rather
+      than derived from `language`, because the TypeScript package is
+      @cloudflare/forge-sdk-ts, not -typescript.
+    required: true
+  output-path:
+    description: Repo-relative directory the generator writes into.
+    required: true
+  verify-file:
+    description: >
+      Optional repo-relative file that must exist and be non-empty afterwards.
+      Fern can exit 0 having produced nothing useful when a generator crashes
+      inside the container.
+    required: false
+    default: ''
+  spec:
+    description: >
+      Path to the OpenAPI spec. Defaults to openapi.json at the repository root,
+      which is what packages/cloudflare-fern-config/scripts/generate-sdk.ts looks
+      for when fern/openapi.json is absent.
+    required: false
+    default: ''
+
+runs:
+  using: composite
+  steps:
+    # Docker Hub applies aggressive anonymous pull limits to shared CI IPs, and
+    # the generator images are ~300 MB. Keyed on generators.yml because that file
+    # pins every generator version: change a pin, pull afresh.
+    - name: Restore generator image
+      id: image-cache
+      uses: actions/cache@v6.1.0
+      with:
+        path: ~/.cache/fern-generator-images
+        key: fern-generator-${{ inputs.language }}-${{ hashFiles('packages/cloudflare-fern-config/fern/generators.yml') }}
+
+    - name: Load cached generator image
+      if: steps.image-cache.outputs.cache-hit == 'true'
+      shell: bash
+      run: |
+        set -euo pipefail
+        shopt -s nullglob
+        for tarball in "${HOME}"/.cache/fern-generator-images/*.tar; do
+          echo "==> Loading $(basename "${tarball}")"
+          docker load --input "${tarball}"
+        done
+
+    # One command, the same one a contributor runs locally. generate-sdk.ts owns
+    # spec resolution, the heap-tuned generator image and the custom runtime
+    # overlay; the TypeScript package additionally chains sdk-map generation.
+    - name: Generate ${{ inputs.language }} SDK
+      shell: bash
+      env:
+        PACKAGE: ${{ inputs.package }}
+        FORGE_OPENAPI_SPEC: ${{ inputs.spec }}
+      run: pnpm --filter "${PACKAGE}" run generate
+
+    - name: Verify generated output
+      shell: bash
+      env:
+        OUTPUT_PATH: ${{ inputs.output-path }}
+        VERIFY_FILE: ${{ inputs.verify-file }}
+      run: |
+        set -euo pipefail
+        if [ ! -d "${OUTPUT_PATH}" ] || [ -z "$(ls -A "${OUTPUT_PATH}")" ]; then
+          echo "::error::Fern produced no output in ${OUTPUT_PATH}"
+          exit 1
+        fi
+        if [ -n "${VERIFY_FILE}" ] && [ ! -s "${VERIFY_FILE}" ]; then
+          echo "::error::Fern exited 0 but ${VERIFY_FILE} is missing or empty"
+          exit 1
+        fi
+        echo "==> $(find "${OUTPUT_PATH}" -type f | wc -l | tr -d ' ') files in ${OUTPUT_PATH}"
+
+    # Saved after generation so the tarball holds the heap-tuned wrapper that
+    # generate-sdk.ts retagged, not the stock image. actions/cache uploads the
+    # path at post-job.
+    - name: Save generator image
+      if: steps.image-cache.outputs.cache-hit != 'true'
+      shell: bash
+      run: |
+        set -euo pipefail
+        mkdir -p "${HOME}/.cache/fern-generator-images"
+        # The run pulled exactly the generators this language needs; capture them
+        # without having to re-derive image refs from generators.yml.
+        mapfile -t images < <(docker images --format '{{.Repository}}:{{.Tag}}' --filter 'reference=fernapi/*')
+        if [ ${#images[@]} -eq 0 ]; then
+          echo "no fernapi/* images to cache"
+          exit 0
+        fi
+        echo "==> Caching: ${images[*]}"
+        docker save --output "${HOME}/.cache/fern-generator-images/generators.tar" "${images[@]}"

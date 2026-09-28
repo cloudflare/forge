@@ -1,0 +1,12 @@
+node_modules/
+dist/
+*.log
+.DS_Store
+.turbo/
+.wrangler/
+.idea/
+
+# OpenAPI specs are published to GitHub releases as openapi.forge.json
+openapi.json
+openapi.*.json
+**/openapi.forge.json

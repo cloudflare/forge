@@ -1,0 +1,104 @@
+# Generate the Fern TypeScript SDK.
+#
+# Ported from the `generate-sdk-typescript` job in .gitlab-ci.yml. Generation
+# only: nothing is published, committed or pushed. The generated tree is
+# gitignored and leaves the job as an artifact.
+#
+# The job runs the workspace's own target, `pnpm --filter @cloudflare/forge-sdk-ts
+# generate`, which is the same command a contributor runs locally. Everything
+# else -- spec resolution, the heap-tuned generator image, the custom runtime
+# overlay, sdk-map -- lives in the packages, not here.
+#
+# Differences from the GitLab job, and why:
+#   - GitLab bootstrapped Node from a pinned tarball because its VM shell runner
+#     had none. GitHub-hosted runners ship Docker and Node tooling, so
+#     actions/setup-node + pnpm/action-setup replace ~35 lines of before_script.
+#   - GitLab sharded TypeScript generation into 3x2304 MB to fit an 8 GB runner.
+#     ubuntu-latest has 16 GB, so a single heap-tuned generator image is enough
+#     and the shard/merge machinery is dropped.
+name: SDK / TypeScript
+
+# GitHub Actions does not support YAML anchors, so the path filter is repeated.
+on:
+  pull_request:
+    paths:
+      - openapi.json
+      - packages/cloudflare-fern-config/**
+      - packages/cloudflare-forge-sdk-ts/**
+      - packages/forge/**
+      - pnpm-lock.yaml
+      - .github/actions/**
+      - .github/workflows/sdk-typescript.yml
+  push:
+    branches: [main]
+    paths:
+      - openapi.json
+      - packages/cloudflare-fern-config/**
+      - packages/cloudflare-forge-sdk-ts/**
+      - packages/forge/**
+      - pnpm-lock.yaml
+      - .github/actions/**
+      - .github/workflows/sdk-typescript.yml
+  workflow_dispatch:
+    inputs:
+      spec:
+        description: Path to the OpenAPI spec (defaults to openapi.json at the repo root).
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  generate:
+    name: Generate TypeScript SDK
+    runs-on: ubuntu-latest
+    # The TypeScript generator is by far the slowest of the nine; mirrors the
+    # GitLab job's 2h ceiling.
+    timeout-minutes: 120
+
+    steps:
+      - uses: actions/checkout@v7.0.1
+
+      - name: Check OpenAPI spec availability
+        id: check-spec
+        shell: bash
+        env:
+          INPUT_SPEC: ${{ github.event.inputs.spec || '' }}
+        run: |
+          if [ -n "${INPUT_SPEC}" ] && [ -f "${INPUT_SPEC}" ]; then
+            echo "available=true" >> "${GITHUB_OUTPUT}"
+          elif [ -f "openapi.json" ] || [ -f "packages/cloudflare-fern-config/fern/openapi.json" ]; then
+            echo "available=true" >> "${GITHUB_OUTPUT}"
+          else
+            echo "available=false" >> "${GITHUB_OUTPUT}"
+            echo "::notice::No OpenAPI spec provided; skipping Fern generation."
+          fi
+
+      - uses: ./.github/actions/setup-workspace
+        if: steps.check-spec.outputs.available == 'true'
+
+      - uses: ./.github/actions/fern-generate
+        if: steps.check-spec.outputs.available == 'true'
+        with:
+          language: typescript
+          package: '@cloudflare/forge-sdk-ts'
+          output-path: packages/cloudflare-forge-sdk-ts/src/_generated
+          verify-file: packages/cloudflare-forge-sdk-ts/src/_generated/index.ts
+          spec: ${{ github.event.inputs.spec || '' }}
+
+      - uses: actions/upload-artifact@v7.0.1
+        if: steps.check-spec.outputs.available == 'true'
+        with:
+          name: forge-sdk-typescript
+          path: |
+            packages/cloudflare-forge-sdk-ts/src/_generated
+            packages/cloudflare-fern-config/fern/openapi.json
+          # .fernignore is excluded by default.
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 1

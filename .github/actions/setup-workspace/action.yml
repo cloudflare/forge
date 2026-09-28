@@ -1,0 +1,27 @@
+name: Setup workspace
+description: Install pnpm and Node.js, then install the pnpm workspace with a cached store.
+
+inputs:
+  node-version:
+    description: Node.js version to install.
+    required: false
+    default: '25'
+
+runs:
+  using: composite
+  steps:
+    # No `version:` input on purpose: pnpm/action-setup reads the pinned
+    # `packageManager` field from the root package.json, so CI can never drift
+    # from what contributors run locally.
+    - uses: pnpm/action-setup@v6.0.10
+
+    # `cache: pnpm` keys the pnpm store on pnpm-lock.yaml and needs pnpm on PATH,
+    # hence the ordering above.
+    - uses: actions/setup-node@v7.0.0
+      with:
+        node-version: ${{ inputs.node-version }}
+        cache: pnpm
+
+    - name: Install dependencies
+      shell: bash
+      run: pnpm install --frozen-lockfile

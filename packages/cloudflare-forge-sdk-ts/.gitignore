@@ -1,0 +1,7 @@
+# Fern-generated output
+src/_generated/
+
+# Runtime artifacts
+dist/
+node_modules/
+*.log

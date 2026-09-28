@@ -1,0 +1,42 @@
+{
+  "name": "@cloudflare/forge-transformer-sdk-ts",
+  "version": "0.1.0",
+  "description": "Generate a Cloudflare TypeScript SDK from a complete bundled OpenAPI specification",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/cloudflare/forge"
+  },
+  "bin": {
+    "forge": "./dist/cli.js",
+    "forge-transformer-sdk-ts": "./dist/cli.js"
+  },
+  "files": [
+    "dist",
+    "!**/*.map"
+  ],
+  "type": "module",
+  "scripts": {
+    "cli": "node dist/cli.js",
+    "generate:from-openapi": "node dist/cli.js",
+    "build": "tsx scripts/build-package.ts",
+    "typecheck": "tsc -p tsconfig.source.json --noEmit",
+    "typecheck:source": "tsc -p tsconfig.source.json --noEmit"
+  },
+  "dependencies": {
+    "fern-api": "5.68.0",
+    "oxfmt": "0.57.0",
+    "tar": "7.5.20",
+    "typescript": "6.0.3"
+  },
+  "devDependencies": {
+    "@cloudflare/forge": "workspace:*",
+    "@types/node": "26.0.1",
+    "@types/tar": "^7.0.87",
+    "esbuild": "0.27.3",
+    "tsx": "4.22.4"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

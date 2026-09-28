@@ -1,0 +1,32 @@
+name: Deploy docs
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-docs
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    name: Deploy docs
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v7.0.1
+
+      - uses: ./.github/actions/setup-workspace
+
+      - name: Build
+        run: pnpm --filter docs-site build
+
+      - name: Deploy
+        run: pnpm --dir packages/docs-site exec wrangler deploy
+        env:
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}

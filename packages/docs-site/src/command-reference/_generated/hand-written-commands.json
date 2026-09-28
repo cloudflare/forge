@@ -1,0 +1,765 @@
+{
+	"version": "1.0",
+	"generatedAt": "build-time",
+	"commands": [
+		{
+			"command": "cf agent-context",
+			"name": "agent-context",
+			"fullPath": ["agent-context"],
+			"category": "read",
+			"description": "Output agent context and skill files",
+			"usage": "cf agent-context [product] [options]",
+			"arguments": [
+				{
+					"name": "product",
+					"position": 0,
+					"type": "string",
+					"required": false,
+					"description": "Product name (e.g., d1, dns, zones)"
+				}
+			],
+			"options": [
+				{
+					"name": "list",
+					"type": "boolean",
+					"required": false,
+					"description": "List available products",
+					"default": false
+				}
+			],
+			"handWritten": {
+				"kind": "root",
+				"overrides": false,
+				"dir": "agent-context"
+			}
+		},
+		{
+			"command": "cf ai run",
+			"name": "run",
+			"fullPath": ["ai", "run"],
+			"description": "Run inference on a Workers AI model. The request body is model-specific: fetch the model's input schema with `cf ai getModelSchema --model <id>` (or `cf ai run <model> --help`) to discover its fields, then pass them as flags or as a single JSON payload via --body. `cf ai models list` enumerates the models this account can run.",
+			"usage": "cf ai run <model-name> [--<model-field> ...] [options]",
+			"arguments": [
+				{
+					"name": "model-name",
+					"position": 0,
+					"type": "string",
+					"required": true,
+					"description": "Model ID, e.g. @cf/meta/llama-3.1-8b-instruct"
+				}
+			],
+			"options": [
+				{
+					"name": "body",
+					"type": "string",
+					"required": false,
+					"description": "Raw JSON request body, or @path to a JSON file. Use instead of the model's input flags."
+				},
+				{
+					"name": "dry-run",
+					"type": "boolean",
+					"required": false,
+					"description": "Validate and show what would happen without executing"
+				},
+				{
+					"name": "help",
+					"type": "boolean",
+					"required": false,
+					"description": "Show help, including this model's input flags"
+				}
+			],
+			"category": "action",
+			"hasRequestBody": true,
+			"httpMethod": "POST",
+			"apiPath": "/accounts/{account_id}/ai/run",
+			"operationId": "workers-ai-post-run-generic",
+			"hideCommand": false,
+			"handWritten": {
+				"kind": "leafOverride",
+				"overrides": true,
+				"dir": "ai/run",
+				"emitKey": "ai/run"
+			}
+		},
+		{
+			"command": "cf auth activate",
+			"name": "activate",
+			"fullPath": ["auth", "activate"],
+			"category": "action",
+			"description": "Bind a named auth profile to a directory",
+			"usage": "cf auth activate <name> [dir]",
+			"arguments": [
+				{
+					"name": "name",
+					"position": 0,
+					"type": "string",
+					"required": true,
+					"description": "Name of the auth profile to activate"
+				},
+				{
+					"name": "dir",
+					"position": 1,
+					"type": "string",
+					"required": false,
+					"description": "Directory to bind the profile to (defaults to current directory)"
+				}
+			],
+			"options": [],
+			"handWritten": {
+				"kind": "root",
+				"overrides": false,
+				"dir": "auth"
+			}
+		},
+		{
+			"command": "cf auth create",
+			"name": "create",
+			"fullPath": ["auth", "create"],
+			"category": "create",
+			"description": "Create or re-authenticate a named auth profile",
+			"usage": "cf auth create <name> [options]",
+			"arguments": [
+				{
+					"name": "name",
+					"position": 0,
+					"type": "string",
+					"required": true,
+					"description": "Name for the auth profile"
+				}
+			],
+			"options": [
+				{
+					"name": "browser",
+					"type": "boolean",
+					"required": false,
+					"description": "Open the authorization link in a browser (use --no-browser to print it instead)",
+					"default": true
+				},
+				{
+					"name": "device",
+					"type": "boolean",
+					"required": false,
+					"description": "Use OAuth device authorization (use --no-device for the localhost callback flow)",
+					"default": true
+				},
+				{
+					"name": "scopes",
+					"type": "string",
+					"required": false,
+					"description": "The set of OAuth scopes to request"
+				}
+			],
+			"handWritten": {
+				"kind": "root",
+				"overrides": false,
+				"dir": "auth"
+			}
+		},
+		{
+			"command": "cf auth deactivate",
+			"name": "deactivate",
+			"fullPath": ["auth", "deactivate"],
+			"category": "action",
+			"description": "Remove the auth profile binding from a directory",
+			"usage": "cf auth deactivate [dir]",
+			"arguments": [
+				{
+					"name": "dir",
+					"position": 0,
+					"type": "string",
+					"required": false,
+					"description": "Directory to unbind (defaults to current directory). Must be the exact directory the profile was bound to."
+				}
+			],
+			"options": [],
+			"handWritten": {
+				"kind": "root",
+				"overrides": false,
+				"dir": "auth"
+			}
+		},
+		{
+			"command": "cf auth delete",
+			"name": "delete",
+			"fullPath": ["auth", "delete"],
+			"category": "delete",
+			"description": "Delete a named auth profile",
+			"usage": "cf auth delete <name>",
+			"arguments": [
+				{
+					"name": "name",
+					"position": 0,
+					"type": "string",
+					"required": true,
+					"description": "Name of the auth profile to delete"
+				}
+			],
+			"options": [],
+			"handWritten": {
+				"kind": "root",
+				"overrides": false,
+				"dir": "auth"
+			}
+		},
+		{
+			"command": "cf auth list",
+			"name": "list",
+			"fullPath": ["auth", "list"],
+			"category": "read",
+			"description": "List all auth profiles",
+			"usage": "cf auth list",
+			"arguments": [],
+			"options": [],
+			"handWritten": {
+				"kind": "root",
+				"overrides": false,
+				"dir": "auth"
+			}
+		},
+		{
+			"command": "cf auth login",
+			"name": "login",
+			"fullPath": ["auth", "login"],
+			"category": "action",
+			"description": "Authenticate with Cloudflare",
+			"usage": "cf auth login [options]",
+			"arguments": [],
+			"options": [
+				{
+					"name": "force",
+					"type": "boolean",
+					"required": false,
+					"description": "Force re-authentication even if already logged in",
+					"default": false
+				},
+				{
+					"name": "browser",
+					"type": "boolean",
+					"required": false,
+					"description": "Open the authorization link in a browser (use --no-browser to print it instead)",
+					"default": true
+				},
+				{
+					"name": "device",
+					"type": "boolean",
+					"required": false,
+					"description": "Use OAuth device authorization (use --no-device for the localhost callback flow)",
+					"default": true
+				},
+				{
+					"name": "scopes",
+					"type": "string",
+					"required": false,
+					"description": "The set of OAuth scopes to request"
+				}
+			],
+			"handWritten": {
+				"kind": "root",
+				"overrides": false,
+				"dir": "auth"
+			}
+		},
+		{
+			"command": "cf auth logout",
+			"name": "logout",
+			"fullPath": ["auth", "logout"],
+			"category": "action",
+			"description": "Log out and remove stored credentials",
+			"usage": "cf auth logout",
+			"arguments": [],
+			"options": [],
+			"handWritten": {
+				"kind": "root",
+				"overrides": false,
+				"dir": "auth"
+			}
+		},
+		{
+			"command": "cf auth whoami",
+			"name": "whoami",
+			"fullPath": ["auth", "whoami"],
+			"category": "read",
+			"description": "Show current user and authentication status",
+			"usage": "cf auth whoami",
+			"arguments": [],
+			"options": [],
+			"handWritten": {
+				"kind": "root",
+				"overrides": false,
+				"dir": "auth"
+			}
+		},
+		{
+			"command": "cf build",
+			"name": "build",
+			"fullPath": ["build"],
+			"category": "action",
+			"description": "Build a project for Cloudflare",
+			"usage": "cf build [options]",
+			"arguments": [],
+			"options": [
+				{
+					"name": "mode",
+					"type": "string",
+					"required": false,
+					"description": "Build mode (e.g. production, staging, preview)"
+				}
+			],
+			"handWritten": {
+				"kind": "root",
+				"overrides": false,
+				"dir": "build"
+			}
+		},
+		{
+			"command": "cf complete",
+			"name": "complete",
+			"fullPath": ["complete"],
+			"category": "action",
+			"description": "Generate and handle shell completions",
+			"usage": "cf complete [shell]",
+			"arguments": [
+				{
+					"name": "shell",
+					"position": 0,
+					"type": "string",
+					"required": false,
+					"description": "Shell type to generate completions for",
+					"enum": ["bash", "zsh", "fish", "powershell"]
+				}
+			],
+			"options": [],
+			"handWritten": {
+				"kind": "root",
+				"overrides": false,
+				"dir": "completions"
+			}
+		},
+		{
+			"command": "cf d1 migrations apply",
+			"name": "apply",
+			"fullPath": ["d1", "migrations", "apply"],
+			"category": "action",
+			"description": "Apply any unapplied D1 migrations. Creates the bookkeeping table if absent, diffs the migration files under --dir against what the table records, and applies the rest in numeric order. Wire-compatible with `wrangler d1 migrations apply`: same table shape, same --dir-relative recorded names, same ordering. The database must be identified by ID; names and binding names are not accepted.",
+			"usage": "cf d1 migrations apply <database> [--dir <path>] [--pattern <glob>] [--table <name>]",
+			"arguments": [
+				{
+					"name": "database",
+					"position": 0,
+					"type": "string",
+					"required": true,
+					"description": "D1 database ID"
+				}
+			],
+			"options": [
+				{
+					"name": "dir",
+					"type": "string",
+					"required": false,
+					"description": "Directory containing migration files (default: ./migrations)"
+				},
+				{
+					"name": "pattern",
+					"type": "string",
+					"required": false,
+					"description": "Glob for discovering migration files. Defaults to \"<dir>/*.sql\"; Drizzle's nested layout uses \"<dir>/*/migration.sql\""
+				},
+				{
+					"name": "table",
+					"type": "string",
+					"required": false,
+					"description": "Table recording applied migrations; must use Wrangler's bookkeeping schema (default: d1_migrations)"
+				}
+			],
+			"handWritten": {
+				"kind": "subgroup",
+				"overrides": false,
+				"dir": "d1/migrations",
+				"parent": "d1"
+			}
+		},
+		{
+			"command": "cf d1 migrations create",
+			"name": "create",
+			"fullPath": ["d1", "migrations", "create"],
+			"category": "create",
+			"description": "Create a new empty D1 migration file, numbered one above the highest existing migration. Entirely local — takes no database, needs no credentials and makes no network calls. If an ORM manages your migrations, use its own generator instead; for Drizzle, use `drizzle-kit generate`.",
+			"usage": "cf d1 migrations create <message> [--dir <path>] [--pattern <glob>]",
+			"arguments": [
+				{
+					"name": "message",
+					"position": 0,
+					"type": "string",
+					"required": true,
+					"description": "Describes what the migration does"
+				}
+			],
+			"options": [
+				{
+					"name": "dir",
+					"type": "string",
+					"required": false,
+					"description": "Directory containing migration files (default: ./migrations)"
+				},
+				{
+					"name": "pattern",
+					"type": "string",
+					"required": false,
+					"description": "Glob the new file must match, so `apply` will pick it up"
+				}
+			],
+			"handWritten": {
+				"kind": "subgroup",
+				"overrides": false,
+				"dir": "d1/migrations",
+				"parent": "d1"
+			}
+		},
+		{
+			"command": "cf d1 migrations list",
+			"name": "list",
+			"fullPath": ["d1", "migrations", "list"],
+			"category": "read",
+			"description": "List unapplied D1 migrations as JSON. Applies nothing.",
+			"usage": "cf d1 migrations list <database> [--dir <path>] [--pattern <glob>] [--table <name>]",
+			"arguments": [
+				{
+					"name": "database",
+					"position": 0,
+					"type": "string",
+					"required": true,
+					"description": "D1 database ID"
+				}
+			],
+			"options": [
+				{
+					"name": "dir",
+					"type": "string",
+					"required": false,
+					"description": "Directory containing migration files (default: ./migrations)"
+				},
+				{
+					"name": "pattern",
+					"type": "string",
+					"required": false,
+					"description": "Glob for discovering migration files. Defaults to \"<dir>/*.sql\""
+				},
+				{
+					"name": "table",
+					"type": "string",
+					"required": false,
+					"description": "Table recording applied migrations; must use Wrangler's bookkeeping schema (default: d1_migrations)"
+				}
+			],
+			"handWritten": {
+				"kind": "subgroup",
+				"overrides": false,
+				"dir": "d1/migrations",
+				"parent": "d1"
+			}
+		},
+		{
+			"command": "cf deploy",
+			"name": "deploy",
+			"fullPath": ["deploy"],
+			"category": "action",
+			"description": "Deploy a worker to Cloudflare",
+			"usage": "cf deploy [options]",
+			"arguments": [],
+			"options": [
+				{
+					"name": "mode",
+					"type": "string",
+					"required": false,
+					"description": "Deployment mode (e.g. production, staging, preview)"
+				},
+				{
+					"name": "prebuilt",
+					"type": "boolean",
+					"required": false,
+					"description": "Deploy existing Build Output API files without building",
+					"default": false
+				},
+				{
+					"name": "tag",
+					"type": "string",
+					"required": false,
+					"description": "A tag to associate with this Worker Version"
+				},
+				{
+					"name": "message",
+					"type": "string",
+					"required": false,
+					"description": "A message to associate with this Worker Version"
+				},
+				{
+					"name": "secrets-file",
+					"type": "string",
+					"required": false,
+					"description": "Path to a file containing secrets to upload with the version (JSON or .env format)"
+				},
+				{
+					"name": "dry-run",
+					"type": "boolean",
+					"required": false,
+					"description": "Build a project and run checks without actually uploading the Worker",
+					"default": false
+				},
+				{
+					"name": "dispatch-namespace",
+					"type": "string",
+					"required": false,
+					"description": "Name of a dispatch namespace to deploy the Worker to (Workers for Platforms)"
+				}
+			],
+			"handWritten": {
+				"kind": "root",
+				"overrides": false,
+				"dir": "deploy"
+			}
+		},
+		{
+			"command": "cf dev",
+			"name": "dev",
+			"fullPath": ["dev"],
+			"category": "action",
+			"description": "Run the project's Cloudflare dev server",
+			"usage": "cf dev [implArgs..]",
+			"arguments": [
+				{
+					"name": "implArgs",
+					"position": 0,
+					"type": "string",
+					"required": false,
+					"description": "Arguments forwarded to the dev-server implementation"
+				}
+			],
+			"options": [],
+			"handWritten": {
+				"kind": "root",
+				"overrides": false,
+				"dir": "dev"
+			}
+		},
+		{
+			"command": "cf registrar registrations create",
+			"name": "create",
+			"fullPath": ["registrar", "registrations", "create"],
+			"description": "Register a domain. Billable and non-refundable — a successful registration charges the account's default payment method. Input fields are extension-specific: they come from the extension's registration schema (`GET /registrar/extensions/{name}`) at run time, so run `cf registrar registrations create <domain> --help` to list the fields for that domain's extension, or pass a complete payload with --body. Required fields are prompted for interactively. Check availability and pricing first with `cf registrar domain-check`.",
+			"usage": "cf registrar registrations create [domain-name] [--<field> ...] [options]",
+			"arguments": [
+				{
+					"name": "domain-name",
+					"position": 0,
+					"type": "string",
+					"required": false,
+					"description": "Fully qualified domain name to register, e.g. example.travel"
+				}
+			],
+			"options": [
+				{
+					"name": "extension",
+					"type": "string",
+					"required": false,
+					"description": "Extension whose registration schema to use (default: derived from the domain)"
+				},
+				{
+					"name": "prefer",
+					"type": "string",
+					"required": false,
+					"description": "Set the Prefer header, e.g. `respond-async` to skip the synchronous wait"
+				},
+				{
+					"name": "force",
+					"type": "boolean",
+					"required": false,
+					"description": "Skip the registration confirmation prompt"
+				},
+				{
+					"name": "body",
+					"type": "string",
+					"required": false,
+					"description": "Raw JSON request body, or @path to a JSON file. Use instead of the per-extension fields."
+				},
+				{
+					"name": "dry-run",
+					"type": "boolean",
+					"required": false,
+					"description": "Validate and show what would happen without executing"
+				},
+				{
+					"name": "help",
+					"type": "boolean",
+					"required": false,
+					"description": "Show help, including this extension's input flags"
+				}
+			],
+			"category": "create",
+			"hasRequestBody": true,
+			"httpMethod": "POST",
+			"apiPath": "/accounts/{account_id}/registrar/registrations",
+			"operationId": "registrar-domain-registration-create",
+			"hideCommand": true,
+			"handWritten": {
+				"kind": "leafOverride",
+				"overrides": true,
+				"dir": "registrar/registrations/create",
+				"emitKey": "registrar/registrations/create"
+			}
+		},
+		{
+			"command": "cf schema",
+			"name": "schema",
+			"fullPath": ["schema"],
+			"category": "read",
+			"description": "Show API schema details for a command",
+			"usage": "cf schema [command..] [options]",
+			"arguments": [
+				{
+					"name": "command",
+					"position": 0,
+					"type": "string",
+					"required": false,
+					"description": "Command path segments (e.g., dns records create)"
+				}
+			],
+			"options": [
+				{
+					"name": "list",
+					"type": "boolean",
+					"required": false,
+					"description": "List all available schemas",
+					"default": false
+				}
+			],
+			"handWritten": {
+				"kind": "root",
+				"overrides": false,
+				"dir": "schema"
+			}
+		},
+		{
+			"command": "cf tools",
+			"name": "tools",
+			"fullPath": ["tools"],
+			"category": "read",
+			"description": "Output MCP tool definitions",
+			"usage": "cf tools",
+			"arguments": [],
+			"options": [],
+			"hideCommand": true,
+			"handWritten": {
+				"kind": "root",
+				"overrides": false,
+				"dir": "tools"
+			}
+		},
+		{
+			"command": "cf workers triggers deploy",
+			"name": "deploy",
+			"fullPath": ["workers", "triggers", "deploy"],
+			"category": "action",
+			"description": "Apply triggers (Routes, Workflows, Cron triggers etc.)",
+			"usage": "cf workers triggers deploy [options]",
+			"arguments": [],
+			"options": [
+				{
+					"name": "mode",
+					"type": "string",
+					"required": false,
+					"description": "Build mode (e.g. production, staging, preview)"
+				},
+				{
+					"name": "dry-run",
+					"type": "boolean",
+					"required": false,
+					"description": "Build a project and run checks without applying triggers",
+					"default": false
+				}
+			],
+			"handWritten": {
+				"kind": "subgroup",
+				"overrides": false,
+				"dir": "workers/triggers",
+				"parent": "workers"
+			}
+		},
+		{
+			"command": "cf workers versions create",
+			"name": "create",
+			"fullPath": ["workers", "versions", "create"],
+			"description": "Upload a new Worker Version without deploying it",
+			"usage": "cf workers versions create [options]",
+			"arguments": [],
+			"options": [
+				{
+					"name": "mode",
+					"type": "string",
+					"required": false,
+					"description": "Deployment mode (e.g. production, staging, preview)"
+				},
+				{
+					"name": "prebuilt",
+					"type": "boolean",
+					"required": false,
+					"description": "Deploy existing Build Output API files without building",
+					"default": false
+				},
+				{
+					"name": "tag",
+					"type": "string",
+					"required": false,
+					"description": "A tag to associate with this Worker Version"
+				},
+				{
+					"name": "message",
+					"type": "string",
+					"required": false,
+					"description": "A message to associate with this Worker Version"
+				},
+				{
+					"name": "secrets-file",
+					"type": "string",
+					"required": false,
+					"description": "Path to a file containing secrets to upload with the version (JSON or .env format)"
+				},
+				{
+					"name": "dry-run",
+					"type": "boolean",
+					"required": false,
+					"description": "Build a project and run checks without actually uploading the Worker",
+					"default": false
+				},
+				{
+					"name": "preview-alias",
+					"type": "string",
+					"required": false,
+					"description": "Preview alias for this Worker Version"
+				}
+			],
+			"category": "create",
+			"hasRequestBody": true,
+			"httpMethod": "POST",
+			"apiPath": "/accounts/{account_id}/workers/scripts/{script_name}/versions",
+			"operationId": "worker-versions-upload-version",
+			"hideCommand": true,
+			"handWritten": {
+				"kind": "leafOverride",
+				"overrides": true,
+				"dir": "workers/versions/create",
+				"emitKey": "workers/versions/create"
+			}
+		}
+	],
+	"descriptions": {
+		"ai": "ai",
+		"d1": "D1 is Cloudflare's managed, serverless database with SQLite's SQL semantics, built-in disaster recovery, and Worker and HTTP API access.",
+		"d1 migrations": "Create, list, and apply D1 database migrations",
+		"registrar": "registrar",
+		"registrar registrations": "Operations for registrations",
+		"workers": "workers",
+		"workers versions": "Operations for versions",
+		"workers triggers": "Manage triggers (Routes, Workflows, Cron triggers etc.)",
+		"auth": "Manage authentication and profiles"
+	}
+}

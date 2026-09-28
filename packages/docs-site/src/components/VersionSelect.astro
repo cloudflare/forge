@@ -1,0 +1,39 @@
+---
+import Select from '@astrojs/starlight/components/Select.astro';
+import { getApiRouter } from '../api-server.ts';
+
+const router = await getApiRouter();
+const selection = router.resolvePage(Astro.url);
+const availableVersions = selection
+  ? router.snapshotOptions(selection)
+  : router.isSitePath(Astro.url.pathname)
+    ? router.siteSnapshotOptions(Astro.url)
+    : [];
+---
+
+{
+  availableVersions.length > 0 && (
+    <api-version-select>
+      <Select icon="code-branch" label="API version" options={availableVersions} width="11.5em" />
+    </api-version-select>
+  )
+}
+
+<script>
+  class ApiVersionSelect extends HTMLElement {
+    constructor() {
+      super();
+      this.querySelector('select')?.addEventListener('change', (event) => {
+        if (event.currentTarget instanceof HTMLSelectElement) {
+          const target = new URL(event.currentTarget.value, window.location.href);
+          target.hash = window.location.hash;
+          window.location.assign(target);
+        }
+      });
+    }
+  }
+
+  if (!customElements.get('api-version-select')) {
+    customElements.define('api-version-select', ApiVersionSelect);
+  }
+</script>

@@ -1,0 +1,48 @@
+---
+import { Prism } from '@astrojs/prism';
+import CopyButton from './CopyButton.astro';
+
+interface Props {
+  code: string;
+  lang: string;
+  label?: string;
+  class?: string;
+}
+
+const { code, lang, label = 'Copy code', class: className } = Astro.props;
+---
+
+<div class:list={['copyable-code', className]}>
+  <Prism class="forge-code" code={code} lang={lang} />
+  <CopyButton class="code-copy-button" value={code} label={label} copiedLabel="Copied code" />
+</div>
+
+<style>
+  .copyable-code {
+    position: relative;
+    width: 100%;
+    min-width: 0;
+  }
+
+  .copyable-code :global(.forge-code) {
+    min-width: 0;
+    padding-inline-end: 4rem;
+  }
+
+  .copyable-code :global(.code-copy-button) {
+    --copy-button-size: 2rem;
+    --copy-button-background: color-mix(in oklch, var(--cf-card) 90%, transparent);
+    --copy-button-hover-background: var(--cf-accent);
+
+    position: absolute;
+    z-index: 1;
+    inset-block-start: 0.5rem;
+    inset-inline-end: 0.5rem;
+  }
+
+  @media print {
+    .copyable-code :global(.forge-code) {
+      padding-inline-end: 1.125rem;
+    }
+  }
+</style>
