@@ -937,7 +937,7 @@ export class LocalTaskHandler {
         }
         this.context.logger.debug(`Copying generated files to ${outputPath}`);
         if (firstLocalOutputItem.endsWith(".zip")) {
-            await decompress(
+            await this.extractZip(
                 join(this.absolutePathToTmpOutputDirectory, RelativeFilePath.of(firstLocalOutputItem)),
                 outputPath
             );
@@ -950,6 +950,24 @@ export class LocalTaskHandler {
             }
         } else {
             await cp(this.absolutePathToTmpOutputDirectory, outputPath, { recursive: true, verbatimSymlinks: true });
+        }
+    }
+
+    /**
+     * Generators already shell out to Info-ZIP `zip`, so prefer its `unzip` counterpart: the pure-JS
+     * `decompress` takes ~14s on a 22k-file SDK where `unzip` takes ~3.5s. Falls back to `decompress`
+     * when `unzip` is not installed (e.g. Windows hosts).
+     */
+    private async extractZip(zipPath: AbsoluteFilePath, outputPath: AbsoluteFilePath): Promise<void> {
+        try {
+            await loggingExeca(this.context.logger, "unzip", ["-q", "-o", zipPath, "-d", outputPath], {
+                doNotPipeOutput: true
+            });
+        } catch (error) {
+            if ((error as NodeJS.ErrnoException).code !== "ENOENT") {
+                throw error;
+            }
+            await decompress(zipPath, outputPath);
         }
     }
 
