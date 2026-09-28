@@ -1,6 +1,7 @@
 # yaml-language-server: $schema=../../../../../fern-changes-yml.schema.json
 
 - summary: |
-    The generated `Headers.ts` fallback declares `HeadersIterator<T>` return types again so it
-    satisfies `typeof globalThis.Headers` under TypeScript 6's `lib.dom.d.ts`. Requires TypeScript 5.6+.
+    The generated `Headers.ts` fallback derives its iterator return types from `globalThis.Headers`,
+    so it satisfies `typeof globalThis.Headers` both before TypeScript 5.6 (`IterableIterator`) and
+    under TypeScript 6 with `esnext` libs (`HeadersIterator`).
   type: fix

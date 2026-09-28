@@ -1124,9 +1124,6 @@ export class GeneratedRequestWrapperImpl implements GeneratedRequestWrapper {
                     }
                 },
                 reference: (referenceToRequestBody) => {
-                    if (!includeAllRequestBodyShapes) {
-                        return;
-                    }
                     // When flattenRequestParameters is enabled, a named object reference body is
                     // flattened into the request wrapper, so its properties contribute names that
                     // can collide with path/query parameters. This mirrors
@@ -1143,6 +1140,9 @@ export class GeneratedRequestWrapperImpl implements GeneratedRequestWrapper {
                             }
                             return;
                         }
+                    }
+                    if (!includeAllRequestBodyShapes) {
+                        return;
                     }
                     bodyPropertyNames.add(this.getReferencedBodyPropertyName());
                 },

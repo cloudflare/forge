@@ -3,5 +3,7 @@
 - summary: |
     Undiscriminated unions whose `anyOf` branches only list `required` keys collapse to an open
     map member. Their shared `base-properties` are now kept on that member
-    (`{ a?: boolean } & Record<string, unknown>`) instead of being dropped.
+    (`{ a?: boolean } & Record<string, unknown>`) instead of being dropped, and the serde layer
+    serializes them by name while passing the remaining keys through. Maps with a typed value
+    are left unchanged.
   type: fix

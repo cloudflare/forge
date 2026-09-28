@@ -62,9 +62,10 @@ export class NativeExecutionEnvironment implements ExecutionEnvironment {
     }: ExecutionEnvironment.ExecuteArgs): Promise<void> {
         context.logger.info(`Executing generator ${generatorName} natively`);
 
-        // Legacy commands expect the license at the Docker mount path.
+        // PHP, Rust and CLI generators only read the license from the Docker mount
+        // path, in both command and argv mode; the rest also accept FERN_LICENSE_PATH.
         let copiedLicense = false;
-        if (licenseFilePath != null && this.argv == null) {
+        if (licenseFilePath != null) {
             try {
                 await copyFile(licenseFilePath, LICENSE_MOUNT_PATH);
                 copiedLicense = true;
@@ -109,7 +110,7 @@ export class NativeExecutionEnvironment implements ExecutionEnvironment {
                             SNIPPET_TEMPLATE_PATH: snippetTemplatePath || "",
                             GENERATOR_NAME: generatorName,
                             ...(licenseFilePath != null ? { FERN_LICENSE_PATH: licenseFilePath } : {}),
-                            ...(inspect ? { NODE_OPTIONS: "--inspect-brk=0.0.0.0:9229" } : {})
+                            ...(inspect ? { NODE_OPTIONS: "--inspect-brk=127.0.0.1:9229" } : {})
                         },
                         shell: false
                     }

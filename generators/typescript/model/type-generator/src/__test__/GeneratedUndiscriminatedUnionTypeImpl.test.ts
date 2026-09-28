@@ -103,6 +103,9 @@ function createMockBaseContext(opts?: {
                 if (typeRef.type === "container") {
                     return FernIr.ResolvedTypeReference.container(typeRef.container);
                 }
+                if (typeRef.type === "unknown") {
+                    return FernIr.ResolvedTypeReference.unknown();
+                }
                 return FernIr.ResolvedTypeReference.primitive({ v1: "STRING", v2: undefined });
             },
             getGeneratedExample: (_example: FernIr.ExampleTypeReference) => ({
@@ -968,9 +971,13 @@ describe("GeneratedUndiscriminatedUnionTypeImpl", () => {
     });
 
     describe("appliesBasePropertiesToMember", () => {
-        it("applies base properties to object and open-map members but not primitives", () => {
+        it("applies base properties to object and open-map members but not typed maps or primitives", () => {
             const objectMember = createUnionMember({
-                type: FernIr.TypeReference.named({ ...createDeclaredTypeName("OtherType"), default: undefined, inline: undefined })
+                type: FernIr.TypeReference.named({
+                    ...createDeclaredTypeName("OtherType"),
+                    default: undefined,
+                    inline: undefined
+                })
             });
             const mapMember = createUnionMember({
                 type: FernIr.TypeReference.container(
@@ -980,12 +987,20 @@ describe("GeneratedUndiscriminatedUnionTypeImpl", () => {
                     })
                 )
             });
+            const typedMapMember = createUnionMember({
+                type: FernIr.TypeReference.container(
+                    FernIr.ContainerType.map({
+                        keyType: FernIr.TypeReference.primitive({ v1: "STRING", v2: undefined }),
+                        valueType: FernIr.TypeReference.primitive({ v1: "INTEGER", v2: undefined })
+                    })
+                )
+            });
             const stringMember = createUnionMember({
                 type: FernIr.TypeReference.primitive({ v1: "STRING", v2: undefined })
             });
             const generator = createGenerator({
                 typeName: "MyUnion",
-                members: [objectMember, mapMember, stringMember],
+                members: [objectMember, mapMember, typedMapMember, stringMember],
                 baseProperties: [
                     createObjectProperty("a", FernIr.TypeReference.primitive({ v1: "BOOLEAN", v2: undefined }))
                 ]
@@ -994,6 +1009,7 @@ describe("GeneratedUndiscriminatedUnionTypeImpl", () => {
 
             expect(generator.appliesBasePropertiesToMember(context, objectMember)).toBe(true);
             expect(generator.appliesBasePropertiesToMember(context, mapMember)).toBe(true);
+            expect(generator.appliesBasePropertiesToMember(context, typedMapMember)).toBe(false);
             expect(generator.appliesBasePropertiesToMember(context, stringMember)).toBe(false);
         });
     });

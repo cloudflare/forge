@@ -25,6 +25,11 @@ export class GeneratedUndiscriminatedUnionTypeSchemaImpl<Context extends ModelCo
                     return context.typeSchema.getSchemaOfTypeReference(member.type);
                 }
                 const resolved = context.type.resolveTypeReference(member.type);
+                if (resolved.type === "container") {
+                    // Open map: serialize the base properties by name and pass every other key
+                    // through, matching the `Record<string, unknown> & Base` member type.
+                    return this.getBasePropertyObjectSchema(context, new Set()).passthrough();
+                }
                 if (resolved.type !== "named") {
                     throw new Error("Expected member to resolve to a named type: " + this.typeName);
                 }
@@ -35,28 +40,33 @@ export class GeneratedUndiscriminatedUnionTypeSchemaImpl<Context extends ModelCo
                 const memberWireKeys = new Set(
                     generatedMemberType.getAllPropertiesIncludingExtensions(context).map(({ wireKey }) => wireKey)
                 );
-                const basePropertySchemas = (this.shape.baseProperties ?? [])
-                    .filter((property) => !memberWireKeys.has(getWireValue(property.name)))
-                    .map(
-                        (property): Zurg.Property => ({
-                            key: {
-                                raw: getWireValue(property.name),
-                                parsed: generatedType.getBasePropertyKey({
-                                    propertyWireKey: getWireValue(property.name)
-                                })
-                            },
-                            value: context.typeSchema.getSchemaOfTypeReference(property.valueType)
-                        })
-                    );
-                return (
-                    this.noOptionalProperties
-                        ? context.coreUtilities.zurg.objectWithoutOptionalProperties
-                        : context.coreUtilities.zurg.object
-                )(basePropertySchemas).extend(
+                return this.getBasePropertyObjectSchema(context, memberWireKeys).extend(
                     context.typeSchema.getSchemaOfNamedType(resolved.name, { isGeneratingSchema: true })
                 );
             })
         );
+    }
+
+    private getBasePropertyObjectSchema(context: Context, memberWireKeys: Set<string>): Zurg.ObjectSchema {
+        const generatedType = this.getGeneratedUndiscriminatedUnionType();
+        const basePropertySchemas = (this.shape.baseProperties ?? [])
+            .filter((property) => !memberWireKeys.has(getWireValue(property.name)))
+            .map(
+                (property): Zurg.Property => ({
+                    key: {
+                        raw: getWireValue(property.name),
+                        parsed: generatedType.getBasePropertyKey({
+                            propertyWireKey: getWireValue(property.name)
+                        })
+                    },
+                    value: context.typeSchema.getSchemaOfTypeReference(property.valueType)
+                })
+            );
+        return (
+            this.noOptionalProperties
+                ? context.coreUtilities.zurg.objectWithoutOptionalProperties
+                : context.coreUtilities.zurg.object
+        )(basePropertySchemas);
     }
 
     protected override generateRawTypeDeclaration(context: Context, module: ModuleDeclaration): void {

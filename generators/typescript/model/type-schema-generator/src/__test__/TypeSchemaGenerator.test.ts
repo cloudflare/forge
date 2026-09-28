@@ -1,6 +1,6 @@
 import { getWireValue } from "@fern-api/base-generator";
 import { FernIr } from "@fern-fern/ir-sdk";
-import { Zurg } from "@fern-typescript/commons";
+import { getTextOfTsNode, Zurg } from "@fern-typescript/commons";
 import { GeneratedType } from "@fern-typescript/contexts";
 import {
     caseConverter,
@@ -899,6 +899,63 @@ describe("GeneratedUndiscriminatedUnionTypeSchemaImpl", () => {
             });
             const output = writeSchemaAndGetText(schema);
             expect(output).toMatchSnapshot();
+        });
+
+        it("serializes base properties on an open-map member and passes other keys through", () => {
+            const mapMember = createUndiscriminatedMember(
+                FernIr.TypeReference.container(
+                    FernIr.ContainerType.map({
+                        keyType: FernIr.TypeReference.primitive({ v1: "STRING", v2: undefined }),
+                        valueType: FernIr.TypeReference.unknown()
+                    })
+                )
+            );
+            const schema = new GeneratedUndiscriminatedUnionTypeSchemaImpl({
+                typeName: "Settings",
+                shape: {
+                    members: [mapMember],
+                    baseProperties: [
+                        createObjectProperty("name", FernIr.TypeReference.primitive({ v1: "STRING", v2: undefined }))
+                    ]
+                },
+                getGeneratedType: () =>
+                    ({
+                        type: "undiscriminatedUnion",
+                        appliesBasePropertiesToMember: () => true,
+                        getBasePropertyKey: ({ propertyWireKey }: { propertyWireKey: string }) => propertyWireKey
+                        // biome-ignore lint/suspicious/noExplicitAny: test mock with minimal GeneratedType interface
+                    }) as any,
+                getReferenceToGeneratedType: () => ts.factory.createTypeReferenceNode("Settings"),
+                getReferenceToGeneratedTypeSchema: () => createMockReference("SettingsSchema"),
+                noOptionalProperties: false,
+                caseConverter
+            });
+            const baseContext = createMockContext();
+            let memberSchemas: Zurg.Schema[] = [];
+            const context = {
+                ...baseContext,
+                coreUtilities: {
+                    zurg: {
+                        ...baseContext.coreUtilities.zurg,
+                        undiscriminatedUnion: (schemas: Zurg.Schema[]) => {
+                            memberSchemas = schemas;
+                            return createMockZurgSchema("undiscriminatedUnion([...])");
+                        }
+                    }
+                },
+                type: {
+                    resolveTypeReference: (typeRef: FernIr.TypeReference): FernIr.ResolvedTypeReference => {
+                        if (typeRef.type !== "container") {
+                            throw new Error("unexpected type reference");
+                        }
+                        return FernIr.ResolvedTypeReference.container(typeRef.container);
+                    }
+                }
+            };
+            writeSchemaAndGetText(schema, context);
+            expect(memberSchemas.map((member) => getTextOfTsNode(member.toExpression()))).toEqual([
+                "object({}).passthrough()"
+            ]);
         });
 
         it("generates raw type alias as union of raw member types", () => {

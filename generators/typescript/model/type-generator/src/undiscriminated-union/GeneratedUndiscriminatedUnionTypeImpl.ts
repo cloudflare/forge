@@ -103,10 +103,13 @@ export class GeneratedUndiscriminatedUnionTypeImpl<Context extends BaseContext>
         }
         const resolved = context.type.resolveTypeReference(member.type);
         // Open maps come from `anyOf` branches that only list `required` keys; the shared
-        // properties still belong on the resulting `Record<string, unknown>`.
+        // properties still belong on the resulting `Record<string, unknown>`. A typed map is
+        // excluded: `Record<string, number> & { name: string }` has no valid values.
         return (
             (resolved.type === "named" && resolved.shape === FernIr.ShapeType.Object) ||
-            (resolved.type === "container" && resolved.container.type === "map")
+            (resolved.type === "container" &&
+                resolved.container.type === "map" &&
+                context.type.resolveTypeReference(resolved.container.valueType).type === "unknown")
         );
     }
 
