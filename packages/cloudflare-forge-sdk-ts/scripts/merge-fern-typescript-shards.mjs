@@ -87,6 +87,7 @@ for (const resource of [...resources.keys()].sort((a, b) => a.localeCompare(b)))
     ...[...resources.get(resource)].sort((a, b) => rankResourceExport(a) - rankResourceExport(b) || a.localeCompare(b)),
   );
 }
+await mkdir(dirname(join(outputDir, resourceIndexPath)), { recursive: true });
 await writeFile(join(outputDir, resourceIndexPath), `${resourceLines.join('\n')}\n`);
 
 // The remaining Fern root/core barrels are also distributed across shards.
@@ -103,6 +104,7 @@ for (const aggregatePath of allowedAggregateConflicts) {
       lines.add(line);
     }
   }
+  await mkdir(dirname(join(outputDir, aggregatePath)), { recursive: true });
   await writeFile(join(outputDir, aggregatePath), `${[...lines].join('\n')}\n`);
 }
 
