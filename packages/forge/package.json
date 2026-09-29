@@ -40,7 +40,7 @@
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "test": "node --import tsx --test openapi-resolver.test.ts overlay-source.test.ts shared/fern-openapi-compat.test.ts shared/sdk-method-names.test.ts"
+    "test": "node --import tsx --test openapi-resolver.test.ts overlay-source.test.ts shared/fern-availability.test.ts shared/fern-openapi-compat.test.ts shared/sdk-method-names.test.ts"
   },
   "dependencies": {
     "openapi-format": "^1.33.5",

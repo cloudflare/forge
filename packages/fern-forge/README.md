@@ -238,7 +238,7 @@ Primary operation metadata accepts these fields:
 | ------------------------------ | ----------------------------------------------- | --------------------- | --------------------------------------------------------- |
 | `x-fern-sdk-group-name`        | Nonempty string with segments separated by dots | `sdkGroupName`        | Selects products and supplies the SDK accessor path       |
 | `x-fern-sdk-method-name`       | Nonempty string                                 | `sdkMethodName`       | Supplies the SDK method for snippets                      |
-| `x-fern-availability`          | Availability value below                        | `availability`        | Supplies lifecycle metadata                               |
+| `x-fern-availability`          | Status string, or `{ status, message }`         | `availability`, `availabilityMessage` | Supplies lifecycle metadata. `message` is kept when the object form is used. |
 | `x-fern-ignore`                | Boolean, default `false`                        | `ignore`              | Removes the operation from generated content when true    |
 | `x-forge-hidden`               | Boolean, default `false`                        | `hidden`              | Stores approval state and lowers route-collision priority |
 | `x-forge-internal`             | Boolean                                         | `internal`            | Stores internal visibility metadata                       |
@@ -256,7 +256,10 @@ projections always require both names.
 
 ### Availability
 
-`x-fern-availability` accepts:
+`x-fern-availability` accepts Fern's endpoint vocabulary as a status string or as
+`{ status, message }`. The message is the human note Fern shows beside the
+status, such as a replacement endpoint. `availability` stores the status.
+`availabilityMessage` stores the note when the object form includes one.
 
 ```text
 alpha
@@ -265,6 +268,12 @@ preview
 generally-available
 deprecated
 legacy
+```
+
+```yaml
+x-fern-availability:
+  status: legacy
+  message: Use the v2 widgets endpoint.
 ```
 
 ## Argument metadata reference

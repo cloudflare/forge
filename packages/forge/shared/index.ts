@@ -23,6 +23,17 @@ export {
 } from './generated-cli-options.js';
 // Fern OpenAPI conversion compatibility
 export { applyFernCompatibilityFixes, type FernCompatibilityFixes } from './fern-openapi-compat.js';
+// Fern endpoint availability
+export {
+  FERN_AVAILABILITY_STATUSES,
+  FERN_PRERELEASE_JSDOC,
+  fernAvailabilityJsDocLine,
+  isFernAvailabilityStatus,
+  parseFernAvailability,
+  type FernAvailability,
+  type FernAvailabilityStatus,
+  type FernAvailabilityWire,
+} from './fern-availability.js';
 // HTTP utilities
 export { getHttpMethod, type HttpMethod, isIdempotentMethod, isSafeMethod, methodHasBody } from './http.js';
 // Interface generation utilities

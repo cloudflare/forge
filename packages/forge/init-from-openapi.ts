@@ -2,6 +2,7 @@ import { Forge } from './forge.js';
 import type { OpenAPIV3 } from 'openapi-types';
 import { populateOperationMap } from './openapi-resolver.js';
 import type { Schema } from './schema/schema.js';
+import { parseFernAvailability, type FernAvailabilityStatus } from './shared/fern-availability.js';
 import { ensureUniqueSdkMethodNames } from './shared/sdk-method-names.js';
 import { resolveCommandArgDescriptions, resolveCommandDescriptions } from './shared/schema-utils.js';
 
@@ -11,7 +12,7 @@ export type ForgeOpenApiDocument = OpenAPIV3.Document & {
 };
 type GroupInfo = { description?: string; 'x-forge-epilogue'?: string };
 type GroupInfoMap = Record<string, Record<string, GroupInfo>>;
-type MethodStatus = Schema.method['status'];
+type MethodStatus = FernAvailabilityStatus;
 
 type OperationMetadata = {
   operationId: string;
@@ -19,6 +20,7 @@ type OperationMetadata = {
   groupPath: string[];
   methodName: string;
   status: MethodStatus;
+  availabilityMessage?: string;
   ignore: boolean;
   hidden: boolean;
   globals?: Schema.arg[];
@@ -29,8 +31,6 @@ type OperationMetadata = {
 };
 
 const HTTP_METHODS = ['get', 'put', 'post', 'delete', 'options', 'head', 'patch', 'trace'] as const;
-
-const METHOD_STATUSES = new Set<string>(['alpha', 'beta', 'preview', 'generally-available', 'deprecated']);
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -78,12 +78,9 @@ function loadCommandGroupInfo(openapi: ForgeOpenApiDocument): GroupInfoMap {
   return groupInfo;
 }
 
-function parseStatus(operationId: string, value: unknown): MethodStatus {
-  if (value === undefined) return 'alpha';
-  if (typeof value !== 'string' || !METHOD_STATUSES.has(value)) {
-    throw new Error(`${operationId}: invalid x-fern-availability ${String(value)}`);
-  }
-  return value as MethodStatus;
+function parseStatus(operationId: string, value: unknown): { status: MethodStatus; message?: string } {
+  if (value === undefined) return { status: 'alpha' };
+  return parseFernAvailability(value, operationId);
 }
 
 function parseMetadata(operationId: string, source: Record<string, unknown>, ignore: boolean): OperationMetadata {
@@ -101,15 +98,17 @@ function parseMetadata(operationId: string, source: Record<string, unknown>, ign
   const methodRaw = source['x-fern-sdk-method-name'];
   const methodName = typeof methodRaw === 'string' && methodRaw ? methodRaw : operationId.split(/[-_]+/).pop() || 'get';
 
+  const availability = parseStatus(operationId, source['x-fern-availability']);
   const metadata: OperationMetadata = {
     operationId,
     commandName,
     groupPath,
     methodName,
-    status: parseStatus(operationId, source['x-fern-availability']),
+    status: availability.status,
     ignore,
     hidden: source['x-forge-hidden'] === true,
   };
+  if (availability.message !== undefined) metadata.availabilityMessage = availability.message;
 
   if (Array.isArray(source['x-forge-globals'])) metadata.globals = source['x-forge-globals'] as Schema.arg[];
   if (typeof source['x-forge-epilogue'] === 'string') metadata.epilogue = source['x-forge-epilogue'];
@@ -155,18 +154,16 @@ function collectOperationMetadata(openapi: ForgeOpenApiDocument): OperationMetad
 }
 
 function toSchemaMethod(metadata: OperationMetadata): Schema.method {
-  const common = {
+  return {
     name: metadata.methodName,
     operationId: metadata.operationId,
+    status: metadata.status,
+    ...(metadata.availabilityMessage !== undefined ? { availabilityMessage: metadata.availabilityMessage } : {}),
     ...(metadata.epilogue !== undefined ? { epilogue: metadata.epilogue } : {}),
     ...(metadata.args !== undefined ? { args: metadata.args } : {}),
     ...(metadata.params !== undefined ? { params: metadata.params } : {}),
     ...(metadata.requireConfirmation !== undefined ? { requireConfirmation: metadata.requireConfirmation } : {}),
   };
-
-  if (metadata.status === 'deprecated') return { ...common, status: 'deprecated' };
-
-  return { ...common, status: metadata.status };
 }
 
 type GroupNode = {

@@ -22,11 +22,22 @@ export type ForgeExtensionState = {
 const HTTP_METHODS = ['get', 'put', 'post', 'delete', 'options', 'head', 'patch', 'trace'] as const;
 const OPERATION_PROJECTION_KEYS = operationProjectionFieldsSchema.keyof().options;
 
+function availabilityFields(
+  value: ReturnType<typeof projectionSchema>['_output']['x-fern-availability'],
+): Pick<ForgeOperationDataSchema, 'availability' | 'availabilityMessage'> {
+  if (value === undefined) return {};
+  if (typeof value === 'string') return { availability: value };
+  return {
+    availability: value.status,
+    ...(value.message !== undefined ? { availabilityMessage: value.message } : {}),
+  };
+}
+
 function toOperationData(value: ReturnType<typeof projectionSchema>['_output']): ForgeOperationDataSchema {
   return forgeOperationDataSchema.parse({
     sdkGroupName: value['x-fern-sdk-group-name'],
     sdkMethodName: value['x-fern-sdk-method-name'],
-    ...(value['x-fern-availability'] !== undefined ? { availability: value['x-fern-availability'] } : {}),
+    ...availabilityFields(value['x-fern-availability']),
     ignore: value['x-fern-ignore'] ?? false,
     hidden: value['x-forge-hidden'] ?? false,
     ...(value['x-forge-internal'] !== undefined ? { internal: value['x-forge-internal'] } : {}),

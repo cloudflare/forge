@@ -68,7 +68,44 @@ test('validates and exposes every known operation-level Forge field', () => {
   assert.equal(forge?.hidden, true);
   assert.equal(forge?.internal, true);
   assert.equal(forge?.sdkGroupName, 'widgets.items');
+  assert.equal(forge?.availability, 'deprecated');
+  assert.equal(forge?.availabilityMessage, undefined);
   assert.equal(forge?.params?.widget_id && typeof forge.params.widget_id, 'object');
+});
+
+test('keeps Fern availability messages on the operation and on alias projections', () => {
+  const source = operation({
+    'x-fern-sdk-group-name': undefined,
+    'x-fern-sdk-method-name': undefined,
+    'x-forge-aliases': [
+      {
+        'x-fern-sdk-group-name': 'widgets.items',
+        'x-fern-sdk-method-name': 'update',
+        'x-fern-availability': { status: 'legacy', message: '  Use the v2 widgets endpoint.  ' },
+      },
+    ],
+  });
+  const model = buildDocsModel({ source, products: [product], extensions: [forgeExtension()] });
+  const result = model.products[0]?.sections[0]?.operations[0];
+  assert.ok(result);
+  assert.deepEqual(result.availability, { status: 'legacy', message: 'Use the v2 widgets endpoint.' });
+  const forge = getOperationExtensionData(result, 'forge');
+  assert.equal(forge?.availability, 'legacy');
+  assert.equal(forge?.availabilityMessage, 'Use the v2 widgets endpoint.');
+});
+
+test('accepts an availability object on a primary operation', () => {
+  const model = buildDocsModel({
+    source: operation({
+      'x-fern-availability': { status: 'preview', message: 'Subject to change.' },
+    }),
+    products: [product],
+    extensions: [forgeExtension()],
+  });
+  const result = model.products[0]?.sections[0]?.operations[0];
+  assert.ok(result);
+  assert.deepEqual(result.availability, { status: 'preview', message: 'Subject to change.' });
+  assert.equal(getOperationExtensionData(result, 'forge')?.availabilityMessage, 'Subject to change.');
 });
 
 test('aliases participate in product discovery and retain projection-specific data', () => {
@@ -349,6 +386,24 @@ test('rejects malformed, misplaced, and unknown Forge metadata', () => {
         extensions: [forgeExtension()],
       }),
     /x-fern-sdk-group-name[\s\S]*expected string/,
+  );
+  assert.throws(
+    () =>
+      buildDocsModel({
+        source: operation({ 'x-fern-availability': { status: 'stable', message: 'Ready.' } }),
+        products: [product],
+        extensions: [forgeExtension()],
+      }),
+    /x-fern-availability/,
+  );
+  assert.throws(
+    () =>
+      buildDocsModel({
+        source: operation({ 'x-fern-availability': { status: 'legacy', message: '   ' } }),
+        products: [product],
+        extensions: [forgeExtension()],
+      }),
+    /x-fern-availability/,
   );
 });
 

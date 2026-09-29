@@ -17,6 +17,15 @@ function aliasName(alias: ForgeOperationDataSchema): string {
   return `alias:${encodeURIComponent(alias.sdkGroupName)}/${encodeURIComponent(alias.sdkMethodName)}`;
 }
 
+function variantAvailability(
+  alias: ForgeOperationDataSchema,
+): ForgeOperationDataSchema['availability'] | { status: ForgeOperationDataSchema['availability']; message: string } {
+  if (alias.availability !== undefined && alias.availabilityMessage !== undefined) {
+    return { status: alias.availability, message: alias.availabilityMessage };
+  }
+  return alias.availability;
+}
+
 const extension = defineFernExtension<ForgeOperationDataSchema, ForgeExtensionState>({
   name: 'forge',
   schema: forgeOperationDataSchema,
@@ -26,14 +35,17 @@ const extension = defineFernExtension<ForgeOperationDataSchema, ForgeExtensionSt
     if (!parsed) return undefined;
     return {
       ...(parsed.primary ? { data: parsed.primary, presentation: presentation(parsed.primary) } : {}),
-      variants: parsed.aliases.map((alias) => ({
-        name: aliasName(alias),
-        sdkGroupName: alias.sdkGroupName,
-        sdkMethodName: alias.sdkMethodName,
-        ...(alias.availability !== undefined ? { availability: alias.availability } : {}),
-        data: alias,
-        presentation: presentation(alias),
-      })),
+      variants: parsed.aliases.map((alias) => {
+        const availability = variantAvailability(alias);
+        return {
+          name: aliasName(alias),
+          sdkGroupName: alias.sdkGroupName,
+          sdkMethodName: alias.sdkMethodName,
+          ...(availability !== undefined ? { availability } : {}),
+          data: alias,
+          presentation: presentation(alias),
+        };
+      }),
     };
   },
 });

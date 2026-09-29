@@ -1,8 +1,9 @@
 import type { Schema } from './schema/schema.js';
+import type { FernAvailabilityWire } from './shared/fern-availability.js';
 
 export type FernExtensions = {
-  /** @see https://buildwithfern.com/learn/api-definitions/openapi/extensions/availability */
-  'x-fern-availability': Schema.method['status'];
+  /** @see https://buildwithfern.com/learn/api-definition/openapi/extensions/availability */
+  'x-fern-availability': FernAvailabilityWire;
   /** @see https://buildwithfern.com/learn/api-definitions/openapi/extensions/ignoring-elements */
   'x-fern-ignore'?: boolean;
   /** @see https://buildwithfern.com/learn/api-definitions/openapi/extensions/method-names */
@@ -125,8 +126,8 @@ export type OverlaidOperationForgeFields = {
   'x-fern-sdk-group-name': string;
   /** Resolved method name within the group (e.g. 'create') */
   'x-fern-sdk-method-name': string;
-  /** Lifecycle status */
-  'x-fern-availability': Schema.method['status'];
+  /** Lifecycle status, as a Fern status string or `{ status, message }`. */
+  'x-fern-availability': FernAvailabilityWire;
   /** Do not generate any code for this operation in any surface. */
   'x-fern-ignore': boolean;
   /** Generate code but hide from CLI help unless CF_HIDE_COMMANDS is set. */

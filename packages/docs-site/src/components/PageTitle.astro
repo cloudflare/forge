@@ -1,6 +1,7 @@
 ---
 import Default from '@astrojs/starlight/components/PageTitle.astro';
 import { getApiPage, getApiRouter } from '../api-server.ts';
+import { availabilityLabel } from '../availability.ts';
 
 const router = await getApiRouter();
 const resolved = await getApiPage(Astro.url, Astro.request, Astro.locals);
@@ -26,18 +27,8 @@ const markdownHref =
         page.operation.placement?.projectionId,
       )
     : undefined;
-const availabilityLabels: Record<string, string> = {
-  alpha: 'Alpha',
-  beta: 'Beta',
-  preview: 'Preview',
-  'generally-available': 'Generally Available',
-  deprecated: 'Deprecated',
-  legacy: 'Legacy',
-};
 const availabilityStatus = op?.deprecated ? 'deprecated' : op?.availability?.status;
-const availability = availabilityStatus
-  ? (availabilityLabels[availabilityStatus] ?? availabilityStatus.replaceAll('-', ' '))
-  : undefined;
+const availability = availabilityStatus ? availabilityLabel(availabilityStatus) : undefined;
 ---
 
 {
@@ -222,6 +213,12 @@ const availability = availabilityStatus
   .forge-availability[data-status='deprecated'] {
     --forge-availability-color: var(--cf-danger);
     --forge-availability-background: var(--cf-danger-muted);
+  }
+
+  .forge-availability[data-status='legacy'] {
+    --forge-availability-color: var(--cf-muted-foreground);
+    --forge-availability-background: var(--cf-surface-sunken);
+    border-style: dashed;
   }
 
   .forge-endpoint {

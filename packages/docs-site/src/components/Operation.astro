@@ -3,6 +3,7 @@ import AnchorHeading from '@astrojs/starlight/components/AnchorHeading.astro';
 import { Aside } from '@astrojs/starlight/components';
 import type { FernPageSchema } from 'astro-fern';
 import { DEFER_THRESHOLD, nodeCount, operationView, responseSummary, topLevelNodes } from '../operation-sections.ts';
+import { availabilityLabel } from '../availability.ts';
 import CodeSample from './CodeSample.astro';
 import SchemaSectionIsland from './SchemaSectionIsland.astro';
 import SchemaTree from './SchemaTree.astro';
@@ -36,7 +37,7 @@ const availabilityMessage = !op.deprecated ? op.availability?.message : undefine
     }
     {
       availabilityMessage ? (
-        <Aside type="note" title={op.availability?.status.replaceAll('-', ' ')}>
+        <Aside type="note" title={op.availability ? availabilityLabel(op.availability.status) : 'Availability'}>
           <p>{availabilityMessage}</p>
         </Aside>
       ) : null

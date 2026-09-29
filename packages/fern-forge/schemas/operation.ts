@@ -2,7 +2,7 @@ import { z } from 'astro/zod';
 import { argumentSchema, methodArgumentSchema, paramOverrideSchema } from './arguments.ts';
 import { nonEmptyStringSchema } from './shared.ts';
 
-/** Availability values accepted by the Forge OpenAPI contract. */
+/** Availability statuses accepted by the Forge OpenAPI contract. */
 export const forgeAvailabilitySchema = z.enum([
   'alpha',
   'beta',
@@ -12,8 +12,20 @@ export const forgeAvailabilitySchema = z.enum([
   'legacy',
 ]);
 
-/** A validated Forge availability value. */
+/** A validated Forge availability status. */
 export type ForgeAvailabilitySchema = z.infer<typeof forgeAvailabilitySchema>;
+
+/**
+ * Fern's endpoint availability: a status string, or `{ status, message }`.
+ * @see https://buildwithfern.com/learn/api-definition/openapi/extensions/availability
+ */
+const forgeAvailabilityInputSchema = z.union([
+  forgeAvailabilitySchema,
+  z.strictObject({
+    status: forgeAvailabilitySchema,
+    message: nonEmptyStringSchema.optional(),
+  }),
+]);
 
 /** Normalized, serializable Forge metadata stored on an operation projection. */
 export const forgeOperationDataSchema = z
@@ -21,6 +33,7 @@ export const forgeOperationDataSchema = z
     sdkGroupName: nonEmptyStringSchema,
     sdkMethodName: nonEmptyStringSchema,
     availability: forgeAvailabilitySchema.optional(),
+    availabilityMessage: nonEmptyStringSchema.optional(),
     ignore: z.boolean(),
     hidden: z.boolean(),
     internal: z.boolean().optional(),
@@ -51,7 +64,7 @@ const sdkGroupSchema = nonEmptyStringSchema
 export const operationProjectionFieldsSchema = z.object({
   'x-fern-sdk-group-name': sdkGroupSchema,
   'x-fern-sdk-method-name': nonEmptyStringSchema,
-  'x-fern-availability': forgeAvailabilitySchema.optional(),
+  'x-fern-availability': forgeAvailabilityInputSchema.optional(),
   'x-fern-ignore': z.boolean().optional(),
   'x-forge-hidden': z.boolean().optional(),
   'x-forge-internal': z.boolean().optional(),

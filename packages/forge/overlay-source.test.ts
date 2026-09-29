@@ -464,3 +464,91 @@ test('rejects invalid method lifecycle metadata on the OpenAPI-only path', async
     /available: invalid x-fern-availability stable/,
   );
 });
+
+test('keeps legacy availability and its message through overlay resolution', async () => {
+  const source: ForgeOpenApiDocument = {
+    openapi: '3.0.3',
+    info: { title: 'public', version: '1' },
+    paths: {
+      '/available': {
+        get: {
+          operationId: 'available',
+          description: 'Lists widgets.',
+          responses: {},
+        },
+      },
+    },
+    components: { schemas: {} },
+  };
+  const api = overlay('widgets', [
+    {
+      operationId: 'available',
+      'x-fern-sdk-method-name': 'list',
+      'x-fern-availability': { status: 'legacy', message: 'Use the v2 widgets endpoint.' },
+    },
+  ]);
+
+  const { overlaidOpenApi } = await resolveApiOverlays([api], source, {
+    allowMissingOperations: true,
+    writeArtifacts: false,
+  });
+  const operation = overlaidOpenApi.paths?.['/available']?.get as { 'x-fern-availability'?: unknown } | undefined;
+  assert.deepEqual(operation?.['x-fern-availability'], {
+    status: 'legacy',
+    message: 'Use the v2 widgets endpoint.',
+  });
+
+  const forge = initFromOpenApi(overlaidOpenApi as ForgeOpenApiDocument);
+  const method = forge.commands.get('widgets')?.methods[0];
+  assert.ok(method && !('methods' in method));
+  assert.equal(method.status, 'legacy');
+  assert.equal(method.availabilityMessage, 'Use the v2 widgets endpoint.');
+});
+
+test('reads Fern availability objects directly from an OpenAPI document', () => {
+  const source = {
+    openapi: '3.0.3',
+    info: { title: 'public', version: '1' },
+    paths: {
+      '/widgets': {
+        get: {
+          operationId: 'list-widgets',
+          description: 'Lists widgets.',
+          'x-fern-sdk-group-name': 'widgets',
+          'x-fern-sdk-method-name': 'list',
+          'x-fern-availability': { status: 'preview', message: 'Subject to change.' },
+          responses: {},
+        },
+      },
+    },
+    components: { schemas: {} },
+  } as ForgeOpenApiDocument;
+
+  const forge = initFromOpenApi(source);
+  const method = forge.commands.get('widgets')?.methods[0];
+  assert.ok(method && !('methods' in method));
+  assert.equal(method.status, 'preview');
+  assert.equal(method.availabilityMessage, 'Subject to change.');
+});
+
+test('rejects an availability object with an unknown status on the OpenAPI path', () => {
+  const source = {
+    openapi: '3.0.3',
+    info: { title: 'public', version: '1' },
+    paths: {
+      '/widgets': {
+        get: {
+          operationId: 'list-widgets',
+          description: 'Lists widgets.',
+          'x-fern-sdk-group-name': 'widgets',
+          'x-fern-sdk-method-name': 'list',
+          'x-fern-availability': { status: 'stable', message: 'Ready.' },
+          responses: {},
+        },
+      },
+    },
+    components: { schemas: {} },
+  } as ForgeOpenApiDocument;
+
+  assert.throws(() => initFromOpenApi(source), /list-widgets: invalid x-fern-availability stable/);
+});

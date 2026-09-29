@@ -1,3 +1,5 @@
+import type { FernAvailabilityStatus } from '../shared/fern-availability.js';
+
 export namespace Schema {
   // Completion source types for shell tab completion
   export type completionSource =
@@ -198,18 +200,23 @@ export namespace Schema {
   };
 
   /**
-   * Active lifecycle statuses (non-deprecated).
-   * Uses the x-fern-availability vocabulary:
-   *   alpha          — early experimental stage
-   *   beta           — stable enough for early adopters
-   *   preview        — feature-complete but subject to change
+   * API method definition with lifecycle status.
+   *
+   * `status` uses Fern's endpoint vocabulary:
+   *   alpha               — early experimental stage
+   *   beta                — stable enough for early adopters
+   *   preview             — feature-complete but subject to change
    *   generally-available — stable and ready for production
+   *   deprecated          — no longer recommended for new use
+   *   legacy              — superseded but still supported
    */
-  type activeStatus = 'alpha' | 'beta' | 'preview' | 'generally-available';
-
-  /** API method definition with lifecycle status. */
   export type method = methodBase & {
-    status: activeStatus | 'deprecated';
+    status: FernAvailabilityStatus;
+    /**
+     * Human note from `x-fern-availability.message`.
+     * Present only when the source used the object form.
+     */
+    availabilityMessage?: string;
   };
 
   export type methodGroup = {

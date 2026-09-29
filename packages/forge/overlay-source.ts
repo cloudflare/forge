@@ -8,6 +8,7 @@ import { isObject } from './shared/schema-utils.js';
 import { ensureUniqueSdkMethodNames } from './shared/sdk-method-names.js';
 
 import { stringify as toYaml } from 'yaml';
+import { parseFernAvailability } from './shared/fern-availability.js';
 import type {
   ApiOverlay,
   ApiOverlayFile,
@@ -24,18 +25,6 @@ import type {
 } from './overlay-types.ts';
 
 type OpenApiDocument = OpenAPIV3.Document;
-
-const METHOD_STATUSES: ReadonlySet<unknown> = new Set([
-  'alpha',
-  'beta',
-  'preview',
-  'generally-available',
-  'deprecated',
-]);
-
-function isMethodStatus(value: unknown): value is Schema.method['status'] {
-  return METHOD_STATUSES.has(value);
-}
 
 type OverlayResolution = {
   commands: Map<string, Schema.command>;
@@ -105,7 +94,9 @@ function isExtensionMethod(value: unknown): value is ExtensionMethods {
   if (!isObject(value)) return false;
   if (typeof value['x-fern-sdk-method-name'] !== 'string') return false;
   if (typeof value.operationId !== 'string') return false;
-  if (typeof value['x-fern-availability'] !== 'string') return false;
+  const availability = value['x-fern-availability'];
+  if (typeof availability !== 'string' && !isObject(availability)) return false;
+  parseFernAvailability(availability, value.operationId);
   return true;
 }
 
@@ -144,40 +135,22 @@ function collectMethods(command: Schema.command): Schema.method[] {
 }
 
 function toSchemaMethod(method: ExtensionMethods): Schema.method {
-  const status: unknown = method['x-fern-availability'];
-  if (!isMethodStatus(status)) {
-    throw new Error(`${method.operationId}: invalid x-fern-availability ${String(status)}`);
-  }
-
-  if (status === 'deprecated') {
-    const deprecated: Schema.method = {
-      name: method['x-fern-sdk-method-name'],
-      operationId: method.operationId,
-      status: 'deprecated',
-    };
-
-    if (method['x-forge-epilogue'] !== undefined) deprecated.epilogue = method['x-forge-epilogue'];
-    if (method['x-forge-args'] !== undefined) deprecated.args = method['x-forge-args'];
-    if (method['x-forge-params'] !== undefined) deprecated.params = method['x-forge-params'];
-    if (method['x-forge-require-confirmation'] !== undefined)
-      deprecated.requireConfirmation = method['x-forge-require-confirmation'];
-
-    return deprecated;
-  }
-
-  const active: Schema.method = {
+  const availability = parseFernAvailability(method['x-fern-availability'], method.operationId);
+  const schemaMethod: Schema.method = {
     name: method['x-fern-sdk-method-name'],
     operationId: method.operationId,
-    status,
+    status: availability.status,
   };
 
-  if (method['x-forge-epilogue'] !== undefined) active.epilogue = method['x-forge-epilogue'];
-  if (method['x-forge-args'] !== undefined) active.args = method['x-forge-args'];
-  if (method['x-forge-params'] !== undefined) active.params = method['x-forge-params'];
-  if (method['x-forge-require-confirmation'] !== undefined)
-    active.requireConfirmation = method['x-forge-require-confirmation'];
+  if (availability.message !== undefined) schemaMethod.availabilityMessage = availability.message;
+  if (method['x-forge-epilogue'] !== undefined) schemaMethod.epilogue = method['x-forge-epilogue'];
+  if (method['x-forge-args'] !== undefined) schemaMethod.args = method['x-forge-args'];
+  if (method['x-forge-params'] !== undefined) schemaMethod.params = method['x-forge-params'];
+  if (method['x-forge-require-confirmation'] !== undefined) {
+    schemaMethod.requireConfirmation = method['x-forge-require-confirmation'];
+  }
 
-  return active;
+  return schemaMethod;
 }
 
 function toSchemaMethodFromMetadata(method: OperationForgeMetadata): Schema.method {
