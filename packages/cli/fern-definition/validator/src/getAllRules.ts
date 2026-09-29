@@ -20,6 +20,7 @@ import { NoMissingErrorDiscriminantRule } from "./rules/no-missing-error-discrim
 import { NoMissingRequestNameRule } from "./rules/no-missing-request-name/index.js";
 import { NoObjectSinglePropertyKeyRule } from "./rules/no-object-single-property-key/index.js";
 import { NoResponsePropertyRule } from "./rules/no-response-property/index.js";
+import { NoSdkClientMemberCollisionsRule } from "./rules/no-sdk-client-member-collisions/index.js";
 import { NoUndefinedErrorReferenceRule } from "./rules/no-undefined-error-reference/index.js";
 import { NoUndefinedExampleReferenceRule } from "./rules/no-undefined-example-reference/index.js";
 import { NoUndefinedPathParametersRule } from "./rules/no-undefined-path-parameters/index.js";
@@ -83,6 +84,7 @@ export function getAllRules(): Rule[] {
         NoUndefinedVariableReferenceRule,
         OnlyObjectExtensionsRule,
         NoResponsePropertyRule,
+        NoSdkClientMemberCollisionsRule,
         ValidOauthRule,
         ValidPaginationRule,
         ValidExampleErrorRule,

@@ -1,0 +1,7 @@
+service:
+  base-path: /
+  auth: false
+  endpoints:
+    fetch:
+      path: /fetch
+      method: GET

@@ -1,0 +1,10 @@
+service:
+  base-path: /requests
+  auth: false
+  endpoints:
+    constants:
+      path: /constants
+      method: GET
+    list:
+      path: ""
+      method: GET

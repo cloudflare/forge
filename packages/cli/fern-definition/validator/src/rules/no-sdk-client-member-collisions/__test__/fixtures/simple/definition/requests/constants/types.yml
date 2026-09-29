@@ -1,0 +1,7 @@
+service:
+  base-path: /requests/types
+  auth: false
+  endpoints:
+    get:
+      path: ""
+      method: GET

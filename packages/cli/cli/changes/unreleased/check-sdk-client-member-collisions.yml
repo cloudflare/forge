@@ -1,0 +1,6 @@
+# yaml-language-server: $schema=../../../../fern-changes-yml.schema.json
+
+- summary: |
+    `fern check` reports endpoints whose SDK client member name collides with a subpackage client,
+    another endpoint, or a reserved member, which the TypeScript SDK generator rejects.
+  type: feat
