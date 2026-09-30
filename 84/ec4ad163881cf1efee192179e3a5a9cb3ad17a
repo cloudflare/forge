@@ -1,0 +1,31 @@
+packages/docs-site-nimbus/astro.config.ts
+  s_6a17fc0dec4be9::t_c2c580f94bc6c3 6,23-25,27,30,32,53,65,72,74,85
+packages/docs-site-nimbus/cloudflare-api-pages.ts
+  s_6a17fc0dec4be9::t_0a790cfff6937b 3-4,15-49,51-70,72,74-81
+packages/docs-site-nimbus/nimbus-api-site.ts
+  s_6a17fc0dec4be9::t_d5b8f622917bc3 2
+packages/docs-site-nimbus/scripts/cloudflare-api-pages.test.mjs
+  s_6a17fc0dec4be9::t_8029bbe1f3591d 4,6,9-10,12-15,17-20,22,24-28,32-33,35-36,39-40,44-53
+packages/docs-site-nimbus/src/env.d.ts
+  s_6a17fc0dec4be9::t_c866c4326be092 2-6
+packages/docs-site-nimbus/src/pages/api/[...slug].astro
+  s_6a17fc0dec4be9::t_7d8e545c7ef137 2-5,21-32,37,40-51,56,61,63-65,72,77-78
+packages/docs-site-nimbus/src/pages/api/[...slug]/index.md.ts
+  s_6a17fc0dec4be9::t_1b8cdac56dbc89 29
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "84ec4ad163881cf1efee192179e3a5a9cb3ad17a",
+  "prompts": {},
+  "sessions": {
+    "s_6a17fc0dec4be9": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_f0bc0b1b3ffeH13hf2ZLSM6po5",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "mohamedh <mhassan@cloudflare.com>"
+    }
+  }
+}
