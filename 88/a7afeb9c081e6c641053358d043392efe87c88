@@ -1,0 +1,23 @@
+packages/docs-site-nimbus/nimbus.json
+  s_b563d41a6291e7::t_bd60e744bf12a2 4
+packages/docs-site-nimbus/package.json
+  s_b563d41a6291e7::t_d86b2f812dfec8 22
+pnpm-lock.yaml
+  s_b563d41a6291e7::t_0dcada1d358e4d 177-178,618-619,4576
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "88a7afeb9c081e6c641053358d043392efe87c88",
+  "prompts": {},
+  "sessions": {
+    "s_b563d41a6291e7": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_f1711e354ffe0jMEl0JIQ6bVh5",
+        "model": "claude-fable-5-1"
+      },
+      "human_author": "mohamedh <mhassan@cloudflare.com>"
+    }
+  }
+}
