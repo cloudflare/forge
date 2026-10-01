@@ -3,7 +3,7 @@ import { docsLoader } from '@astrojs/starlight/loaders';
 import { docsSchema } from '@astrojs/starlight/schema';
 import { defineFernManifest, type FernContentOptions, type FernManifestProvider } from 'astro-fern';
 import { defineFernCollections } from 'astro-fern/collections';
-import { forgeExtension, hoistForgeCommands } from 'fern-forge';
+import { forgeExtension, hasRemovedForgeOperationFields, hoistForgeCommands } from 'fern-forge';
 import {
   CLOUDFLARE_RESPONSE_PAYLOAD_KEY,
   CLOUDFLARE_TARGETS,
@@ -13,16 +13,10 @@ import {
 } from './cloudflare.ts';
 import { cfCommandCatalog } from './command-reference/cf-commands.ts';
 import { commandCatalogLoader } from './command-reference/loader.ts';
+import { loadForgeOpenApi } from './openapi-source.ts';
 import { cloudflareApiVersionLabel, cloudflareApiVersionSlug, parseCloudflareApiVersion } from './version.ts';
 
-const upstreamSpec = new URL('https://raw.githubusercontent.com/cloudflare/api-schemas/refs/heads/main/openapi.json');
-const source = async () => {
-  const response = await fetch(upstreamSpec);
-  if (!response.ok) {
-    throw new Error(`Could not fetch the Cloudflare OpenAPI source: ${response.status} ${response.statusText}`);
-  }
-  return hoistForgeCommands(await response.json());
-};
+const source = async () => hoistForgeCommands(await loadForgeOpenApi());
 
 const air = parseCloudflareApiVersion('2026-11-30.air');
 
@@ -54,6 +48,7 @@ export const collections = {
     manifest,
     formatIdentifier: cloudflareFormatIdentifier,
     operationRoutingPreference: cloudflareOperationRoutingPreference,
+    isOperationHidden: hasRemovedForgeOperationFields,
     snippets: cloudflareSnippets,
     extensions: [forgeExtension()],
   } satisfies FernContentOptions),

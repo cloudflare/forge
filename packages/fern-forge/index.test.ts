@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { buildFernContent, defineFernManifest, getOperationExtensionData } from 'astro-fern';
 import { buildDocsModel, discoverFernProducts, type OpenApiDocumentSchema } from 'astro-fern/content';
-import { forgeDocumentSchema, forgeExtension, hoistForgeCommands } from './index.ts';
+import { forgeDocumentSchema, forgeExtension, hasRemovedForgeOperationFields, hoistForgeCommands } from './index.ts';
 
 const product = {
   id: 'widgets',
@@ -302,6 +302,46 @@ test('retains the primary projection when aliases are also configured', () => {
   );
 });
 
+test('normalizes Fern array SDK groups to Forge dotted groups', () => {
+  const model = buildDocsModel({
+    source: operation({ 'x-fern-sdk-group-name': ['widgets', 'items'] }),
+    products: [product],
+    extensions: [forgeExtension()],
+  });
+  const result = model.products[0]?.sections[0]?.operations[0];
+  assert.ok(result);
+  assert.equal(getOperationExtensionData(result, 'forge')?.sdkGroupName, 'widgets.items');
+});
+
+test('excludes operations using removed Forge metadata with one warning', () => {
+  const source = operation({ 'x-forge-sunset': { date: '2027-01-01T00:00:00Z' } });
+  if (!source.paths) source.paths = {};
+  source.paths['/widgets/legacy'] = {
+    get: {
+      operationId: 'widgets_legacy',
+      tags: ['Widget Management'],
+      'x-fern-sdk-group-name': ['widgets', 'legacy'],
+      'x-fern-sdk-method-name': 'get',
+      'x-forge-params': { widget_id: { flagName: 'widget' } },
+    },
+  };
+  let model: ReturnType<typeof buildDocsModel> | undefined;
+  const warnings = captureWarnings(() => {
+    model = buildDocsModel({
+      source,
+      products: [product],
+      extensions: [forgeExtension()],
+      isOperationHidden: hasRemovedForgeOperationFields,
+    });
+  });
+
+  assert.deepEqual(model?.products, []);
+  assert.equal(warnings.length, 1);
+  assert.match(warnings[0] ?? '', /Excluded 2 operation\(s\)/);
+  assert.match(warnings[0] ?? '', /x-forge-params\.\*\.flagName/);
+  assert.match(warnings[0] ?? '', /x-forge-sunset/);
+});
+
 test('rejects malformed, misplaced, and unknown Forge metadata', () => {
   assert.throws(
     () =>
@@ -344,11 +384,11 @@ test('rejects malformed, misplaced, and unknown Forge metadata', () => {
   assert.throws(
     () =>
       buildDocsModel({
-        source: operation({ 'x-fern-sdk-group-name': ['widgets', 'items'] }),
+        source: operation({ 'x-fern-sdk-group-name': ['widgets', ' '] }),
         products: [product],
         extensions: [forgeExtension()],
       }),
-    /x-fern-sdk-group-name[\s\S]*expected string/,
+    /x-fern-sdk-group-name/,
   );
 });
 
@@ -369,6 +409,14 @@ test('validates known root-level Forge metadata', () => {
       },
     },
   };
+  source['x-forge-group-info'] = {
+    widgets: {
+      items: {
+        description: 'Widget operations',
+        'x-forge-epilogue': 'More information.',
+      },
+    },
+  };
   assert.doesNotThrow(() => buildDocsModel({ source, products: [product], extensions: [forgeExtension()] }));
 
   source['x-forge-commandss'] = {};
@@ -381,6 +429,7 @@ test('validates known root-level Forge metadata', () => {
 test('forgeDocumentSchema validates commands with the other document extensions', () => {
   const source = operation();
   source['x-forge-commands'] = { widgets: { description: 'Widgets' } };
+  source['x-forge-group-info'] = { widgets: { items: { description: 'Widget operations' } } };
   assert.equal(forgeDocumentSchema.safeParse(source).success, true);
 
   source['x-forge-commands'] = { widgets: { description: '' } };

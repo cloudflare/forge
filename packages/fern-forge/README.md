@@ -234,20 +234,20 @@ a separate application loader that creates command catalogs, routes, and pages.
 
 Primary operation metadata accepts these fields:
 
-| Source field                   | Accepted value                                  | Normalized field      | Effect                                                    |
-| ------------------------------ | ----------------------------------------------- | --------------------- | --------------------------------------------------------- |
-| `x-fern-sdk-group-name`        | Nonempty string with segments separated by dots | `sdkGroupName`        | Selects products and supplies the SDK accessor path       |
-| `x-fern-sdk-method-name`       | Nonempty string                                 | `sdkMethodName`       | Supplies the SDK method for snippets                      |
-| `x-fern-availability`          | Availability value below                        | `availability`        | Supplies lifecycle metadata                               |
-| `x-fern-ignore`                | Boolean, default `false`                        | `ignore`              | Removes the operation from generated content when true    |
-| `x-forge-hidden`               | Boolean, default `false`                        | `hidden`              | Stores approval state and lowers route-collision priority |
-| `x-forge-internal`             | Boolean                                         | `internal`            | Stores internal visibility metadata                       |
-| `x-forge-globals`              | Argument array                                  | `globals`             | Stores shared command arguments                           |
-| `x-forge-epilogue`             | String                                          | `epilogue`            | Stores command or method footer text                      |
-| `x-forge-args`                 | Method argument array                           | `args`                | Stores method argument configuration                      |
-| `x-forge-params`               | Parameter override map                          | `params`              | Stores overrides by parameter name                        |
-| `x-forge-require-confirmation` | Nonempty string                                 | `requireConfirmation` | Promotes confirmation text to the rendered operation      |
-| `x-forge-aliases`              | Nonempty projection array                       | N/A                   | Adds SDK projections for discovery and content generation |
+| Source field                   | Accepted value                                 | Normalized field      | Effect                                                    |
+| ------------------------------ | ---------------------------------------------- | --------------------- | --------------------------------------------------------- |
+| `x-fern-sdk-group-name`        | Nonempty dotted string or string segment array | `sdkGroupName`        | Selects products and supplies the SDK accessor path       |
+| `x-fern-sdk-method-name`       | Nonempty string                                | `sdkMethodName`       | Supplies the SDK method for snippets                      |
+| `x-fern-availability`          | Availability value below                       | `availability`        | Supplies lifecycle metadata                               |
+| `x-fern-ignore`                | Boolean, default `false`                       | `ignore`              | Removes the operation from generated content when true    |
+| `x-forge-hidden`               | Boolean, default `false`                       | `hidden`              | Stores approval state and lowers route-collision priority |
+| `x-forge-internal`             | Boolean                                        | `internal`            | Stores internal visibility metadata                       |
+| `x-forge-globals`              | Argument array                                 | `globals`             | Stores shared command arguments                           |
+| `x-forge-epilogue`             | String                                         | `epilogue`            | Stores command or method footer text                      |
+| `x-forge-args`                 | Method argument array                          | `args`                | Stores method argument configuration                      |
+| `x-forge-params`               | Parameter override map                         | `params`              | Stores overrides by parameter name                        |
+| `x-forge-require-confirmation` | Nonempty string                                | `requireConfirmation` | Promotes confirmation text to the rendered operation      |
+| `x-forge-aliases`              | Nonempty projection array                      | N/A                   | Adds SDK projections for discovery and content generation |
 
 Primary SDK group and method names are required by the Forge contract. Current
 document ingestion accepts missing primary names and emits warnings. An
@@ -357,11 +357,12 @@ x-forge-params:
 
 ## Command metadata reference
 
-The root document accepts one Forge field:
+The root document accepts these Forge fields:
 
-| Field              | Shape                                                         |
-| ------------------ | ------------------------------------------------------------- |
-| `x-forge-commands` | Map from command name to an executable group or metadata node |
+| Field                | Shape                                                                    |
+| -------------------- | ------------------------------------------------------------------------ |
+| `x-forge-commands`   | Map from command name to an executable group or metadata node            |
+| `x-forge-group-info` | Map from command name and dotted group path to description/epilogue data |
 
 An executable command group contains a nonempty `description` and a `methods`
 array. Each method is one of these forms:
