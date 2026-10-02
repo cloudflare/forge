@@ -28,10 +28,13 @@ OpenAPI source or version-bound snapshots
                      target metadata
 ```
 
-The OpenAPI specification artifact keeps normal docs development free of Fern
-generation, Docker, and registry access. Fern SDK group and method metadata
-defines each public product, resource hierarchy, and method route. OpenAPI tags
-remain internal ownership metadata and do not appear in SDK-backed URLs.
+The OpenAPI specification is loaded from the `openapi.forge.json` asset on the
+latest stable Forge GitHub release. Set `FORGE_OPENAPI_RELEASE` to a release tag
+to build against that exact revision. The released artifact keeps normal docs
+development free of Fern generation, Docker, and registry access. Fern SDK group
+and method metadata defines each public product, resource hierarchy, and method
+route. OpenAPI tags remain internal ownership metadata and do not appear in
+SDK-backed URLs.
 
 ## Project ownership
 
@@ -73,12 +76,12 @@ SDK projection identity when that placement exists in the target snapshot.
 Products absent from the selected snapshot are omitted from navigation; the
 router never substitutes another product snapshot.
 
-The current recipe exposes one catalog snapshot backed by the rolling OpenAPI
-source while immutable release inputs are not yet available. The API-version
-selector remains visible with that one option. Selector options come from the
-generated catalog and include only snapshots available to the current page.
-Generated request samples remain version-neutral and do not send an
-`api-version` header until API version enforcement is implemented upstream.
+The current recipe exposes one catalog snapshot backed by a released OpenAPI
+artifact. The API-version selector remains visible with that one option. Selector
+options come from the generated catalog and include only snapshots available to
+the current page. Generated request samples remain version-neutral and do not
+send an `api-version` header until API version enforcement is implemented
+upstream.
 
 Until upstream SDK addresses distinguish account and zone operations that share
 one route, equal-priority collisions temporarily prefer the account-scoped
@@ -119,6 +122,15 @@ pnpm --filter docs-site check
 pnpm --filter docs-site build
 pnpm --filter docs-site preview
 ```
+
+To reproduce a release-triggered build, pin the release asset:
+
+```bash
+FORGE_OPENAPI_RELEASE='openapi@<api-schemas-commit>' pnpm --filter docs-site build
+```
+
+Set `FORGE_OPENAPI_SPEC` to an already-downloaded artifact to build without
+downloading it again.
 
 `check` validates the Astro components. `build` verifies the Cloudflare SSR
 bundle.

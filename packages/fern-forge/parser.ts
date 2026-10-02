@@ -3,6 +3,7 @@ import type { OpenApiDocumentSchema, OperationSchema } from 'astro-fern/content'
 import {
   aliasesEnvelopeSchema,
   forgeOperationDataSchema,
+  removedForgeOperationFields,
   operationProjectionFieldsSchema,
   operationMetadataSchema,
   projectionSchema,
@@ -74,12 +75,18 @@ export function prepareForge(
   const errors: string[] = [];
   const missingGroup: string[] = [];
   const missingMethod: string[] = [];
+  const excluded: Array<{ operationId: string; fields: string[] }> = [];
   for (const [path, pathItem] of Object.entries(document.paths ?? {})) {
     if (pathItem === undefined) continue;
     for (const method of HTTP_METHODS) {
       const operation = pathItem[method];
       if (!operation) continue;
       const operationId = operation.operationId ?? `${method.toUpperCase()} ${path}`;
+      const removedFields = removedForgeOperationFields(operation);
+      if (removedFields.length > 0) {
+        excluded.push({ operationId, fields: removedFields });
+        continue;
+      }
       const hasAliases = operation['x-forge-aliases'] !== undefined;
       const hasPrimaryMetadata = OPERATION_PROJECTION_KEYS.some((key) => operation[key] !== undefined);
       if (!hasAliases || hasPrimaryMetadata) {
@@ -95,6 +102,16 @@ export function prepareForge(
     }
   }
   if (errors.length > 0) throw new Error(`fern-forge: invalid OpenAPI extensions:\n- ${errors.join('\n- ')}`);
+  if (excluded.length > 0) {
+    const fields = [...new Set(excluded.flatMap((entry) => entry.fields))].sort().join(', ');
+    const examples = excluded
+      .slice(0, 3)
+      .map(({ operationId }) => `"${operationId}"`)
+      .join(', ');
+    logger.warn(
+      `Excluded ${excluded.length} operation(s) using removed Forge metadata (${fields}). Examples: ${examples}`,
+    );
+  }
   warnMissingRequiredField(logger, 'x-fern-sdk-group-name', missingGroup);
   warnMissingRequiredField(logger, 'x-fern-sdk-method-name', missingMethod);
   return { operations };

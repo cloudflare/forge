@@ -16,6 +16,8 @@ export {
 export {
   forgeAvailabilitySchema,
   forgeOperationDataSchema,
+  hasRemovedForgeOperationFields,
+  removedForgeOperationFields,
   type ForgeAvailabilitySchema,
   type ForgeOperationDataSchema,
 } from './schemas/operation.ts';

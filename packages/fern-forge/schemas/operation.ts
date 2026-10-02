@@ -35,7 +35,7 @@ export const forgeOperationDataSchema = z
 /** Validated, serializable Forge metadata attached to one operation projection. */
 export type ForgeOperationDataSchema = z.infer<typeof forgeOperationDataSchema>;
 
-const sdkGroupSchema = nonEmptyStringSchema
+const dottedSdkGroupSchema = nonEmptyStringSchema
   .refine(
     (group) => group.split('.').every((segment) => segment.trim().length > 0),
     'SDK group must be dot-separated with no empty segments',
@@ -46,6 +46,14 @@ const sdkGroupSchema = nonEmptyStringSchema
       .map((segment) => segment.trim())
       .join('.'),
   );
+
+const sdkGroupSchema = z.union([
+  dottedSdkGroupSchema,
+  z
+    .array(z.string().trim().min(1))
+    .min(1)
+    .transform((group) => group.join('.')),
+]);
 
 /** Forge validation for Fern headers, which generic astro-fern intentionally leaves extension-owned. */
 export const operationProjectionFieldsSchema = z.object({
@@ -63,6 +71,34 @@ export const operationProjectionFieldsSchema = z.object({
 });
 
 const knownOperationForgeKeys = new Set([...operationProjectionFieldsSchema.keyof().options, 'x-forge-aliases']);
+const unknownRecordSchema = z.record(z.string(), z.unknown());
+
+/** Removed Forge metadata that excludes an operation from generated documentation. */
+export function removedForgeOperationFields(operation: Record<string, unknown>): string[] {
+  const removed = new Set<string>();
+  const aliases = z.array(unknownRecordSchema).safeParse(operation['x-forge-aliases']);
+  const projections = [operation, ...(aliases.success ? aliases.data : [])];
+
+  for (const projection of projections) {
+    if (Object.hasOwn(projection, 'x-forge-sunset')) removed.add('x-forge-sunset');
+    const params = unknownRecordSchema.safeParse(projection['x-forge-params']);
+    if (
+      params.success &&
+      Object.values(params.data).some((override) => {
+        const parsed = unknownRecordSchema.safeParse(override);
+        return parsed.success && Object.hasOwn(parsed.data, 'flagName');
+      })
+    ) {
+      removed.add('x-forge-params.*.flagName');
+    }
+  }
+
+  return [...removed].sort();
+}
+
+export function hasRemovedForgeOperationFields(operation: Record<string, unknown>): boolean {
+  return removedForgeOperationFields(operation).length > 0;
+}
 
 export function rejectUnknownForgeKeys(
   value: Record<string, unknown>,

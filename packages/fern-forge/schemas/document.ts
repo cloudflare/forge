@@ -44,11 +44,23 @@ const commandsSchema = z.record(z.string(), z.union([commandMethodsSchema, comma
 
 export type ForgeCommandsSchema = z.infer<typeof commandsSchema>;
 
-const knownRootForgeKeys = new Set(['x-forge-commands']);
+const groupInfoSchema = z
+  .object({
+    description: z.string().optional(),
+    'x-forge-epilogue': z.string().optional(),
+  })
+  .strict();
+
+const groupInfoMapSchema = z.record(z.string(), z.record(z.string(), groupInfoSchema));
+
+export type ForgeGroupInfoMapSchema = z.infer<typeof groupInfoMapSchema>;
+
+const knownRootForgeKeys = new Set(['x-forge-commands', 'x-forge-group-info']);
 
 export const forgeDocumentSchema = openApiDocumentSchema
   .extend({
     'x-forge-commands': commandsSchema.optional(),
+    'x-forge-group-info': groupInfoMapSchema.optional(),
   })
   .superRefine((value, context) => rejectUnknownForgeKeys(value, knownRootForgeKeys, context));
 
