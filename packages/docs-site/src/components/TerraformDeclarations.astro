@@ -1,0 +1,106 @@
+---
+import AnchorHeading from '@astrojs/starlight/components/AnchorHeading.astro';
+import type { TerraformOperationData } from '../terraform.ts';
+import TerraformFields from './TerraformFields.astro';
+
+interface Props {
+  operation?: TerraformOperationData;
+  declarationOffset?: number;
+}
+
+const { operation, declarationOffset = 0 } = Astro.props;
+const groups = [
+  { id: 'required', label: 'Required', fields: 'required' as const },
+  { id: 'optional', label: 'Optional', fields: 'optional' as const },
+  { id: 'computed', label: 'Computed', fields: 'computed' as const },
+];
+
+const declarationKindLabels = {
+  resource: 'Resource',
+  'data-source': 'Data source',
+  'list-data-source': 'List data source',
+};
+---
+
+{
+  operation ? (
+    operation.declarations.map((declaration, declarationIndex) => (
+      <section class="forge-terraform-declaration">
+        <header class="forge-terraform-declaration-header">
+          <span class="forge-terraform-declaration-kind">{declarationKindLabels[declaration.kind]}</span>
+          <h2 id={`terraform-${declarationOffset + declarationIndex + 1}`}><code>{declaration.name}</code></h2>
+        </header>
+        {groups.map((group) =>
+          declaration[group.fields].length > 0 ? (
+            <section class="forge-terraform-group">
+              <h3>{group.label}</h3>
+              <TerraformFields fields={declaration[group.fields]} />
+            </section>
+          ) : null,
+        )}
+      </section>
+    ))
+  ) : (
+    <section class="forge-terraform-unavailable">
+      <AnchorHeading level={2} id="terraform">
+        Terraform
+      </AnchorHeading>
+      <p>This operation is not implemented in Terraform.</p>
+    </section>
+  )
+}
+
+<style>
+  .forge-terraform-declaration + .forge-terraform-declaration {
+    border-top: 1px solid var(--cf-border);
+    padding-top: 2.5rem;
+  }
+
+  .forge-terraform-unavailable :global(.sl-heading-wrapper.level-h2) {
+    margin: 0;
+  }
+
+  .forge-terraform-declaration-header {
+    display: grid;
+    gap: 0.25rem;
+  }
+
+  .forge-terraform-declaration-header h2 {
+    margin: 0;
+    font-size: 1.125rem;
+    line-height: 1.4;
+  }
+
+  .forge-terraform-declaration-header h2 code {
+    padding: 0;
+    color: inherit;
+    background: transparent;
+    font-size: inherit;
+  }
+
+  .forge-terraform-declaration-kind {
+    color: var(--cf-muted-foreground);
+    font-size: 0.6875rem;
+    font-weight: 650;
+    letter-spacing: 0.08em;
+    line-height: 1.4;
+    text-transform: uppercase;
+  }
+
+  .forge-terraform-unavailable p {
+    margin: 0.5rem 0 0;
+    color: var(--cf-muted-foreground);
+    font-size: 0.8125rem;
+  }
+
+  .forge-terraform-group {
+    margin-top: 1.5rem;
+  }
+
+  .forge-terraform-group h3 {
+    margin: 0;
+    color: var(--cf-foreground);
+    font-size: 0.875rem;
+    font-weight: 650;
+  }
+</style>

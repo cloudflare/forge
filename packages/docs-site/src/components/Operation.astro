@@ -3,9 +3,11 @@ import AnchorHeading from '@astrojs/starlight/components/AnchorHeading.astro';
 import { Aside } from '@astrojs/starlight/components';
 import type { FernPageSchema } from 'astro-fern';
 import { DEFER_THRESHOLD, nodeCount, operationView, responseSummary, topLevelNodes } from '../operation-sections.ts';
+import { getTerraformOperationData } from '../terraform.ts';
 import CodeSample from './CodeSample.astro';
 import SchemaSectionIsland from './SchemaSectionIsland.astro';
 import SchemaTree from './SchemaTree.astro';
+import TerraformDeclarations from './TerraformDeclarations.astro';
 
 interface Props {
   page: FernPageSchema;
@@ -23,6 +25,8 @@ const requestMediaTypes = op.requestBody?.representations.map(({ mediaType }) =>
 const requestContentTypeLabel = requestMediaTypes.length === 1 ? 'Content type' : 'Content types';
 const deprecationMessage = op.deprecated ? op.availability?.message : undefined;
 const availabilityMessage = !op.deprecated ? op.availability?.message : undefined;
+const terraform = getTerraformOperationData(op);
+const showTerraform = selectedTarget === 'terraform';
 ---
 
 <div class="forge-operation-layout">
@@ -51,21 +55,67 @@ const availabilityMessage = !op.deprecated ? op.availability?.message : undefine
     {op.description.html ? <div class="forge-operation-desc" set:html={op.description.html} /> : null}
   </div>
 
-  <aside class="forge-example-pane not-content" aria-label="Examples">
-    <CodeSample
-      targets={page.targets}
-      selectedTarget={selectedTarget}
-      snapshotId={page.snapshot.id}
-      preserveVersionQuery={!page.snapshot.default}
-      httpMethod={op.httpMethod}
-      examples={op.examples ?? []}
-      responses={op.responses}
-    />
-  </aside>
+  {
+    showTerraform ? (
+      <div class="forge-terraform-pairs not-content">
+        {terraform ? (
+          terraform.declarations.map((declaration, declarationIndex) => (
+            <section class="forge-terraform-pair">
+              <div class="forge-reference">
+                <TerraformDeclarations
+                  operation={{ declarations: [declaration] }}
+                  declarationOffset={declarationIndex}
+                />
+              </div>
+              <aside class="forge-example-pane" aria-label={`${declaration.name} example`}>
+                <CodeSample
+                  targets={page.targets}
+                  selectedTarget={selectedTarget}
+                  snapshotId={page.snapshot.id}
+                  preserveVersionQuery={!page.snapshot.default}
+                  httpMethod={op.httpMethod}
+                  examples={[]}
+                  responses={[]}
+                  terraform={{ declarations: [declaration] }}
+                />
+              </aside>
+            </section>
+          ))
+        ) : (
+          <section class="forge-terraform-pair">
+            <div class="forge-reference">
+              <TerraformDeclarations />
+            </div>
+            <aside class="forge-example-pane" aria-label="Terraform example">
+              <CodeSample
+                targets={page.targets}
+                selectedTarget={selectedTarget}
+                snapshotId={page.snapshot.id}
+                preserveVersionQuery={!page.snapshot.default}
+                httpMethod={op.httpMethod}
+                examples={[]}
+                responses={[]}
+              />
+            </aside>
+          </section>
+        )}
+      </div>
+    ) : (
+      <>
+        <aside class="forge-example-pane not-content" aria-label="Examples">
+          <CodeSample
+            targets={page.targets}
+            selectedTarget={selectedTarget}
+            snapshotId={page.snapshot.id}
+            preserveVersionQuery={!page.snapshot.default}
+            httpMethod={op.httpMethod}
+            examples={op.examples ?? []}
+            responses={op.responses}
+          />
+        </aside>
 
-  <div class="forge-reference not-content">
-    {
-      view.fieldSections.map((section) => (
+        <div class="forge-reference not-content">
+          {view.fieldSections.map((section) => (
         <section class="forge-section">
           <AnchorHeading level={2} id={section.slug}>
             {section.title}
@@ -117,39 +167,39 @@ const availabilityMessage = !op.deprecated ? op.availability?.message : undefine
             <SchemaTree nodes={section.nodes} context="request" />
           )}
         </section>
-      ))
-    }
+          ))}
 
-    {
-      view.response ? (
-        <section class="forge-section">
-          <AnchorHeading level={2} id={view.responseSlug}>Returns</AnchorHeading>
-          {returnsSummary ? <p class="forge-returns-note">{returnsSummary}</p> : null}
-          {showResponseSchemaSource && view.responseStatus && view.responseRepresentation ? (
-            <p class="forge-returns-note">
-              Schema shown for <code>{view.responseStatus.status}</code> ·{' '}
-              <code>{view.responseRepresentation.mediaType}</code>
-            </p>
+          {view.response ? (
+            <section class="forge-section">
+              <AnchorHeading level={2} id={view.responseSlug}>Returns</AnchorHeading>
+              {returnsSummary ? <p class="forge-returns-note">{returnsSummary}</p> : null}
+              {showResponseSchemaSource && view.responseStatus && view.responseRepresentation ? (
+                <p class="forge-returns-note">
+                  Schema shown for <code>{view.responseStatus.status}</code> ·{' '}
+                  <code>{view.responseRepresentation.mediaType}</code>
+                </p>
+              ) : null}
+              {nodeCount(responseNodes) > DEFER_THRESHOLD ? (
+                <SchemaSectionIsland
+                  server:defer
+                  entryId={page.entryId}
+                  snapshotId={page.snapshot.id}
+                  section="response"
+                  context="response"
+                >
+                  <p slot="fallback" class="forge-coming-soon">
+                    Loading response fields…
+                  </p>
+                </SchemaSectionIsland>
+              ) : (
+                <SchemaTree nodes={responseNodes} context="response" />
+              )}
+            </section>
           ) : null}
-          {nodeCount(responseNodes) > DEFER_THRESHOLD ? (
-            <SchemaSectionIsland
-              server:defer
-              entryId={page.entryId}
-              snapshotId={page.snapshot.id}
-              section="response"
-              context="response"
-            >
-              <p slot="fallback" class="forge-coming-soon">
-                Loading response fields…
-              </p>
-            </SchemaSectionIsland>
-          ) : (
-            <SchemaTree nodes={responseNodes} context="response" />
-          )}
-        </section>
-      ) : null
-    }
-  </div>
+        </div>
+      </>
+    )
+  }
 </div>
 
 <style>
@@ -223,6 +273,19 @@ const availabilityMessage = !op.deprecated ? op.availability?.message : undefine
     gap: 3rem;
   }
 
+  .forge-terraform-pairs {
+    display: flex;
+    flex-direction: column;
+    gap: 3rem;
+    min-width: 0;
+  }
+
+  .forge-terraform-pair {
+    display: grid;
+    gap: 1.5rem;
+    min-width: 0;
+  }
+
   .forge-section {
     min-width: 0;
   }
@@ -285,6 +348,27 @@ const availabilityMessage = !op.deprecated ? op.availability?.message : undefine
     .forge-reference {
       grid-column: 1;
       grid-row: 2;
+    }
+
+    .forge-terraform-pairs {
+      grid-column: 1 / -1;
+      grid-row: 2;
+    }
+
+    .forge-terraform-pair {
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+      column-gap: 2rem;
+      align-items: stretch;
+    }
+
+    .forge-terraform-pair > .forge-reference {
+      grid-column: 1;
+      grid-row: 1;
+    }
+
+    .forge-terraform-pair > .forge-example-pane {
+      grid-column: 2;
+      grid-row: 1;
     }
   }
 </style>
