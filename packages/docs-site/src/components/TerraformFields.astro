@@ -1,0 +1,143 @@
+---
+import type { TerraformAttribute } from '../terraform.ts';
+import TerraformFields from './TerraformFields.astro';
+
+interface Props {
+  fields: TerraformAttribute[];
+}
+
+const { fields } = Astro.props;
+---
+
+<ul class="forge-terraform-fields">
+  {
+    fields.map((field) => (
+      <li class="forge-terraform-field">
+        <div class="forge-terraform-field-head">
+          <code>{field.name}</code>
+          <span class="forge-terraform-type">{field.type}</span>
+          {field.requiresReplace ? <span class="forge-terraform-replace">forces replacement</span> : null}
+          {field.sensitive ? <span class="forge-terraform-sensitive">sensitive</span> : null}
+          {field.deprecated ? <span class="forge-terraform-deprecated">deprecated</span> : null}
+        </div>
+        {field.description ? <p class="forge-terraform-description">{field.description}</p> : null}
+        {field.deprecated && field.deprecated !== 'Deprecated.' ? (
+          <p class="forge-terraform-deprecation-message">{field.deprecated}</p>
+        ) : null}
+        {field.children?.length ? (
+          <details class="forge-terraform-nested">
+            <summary>
+              Show {field.children.length} {field.children.length === 1 ? 'attribute' : 'attributes'}
+            </summary>
+            <TerraformFields fields={field.children} />
+          </details>
+        ) : null}
+      </li>
+    ))
+  }
+</ul>
+
+<style>
+  .forge-terraform-fields {
+    margin: 0.75rem 0 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .forge-terraform-field + .forge-terraform-field {
+    border-top: 1px solid var(--cf-border);
+  }
+
+  .forge-terraform-field {
+    padding: 1rem 0;
+  }
+
+  .forge-terraform-field-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.5rem;
+  }
+
+  .forge-terraform-field-head code {
+    padding: 0;
+    color: var(--cf-foreground);
+    background: transparent;
+    font-family: var(--sl-font-mono);
+    font-size: 0.8125rem;
+    font-weight: 650;
+  }
+
+  .forge-terraform-type {
+    color: var(--cf-muted-foreground);
+    font-family: var(--sl-font-mono);
+    font-size: 0.75rem;
+  }
+
+  .forge-terraform-replace,
+  .forge-terraform-sensitive,
+  .forge-terraform-deprecated {
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+
+  .forge-terraform-replace,
+  .forge-terraform-sensitive {
+    color: var(--cf-muted-foreground);
+  }
+
+  .forge-terraform-deprecated {
+    color: var(--cf-danger);
+  }
+
+  .forge-terraform-description,
+  .forge-terraform-deprecation-message {
+    margin: 0.35rem 0 0;
+    color: var(--cf-muted-foreground);
+    font-size: 0.8125rem;
+    line-height: 1.6;
+    white-space: pre-wrap;
+  }
+
+  .forge-terraform-deprecation-message {
+    color: var(--cf-danger);
+  }
+
+  .forge-terraform-nested {
+    margin-top: 0.75rem;
+    border-inline-start: 1px solid var(--cf-border);
+    padding-inline-start: 1rem;
+  }
+
+  .forge-terraform-nested > summary {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    cursor: pointer;
+    color: var(--cf-muted-foreground);
+    font-size: 0.75rem;
+    font-weight: 550;
+  }
+
+  .forge-terraform-nested > summary:hover {
+    color: var(--cf-foreground);
+  }
+
+  .forge-terraform-nested > summary::before {
+    display: inline-grid;
+    place-items: center;
+    width: 1rem;
+    height: 1rem;
+    border: 1px solid var(--cf-border);
+    border-radius: 0.2rem;
+    content: '+';
+    font-family: var(--sl-font-mono);
+    line-height: 1;
+  }
+
+  .forge-terraform-nested[open] > summary::before {
+    content: '-';
+  }
+</style>

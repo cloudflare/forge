@@ -12,6 +12,8 @@ import {
   type RenderedResponseExampleSchema,
 } from 'astro-fern/content';
 import { LEGACY_API_VERSION } from '../version.ts';
+import type { TerraformOperationData } from '../terraform.ts';
+import { terraformDeclarationLabel } from '../terraform.ts';
 import CopyableCode from './CopyableCode.astro';
 
 interface Props {
@@ -22,6 +24,7 @@ interface Props {
   httpMethod: string;
   examples: OperationExampleSchema[];
   responses: RenderedOperationResponseSchema[];
+  terraform?: TerraformOperationData;
 }
 
 type AssociatedRequestPart = [string, JsonValueSchema | undefined, string | undefined];
@@ -35,6 +38,7 @@ const {
   httpMethod,
   examples,
   responses,
+  terraform,
 } = Astro.props;
 const current = targets.find((target) => target.id === selectedTarget) ?? targets[0];
 const preferredStatus = preferredResponse(responses);
@@ -188,8 +192,14 @@ function codeSampleSyntax(sample: OperationCodeSampleSchema): string {
         <div class="forge-sample-card forge-request-card" data-after-associated={examples.length > 0 || undefined}>
           <div class="forge-sample-header">
             <div class="forge-sample-title">
-              <span class="forge-sample-method" data-verb={httpMethod}>{httpMethod}</span>
-              <span>Request</span>
+              {current.id === 'terraform' ? (
+                <span>Terraform</span>
+              ) : (
+                <>
+                  <span class="forge-sample-method" data-verb={httpMethod}>{httpMethod}</span>
+                  <span>Request</span>
+                </>
+              )}
             </div>
             <form class="forge-target-form" method="get">
               <label class="forge-target-select">
@@ -205,8 +215,29 @@ function codeSampleSyntax(sample: OperationCodeSampleSchema): string {
               {preserveVersionQuery && <input type="hidden" name="version" value={snapshotId} />}
             </form>
           </div>
-          <div class="forge-sample-code">
-            {current.code ? (
+          <div class:list={['forge-sample-code', current.id === 'terraform' && 'forge-terraform-code']}>
+            {current.id === 'terraform' ? (
+              terraform ? (
+                <div class="forge-terraform-samples">
+                  {terraform.declarations.map((declaration) => (
+                    <section class="forge-terraform-sample">
+                      <h3>{terraformDeclarationLabel(declaration)}</h3>
+                      {declaration.snippet ? (
+                        <CopyableCode
+                          code={declaration.snippet}
+                          lang="hcl"
+                          label={`Copy ${terraformDeclarationLabel(declaration)} example`}
+                        />
+                      ) : (
+                        <p class="forge-coming-soon">No generated HCL example is available for this declaration.</p>
+                      )}
+                    </section>
+                  ))}
+                </div>
+              ) : (
+                <p class="forge-coming-soon">This operation is not implemented in Terraform.</p>
+              )
+            ) : current.code ? (
               <CopyableCode
                 code={current.code}
                 lang={current.syntax}
@@ -216,7 +247,7 @@ function codeSampleSyntax(sample: OperationCodeSampleSchema): string {
               <p class="forge-coming-soon">{current.label} samples are coming soon.</p>
             )}
           </div>
-          {snapshotId !== LEGACY_API_VERSION && (
+          {current.id !== 'terraform' && snapshotId !== LEGACY_API_VERSION && (
             <p class="forge-version-note">
               Samples are version-neutral. Version selection currently changes documentation only.
             </p>
@@ -696,6 +727,36 @@ function codeSampleSyntax(sample: OperationCodeSampleSchema): string {
     max-height: 36rem;
     overflow: auto;
     background: var(--cf-surface-sunken);
+  }
+
+  .forge-terraform-code {
+    max-height: none;
+    overflow: hidden;
+  }
+
+  .forge-terraform-samples :global(.forge-code) {
+    min-width: 0;
+    overflow: hidden;
+  }
+
+  .forge-terraform-samples :global(.forge-code code) {
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+
+  .forge-terraform-sample + .forge-terraform-sample {
+    border-top: 1px solid var(--cf-border);
+  }
+
+  .forge-terraform-sample h3 {
+    margin: 0;
+    border-bottom: 1px solid var(--cf-border);
+    padding: 0.625rem 0.75rem;
+    color: var(--cf-foreground);
+    background: var(--cf-muted);
+    font-family: var(--sl-font-mono);
+    font-size: 0.6875rem;
+    font-weight: 600;
   }
 
   :global(.forge-code) {
