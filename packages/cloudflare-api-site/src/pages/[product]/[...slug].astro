@@ -126,6 +126,38 @@ const description = metaDescription ? metaDescription.slice(0, 160) : undefined;
   .forge-operation-desc :is(ul, ol) {
     padding-inline-start: 1.25rem;
   }
+  /*
+   * Tailwind's preflight removes list markers and block margins, which the
+   * rendered Markdown relies on: restore the markers, and space consecutive
+   * blocks (`.forge-operation-desc` sets its own, larger, gap below).
+   */
+  .forge-desc ul,
+  .forge-request-body-description ul,
+  .forge-response-description ul,
+  .forge-response-example-description ul,
+  .forge-operation-desc ul {
+    list-style: disc;
+  }
+  .forge-desc ol,
+  .forge-request-body-description ol,
+  .forge-response-description ol,
+  .forge-response-example-description ol,
+  .forge-operation-desc ol {
+    list-style: decimal;
+  }
+  .forge-desc > * + *,
+  .forge-request-body-description > * + *,
+  .forge-response-description > * + *,
+  .forge-response-example-description > * + * {
+    margin-top: 0.5rem;
+  }
+  .forge-desc li + li,
+  .forge-request-body-description li + li,
+  .forge-response-description li + li,
+  .forge-response-example-description li + li,
+  .forge-operation-desc li + li {
+    margin-top: 0.125rem;
+  }
   .forge-operation-desc {
     color: var(--cf-foreground);
     font-size: 0.9375rem;
