@@ -6,7 +6,6 @@ import { MatchingEnvironmentUrlsRule } from "./rules/matching-environment-urls/i
 import { NoCircularImportsRule } from "./rules/no-circular-imports/index.js";
 import { NoComplexQueryParamsRule } from "./rules/no-complex-query-params/index.js";
 import { NoConflictingEndpointParametersRule } from "./rules/no-conflicting-endpoint-parameters/index.js";
-import { NoConflictingEndpointPathsRule } from "./rules/no-conflicting-endpoint-paths/index.js";
 import { NoConflictingRequestWrapperPropertiesRule } from "./rules/no-conflicting-request-wrapper-properties/index.js";
 import { NoDuplicateDeclarationsRule } from "./rules/no-duplicate-declarations/index.js";
 import { NoDuplicateEnumValuesRule } from "./rules/no-duplicate-enum-values/index.js";
@@ -77,7 +76,6 @@ export function getAllRules(): Rule[] {
         ValidServiceUrlsRule,
         ValidBasePathRule,
         ValidEndpointPathRule,
-        NoConflictingEndpointPathsRule,
         ValidTypeNameRule,
         NoExtensionsWithFileUploadRule,
         ValidNavigationRule,
