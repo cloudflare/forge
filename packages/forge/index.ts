@@ -10,6 +10,9 @@ export * from './forge.js';
 // Async factory — creates a fully-initialized Forge
 export { applyForgeOverlays, init } from './init.js';
 export { type ForgeOpenApiDocument, initFromOpenApi } from './init-from-openapi.js';
+// OpenAPI sources: loader contract and registry, plus the JSON and YAML loaders
+export * from './openapi-source.js';
+export * from './openapi-file-loaders.js';
 // OpenAPI resolver (operationId -> path/params/types)
 export * from './openapi-resolver.js';
 export * from './overlay-source.js';

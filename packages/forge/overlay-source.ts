@@ -4,6 +4,7 @@ import { OpenAPIV3 } from 'openapi-types';
 import { Forge } from './forge.js';
 import { populateOperationMap } from './openapi-resolver.js';
 import type { Schema } from './schema/schema.js';
+import { isOpenApiDocument } from './shared/openapi-document.js';
 import { isObject } from './shared/schema-utils.js';
 import { ensureUniqueSdkMethodNames } from './shared/sdk-method-names.js';
 
@@ -88,18 +89,6 @@ const overlaidOutputDir = join(import.meta.dirname, 'overlays', '_generated');
 const methods = ['get', 'put', 'post', 'delete', 'options', 'head', 'patch', 'trace'] as const;
 
 const operationIdPattern = /^[^"[\]]+$/;
-
-function hasString(value: Record<string, unknown>, key: string): boolean {
-  return typeof value[key] === 'string';
-}
-
-function isOpenApiDocument(value: unknown): value is OpenApiDocument {
-  if (!isObject(value)) return false;
-  if (!hasString(value, 'openapi') || !(value.openapi as string).startsWith('3.')) return false;
-  if (!isObject(value.info) || !hasString(value.info, 'title') || !hasString(value.info, 'version')) return false;
-  if (!isObject(value.paths)) return false;
-  return true;
-}
 
 function isExtensionMethod(value: unknown): value is ExtensionMethods {
   if (!isObject(value)) return false;

@@ -1,0 +1,6 @@
+options:
+  '@typespec/openapi3':
+    openapi-versions:
+      - 3.1.0
+    operation-id-strategy: fqn
+    seal-object-schemas: 'false'
