@@ -65,6 +65,7 @@ interface Operation {
 interface ResponseObject {
   $ref?: string;
   description?: string;
+  headers?: Record<string, ResponseHeaderInfo & { $ref?: string }>;
   /** Keyed by media type: `"application/json"`, `"application/pdf"`, `"text/plain"`, ... */
   content?: Record<string, { schema?: SchemaRef } | undefined>;
 }
@@ -285,6 +286,13 @@ export interface ResponseInfo {
    * Empty object when the spec declares the status with no `content` (e.g. `204`).
    */
   content: Record<string, ResponseBodyInfo>;
+  headers?: Record<string, ResponseHeaderInfo>;
+}
+
+export interface ResponseHeaderInfo {
+  description?: string;
+  required?: boolean;
+  schema?: SchemaRef;
 }
 
 /**
@@ -1499,6 +1507,18 @@ function extractResponses(responses: Operation['responses']): Record<string, Res
     const info: ResponseInfo = { content: {} };
     if (typeof response.description === 'string' && response.description.length > 0) {
       info.description = response.description;
+    }
+
+    if (response.headers) {
+      info.headers = {};
+      for (const [name, rawHeader] of Object.entries(response.headers)) {
+        const header = resolveDocRef(rawHeader);
+        info.headers[name] = {
+          ...(header.description === undefined ? {} : { description: header.description }),
+          ...(header.required === undefined ? {} : { required: header.required }),
+          ...(header.schema === undefined ? {} : { schema: resolveSchemaRef(header.schema) }),
+        };
+      }
     }
 
     if (response.content) {
