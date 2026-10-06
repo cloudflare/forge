@@ -668,6 +668,84 @@ test('x-fern-property-name renames body flag segments at every depth', () => {
   );
 });
 
+test('single-member allOf body properties preserve scalar and array metadata', () => {
+  populateOperationMap({
+    paths: {
+      '/configs': {
+        post: {
+          operationId: 'create-wrapped-config',
+          requestBody: {
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  required: ['client_id'],
+                  properties: {
+                    config_src: {
+                      allOf: [{ $ref: '#/components/schemas/ConfigSource' }],
+                      'x-fern-property-name': 'config-source',
+                      description: 'Property-local description',
+                    },
+                    client_id: {
+                      allOf: [{ $ref: '#/components/schemas/ClientId' }],
+                      'x-fern-property-name': 'connector-id',
+                    },
+                    options: {
+                      type: 'object',
+                      required: ['enabled', 'count'],
+                      properties: {
+                        enabled: { allOf: [{ type: 'boolean', default: true }] },
+                        count: { allOf: [{ allOf: [{ type: 'integer', default: 2 }] }], default: 3 },
+                        tags: { allOf: [{ type: 'array', items: { type: 'string' } }] },
+                        secret: { allOf: [{ type: 'string' }], 'x-sensitive': true },
+                        ignored: { allOf: [{ type: 'string' }], readOnly: true },
+                      },
+                    },
+                    objects: {
+                      allOf: [{ type: 'array', items: { type: 'object', properties: { name: { type: 'string' } } } }],
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+    components: {
+      schemas: {
+        ConfigSource: {
+          type: 'string',
+          enum: ['local', 'cloudflare'],
+          default: 'local',
+          description: 'Shared description',
+        },
+        ClientId: { type: 'string', 'x-sensitive': true },
+      },
+    },
+  });
+
+  const operation = resolveOperation('create-wrapped-config');
+  assert.ok(operation);
+  assert.deepEqual(operation.bodyParams, [
+    {
+      name: 'config-source',
+      type: 'string',
+      required: false,
+      apiFieldPath: ['config_src'],
+      description: 'Property-local description',
+      enumValues: ['local', 'cloudflare'],
+      default: 'local',
+    },
+    { name: 'connector-id', type: 'string', required: true, apiFieldPath: ['client_id'], sensitive: true },
+    { name: 'options-enabled', type: 'boolean', required: true, apiFieldPath: ['options', 'enabled'], default: true },
+    { name: 'options-count', type: 'number', required: true, apiFieldPath: ['options', 'count'], default: 3 },
+    { name: 'options-tags', type: 'array', required: false, apiFieldPath: ['options', 'tags'] },
+    { name: 'options-secret', type: 'string', required: false, apiFieldPath: ['options', 'secret'], sensitive: true },
+    { name: 'objects', type: 'array', itemType: 'object', required: false, apiFieldPath: ['objects'] },
+  ]);
+});
+
 test('x-fern-property-name survives oneOf variant merges and renames conflicts', () => {
   populateOperationMap({
     paths: {
