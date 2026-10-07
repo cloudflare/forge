@@ -1,5 +1,4 @@
 ---
-import Default from '@astrojs/starlight/components/PageTitle.astro';
 import { getApiPage, getApiRouter } from '../api-server.ts';
 
 const router = await getApiRouter();
@@ -76,15 +75,14 @@ const availability = availabilityStatus
         </div>
       ) : null}
     </div>
-  ) : (
-    <Default />
-  )
+  ) : null
 }
 
 <style>
   .forge-operation-title {
     min-width: 0;
     padding-top: 0.5rem;
+    padding-bottom: 1.75rem;
   }
 
   .forge-title-meta,
@@ -234,7 +232,7 @@ const availability = availabilityStatus
     min-width: 0;
     overflow-x: auto;
     color: var(--cf-muted-foreground);
-    font-family: var(--sl-font-mono);
+    font-family: var(--nb-font-mono);
     font-size: 0.8125rem;
     scrollbar-width: thin;
     white-space: nowrap;
@@ -246,7 +244,7 @@ const availability = availabilityStatus
     padding: 0.25rem 0.45rem;
     color: var(--cf-muted-foreground);
     background: var(--cf-muted);
-    font-family: var(--sl-font-mono);
+    font-family: var(--nb-font-mono);
     font-size: 0.6875rem;
     font-weight: 700;
     line-height: 1;

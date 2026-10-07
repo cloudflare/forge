@@ -1,4 +1,4 @@
-import type { StarlightRouteData } from '@astrojs/starlight/route-data';
+import type { SidebarItem } from '@cloudflare/nimbus-docs/types';
 import type { ApiCatalogResource, ApiRouter } from './api-routing.ts';
 import { type CommandProductRoute, type CommandRouter, commandTitle } from './command-reference/routing.ts';
 import type { CommandMetadata } from './command-reference/schema.ts';
@@ -146,24 +146,23 @@ function normalizePath(pathname: string): string {
   return clean === '' ? '/' : clean;
 }
 
-function toRouteEntry(item: ForgeSidebarItem, currentPath: string): StarlightRouteData['sidebar'][number] {
+function toRouteEntry(item: ForgeSidebarItem, currentPath: string, order: number): SidebarItem {
   if ('link' in item) {
     return {
       type: 'link',
       label: item.label,
       href: item.link,
       isCurrent: normalizePath(item.link) === currentPath,
-      badge: undefined,
-      attrs: {},
+      order,
     };
   }
 
   return {
     type: 'group',
     label: item.label,
-    entries: item.items.map((entry) => toRouteEntry(entry, currentPath)),
+    children: item.items.map((entry, index) => toRouteEntry(entry, currentPath, index)),
     collapsed: item.collapsed,
-    badge: undefined,
+    order,
   };
 }
 
@@ -173,7 +172,7 @@ export function forgeRouteSidebar(
   snapshotId: string,
   lang: string | undefined,
   pathname: string,
-): StarlightRouteData['sidebar'] {
+): SidebarItem[] {
   const selectedSnapshotId = router.plan.catalog.snapshots.some((snapshot) => snapshot.id === snapshotId)
     ? snapshotId
     : (router.plan.catalog.snapshots.find((snapshot) => snapshot.default)?.id ?? snapshotId);
@@ -203,7 +202,7 @@ export function forgeRouteSidebar(
         ],
       };
     }),
-  ].map((entry) => toRouteEntry(entry, currentPath));
+  ].map((entry, index) => toRouteEntry(entry, currentPath, index));
 }
 
 interface CommandSidebarNode {

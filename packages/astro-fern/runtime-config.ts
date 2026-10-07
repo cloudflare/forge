@@ -1,3 +1,5 @@
+import { DEFAULT_FERN_CONTENT_COLLECTION } from './content-contract.ts';
+
 /** How execution-target variants are addressed in human documentation URLs. */
 export type FernTargetRouting = 'hash' | 'path';
 
@@ -26,12 +28,15 @@ export interface AstroFernRoutingOptions {
 
 /** Configuration owned exclusively by the Astro integration. */
 export interface AstroFernIntegrationOptions {
+  /** Name of the content collection registered with `fernCollection()`. Defaults to `apiReference`. */
+  collection?: string;
   routing?: AstroFernRoutingOptions;
   agents?: AstroFernAgentsOptions;
 }
 
 /** Fully resolved integration configuration consumed by route composition at runtime. */
 export interface FernRuntimeConfig {
+  collection: string;
   routing: Required<AstroFernRoutingOptions>;
   agents: {
     injectRoutes: boolean;
@@ -63,8 +68,19 @@ export function resolveAgents(agents?: AstroFernAgentsOptions): FernRuntimeConfi
   };
 }
 
+export function resolveCollection(collection: string | undefined): string {
+  if (collection === undefined) return DEFAULT_FERN_CONTENT_COLLECTION;
+  if (collection.trim() === '' || collection.trim() !== collection) {
+    throw new Error(
+      `astro-fern: collection must be a non-empty name without surrounding whitespace, got "${collection}"`,
+    );
+  }
+  return collection;
+}
+
 export function resolveRuntimeConfig(options: AstroFernIntegrationOptions): FernRuntimeConfig {
   return {
+    collection: resolveCollection(options.collection),
     routing: {
       base: normalizeBase(options.routing?.base),
       target: options.routing?.target ?? 'hash',

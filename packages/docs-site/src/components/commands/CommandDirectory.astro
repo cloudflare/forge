@@ -1,5 +1,4 @@
 ---
-import AnchorHeading from '@astrojs/starlight/components/AnchorHeading.astro';
 import type { CommandRouter } from '../../command-reference/routing.ts';
 import type { CommandMetadata } from '../../command-reference/schema.ts';
 import { commandTitle } from '../../command-reference/routing.ts';
@@ -40,7 +39,7 @@ const sections = [
       sections.map((section) => (
         <section aria-labelledby={section.id}>
           <header>
-            <AnchorHeading level={2} id={section.id}>{section.title}</AnchorHeading>
+            <h2 id={section.id}>{section.title}</h2>
             {'description' in section && section.description ? <p>{section.description}</p> : null}
           </header>
           <ul>
@@ -82,7 +81,7 @@ const sections = [
 
   .command-introduction code {
     color: var(--cf-foreground);
-    font-family: var(--sl-font-mono);
+    font-family: var(--nb-font-mono);
   }
 
   .command-sections {
@@ -94,7 +93,7 @@ const sections = [
     margin-bottom: 0.75rem;
   }
 
-  header :global(.sl-heading-wrapper) {
+  header h2 {
     margin: 0;
   }
 
@@ -136,7 +135,7 @@ const sections = [
 
   .command-marker {
     color: var(--cf-primary);
-    font-family: var(--sl-font-mono);
+    font-family: var(--nb-font-mono);
     font-size: 0.8125rem;
     font-weight: 700;
   }
@@ -151,7 +150,7 @@ const sections = [
     overflow: hidden;
     color: var(--cf-foreground);
     background: transparent;
-    font-family: var(--sl-font-mono);
+    font-family: var(--nb-font-mono);
     font-size: 0.875rem;
     font-weight: 600;
     text-overflow: ellipsis;

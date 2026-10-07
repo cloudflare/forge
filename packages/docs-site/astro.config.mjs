@@ -1,24 +1,22 @@
 // @ts-check
 import cloudflare from '@astrojs/cloudflare';
-import starlight from '@astrojs/starlight';
+import nimbus, { defineConfig as defineNimbusConfig } from '@cloudflare/nimbus-docs';
+import { tableScroll } from '@cloudflare/nimbus-docs/markdown';
+import tailwindcss from '@tailwindcss/vite';
 import astroFern from 'astro-fern';
 import { defineConfig } from 'astro/config';
 
-function optimizeServerDependencies() {
-  return {
-    name: 'optimize-server-dependencies',
-    /** @param {string} environment */
-    configEnvironment(environment) {
-      if (environment !== 'client') {
-        return {
-          optimizeDeps: {
-            include: ['@astrojs/starlight > postcss'],
-          },
-        };
-      }
-    },
-  };
-}
+const nimbusConfig = defineNimbusConfig({
+  site: 'https://docs.experiments.devprod.cloudflare.dev',
+  title: 'Cloudflare API',
+  description: 'API reference generated from the Cloudflare OpenAPI spec by Forge.',
+  locale: 'en',
+  github: null,
+  search: false,
+  // Authored pages read the API catalog and the selected version at request
+  // time, so the docs collection renders on demand like the API pages.
+  rendering: { default: 'request' },
+});
 
 export default defineConfig({
   base: '/api',
@@ -26,29 +24,24 @@ export default defineConfig({
   trailingSlash: 'always',
   adapter: cloudflare({ prerenderEnvironment: 'node' }),
   vite: {
-    plugins: [optimizeServerDependencies()],
+    plugins: [tailwindcss()],
   },
   integrations: [
+    nimbus(nimbusConfig, {
+      rules: {
+        'nimbus/frontmatter-shape': 'error',
+        'nimbus/internal-link': 'error',
+      },
+      markdown: {
+        hastPlugins: [tableScroll()],
+      },
+    }),
+    // After Nimbus: Nimbus replaces Astro's Markdown processor, and astro-fern
+    // installs its sanitizer into whichever processor is active when it runs.
     astroFern({
+      collection: '_apiReference',
       routing: { base: '/', target: 'hash' },
       agents: { injectRoutes: false, markdown: false, llms: false },
-    }),
-    starlight({
-      title: 'Cloudflare API',
-      description: 'API reference generated from the Cloudflare OpenAPI spec by Forge.',
-      favicon: '/favicon.svg',
-      prerender: false,
-      pagefind: false,
-      pagination: false,
-      customCss: ['@fontsource-variable/inter', '@fontsource-variable/jetbrains-mono', './src/styles/cloudflare.css'],
-      components: {
-        PageTitle: './src/components/PageTitle.astro',
-        Sidebar: './src/components/Sidebar.astro',
-        SiteTitle: './src/components/SiteTitle.astro',
-        ThemeSelect: './src/components/ThemeSelect.astro',
-      },
-      sidebar: [{ label: 'Overview', link: '/' }],
-      routeMiddleware: './src/starlight-route-data.ts',
     }),
   ],
 });
