@@ -88,3 +88,30 @@
     overflow-wrap: anywhere;
   }
 }
+
+/*
+ * Nimbus's `headingAnchors()` appends a `#` self-link to every h2–h4 with an
+ * id inside `.docs-content`, including API reference headings. Show it on hover.
+ */
+.docs-content :where(h2[id], h3[id], h4[id]) {
+  position: relative;
+}
+
+.docs-content .heading-anchor {
+  margin-left: 0.5rem;
+  color: var(--cf-muted-foreground);
+  text-decoration: none;
+  opacity: 0;
+  transition:
+    opacity 0.15s,
+    color 0.15s;
+}
+
+.docs-content :where(h2[id], h3[id], h4[id]):hover .heading-anchor,
+.docs-content .heading-anchor:focus-visible {
+  opacity: 1;
+}
+
+.docs-content .heading-anchor:hover {
+  color: var(--cf-foreground);
+}
