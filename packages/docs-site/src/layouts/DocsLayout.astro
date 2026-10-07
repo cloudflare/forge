@@ -99,8 +99,8 @@ const hasPagination = Astro.slots.has("pagination");
                 <slot name="sidebar" />
               ) : (
                 <nav data-nb-sidebar-nav class="px-4 pb-12 flex-1">
-                  <div class="sticky top-0 z-10 -mx-4 bg-background px-4 pt-5 pb-3 [[data-mobile-sidebar-nav]_&]:top-14">
-                    <SidebarFilter placeholder="Filter sidebar" class="mb-0" />
+                  <div class="sb-filter-bar">
+                    <SidebarFilter placeholder="Filter sidebar" />
                   </div>
                   <Sidebar items={sidebar} persist />
                 </nav>
@@ -179,7 +179,7 @@ const hasPagination = Astro.slots.has("pagination");
           )}
 
           <main id="main-content" tabindex="-1" class="flex-1 min-w-0">
-            <div class:list={["mx-auto px-4 md:px-6 pt-6 pb-12", wide ? "max-w-(--cf-content-wide-max)" : "max-w-(--nb-content-max)"]}>
+            <div class="mx-auto max-w-(--nb-content-max) px-4 md:px-6 pt-6 pb-12" style={wide ? "--nb-content-max: var(--cf-content-wide-max)" : undefined}>
               {versionStatus?.isDeprecated && (
                 <Banner
                   variant="caution"
@@ -274,7 +274,7 @@ const hasPagination = Astro.slots.has("pagination");
         {/* The desktop rail's <nav> moves here while the drawer is open, so the
             (very large) API tree is rendered once per page. */}
         {/* The header hides the version select on mobile; it lives here instead. */}
-        <VersionSelect variant="drawer" class="mx-4 mt-5" />
+        <VersionSelect variant="drawer" />
         <div data-mobile-sidebar-nav></div>
       </div>
     </dialog>

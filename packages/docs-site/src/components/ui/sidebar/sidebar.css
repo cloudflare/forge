@@ -120,3 +120,23 @@
     transition: none;
   }
 }
+
+/* Keeps the filter visible while the tree scrolls, in the rail and the drawer. */
+.sb-filter-bar {
+  position: sticky;
+  z-index: 10;
+  top: 0;
+  margin-inline: -1rem;
+  padding: 1.25rem 1rem 0.75rem;
+  background: var(--nb-background);
+}
+
+/* The bar supplies the spacing below the filter. */
+.sb-filter-bar > * {
+  margin-bottom: 0;
+}
+
+/* In the mobile drawer, stick below the drawer's own "Navigation" bar. */
+[data-mobile-sidebar-nav] .sb-filter-bar {
+  top: 3.5rem;
+}
