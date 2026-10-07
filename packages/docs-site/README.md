@@ -40,7 +40,7 @@ SDK-backed URLs.
 ## Project ownership
 
 - `src/content.config.ts` selects OpenAPI sources, discovers SDK products and ownership sections, configures snapshots and execution targets, and registers the canonical, route-neutral API collection. Data-only collections are prefixed with `_` so Nimbus leaves them out of its Markdown and `llms.txt` index.
-- `astro.config.mjs` independently configures routing and installs Nimbus, `astro-fern`, and the Cloudflare adapter. `astro-fern` is registered after Nimbus because Nimbus replaces Astro's Markdown processor and `astro-fern` installs its sanitizer into the active one.
+- `astro.config.mjs` independently configures routing and installs Nimbus, `astro-fern`, and the Cloudflare adapter. Nimbus replaces Astro's Markdown processor, so the config passes astro-fern's `sanitizeFernMarkdownPlugin` to Nimbus's processor; astro-fern fails the build if OpenAPI descriptions would render raw HTML or unsafe URLs.
 - `src/api-routing.ts` owns the query-parameter URL policy and semantic link resolution.
 - `src/api-server.ts` binds that policy to `astro-fern`'s lazy server APIs.
 - `src/pages/[product]/[...slug].astro` owns the SSR human operation route and renderer.

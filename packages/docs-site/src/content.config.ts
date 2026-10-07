@@ -1,5 +1,5 @@
 import { defineCollection } from 'astro:content';
-import { docsCollection, partialsCollection } from '@cloudflare/nimbus-docs/content';
+import { docsCollection } from '@cloudflare/nimbus-docs/content';
 import { defineFernManifest, type FernContentOptions, type FernManifestProvider } from 'astro-fern';
 import { fernCollection } from 'astro-fern/collections';
 import { forgeExtension, hasRemovedForgeOperationFields, hoistForgeCommands } from 'fern-forge';
@@ -33,7 +33,6 @@ const manifest: FernManifestProvider = (_openapi, { discoverProducts }) =>
 // snapshot artifacts. `astro-fern/server` composes exact snapshot-selected pages at runtime.
 export const collections = {
   docs: defineCollection(docsCollection()),
-  partials: defineCollection(partialsCollection()),
   _cfCommands: defineCollection({ loader: commandCatalogLoader(() => cfCommandCatalog) }),
   _apiReference: fernCollection({
     source: {

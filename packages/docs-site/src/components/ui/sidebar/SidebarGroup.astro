@@ -3,6 +3,8 @@
  * SidebarGroup — a collapsible section built on native `<details>`, so the
  * thousands of groups in the API sidebar need no per-group script and still
  * open and close without JavaScript. Groups on the active trail render open.
+ * Like SidebarLink, it carries no classes or data attributes; `sidebar.css`
+ * styles it structurally.
  */
 import type { SidebarBadge, SidebarItem } from "@cloudflare/nimbus-docs/types";
 import { withBase } from "@cloudflare/nimbus-docs/runtime";
@@ -39,8 +41,8 @@ const isOpen = hasActive || collapsed === false || collapsed === undefined;
 const resolvedIndexHref = indexHref ? withBase(indexHref, import.meta.env.BASE_URL) : undefined;
 ---
 
-<details data-nb-sidebar-group open={isOpen} class:list={["sb-group", { "sb-active": hasActive }]}>
-  <summary data-nb-sidebar-group-label class="sb-row"
+<details open={isOpen}>
+  <summary
     >{
       resolvedIndexHref ? (
         <a
@@ -52,14 +54,14 @@ const resolvedIndexHref = indexHref ? withBase(indexHref, import.meta.env.BASE_U
           {label}
         </a>
       ) : (
-        <span>{label}</span>
+        label
       )
     }{
       badge &&
         (typeof badge === "string" ? <Badge text={badge} /> : <Badge text={badge.text} variant={badge.variant} />)
     }</summary
   >
-  <ul class="sb-list">
+  <ul>
     {
       items.map((item) => (
         <li>

@@ -4,7 +4,6 @@ import {
   getDocsStaticPaths,
   getDocsPage,
   getRouteFlags,
-  getPrevNext,
   getBreadcrumbs,
   getEditUrl,
   getLastUpdated,
@@ -12,10 +11,20 @@ import {
   stripBase,
 } from "@cloudflare/nimbus-docs/runtime";
 import { components } from "../components";
+import { getApiRouter } from "../api-server.ts";
 import { getPageSidebar } from "../page-sidebar.ts";
 
+// Nimbus's `rendering: { default: "request" }` turns this route into on-demand
+// rendering; Nimbus requires canonical content routes to keep these exports.
 export const prerender = true;
 export const getStaticPaths = getDocsStaticPaths;
+
+// The overview honours the site-wide `?version=` / `?lang=` selection; reject
+// empty, duplicate, or unknown values like the API routes do.
+const router = await getApiRouter();
+if (router.isSitePath(Astro.url.pathname) && !router.resolveSiteSelection(Astro.url)) {
+  return new Response("Not found", { status: 404 });
+}
 
 const page = await getDocsPage(Astro);
 if (page instanceof Response) return page;
@@ -28,10 +37,6 @@ const { sidebar: sidebarOn, tableOfContents: tocOn } = await getRouteFlags(entry
 // The rail is the API navigation for the selected version and target, shared
 // with the API and tooling routes, rather than a tree of authored pages.
 const sidebar = sidebarOn ? await getPageSidebar(Astro.url) : false;
-const prevNext = await getPrevNext(currentSlug, {
-  sidebarTree: sidebar === false ? [] : sidebar,
-  overrides: { prev: entry.data.prev, next: entry.data.next },
-});
 // Pass `collection` so versioned pages (docs-<v>) get version-prefixed
 // breadcrumb hrefs.
 const breadcrumbs = await getBreadcrumbs(currentSlug, { collection: entry.collection });
@@ -53,11 +58,9 @@ const socialImage = entry.data.socialImage ?? ogImageUrl;
   sidebar={sidebar}
   headings={toc}
   breadcrumbs={breadcrumbs}
-  prevNext={prevNext}
   mode={entry.data.mode}
   banner={entry.data.banner}
   head={entry.data.head}
-  searchable={entry.data.searchable}
   noindex={entry.data.noindex}
   markdownUrl={markdownUrl}
   socialImage={socialImage}

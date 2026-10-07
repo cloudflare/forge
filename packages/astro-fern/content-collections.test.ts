@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import type { FernArtifactGeneration } from './artifacts.ts';
 import {
+  assertSanitizedMarkdownRenderer,
   enrichOperationEntry,
   type FernContentLoaderContext,
   fernContentLoader,
@@ -75,7 +76,8 @@ function fakeContext(parse?: (id: string, data: unknown) => void | Promise<void>
       await parse?.(id, data);
       return data;
     },
-    renderMarkdown: async (markdown: string) => ({ html: wrap(markdown) }),
+    // Like a sanitizing processor, never emit source HTML as markup.
+    renderMarkdown: async (markdown: string) => ({ html: wrap(markdown.replaceAll('<', '&lt;')) }),
     publishArtifacts: async (generation) => {
       generations.push(generation);
       artifacts.clear();
@@ -442,4 +444,24 @@ test('the operation entry schema enforces normalized deprecation metadata', asyn
     }).success,
     false,
   );
+});
+
+test('content loading fails when the active Markdown renderer emits raw HTML', async () => {
+  await assert.rejects(
+    assertSanitizedMarkdownRenderer(async (markdown) => ({ html: `<p>${markdown}</p>` })),
+    /renders raw HTML or unsafe URLs/,
+  );
+});
+
+test('content loading fails when the active Markdown renderer emits javascript: links', async () => {
+  await assert.rejects(
+    assertSanitizedMarkdownRenderer(async () => ({ html: '<p>&lt;i&gt; <a href="javascript:probe">probe</a></p>' })),
+    /renders raw HTML or unsafe URLs/,
+  );
+});
+
+test('content loading accepts a renderer that escapes source HTML and neutralizes unsafe URLs', async () => {
+  await assertSanitizedMarkdownRenderer(async () => ({
+    html: '<p>&lt;i data-astro-fern-probe&gt;&lt;/i&gt; <a href="#">probe</a></p>',
+  }));
 });

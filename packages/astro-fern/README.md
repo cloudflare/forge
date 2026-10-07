@@ -809,6 +809,12 @@ Only pass `page.operation.*.html` to `set:html` after a sanitizer has processed
 it. The package provides that guarantee only when its Satteri plugin is active.
 Add an equivalent sanitizer when another processor is active.
 
+Another integration can replace or wrap Astro's processor after `astroFern()`
+installs the plugin. Content loading therefore renders a probe through the
+processor in use and fails the build if raw HTML or a `javascript:` link
+survives. When an integration owns the processor, pass the exported
+`sanitizeFernMarkdownPlugin` to that integration's MDAST plugin option.
+
 The plugin covers source nodes present when it runs. Markdown plugins that add
 HTML or links later in the pipeline must enforce the same URL and HTML policy.
 Agent documents contain source Markdown, so publish agent routes from trusted
