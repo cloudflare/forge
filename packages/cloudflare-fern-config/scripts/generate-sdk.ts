@@ -271,6 +271,7 @@ if (languages.includes('typescript')) {
   // so a later regeneration preserves them.
   console.log('==> Installing TypeScript custom runtime');
   cpSync(join(sdkTs, 'custom'), generated, { recursive: true });
+  run(process.execPath, ['--import', 'tsx', join(sdkTs, 'scripts', 'narrow-sdk-error-imports.ts'), generated]);
 }
 
 console.log(`==> Done: ${languages.join(', ')}`);
