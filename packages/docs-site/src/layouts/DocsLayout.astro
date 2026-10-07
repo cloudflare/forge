@@ -3,7 +3,7 @@
  * DocsLayout — three-column docs layout.
  *
  * Named slots for overrides (all optional, defaults render otherwise):
- *   header, sidebar, toc, page-title, content-footer, pagination
+ *   header, sidebar, toc, page-title, content-footer
  */
 import Icon from "@cloudflare/nimbus-docs/components/Icon.astro";
 import BaseLayout from "./BaseLayout.astro";
@@ -13,13 +13,13 @@ import { Banner } from "@/components/ui/banner";
 import { Sidebar, SidebarFilter } from "@/components/ui/sidebar";
 import { TOC, MobileTOC } from "@/components/ui/toc";
 import { Breadcrumbs } from "@/components/ui/breadcrumbs";
-import { Pagination } from "@/components/ui/pagination";
 import { PageActions } from "@/components/ui/page-actions";
 import { Badge } from "@/components/ui/badge";
 import type { DocsPageProps } from "@cloudflare/nimbus-docs/types";
 import { getVersionStatus, getVersionAlternates, withBase } from "@cloudflare/nimbus-docs/runtime";
 
-type Props = DocsPageProps & {
+// Previous/next pagination is not rendered, so pages do not pass `prevNext`.
+type Props = Omit<DocsPageProps, "prevNext"> & {
   audience?: "human";
   /** Widens the content column for two-pane API reference pages. */
   wide?: boolean;
@@ -27,12 +27,8 @@ type Props = DocsPageProps & {
   showDescription?: boolean;
 };
 
-const { title, description, sidebar, headings, breadcrumbs, prevNext, mode = "doc", banner, head = [], searchable, noindex, markdownUrl, socialImage, lastUpdated, editUrl, draft, audience, collection, entryId, wide = false, showDescription = true } = Astro.props;
+const { title, description, sidebar, headings, breadcrumbs, mode = "doc", banner, head = [], noindex, markdownUrl, socialImage, lastUpdated, editUrl, draft, audience, collection, entryId, wide = false, showDescription = true } = Astro.props;
 
-// `searchable` derives from `noindex` when omitted: a non-crawlable page is
-// by default not in the site search either. Explicit `searchable: true`
-// overrides for the edge case of "no search engines, yes internal search."
-const effectiveSearchable = searchable ?? !noindex;
 const isCustom = mode === "custom";
 
 // `sidebar: false` / `tableOfContents: false` in frontmatter come through
@@ -40,8 +36,8 @@ const isCustom = mode === "custom";
 // per-column suppression — chrome, mobile dialog, header menu button.
 const showSidebar = sidebar !== false;
 
-// Versioning: per-page status drives Pagefind faceting, deprecation
-// banner, and the data-pagefind-ignore exclusion for hidden versions.
+// Versioning: per-page status drives the deprecation banner. Search is disabled
+// (`search: false`), so no Pagefind indexing attributes are emitted.
 const versionStatus = collection ? await getVersionStatus(collection) : null;
 const versionAlternates = collection && entryId
   ? await getVersionAlternates(collection, entryId)
@@ -51,40 +47,16 @@ const currentSiblingUrl = versionAlternates?.canonical?.url
   : null;
 const homeHref = withBase("/", import.meta.env.BASE_URL);
 
-// Page-body attribute resolution:
-//   - If the user opted out via `searchable: false` (or `noindex: true`
-//     with no explicit override) → ignore.
-//   - If the page is in a hidden version → ignore unconditionally
-//     (hidden takes precedence; you can't index hidden content even
-//     if the page frontmatter says searchable=true).
-//   - Otherwise → mark as a Pagefind body, plus emit per-version and
-//     per-status filters so the search UI can scope by them.
-const pagefindAttrs: Record<string, string> = {};
-// The status filter rides its own element below: an inline `name:value` filter
-// captures to the end of the string, so a second inline filter can't share the
-// attribute (it would corrupt the version value to "v1, status:deprecated").
-const pagefindDeprecated =
-  effectiveSearchable && !versionStatus?.isHidden && Boolean(versionStatus?.isDeprecated);
-if (!effectiveSearchable || versionStatus?.isHidden) {
-  pagefindAttrs["data-pagefind-ignore"] = "";
-} else {
-  pagefindAttrs["data-pagefind-body"] = "";
-  if (versionStatus) {
-    pagefindAttrs["data-pagefind-filter"] = `version:${versionStatus.version}`;
-  }
-}
-
 const hasHeader = Astro.slots.has("header");
 const hasSidebar = Astro.slots.has("sidebar");
 const hasToc = Astro.slots.has("toc");
 const hasPageTitle = Astro.slots.has("page-title");
 const hasContentFooter = Astro.slots.has("content-footer");
-const hasPagination = Astro.slots.has("pagination");
 ---
 
 <BaseLayout title={title} description={description} noindex={noindex || draft} markdownUrl={markdownUrl} socialImage={socialImage} lastUpdated={lastUpdated} head={head} collection={collection} entryId={entryId}>
   <div class="flex flex-col min-h-screen">
-    {hasHeader ? <slot name="header" /> : <Header collection={collection} entryId={entryId} showSidebar={showSidebar} />}
+    {hasHeader ? <slot name="header" /> : <Header showSidebar={showSidebar} />}
 
     {isCustom ? (
       <main id="main-content" tabindex="-1" class="flex-1">
@@ -125,42 +97,31 @@ const hasPagination = Astro.slots.has("pagination");
               sidebar.scrollTop += ar.top - sr.top - sr.height / 2 + ar.height / 2;
             }
 
-            function setGroupOpen(group, open) {
-              group.open = open;
-            }
-
             function restore() {
               try {
-                if (!matchMedia("(min-width: 48rem)").matches) return;
                 const sidebar = document.getElementById("desktop-sidebar");
                 if (!sidebar) return;
                 const content = sidebar.querySelector("[data-nb-sidebar]");
                 if (!content) return;
 
+                // Open groups are restored on every viewport: the mobile drawer
+                // borrows this same tree. Scroll belongs to the desktop rail only.
                 const raw = sessionStorage.getItem("sidebar-state");
-                let state;
-                if (raw) {
-                  state = JSON.parse(raw);
-                  if (state && content.dataset.nbSidebarHash === state.hash) {
-                    const groups = content.querySelectorAll("[data-nb-sidebar-group]");
-                    for (let i = 0; i < groups.length; i++) {
-                      if (typeof state.open[i] === "boolean") {
-                        setGroupOpen(groups[i], state.open[i]);
-                      }
-                    }
+                const state = raw ? JSON.parse(raw) : null;
+                if (state && content.dataset.nbSidebarHash === state.hash && Array.isArray(state.open)) {
+                  const groups = content.querySelectorAll("details");
+                  for (let i = 0; i < groups.length; i++) {
+                    if (typeof state.open[i] === "boolean") groups[i].open = state.open[i];
                   }
                 }
 
-                const active = sidebar.querySelector("[aria-current='page']");
-                if (active) {
-                  let d = active.closest("[data-nb-sidebar-group]");
-                  while (d) {
-                    setGroupOpen(d, true);
-                    d = d.parentElement && d.parentElement.closest("[data-nb-sidebar-group]");
-                  }
+                const active = content.querySelector("[aria-current='page']");
+                for (let d = active && active.closest("details"); d && content.contains(d); d = d.parentElement.closest("details")) {
+                  d.open = true;
                 }
 
-                if (raw && state && typeof state.scroll === "number") {
+                if (!matchMedia("(min-width: 48rem)").matches) return;
+                if (state && typeof state.scroll === "number") {
                   sidebar.scrollTop = state.scroll;
                   if (active) {
                     const sr = sidebar.getBoundingClientRect();
@@ -192,8 +153,7 @@ const hasPagination = Astro.slots.has("pagination");
               )}
               {banner && <Banner content={banner.content} variant={banner.type} dismissible={banner.dismissible} />}
               <Breadcrumbs items={breadcrumbs} class="pb-2" />
-              <div {...pagefindAttrs}>
-                {pagefindDeprecated && <span hidden data-pagefind-filter="status:deprecated"></span>}
+              <div>
                 {hasPageTitle ? (
                   <slot name="page-title" />
                 ) : (
@@ -239,7 +199,6 @@ const hasPagination = Astro.slots.has("pagination");
                   </div>
                 )}
               </div>
-              {hasPagination ? <slot name="pagination" /> : <Pagination prevNext={prevNext} />}
             </div>
           </main>
 
