@@ -52,7 +52,7 @@ SDK-backed URLs.
 
 ### Styling
 
-Files copied from Nimbus (`src/layouts/`, `src/components/ui/`, `src/styles/globals.css`, and `prose.css`) keep Nimbus's Tailwind classes so registry updates still apply. Everything else — the API reference, the header, and the sidebar rows — uses scoped or plain CSS with the `--cf-*` and `--nb-*` tokens. Do not put utility classes on markup that repeats at scale: the API sidebar renders thousands of rows per page, and per-row class strings multiply page size.
+Files copied from Nimbus (`src/layouts/`, `src/components/ui/`, and `src/styles/globals.css`) keep Nimbus's Tailwind classes so registry updates still apply. Nimbus's starter `prose.css` is not included: the only authored page renders components, so add prose styles back when authored guides are written. Everything else — the API reference, the header, and the sidebar rows — uses scoped or plain CSS with the `--cf-*` and `--nb-*` tokens. Do not put utility classes on markup that repeats at scale: the API sidebar renders thousands of rows per page, and per-row class strings multiply page size.
 
 Products are discovered across the configured OpenAPI source set. Routes,
 navigation, agent indexes, and server-island lookups are composed from that

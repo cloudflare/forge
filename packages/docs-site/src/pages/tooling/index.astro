@@ -25,7 +25,7 @@ const commands = router.commands.filter((command) => !productIds.has(command.ful
   breadcrumbs={[]}
   showDescription={false}
 >
-  <div class="command-overview not-content">
+  <div class="command-overview">
     <CopyableCommand command="cf --help" label="Copy cf help command" />
     <CommandDirectory router={router} commands={commands} />
   </div>
