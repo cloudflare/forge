@@ -18,7 +18,7 @@ import { fileURLToPath } from 'node:url';
 import { applyFernCompatibilityFixes } from '@cloudflare/forge/fern-openapi-compat';
 
 const DIST_ROOT = dirname(fileURLToPath(import.meta.url));
-// The vendored @cloudflare/codegen-cli and @cloudflare/codegen-typescript-sdk
+// The vendored fern-api and @cloudflare/codegen-typescript-sdk packages
 // (Cloudflare's forks of the Fern CLI and Fern TypeScript generator), copied
 // into dist by build-package.ts so the packed tarball has no file: dependency
 // on this repo's vendor/ directory.

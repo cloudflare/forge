@@ -30,12 +30,12 @@
     "typescript": "6.0.3"
   },
   "devDependencies": {
-    "@cloudflare/codegen-cli": "file:../../vendor/codegen-cli/cloudflare-codegen-cli-5.112.0.tgz",
     "@cloudflare/codegen-typescript-sdk": "file:../../vendor/codegen-cli/cloudflare-codegen-typescript-sdk-3.88.3.tgz",
     "@cloudflare/forge": "workspace:*",
     "@types/node": "26.0.1",
     "@types/tar": "^7.0.87",
     "esbuild": "0.27.3",
+    "fern-api": "file:../../vendor/codegen-cli/fern-api-5.112.0.tgz",
     "tsx": "4.22.4"
   },
   "engines": {

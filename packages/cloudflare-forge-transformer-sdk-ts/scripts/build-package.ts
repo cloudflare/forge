@@ -96,7 +96,7 @@ cpSync(
 // repo's vendor/ directory. The generator directory carries cli.cjs plus the
 // assets and native dprint binaries it loads relative to itself.
 const vendorRequire = createRequire(import.meta.url);
-cpSync(vendorRequire.resolve('@cloudflare/codegen-cli/cli.cjs'), join(DIST, 'vendor', 'codegen-cli', 'cli.cjs'));
+cpSync(vendorRequire.resolve('fern-api/cli.cjs'), join(DIST, 'vendor', 'codegen-cli', 'cli.cjs'));
 cpSync(
   dirname(vendorRequire.resolve('@cloudflare/codegen-typescript-sdk/cli.cjs')),
   join(DIST, 'vendor', 'codegen-typescript-sdk'),

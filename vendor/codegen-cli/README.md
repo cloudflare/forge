@@ -9,13 +9,14 @@ checked in here so generation does not download Fern from npm or Docker Hub.
 
 | Tarball                                        | Package                                                             | Upstream                                                  | Version   | Built from                                 |
 | ---------------------------------------------- | ------------------------------------------------------------------- | --------------------------------------------------------- | --------- | ------------------------------------------ |
-| `cloudflare-codegen-cli-5.112.0.tgz`           | `@cloudflare/codegen-cli` (the `fern` command)                      | Fern CLI (`fern-api` on npm)                              | `5.112.0` | `681ae45e133db6f3d554dd6b135fd174773d3beb` |
+| `fern-api-5.112.0.tgz`                         | `fern-api` (the `fern` command)                                     | Fern CLI (`fern-api` on npm)                              | `5.112.0` | `2e7e57b4de410ae400e80ff8f4809c77eba50930` |
 | `cloudflare-codegen-typescript-sdk-3.88.3.tgz` | `@cloudflare/codegen-typescript-sdk` (the TypeScript SDK generator) | Fern TypeScript generator (`fernapi/fern-typescript-sdk`) | `3.88.3`  | `1d1bde1820d5fc17f6a1c8c91cdf657e13956836` |
 
 The commit is also the `gitHead` field in each tarball's `package.json`.
-Versions are the upstream releases the fork is built on. The CLI version must
-match `version` in `fern.config.json`; the CLI fails on a mismatch instead of
-downloading another build.
+Versions are the upstream releases the fork is built on. The CLI keeps
+upstream's package name, `fern-api`, but never contacts npm: it skips upgrade
+checks, and it fails when `version` in `fern.config.json` does not match
+instead of downloading another build.
 
 Fern's TypeScript generator runs natively (no Docker): `generators.yml` points
 `local-command` at its `cli.cjs`, and the CLI runs it on the host. It shells
