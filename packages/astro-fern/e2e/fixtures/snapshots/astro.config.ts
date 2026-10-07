@@ -8,5 +8,5 @@ export default defineConfig({
   base: fixture.base,
   output: 'server',
   trailingSlash: 'always',
-  integrations: [astroFern({ routing: { base: '/api', target: 'path' } })],
+  integrations: [astroFern({ collection: '_fernCatalog', routing: { base: '/api', target: 'path' } })],
 });

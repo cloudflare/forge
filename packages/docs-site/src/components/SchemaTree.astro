@@ -112,8 +112,8 @@ function requirement(n: RenderedSchemaNodeSchema): { text: string; cls: string }
    * styled here; the injected block children are normalized in the global block
    * in `pages/api/[...slug].astro`.
    *
-   * Colours use Starlight tokens; `--sl-color-text` (gray-2) is the accessible
-   * body-text colour (gray-3 fails contrast on the dark background).
+   * Colours use the `--cf-*` site tokens; `--cf-foreground` is the accessible
+   * body-text colour (`--cf-muted-foreground` fails contrast on dark backgrounds).
    */
   .forge-fields {
     margin: 0.75rem 0 0;
@@ -136,13 +136,13 @@ function requirement(n: RenderedSchemaNodeSchema): { text: string; cls: string }
     padding: 0;
     color: var(--cf-foreground);
     background: transparent;
-    font-family: var(--sl-font-mono);
+    font-family: var(--nb-font-mono);
     font-size: 0.8125rem;
     font-weight: 650;
   }
   .forge-type {
     color: var(--cf-muted-foreground);
-    font-family: var(--sl-font-mono);
+    font-family: var(--nb-font-mono);
     font-size: 0.75rem;
   }
   .forge-variant-title {
@@ -180,7 +180,7 @@ function requirement(n: RenderedSchemaNodeSchema): { text: string; cls: string }
   .forge-enum-values code,
   .forge-default code {
     color: var(--cf-foreground);
-    font-family: var(--sl-font-mono);
+    font-family: var(--nb-font-mono);
     font-size: 0.75rem;
   }
   .forge-enum-values > ul {
@@ -226,7 +226,7 @@ function requirement(n: RenderedSchemaNodeSchema): { text: string; cls: string }
     border: 1px solid var(--cf-border);
     border-radius: 0.2rem;
     content: '+';
-    font-family: var(--sl-font-mono);
+    font-family: var(--nb-font-mono);
     line-height: 1;
   }
   .forge-nested[open] > summary::before {

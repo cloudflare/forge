@@ -1,5 +1,5 @@
-/** Internal content collection registered by `defineFernCollections()`. */
-export const FERN_CONTENT_COLLECTION = 'apiReference';
+/** Default name of the content collection registered with `fernCollection()`. */
+export const DEFAULT_FERN_CONTENT_COLLECTION = 'apiReference';
 /** Singleton project-index entry within the Fern content collection. */
 export const FERN_PROJECT_ENTRY_ID = 'project';
 /** Live Collection containing request-loaded operation payloads. */

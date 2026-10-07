@@ -224,7 +224,7 @@ test('route sidebar exposes the complete navigation on non-operation pages', () 
   assert.equal(sidebar[0]?.type, 'link');
   assert.equal(sidebar[0]?.isCurrent, true);
   assert.equal(sidebar[1]?.type, 'group');
-  assert.deepEqual(sidebar[1]?.type === 'group' ? sidebar[1].entries.map((entry) => entry.label) : [], [
+  assert.deepEqual(sidebar[1]?.type === 'group' ? sidebar[1].children.map((entry) => entry.label) : [], [
     'Overview',
     'Agent Context',
     'Ai',
@@ -267,7 +267,7 @@ test('route sidebar moves matching command namespaces under product developer to
     '/api/workers/tooling/triggers/deploy/',
   );
   const globalTooling = sidebar.find((entry) => entry.label === 'Developer Tooling');
-  assert.deepEqual(globalTooling?.type === 'group' ? globalTooling.entries.map((entry) => entry.label) : [], [
+  assert.deepEqual(globalTooling?.type === 'group' ? globalTooling.children.map((entry) => entry.label) : [], [
     'Overview',
     'Agent Context',
     'Auth',
@@ -279,31 +279,31 @@ test('route sidebar moves matching command namespaces under product developer to
   ]);
 
   const ai = sidebar.find((entry) => entry.label === 'AI');
-  assert.deepEqual(ai?.type === 'group' ? ai.entries.map((entry) => entry.label) : [], [
+  assert.deepEqual(ai?.type === 'group' ? ai.children.map((entry) => entry.label) : [], [
     'Overview',
     'Developer Tooling',
   ]);
-  const aiTooling = ai?.type === 'group' ? ai.entries[1] : undefined;
-  assert.deepEqual(aiTooling?.type === 'group' ? aiTooling.entries.map((entry) => entry.label) : [], ['Run']);
+  const aiTooling = ai?.type === 'group' ? ai.children[1] : undefined;
+  assert.deepEqual(aiTooling?.type === 'group' ? aiTooling.children.map((entry) => entry.label) : [], ['Run']);
 
   const d1 = sidebar.find((entry) => entry.label === 'D1');
-  assert.deepEqual(d1?.type === 'group' ? d1.entries.map((entry) => entry.label) : [], [
+  assert.deepEqual(d1?.type === 'group' ? d1.children.map((entry) => entry.label) : [], [
     'Overview',
     'Developer Tooling',
   ]);
-  const d1Tooling = d1?.type === 'group' ? d1.entries[1] : undefined;
-  const migrations = d1Tooling?.type === 'group' ? d1Tooling.entries[0] : undefined;
+  const d1Tooling = d1?.type === 'group' ? d1.children[1] : undefined;
+  const migrations = d1Tooling?.type === 'group' ? d1Tooling.children[0] : undefined;
   assert.equal(migrations?.label, 'Migrations');
-  assert.deepEqual(migrations?.type === 'group' ? migrations.entries.map((entry) => entry.label) : [], [
+  assert.deepEqual(migrations?.type === 'group' ? migrations.children.map((entry) => entry.label) : [], [
     'Apply',
     'Create',
     'List',
   ]);
 
   const workers = sidebar.find((entry) => entry.label === 'Workers');
-  const workersTooling = workers?.type === 'group' ? workers.entries[1] : undefined;
-  const triggers = workersTooling?.type === 'group' ? workersTooling.entries[0] : undefined;
-  const deploy = triggers?.type === 'group' ? triggers.entries[0] : undefined;
+  const workersTooling = workers?.type === 'group' ? workers.children[1] : undefined;
+  const triggers = workersTooling?.type === 'group' ? workersTooling.children[0] : undefined;
+  const deploy = triggers?.type === 'group' ? triggers.children[0] : undefined;
   assert.equal(deploy?.type, 'link');
   assert.equal(deploy?.type === 'link' ? deploy.href : undefined, '/api/workers/tooling/triggers/deploy/');
   assert.equal(deploy?.type === 'link' ? deploy.isCurrent : false, true);
@@ -331,13 +331,13 @@ test('route sidebar keeps commands global when their product is unavailable in t
 
   const currentSidebar = forgeRouteSidebar(sparseRouter, commandRouter, 'current', undefined, '/api/');
   const currentTooling = currentSidebar.find((entry) => entry.label === 'Developer Tooling');
-  assert.equal(currentTooling?.type === 'group' && currentTooling.entries.some((entry) => entry.label === 'D1'), true);
+  assert.equal(currentTooling?.type === 'group' && currentTooling.children.some((entry) => entry.label === 'D1'), true);
 
   const legacySidebar = forgeRouteSidebar(sparseRouter, commandRouter, 'legacy', undefined, '/api/');
   const legacyTooling = legacySidebar.find((entry) => entry.label === 'Developer Tooling');
-  assert.equal(legacyTooling?.type === 'group' && legacyTooling.entries.some((entry) => entry.label === 'D1'), false);
+  assert.equal(legacyTooling?.type === 'group' && legacyTooling.children.some((entry) => entry.label === 'D1'), false);
   const d1 = legacySidebar.find((entry) => entry.label === 'D1');
-  assert.deepEqual(d1?.type === 'group' ? d1.entries.map((entry) => entry.label) : [], [
+  assert.deepEqual(d1?.type === 'group' ? d1.children.map((entry) => entry.label) : [], [
     'Overview',
     'Developer Tooling',
   ]);
@@ -354,7 +354,7 @@ test('route sidebar retains default navigation when site query selection is inva
 test('route sidebar marks a CLI command child as current', () => {
   const sidebar = forgeRouteSidebar(router, commandRouter, 'current', undefined, '/api/tooling/deploy/');
   const commands = sidebar[1];
-  const deploy = commands?.type === 'group' ? commands.entries.find((entry) => entry.label === 'Deploy') : undefined;
+  const deploy = commands?.type === 'group' ? commands.children.find((entry) => entry.label === 'Deploy') : undefined;
 
   assert.equal(deploy?.type, 'link');
   assert.equal(deploy?.isCurrent, true);
@@ -385,9 +385,9 @@ test('route sidebar preserves every level of nested command paths', () => {
   );
   const sidebar = forgeRouteSidebar(router, nestedRouter, 'current', undefined, '/api/tooling/context/agents/list/');
   const commands = sidebar[1];
-  const context = commands?.type === 'group' ? commands.entries[1] : undefined;
-  const agents = context?.type === 'group' ? context.entries[0] : undefined;
-  const list = agents?.type === 'group' ? agents.entries[0] : undefined;
+  const context = commands?.type === 'group' ? commands.children[1] : undefined;
+  const agents = context?.type === 'group' ? context.children[0] : undefined;
+  const list = agents?.type === 'group' ? agents.children[0] : undefined;
 
   assert.equal(context?.label, 'Context');
   assert.equal(agents?.label, 'Agents');
@@ -406,9 +406,9 @@ test('route sidebar marks the selected target operation as current', () => {
   );
   const product = sidebar[2];
   assert.equal(product?.type, 'group');
-  const section = product?.type === 'group' ? product.entries[1] : undefined;
+  const section = product?.type === 'group' ? product.children[1] : undefined;
   assert.equal(section?.type, 'group');
-  const operation = section?.type === 'group' ? section.entries[1] : undefined;
+  const operation = section?.type === 'group' ? section.children[1] : undefined;
 
   assert.equal(operation?.type, 'link');
   assert.equal(operation?.isCurrent, true);
@@ -418,7 +418,7 @@ test('route sidebar links and marks product and section overview pages', () => {
   const productSidebar = forgeRouteSidebar(router, commandRouter, 'current', undefined, '/api/reference/');
   const product = productSidebar[2];
   assert.equal(product?.type, 'group');
-  const productOverview = product?.type === 'group' ? product.entries[0] : undefined;
+  const productOverview = product?.type === 'group' ? product.children[0] : undefined;
   assert.equal(productOverview?.type, 'link');
   assert.equal(productOverview?.isCurrent, true);
 
@@ -430,8 +430,8 @@ test('route sidebar links and marks product and section overview pages', () => {
     '/api/reference/sections/records/',
   );
   const sectionProduct = sectionSidebar[2];
-  const section = sectionProduct?.type === 'group' ? sectionProduct.entries[1] : undefined;
-  const sectionOverview = section?.type === 'group' ? section.entries[0] : undefined;
+  const section = sectionProduct?.type === 'group' ? sectionProduct.children[1] : undefined;
+  const sectionOverview = section?.type === 'group' ? section.children[0] : undefined;
   assert.equal(sectionOverview?.type, 'link');
   assert.equal(sectionOverview?.isCurrent, true);
 });

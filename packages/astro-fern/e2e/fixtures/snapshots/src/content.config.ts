@@ -1,5 +1,5 @@
 import { createSnippetProvider, defineFernManifest, type FernContentOptions } from 'astro-fern';
-import { defineFernCollections } from 'astro-fern/collections';
+import { fernCollection } from 'astro-fern/collections';
 import type { OpenApiDocumentSchema } from 'astro-fern/content';
 
 const legacy: OpenApiDocumentSchema = {
@@ -84,32 +84,35 @@ const snippets = createSnippetProvider(
   ['curl'],
 );
 
-export const collections = defineFernCollections({
-  source: {
-    kind: 'snapshots',
-    snapshots: [
-      { id: 'legacy', slug: 'v1', label: 'Legacy', source: legacy },
-      { id: 'current', slug: 'current', label: 'Current', default: true, source: current },
-    ],
-  },
-  manifest: defineFernManifest({
-    products: [
-      {
-        id: 'widgets',
-        title: 'Widgets',
-        sections: [
-          { id: 'archive', tag: 'Widget Archive' },
-          { id: 'management', tag: 'Widget Management' },
-        ],
-      },
-      {
-        id: 'retired',
-        title: 'Retired API',
-        pathPrefixes: ['/retired'],
-        sections: [{ id: 'status', tag: 'Retired Status' }],
-      },
-    ],
-    targets: [{ id: 'curl', kind: 'http', label: 'curl', language: 'bash' }],
-  }),
-  snippets,
-} satisfies FernContentOptions);
+// A non-default, underscore-prefixed name exercises `astroFern({ collection })`.
+export const collections = {
+  _fernCatalog: fernCollection({
+    source: {
+      kind: 'snapshots',
+      snapshots: [
+        { id: 'legacy', slug: 'v1', label: 'Legacy', source: legacy },
+        { id: 'current', slug: 'current', label: 'Current', default: true, source: current },
+      ],
+    },
+    manifest: defineFernManifest({
+      products: [
+        {
+          id: 'widgets',
+          title: 'Widgets',
+          sections: [
+            { id: 'archive', tag: 'Widget Archive' },
+            { id: 'management', tag: 'Widget Management' },
+          ],
+        },
+        {
+          id: 'retired',
+          title: 'Retired API',
+          pathPrefixes: ['/retired'],
+          sections: [{ id: 'status', tag: 'Retired Status' }],
+        },
+      ],
+      targets: [{ id: 'curl', kind: 'http', label: 'curl', language: 'bash' }],
+    }),
+    snippets,
+  } satisfies FernContentOptions),
+};

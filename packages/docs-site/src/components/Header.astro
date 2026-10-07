@@ -1,0 +1,43 @@
+---
+import { Button } from './ui/button';
+import { ThemeToggle } from './ui/theme-toggle';
+import SiteTitle from './SiteTitle.astro';
+import VersionSelect from './VersionSelect.astro';
+
+interface Props {
+  /** Astro collection id for the current page, forwarded from DocsLayout. */
+  collection?: string;
+  /** Astro entry id for the current page, forwarded from DocsLayout. */
+  entryId?: string;
+  /** Whether the page has a sidebar the mobile menu button can open. */
+  showSidebar?: boolean;
+}
+
+const { showSidebar = true } = Astro.props;
+---
+
+<header class="sticky top-0 z-30 border-b border-border bg-card/80 backdrop-blur-lg">
+  <div class="mx-auto flex h-14 items-center justify-between gap-3 px-4 lg:px-6">
+    <div class="flex min-w-0 items-center gap-3">
+      <SiteTitle />
+    </div>
+
+    <div class="flex shrink-0 items-center gap-2">
+      <VersionSelect class="hidden md:block" />
+      <ThemeToggle />
+      {
+        showSidebar && (
+          <Button
+            variant="ghost"
+            shape="square"
+            size="sm"
+            icon="ph:list"
+            aria-label="Open navigation"
+            data-menu-btn
+            class="text-muted-foreground md:hidden"
+          />
+        )
+      }
+    </div>
+  </div>
+</header>

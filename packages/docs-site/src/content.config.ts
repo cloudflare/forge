@@ -1,8 +1,7 @@
 import { defineCollection } from 'astro:content';
-import { docsLoader } from '@astrojs/starlight/loaders';
-import { docsSchema } from '@astrojs/starlight/schema';
+import { docsCollection, partialsCollection } from '@cloudflare/nimbus-docs/content';
 import { defineFernManifest, type FernContentOptions, type FernManifestProvider } from 'astro-fern';
-import { defineFernCollections } from 'astro-fern/collections';
+import { fernCollection } from 'astro-fern/collections';
 import { forgeExtension, hasRemovedForgeOperationFields, hoistForgeCommands } from 'fern-forge';
 import {
   CLOUDFLARE_RESPONSE_PAYLOAD_KEY,
@@ -26,12 +25,17 @@ const manifest: FernManifestProvider = (_openapi, { discoverProducts }) =>
     products: discoverProducts(),
   });
 
+// Nimbus indexes every collection for Markdown alternates and llms.txt unless
+// its name starts with `_`. The API catalog and command catalog are data-only
+// and serve their own agent routes, so both stay out of that index.
+//
 // The API reference stores one project descriptor plus immutable operation
 // snapshot artifacts. `astro-fern/server` composes exact snapshot-selected pages at runtime.
 export const collections = {
-  docs: defineCollection({ loader: docsLoader(), schema: docsSchema() }),
-  cfCommands: defineCollection({ loader: commandCatalogLoader(() => cfCommandCatalog) }),
-  ...defineFernCollections({
+  docs: defineCollection(docsCollection()),
+  partials: defineCollection(partialsCollection()),
+  _cfCommands: defineCollection({ loader: commandCatalogLoader(() => cfCommandCatalog) }),
+  _apiReference: fernCollection({
     source: {
       kind: 'snapshots',
       snapshots: [
