@@ -50,7 +50,7 @@ const availabilityMessage = !op.deprecated ? op.availability?.message : undefine
     {op.description.html ? <div class="forge-operation-desc" set:html={op.description.html} /> : null}
   </div>
 
-  <aside class="forge-example-pane not-content" aria-label="Examples">
+  <aside class="forge-example-pane" aria-label="Examples">
     <CodeSample
       targets={page.targets}
       selectedTarget={selectedTarget}
@@ -62,7 +62,7 @@ const availabilityMessage = !op.deprecated ? op.availability?.message : undefine
     />
   </aside>
 
-  <div class="forge-reference not-content">
+  <div class="forge-reference">
     {
       view.fieldSections.map((section) => (
         <section class="forge-section">

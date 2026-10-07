@@ -93,17 +93,15 @@ const head = markdownHref
   wide={resolved !== undefined}
 >
   {resolved ? <PageTitle slot="page-title" /> : null}
-  <div class="not-content">
-    {
-      command ? (
-        <CommandReference command={command} />
-      ) : resolved?.kind === 'operation' && page ? (
-        <Operation page={page} selectedTarget={target} />
-      ) : resolved && resolved.kind !== 'operation' ? (
-        <ApiIndex selection={resolved} router={router} commandRouter={commandRouter} />
-      ) : null
-    }
-  </div>
+  {
+    command ? (
+      <CommandReference command={command} />
+    ) : resolved?.kind === 'operation' && page ? (
+      <Operation page={page} selectedTarget={target} />
+    ) : resolved && resolved.kind !== 'operation' ? (
+      <ApiIndex selection={resolved} router={router} commandRouter={commandRouter} />
+    ) : null
+  }
 </DocsLayout>
 
 <style is:global>
