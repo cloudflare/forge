@@ -914,6 +914,21 @@ function flattenAllOf(schemas: SchemaRef[]): SchemaRef {
 }
 
 /**
+ * A single-member allOf can wrap a scalar or array to attach property-local
+ * annotations. Keep its value shape rather than flattening it as an object.
+ */
+function resolveBodyPropertySchema(schema: SchemaRef, active = new Set<SchemaRef>()): SchemaRef {
+  const resolved = resolveSchemaRef(schema);
+  if (resolved.allOf?.length !== 1 || active.has(resolved)) return resolved;
+  const nextActive = new Set(active);
+  nextActive.add(resolved);
+  const member = resolveBodyPropertySchema(resolved.allOf[0]!, nextActive);
+  if (!['string', 'number', 'integer', 'boolean', 'array'].includes(member.type ?? '')) return resolved;
+  const { allOf: _, ...annotations } = resolved;
+  return { ...member, ...annotations };
+}
+
+/**
  * Convert a snake_case or camelCase name to kebab-case for CLI flag names.
  */
 function toKebabCase(name: string): string {
@@ -1018,7 +1033,7 @@ function extractPropertiesFromSchema(
 
   for (const [propName, propSchema] of Object.entries(schema.properties)) {
     if (!propSchema) continue;
-    const resolved = resolveSchemaRef(propSchema);
+    const resolved = resolveBodyPropertySchema(propSchema);
 
     // Skip readOnly fields (e.g. id, created_on, modified_on)
     if (resolved.readOnly) continue;
@@ -1390,7 +1405,7 @@ function extractBodyProperties(requestBody: Operation['requestBody']): BodyParam
   if (resolved.properties) {
     for (const [propName, propSchema] of Object.entries(resolved.properties)) {
       if (!propSchema) continue;
-      const propResolved = resolveSchemaRef(propSchema);
+      const propResolved = resolveBodyPropertySchema(propSchema);
 
       // Skip readOnly fields
       if (propResolved.readOnly) continue;
