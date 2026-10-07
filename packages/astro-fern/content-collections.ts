@@ -193,6 +193,24 @@ export async function enrichOperationArtifact(
   };
 }
 
+/** Markdown that a sanitizing renderer must not emit as live HTML or as a `javascript:` link. */
+const SANITIZER_PROBE = '<i data-astro-fern-probe></i> [probe](javascript:probe)';
+
+/**
+ * OpenAPI descriptions are untrusted. Rendering them with a processor that
+ * passes raw HTML or unsafe URLs through would publish live markup, so fail the
+ * build instead. Other integrations can replace or wrap Astro's processor after
+ * `astroFern()` installs its sanitizer, so verify the renderer actually in use.
+ */
+export async function assertSanitizedMarkdownRenderer(renderMarkdown: LoaderContext['renderMarkdown']): Promise<void> {
+  const { html } = await renderMarkdown(SANITIZER_PROBE);
+  if (/<i\b[^>]*data-astro-fern-probe/i.test(html) || /href\s*=\s*["']?\s*javascript:/i.test(html)) {
+    throw new Error(
+      'astro-fern: the active Markdown processor renders raw HTML or unsafe URLs from OpenAPI descriptions. Add `sanitizeFernMarkdownPlugin` to the MDAST plugins of the processor Astro uses for content (for example through the option of the integration that configures it).',
+    );
+  }
+}
+
 function cachedRenderer(renderMarkdown: LoaderContext['renderMarkdown']): MarkdownRenderer {
   const cache = new Map<string, RichTextSchema>();
   return async (markdown: string): Promise<RichTextSchema> => {
@@ -271,6 +289,7 @@ export type FernContentLoaderContext = Omit<FernContentLoadContext, 'logger'> & 
 export async function loadFernContent(options: FernContentOptions, context: FernContentLoadContext): Promise<void> {
   const source = await sourceForContext(options.source, context.config.root);
   const content = buildFernContent({ ...options, source }, { logger: context.logger });
+  await assertSanitizedMarkdownRenderer(context.renderMarkdown);
   const render = cachedRenderer(context.renderMarkdown);
   const description = content.catalog.description !== undefined ? await render(content.catalog.description) : undefined;
   const operationPublications = new Map<string, FernOperationArtifactPublication>();

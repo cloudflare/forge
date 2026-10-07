@@ -9,14 +9,19 @@ import { commandTitle } from '../../command-reference/routing.ts';
 import { getCommandRouter } from '../../command-reference/server.ts';
 import { getPageSidebar } from '../../page-sidebar.ts';
 
-const [resolved, router, commandRouter, sidebar] = await Promise.all([
+const [resolved, router, commandRouter] = await Promise.all([
   getApiPage(Astro.url, Astro.request, Astro.locals),
   getApiRouter(),
   getCommandRouter(),
-  getPageSidebar(Astro.url),
 ]);
 const command = resolved ? undefined : commandRouter.resolve(Astro.url, router.plan.catalog.products);
-if (!resolved && !command) return new Response('Not found', { status: 404 });
+// Product tooling pages carry the site-wide `?version=` / `?lang=` selection;
+// reject invalid values like the API pages do.
+if (!resolved && (!command || !router.resolveSiteSelection(Astro.url))) {
+  return new Response('Not found', { status: 404 });
+}
+// Built only for pages that exist: the API sidebar has thousands of entries.
+const sidebar = await getPageSidebar(Astro.url);
 const target = resolved?.lang;
 const page = resolved?.kind === 'operation' ? resolved.page : undefined;
 
@@ -84,7 +89,6 @@ const head = markdownHref
   sidebar={sidebar}
   headings={false}
   breadcrumbs={[]}
-  prevNext={{}}
   showDescription={false}
   wide={resolved !== undefined}
 >

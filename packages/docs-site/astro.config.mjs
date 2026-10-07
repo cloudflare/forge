@@ -3,7 +3,7 @@ import cloudflare from '@astrojs/cloudflare';
 import nimbus, { defineConfig as defineNimbusConfig } from '@cloudflare/nimbus-docs';
 import { tableScroll } from '@cloudflare/nimbus-docs/markdown';
 import tailwindcss from '@tailwindcss/vite';
-import astroFern from 'astro-fern';
+import astroFern, { sanitizeFernMarkdownPlugin } from 'astro-fern';
 import { defineConfig } from 'astro/config';
 
 const nimbusConfig = defineNimbusConfig({
@@ -34,10 +34,12 @@ export default defineConfig({
       },
       markdown: {
         hastPlugins: [tableScroll()],
+        // Nimbus replaces Astro's Markdown processor, so astro-fern cannot install
+        // its sanitizer on its own. OpenAPI descriptions are rendered with this
+        // processor and are untrusted; astro-fern fails the build without it.
+        mdastPlugins: [sanitizeFernMarkdownPlugin],
       },
     }),
-    // After Nimbus: Nimbus replaces Astro's Markdown processor, and astro-fern
-    // installs its sanitizer into whichever processor is active when it runs.
     astroFern({
       collection: '_apiReference',
       routing: { base: '/', target: 'hash' },

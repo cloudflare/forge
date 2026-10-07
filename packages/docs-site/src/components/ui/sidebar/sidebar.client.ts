@@ -11,6 +11,7 @@ import {
 
 const STORAGE_KEY = 'sidebar-state';
 const OPENED_BY_FILTER = 'data-nb-opened-by-filter';
+const FILTERING = 'data-nb-filtering';
 
 interface SidebarState {
   hash: string;
@@ -51,7 +52,7 @@ function indexSidebar(root: HTMLElement): IndexedEntry[] {
   function visit(list: HTMLUListElement, parentIndex: number | null): void {
     for (const item of list.children) {
       if (!(item instanceof HTMLLIElement)) continue;
-      const group = item.querySelector<HTMLDetailsElement>(':scope > details[data-nb-sidebar-group]');
+      const group = item.querySelector<HTMLDetailsElement>(':scope > details');
       const link = group ? null : item.querySelector<HTMLElement>(':scope > a');
       if (!group && !link) continue;
 
@@ -88,16 +89,23 @@ function initFilter(root: HTMLElement): (() => void) | null {
 
   let entries: IndexedEntry[] | null = null;
   let timer = 0;
+  // Where the tree was scrolled before filtering, restored when the filter clears.
+  let scrollBefore: number | null = null;
 
   function run() {
     timer = 0;
     const query = normalizeSidebarFilterText(input.value);
+    const scroller = scrollContainer(root);
     if (!query) {
       resetFilter(root);
+      if (scrollBefore !== null) scroller.scrollTop = scrollBefore;
+      scrollBefore = null;
       return;
     }
+    scrollBefore ??= scroller.scrollTop;
     entries ??= indexSidebar(root);
     applyFilter(entries, query);
+    root.setAttribute(FILTERING, '');
   }
 
   function handleInput() {
@@ -111,11 +119,12 @@ function initFilter(root: HTMLElement): (() => void) | null {
   }
 
   function handleKeydown(e: KeyboardEvent) {
-    if (e.key === 'Escape') {
-      input.value = '';
-      handleInput();
-      input.blur();
-    }
+    if (e.key !== 'Escape') return;
+    // With a query, Escape only clears it; it must not also close the mobile drawer.
+    if (input.value) e.preventDefault();
+    input.value = '';
+    handleInput();
+    input.blur();
   }
 
   input.addEventListener('input', handleInput);
@@ -144,7 +153,13 @@ function setOpenByFilter(group: HTMLDetailsElement, open: boolean): void {
   group.toggleAttribute(OPENED_BY_FILTER, open);
 }
 
+/** The element that scrolls the tree: the desktop rail, or the mobile drawer panel while it borrows the tree. */
+function scrollContainer(root: HTMLElement): HTMLElement {
+  return root.closest<HTMLElement>('aside, [data-mobile-sidebar-panel]') ?? root;
+}
+
 function resetFilter(root: HTMLElement): void {
+  root.removeAttribute(FILTERING);
   root.querySelectorAll<HTMLElement>('[data-nb-sidebar-hidden]').forEach((el) => {
     el.removeAttribute('data-nb-sidebar-hidden');
   });
@@ -174,17 +189,21 @@ function applyFilter(entries: IndexedEntry[], query: string): void {
 // ---------------------------------------------------------------------------
 
 function initPersistence(root: HTMLElement): () => void {
-  // The scrollable container is the closest <aside> or the root itself.
-  const scrollHost: HTMLElement = root.closest('aside') ?? root;
+  // Scroll is saved for the desktop rail only; the drawer borrows the tree.
+  const rail: HTMLElement = root.closest('aside') ?? root;
   const hash = root.dataset.nbSidebarHash ?? '';
+  let lastRailScroll = rail.scrollTop;
 
   function readState(): SidebarState {
     const open: boolean[] = [];
-    root.querySelectorAll<HTMLDetailsElement>('details[data-nb-sidebar-group]').forEach((group) => {
+    root.querySelectorAll<HTMLDetailsElement>('details').forEach((group) => {
       // Groups opened only by the filter are not the reader's state.
       open.push(group.open && !group.hasAttribute(OPENED_BY_FILTER));
     });
-    return { hash, open, scroll: scrollHost.scrollTop };
+    // Keep the last unfiltered rail position while the tree is in the drawer
+    // (the rail is hidden) or narrowed by the filter.
+    if (rail.contains(root) && !root.hasAttribute(FILTERING)) lastRailScroll = rail.scrollTop;
+    return { hash, open, scroll: lastRailScroll };
   }
 
   function save() {
@@ -207,13 +226,13 @@ function initPersistence(root: HTMLElement): () => void {
   root.addEventListener('toggle', save, true);
   document.addEventListener('visibilitychange', handleVisibility);
   window.addEventListener('pagehide', save);
-  scrollHost.addEventListener('scroll', handleScroll);
+  rail.addEventListener('scroll', handleScroll);
 
   return () => {
     root.removeEventListener('toggle', save, true);
     document.removeEventListener('visibilitychange', handleVisibility);
     window.removeEventListener('pagehide', save);
-    scrollHost.removeEventListener('scroll', handleScroll);
+    rail.removeEventListener('scroll', handleScroll);
     cancelAnimationFrame(raf);
   };
 }

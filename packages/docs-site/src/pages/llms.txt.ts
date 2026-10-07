@@ -12,10 +12,12 @@ function withoutTitle(body: string): string {
   return body.replace(/^# [^\n]*\n+/, '');
 }
 
-export const GET: APIRoute = async ({ request }) => {
-  const [docs, router, catalog] = await Promise.all([
+export const GET: APIRoute = async ({ request, url }) => {
+  const router = await getApiRouter();
+  // The site index has no variants, but invalid selection values still 404 like other agent routes.
+  if (!router.resolveSiteSelection(url)) return new Response('Not found', { status: 404 });
+  const [docs, catalog] = await Promise.all([
     getLlmsPayload({ scope: 'site', surface: 'index' }, { request }),
-    getApiRouter(),
     getFernContentCatalog(),
   ]);
   const api = renderLlmsIndexFromCatalog(catalog, { kind: 'llms', scope: 'site' }, router.resolveHref);
