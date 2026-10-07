@@ -20,7 +20,9 @@
 //                        handleNonStatusCodeError(err, raw, VERB, PATH); those
 //                        literals identify the OpenAPI operation. Fern splits
 //                        literal dots next to path parameters into `/.`, which
-//                        is repaired before the spec lookup.
+//                        is repaired before the spec lookup. Parameter-name
+//                        overrides are matched by route structure, retaining
+//                        the canonical OpenAPI path in the map.
 //
 // Coverage is asserted against the spec: every non-ignored operation, including
 // deprecated operations that Fern still generates, must resolve to an entry or
@@ -32,6 +34,7 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import ts from 'typescript';
 import { findRequestParameter } from './sdk-map-ast.ts';
+import { createSpecOperationLookup, type SpecOperation } from './sdk-map-paths.ts';
 
 const PKG_ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
 const GENERATED = process.env['FORGE_SDK_GENERATED'] ?? join(PKG_ROOT, 'src', '_generated');
@@ -353,21 +356,11 @@ function collectEndpoints(): Endpoint[] {
   return endpoints;
 }
 
-interface SpecOp {
-  operationId: string;
-  synthetic: boolean;
-  ignored: boolean;
-}
-
 function syntheticOperationId(method: string, path: string): string {
   return `generated:${method.toLowerCase()}:${path}`;
 }
 
-function repairFernLiteralDotPath(path: string): string {
-  return path.replace(/}\/\.\/?/g, '}.');
-}
-
-function indexSpec(): { byKey: Map<string, SpecOp>; expected: Set<string> } {
+function indexSpec(): { byKey: Map<string, SpecOperation>; expected: Set<string> } {
   const parsed: unknown = JSON.parse(readFileSync(SPEC, 'utf8'));
   if (typeof parsed !== 'object' || parsed === null) {
     throw new Error(`Expected an OpenAPI object at ${SPEC}, got ${parsed === null ? 'null' : typeof parsed}`);
@@ -375,14 +368,15 @@ function indexSpec(): { byKey: Map<string, SpecOp>; expected: Set<string> } {
   const spec = parsed as {
     paths?: Record<string, Record<string, { operationId?: string; 'x-fern-ignore'?: boolean }>>;
   };
-  const byKey = new Map<string, SpecOp>();
+  const byKey = new Map<string, SpecOperation>();
   const expected = new Set<string>();
   for (const [path, item] of Object.entries(spec.paths ?? {})) {
     for (const [method, op] of Object.entries(item)) {
       if (!HTTP_METHODS.has(method.toLowerCase()) || typeof op !== 'object' || op === null) continue;
       const operationId = typeof op.operationId === 'string' ? op.operationId : syntheticOperationId(method, path);
-      const entry: SpecOp = {
+      const entry: SpecOperation = {
         operationId,
+        path,
         synthetic: typeof op.operationId !== 'string',
         ignored: op['x-fern-ignore'] === true,
       };
@@ -568,23 +562,22 @@ function main(): void {
 
   const endpoints = collectEndpoints();
   const { byKey, expected } = indexSpec();
+  const findSpecOperation = createSpecOperationLookup(byKey);
   const sourceQueryProperties = indexSourceQueryProperties();
 
   const chosen = new Map<string, Endpoint>();
-  const chosenSpec = new Map<string, SpecOp>();
+  const chosenSpec = new Map<string, SpecOperation>();
   const unmatched: string[] = [];
   let aliasCollisions = 0;
 
   for (const endpoint of endpoints) {
-    const directOp = byKey.get(`${endpoint.verb} ${endpoint.path}`);
-    const repairedPath = repairFernLiteralDotPath(endpoint.path);
-    const op = directOp ?? byKey.get(`${endpoint.verb} ${repairedPath}`);
+    const op = findSpecOperation(endpoint.verb, endpoint.path);
     if (!op) {
       unmatched.push(`${endpoint.verb} ${endpoint.path} (${[...endpoint.accessor, endpoint.method].join('.')})`);
       continue;
     }
     if (op.ignored) continue;
-    const matchedPathEndpoint = directOp ? endpoint : { ...endpoint, path: repairedPath };
+    const matchedPathEndpoint = { ...endpoint, path: op.path };
     const queryProperties = sourceQueryProperties.get(op.operationId);
     const matchedEndpoint = queryProperties ? { ...matchedPathEndpoint, queryProperties } : matchedPathEndpoint;
     const existing = chosen.get(op.operationId);
