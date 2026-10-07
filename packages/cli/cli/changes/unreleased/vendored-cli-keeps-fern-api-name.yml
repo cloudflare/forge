@@ -1,0 +1,6 @@
+# yaml-language-server: $schema=../../../../fern-changes-yml.schema.json
+
+- summary: |
+    The vendored CLI tarball is published under upstream's package name, `fern-api`, instead of
+    `@cloudflare/codegen-cli`. It still never queries npm for a newer CLI or prints upgrade notices.
+  type: chore
