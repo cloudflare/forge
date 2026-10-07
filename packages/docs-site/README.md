@@ -50,6 +50,10 @@ SDK-backed URLs.
 - `src/sidebar.ts` maps the selected version and execution target into Nimbus sidebar items, and `src/page-sidebar.ts` resolves them for a request.
 - `src/styles/globals.css` holds the Cloudflare palette as Nimbus `--nb-*` tokens; `src/styles/cloudflare.css` aliases them as the `--cf-*` tokens used by the API components.
 
+### Styling
+
+Files copied from Nimbus (`src/layouts/`, `src/components/ui/`, `src/styles/globals.css`, and `prose.css`) keep Nimbus's Tailwind classes so registry updates still apply. Everything else — the API reference, the header, and the sidebar rows — uses scoped or plain CSS with the `--cf-*` and `--nb-*` tokens. Do not put utility classes on markup that repeats at scale: the API sidebar renders thousands of rows per page, and per-row class strings multiply page size.
+
 Products are discovered across the configured OpenAPI source set. Routes,
 navigation, agent indexes, and server-island lookups are composed from that
 content and the independent runtime config.

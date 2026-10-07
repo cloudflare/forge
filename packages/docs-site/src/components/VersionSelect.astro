@@ -1,15 +1,16 @@
 ---
 import Icon from '@cloudflare/nimbus-docs/components/Icon.astro';
-import { cn } from '@/lib/cn';
 import { getApiRouter } from '../api-server.ts';
 
 interface Props {
-  /** `header` is the compact desktop control; `drawer` fills the mobile navigation drawer. */
+  /**
+   * `header` is the compact control shown in the header from the `md` breakpoint up;
+   * `drawer` fills the top of the mobile navigation drawer.
+   */
   variant?: 'header' | 'drawer';
-  class?: string;
 }
 
-const { variant = 'header', class: className } = Astro.props;
+const { variant = 'header' } = Astro.props;
 
 const router = await getApiRouter();
 const selection = router.resolvePage(Astro.url);
@@ -22,7 +23,7 @@ const availableVersions = selection
 
 {
   availableVersions.length > 0 && (
-    <api-version-select class={cn('block', className)} data-variant={variant}>
+    <api-version-select data-variant={variant}>
       <label>
         <span class="sr-only">API version</span>
         <Icon name="ph:git-branch" class="label-icon" aria-hidden="true" />
@@ -117,6 +118,24 @@ const availableVersions = selection
 
   label :global(.caret) {
     inset-inline-end: 0.5rem;
+  }
+
+  api-version-select {
+    display: block;
+  }
+
+  api-version-select[data-variant='header'] {
+    display: none;
+  }
+
+  @media (min-width: 48rem) {
+    api-version-select[data-variant='header'] {
+      display: block;
+    }
+  }
+
+  api-version-select[data-variant='drawer'] {
+    margin: 1.25rem 1rem 0;
   }
 
   api-version-select[data-variant='drawer'] label {
