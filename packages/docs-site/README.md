@@ -1,12 +1,13 @@
 # docs-site
 
-Cloudflare's deployable API reference, built with Astro, Starlight, and
-`astro-fern`.
+Cloudflare's deployable API reference, built with Astro,
+[Nimbus](https://nimbus-docs.com), and `astro-fern`.
 
-This package intentionally owns the renderer for now. Starlight components,
-sidebar construction, schema presentation, execution-target controls, and CSS
-live here instead of behind another integration. `astro-fern` supplies the
-normalized content and lazy server APIs without depending on Starlight.
+This package intentionally owns the renderer. Nimbus scaffolds its layouts,
+components, and styles into `src/` as files the site owns; sidebar
+construction, schema presentation, execution-target controls, and CSS live here
+too. `astro-fern` supplies the normalized content and lazy server APIs without
+depending on Nimbus.
 
 ## Data flow
 
@@ -23,7 +24,7 @@ OpenAPI source or version-bound snapshots
                            v
               astro-fern server composition
               /             |             \
- Starlight operation pages |      agent Markdown
+ API operation pages      |      agent Markdown
                             |      and llms.txt
                      target metadata
 ```
@@ -38,14 +39,16 @@ SDK-backed URLs.
 
 ## Project ownership
 
-- `src/content.config.ts` selects OpenAPI sources, discovers SDK products and ownership sections, configures snapshots and execution targets, and registers the canonical, route-neutral API collection.
-- `astro.config.mjs` independently configures routing and installs `astro-fern`, Starlight, and the Cloudflare adapter.
+- `src/content.config.ts` selects OpenAPI sources, discovers SDK products and ownership sections, configures snapshots and execution targets, and registers the canonical, route-neutral API collection. Data-only collections are prefixed with `_` so Nimbus leaves them out of its Markdown and `llms.txt` index.
+- `astro.config.mjs` independently configures routing and installs Nimbus, `astro-fern`, and the Cloudflare adapter. `astro-fern` is registered after Nimbus because Nimbus replaces Astro's Markdown processor and `astro-fern` installs its sanitizer into the active one.
 - `src/api-routing.ts` owns the query-parameter URL policy and semantic link resolution.
 - `src/api-server.ts` binds that policy to `astro-fern`'s lazy server APIs.
 - `src/pages/[product]/[...slug].astro` owns the SSR human operation route and renderer.
-- `src/pages/[...document].md.ts` and the `llms.txt` endpoints own the SSR agent routes.
-- `src/components/` contains the Starlight operation, schema, and code UI.
-- `src/sidebar.ts` maps the selected version and execution target into Starlight navigation.
+- `src/pages/[...slug].astro` renders authored pages from `src/content/docs/` on request, with the same API sidebar.
+- `src/pages/[...document].md.ts` and the `llms.txt` endpoints own the SSR agent routes. `llms.txt` and `[product]/llms.txt` combine the astro-fern API index with the authored-page index Nimbus prepares at build time; `[...slug]/index.md`, `index.mdx`, and `llms-full.txt` are Nimbus routes for authored pages.
+- `src/layouts/` and `src/components/ui/` are the Nimbus page shells and UI components; `src/components/` also contains the operation, schema, and code UI.
+- `src/sidebar.ts` maps the selected version and execution target into Nimbus sidebar items, and `src/page-sidebar.ts` resolves them for a request.
+- `src/styles/globals.css` holds the Cloudflare palette as Nimbus `--nb-*` tokens; `src/styles/cloudflare.css` aliases them as the `--cf-*` tokens used by the API components.
 
 Products are discovered across the configured OpenAPI source set. Routes,
 navigation, agent indexes, and server-island lookups are composed from that

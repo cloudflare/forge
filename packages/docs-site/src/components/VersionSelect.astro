@@ -1,6 +1,15 @@
 ---
-import Select from '@astrojs/starlight/components/Select.astro';
+import Icon from '@cloudflare/nimbus-docs/components/Icon.astro';
+import { cn } from '@/lib/cn';
 import { getApiRouter } from '../api-server.ts';
+
+interface Props {
+  /** `header` is the compact desktop control; `drawer` fills the mobile navigation drawer. */
+  variant?: 'header' | 'drawer';
+  class?: string;
+}
+
+const { variant = 'header', class: className } = Astro.props;
 
 const router = await getApiRouter();
 const selection = router.resolvePage(Astro.url);
@@ -13,8 +22,19 @@ const availableVersions = selection
 
 {
   availableVersions.length > 0 && (
-    <api-version-select>
-      <Select icon="code-branch" label="API version" options={availableVersions} width="11.5em" />
+    <api-version-select class={cn('block', className)} data-variant={variant}>
+      <label>
+        <span class="sr-only">API version</span>
+        <Icon name="ph:git-branch" class="label-icon" aria-hidden="true" />
+        <select>
+          {availableVersions.map((option) => (
+            <option value={option.value} selected={option.selected}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+        <Icon name="ph:caret-down" class="caret" aria-hidden="true" />
+      </label>
     </api-version-select>
   )
 }
@@ -37,3 +57,75 @@ const availableVersions = selection
     customElements.define('api-version-select', ApiVersionSelect);
   }
 </script>
+
+<style>
+  label {
+    position: relative;
+    display: flex;
+    align-items: center;
+    min-height: 2rem;
+    border-radius: 0.375rem;
+    color: var(--cf-muted-foreground);
+    transition: color 150ms, background-color 150ms;
+  }
+
+  label:hover {
+    color: var(--cf-foreground);
+    background: var(--cf-accent);
+  }
+
+  label:has(select:focus-visible) {
+    outline: 2px solid var(--cf-ring);
+    outline-offset: 2px;
+  }
+
+  select {
+    width: auto;
+    padding: 0.375rem 1.75rem 0.375rem 1.75rem;
+    border: 0;
+    color: inherit;
+    background: transparent;
+    font: inherit;
+    font-size: 0.8125rem;
+    font-weight: 550;
+    line-height: 1.25rem;
+    letter-spacing: -0.005em;
+    cursor: pointer;
+    appearance: none;
+  }
+
+  select:focus-visible {
+    outline: none;
+  }
+
+  option {
+    color: var(--cf-foreground);
+    background: var(--cf-card);
+  }
+
+  label :global(.label-icon),
+  label :global(.caret) {
+    position: absolute;
+    width: 1rem;
+    height: 1rem;
+    pointer-events: none;
+  }
+
+  label :global(.label-icon) {
+    inset-inline-start: 0.5rem;
+  }
+
+  label :global(.caret) {
+    inset-inline-end: 0.5rem;
+  }
+
+  api-version-select[data-variant='drawer'] label {
+    border: 1px solid var(--cf-border);
+    background: var(--cf-card);
+  }
+
+  api-version-select[data-variant='drawer'] select {
+    width: 100%;
+    font-size: 0.875rem;
+  }
+</style>

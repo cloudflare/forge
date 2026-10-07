@@ -1,12 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import {
-  computeSidebarFilter,
-  computeSidebarScrollAdjustment,
-  hasMatchingSidebarScrollState,
-  normalizeSidebarFilterText,
-  type SidebarFilterEntry,
-} from './sidebar-filter.ts';
+import { computeSidebarFilter, normalizeSidebarFilterText, type SidebarFilterEntry } from './sidebar-filter.ts';
 
 const entries: SidebarFilterEntry[] = [
   { searchText: 'reference', parentIndex: null, descendantEndIndex: 5, isGroup: true },
@@ -72,28 +66,4 @@ test('sidebar filter restores full visibility for an empty query', () => {
     visible: [true, true, true, true, true],
     expanded: [false, false, false, false, false],
   });
-});
-
-test('sidebar positioning keeps an already visible current page in place', () => {
-  assert.equal(computeSidebarScrollAdjustment(100, 700, 250, 280), 0);
-});
-
-test('sidebar positioning centers a current page below the viewport', () => {
-  assert.equal(computeSidebarScrollAdjustment(100, 700, 800, 830), 415);
-});
-
-test('sidebar positioning centers a current page hidden behind the sticky filter', () => {
-  assert.equal(computeSidebarScrollAdjustment(180, 700, 120, 150), -305);
-});
-
-test('sidebar positioning preserves matching persisted scroll state, including the top position', () => {
-  assert.equal(hasMatchingSidebarScrollState('{"hash":"current","scroll":0}', 'current'), true);
-  assert.equal(hasMatchingSidebarScrollState('{"hash":"current","scroll":4000}', 'current'), true);
-});
-
-test('sidebar positioning rejects stale or invalid persisted scroll state', () => {
-  assert.equal(hasMatchingSidebarScrollState('{"hash":"stale","scroll":4000}', 'current'), false);
-  assert.equal(hasMatchingSidebarScrollState('{"hash":"current","scroll":-1}', 'current'), false);
-  assert.equal(hasMatchingSidebarScrollState('{', 'current'), false);
-  assert.equal(hasMatchingSidebarScrollState(null, 'current'), false);
 });

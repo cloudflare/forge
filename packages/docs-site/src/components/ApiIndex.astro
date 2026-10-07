@@ -1,5 +1,4 @@
 ---
-import AnchorHeading from '@astrojs/starlight/components/AnchorHeading.astro';
 import type {
   ApiProductSelection,
   ApiResourceSelection,
@@ -53,9 +52,9 @@ const operationHref = (operation: (typeof selection.snapshot.pages)[number]) =>
       productCommands.length > 0 ? (
         <section class="forge-api-section forge-api-tooling">
           <header>
-            <AnchorHeading level={2} id="developer-tooling" class="forge-api-section-title">
+            <h2 id="developer-tooling" class="forge-api-section-title">
               Developer Tooling
-            </AnchorHeading>
+            </h2>
             <span>{productCommands.length} {productCommands.length === 1 ? 'command' : 'commands'}</span>
           </header>
           <ul>
@@ -79,7 +78,7 @@ const operationHref = (operation: (typeof selection.snapshot.pages)[number]) =>
       resources.length > 0 ? (
         <section class="forge-api-section forge-api-resources">
           <header>
-            <AnchorHeading level={2} id="resources" class="forge-api-section-title">Resources</AnchorHeading>
+            <h2 id="resources" class="forge-api-section-title">Resources</h2>
             <span>{resources.length} {resources.length === 1 ? 'resource' : 'resources'}</span>
           </header>
           <ul>
@@ -109,7 +108,7 @@ const operationHref = (operation: (typeof selection.snapshot.pages)[number]) =>
       operations.length > 0 ? (
         <section class="forge-api-section">
           <header>
-            <AnchorHeading level={2} id="methods" class="forge-api-section-title">Methods</AnchorHeading>
+            <h2 id="methods" class="forge-api-section-title">Methods</h2>
             <span>{operations.length} {operations.length === 1 ? 'operation' : 'operations'}</span>
           </header>
           <ul>
@@ -146,9 +145,9 @@ const operationHref = (operation: (typeof selection.snapshot.pages)[number]) =>
           <section class="forge-api-section" aria-labelledby={selection.kind === 'section' ? '_top' : undefined}>
             {selection.kind === 'product' ? (
               <header>
-                <AnchorHeading level={2} id={section.id} class="forge-api-section-title">
+                <h2 id={section.id} class="forge-api-section-title">
                   {sectionHref ? <a href={sectionHref}>{section.title}</a> : section.title}
-                </AnchorHeading>
+                </h2>
                 <span>{section.operations.length} {section.operations.length === 1 ? 'operation' : 'operations'}</span>
               </header>
             ) : null}
@@ -204,7 +203,7 @@ const operationHref = (operation: (typeof selection.snapshot.pages)[number]) =>
     margin-bottom: 0.75rem;
   }
 
-  .forge-api-section header :global(.sl-heading-wrapper) {
+  .forge-api-section header h2 {
     margin: 0;
     font-size: 1.125rem;
   }
@@ -272,7 +271,7 @@ const operationHref = (operation: (typeof selection.snapshot.pages)[number]) =>
     padding: 0.25rem 0.4rem;
     color: var(--cf-muted-foreground);
     background: var(--cf-muted);
-    font-family: var(--sl-font-mono);
+    font-family: var(--nb-font-mono);
     font-size: 0.6875rem;
     font-weight: 700;
     line-height: 1;
@@ -302,7 +301,7 @@ const operationHref = (operation: (typeof selection.snapshot.pages)[number]) =>
 
   .forge-api-command-marker {
     color: var(--cf-primary);
-    font-family: var(--sl-font-mono);
+    font-family: var(--nb-font-mono);
     font-size: 0.8125rem;
     font-weight: 700;
   }
@@ -311,7 +310,7 @@ const operationHref = (operation: (typeof selection.snapshot.pages)[number]) =>
     padding: 0;
     color: inherit;
     background: transparent;
-    font-family: var(--sl-font-mono);
+    font-family: var(--nb-font-mono);
     font-size: inherit;
   }
 

@@ -3,7 +3,8 @@ dist/
 .wrangler/
 public/_astro-fern/
 
-# The repo-root .gitignore ignores any `docs/` directory; Starlight's content
+# The repo-root .gitignore ignores any `docs/` directory; the Nimbus docs
 # collection lives at src/content/docs/, so re-include it here.
 !src/content/docs/
 !src/content/docs/**
+.nimbus/

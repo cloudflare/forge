@@ -20,13 +20,13 @@ Configure collections, operation loading, routes, and adapters with the
 
 ## Register the extension
 
-Add `forgeExtension()` to `defineFernCollections()`. The extension prepares each
+Add `forgeExtension()` to `fernCollection()`. The extension prepares each
 snapshot source before product discovery and operation generation.
 
 ```ts
 // src/content.config.ts
 import { defineFernManifest, type FernContentOptions } from 'astro-fern';
-import { defineFernCollections } from 'astro-fern/collections';
+import { fernCollection } from 'astro-fern/collections';
 import { forgeExtension, hoistForgeCommands } from 'fern-forge';
 
 const upstreamSpec = new URL('https://example.com/openapi.json');
@@ -40,7 +40,7 @@ const source = async () => {
 };
 
 export const collections = {
-  ...defineFernCollections({
+  apiReference: fernCollection({
     source,
     extensions: [forgeExtension()],
     manifest: (_defaultSource, { discoverProducts }) =>
@@ -153,7 +153,7 @@ By itself, `x-forge-hidden` does not remove a uniquely routed operation. Apply i
 through the application's content policy when it should remove documentation:
 
 ```ts
-defineFernCollections({
+fernCollection({
   source,
   extensions: [forgeExtension()],
   manifest,

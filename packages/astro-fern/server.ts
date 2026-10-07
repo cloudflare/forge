@@ -3,7 +3,7 @@ import { getEntry, getLiveEntry } from 'astro:content';
 import { base, site } from 'astro:config/server';
 import runtime from 'fern:virtual/runtime-config';
 import { renderPageMarkdown } from './agents/index.ts';
-import { FERN_CONTENT_COLLECTION, FERN_OPERATIONS_COLLECTION, FERN_PROJECT_ENTRY_ID } from './content-contract.ts';
+import { FERN_OPERATIONS_COLLECTION, FERN_PROJECT_ENTRY_ID } from './content-contract.ts';
 import type { FernContentOperationEntrySchema, FernContentProjectEntrySchema } from './content/schema.ts';
 import type { FernArtifactFetcher } from './operation-live-loader.ts';
 import { buildSnapshotSwitch, type FernRouteContext } from './route-context.ts';
@@ -32,10 +32,10 @@ export type { FernRequestCache } from './server-runtime.ts';
 const deployment: FernDeploymentConfig = { base, ...(site ? { site } : {}) };
 
 async function readContentProject(): Promise<FernContentProjectEntrySchema> {
-  const entry = await getEntry(FERN_CONTENT_COLLECTION, FERN_PROJECT_ENTRY_ID);
+  const entry = await getEntry(runtime.collection, FERN_PROJECT_ENTRY_ID);
   if (!entry || entry.data.kind !== 'project') {
     throw new Error(
-      `astro-fern: the "${FERN_CONTENT_COLLECTION}" collection has no project index; configure defineFernCollections() in content.config.ts`,
+      `astro-fern: the "${runtime.collection}" collection has no project index; register fernCollection() under "${runtime.collection}" in content.config.ts, or pass its name to astroFern({ collection })`,
     );
   }
   return entry.data;

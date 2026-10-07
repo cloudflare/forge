@@ -1,5 +1,4 @@
 ---
-import AnchorHeading from '@astrojs/starlight/components/AnchorHeading.astro';
 import type { CommandArgument, CommandOption } from '../../command-reference/schema.ts';
 
 interface Props {
@@ -17,7 +16,7 @@ function defaultLabel(value: unknown): string {
 ---
 
 <section class="command-parameters" aria-labelledby={id}>
-  <AnchorHeading level={2} id={id}>{title}</AnchorHeading>
+  <h2 id={id}>{title}</h2>
   <dl>
     {
       parameters.map((parameter) => (
@@ -51,7 +50,7 @@ function defaultLabel(value: unknown): string {
     margin-top: 2.75rem;
   }
 
-  .command-parameters :global(.sl-heading-wrapper) {
+  .command-parameters > h2 {
     margin-bottom: 1rem;
   }
 
@@ -83,7 +82,7 @@ function defaultLabel(value: unknown): string {
   .parameter-detail code {
     color: var(--cf-foreground);
     background: transparent;
-    font-family: var(--sl-font-mono);
+    font-family: var(--nb-font-mono);
   }
 
   dt code {
@@ -93,7 +92,7 @@ function defaultLabel(value: unknown): string {
 
   dt > span {
     color: var(--cf-muted-foreground);
-    font-family: var(--sl-font-mono);
+    font-family: var(--nb-font-mono);
     font-size: 0.75rem;
   }
 

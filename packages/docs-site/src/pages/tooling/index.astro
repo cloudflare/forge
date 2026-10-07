@@ -1,28 +1,36 @@
 ---
-import StarlightPage from '@astrojs/starlight/components/StarlightPage.astro';
+import DocsLayout from '../../layouts/DocsLayout.astro';
 import CommandDirectory from '../../components/commands/CommandDirectory.astro';
 import CopyableCommand from '../../components/commands/CopyableCommand.astro';
 import { getApiRouter } from '../../api-server.ts';
 import { getCommandRouter } from '../../command-reference/server.ts';
+import { getPageSidebar } from '../../page-sidebar.ts';
 
 export const prerender = true;
 
-const [apiRouter, router] = await Promise.all([getApiRouter(), getCommandRouter()]);
+const [apiRouter, router, sidebar] = await Promise.all([
+  getApiRouter(),
+  getCommandRouter(),
+  getPageSidebar(Astro.url),
+]);
 const productIds = new Set(apiRouter.plan.catalog.products.map((product) => product.id));
 const commands = router.commands.filter((command) => !productIds.has(command.fullPath[0]));
-const frontmatter = {
-  title: 'Developer Tooling',
-  description: 'Reference for commands implemented directly by the cf CLI.',
-  tableOfContents: false,
-};
 ---
 
-<StarlightPage frontmatter={frontmatter}>
-  <div class="command-overview">
+<DocsLayout
+  title="Developer Tooling"
+  description="Reference for commands implemented directly by the cf CLI."
+  sidebar={sidebar}
+  headings={false}
+  breadcrumbs={[]}
+  prevNext={{}}
+  showDescription={false}
+>
+  <div class="command-overview not-content">
     <CopyableCommand command="cf --help" label="Copy cf help command" />
     <CommandDirectory router={router} commands={commands} />
   </div>
-</StarlightPage>
+</DocsLayout>
 
 <style>
   .command-overview {

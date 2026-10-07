@@ -1,16 +1,19 @@
 ---
-import StarlightPage from '@astrojs/starlight/components/StarlightPage.astro';
+import DocsLayout from '../../layouts/DocsLayout.astro';
+import PageTitle from '../../components/PageTitle.astro';
 import ApiIndex from '../../components/ApiIndex.astro';
 import CommandReference from '../../components/commands/CommandReference.astro';
 import Operation from '../../components/Operation.astro';
 import { getApiPage, getApiRouter } from '../../api-server.ts';
 import { commandTitle } from '../../command-reference/routing.ts';
 import { getCommandRouter } from '../../command-reference/server.ts';
+import { getPageSidebar } from '../../page-sidebar.ts';
 
-const [resolved, router, commandRouter] = await Promise.all([
+const [resolved, router, commandRouter, sidebar] = await Promise.all([
   getApiPage(Astro.url, Astro.request, Astro.locals),
   getApiRouter(),
   getCommandRouter(),
+  getPageSidebar(Astro.url),
 ]);
 const command = resolved ? undefined : commandRouter.resolve(Astro.url, router.plan.catalog.products);
 if (!resolved && !command) return new Response('Not found', { status: 404 });
@@ -68,32 +71,36 @@ if (command) {
   else metaDescription = `${resolved.section.title} API operations.`;
 }
 
-const frontmatter = {
-  title,
-  tableOfContents: false,
-  ...(metaDescription ? { description: metaDescription.slice(0, 160) } : {}),
-  head: markdownHref
-    ? [
-        {
-          tag: 'link' as const,
-          attrs: { rel: 'alternate', type: 'text/markdown', href: markdownHref },
-        },
-      ]
-    : [],
-};
+const description = metaDescription ? metaDescription.slice(0, 160) : undefined;
+const head = markdownHref
+  ? [{ tag: 'link' as const, attrs: { rel: 'alternate', type: 'text/markdown', href: markdownHref } }]
+  : [];
 ---
 
-<StarlightPage frontmatter={frontmatter}>
-  {
-    command ? (
-      <CommandReference command={command} />
-    ) : resolved?.kind === 'operation' && page ? (
-      <Operation page={page} selectedTarget={target} />
-    ) : resolved && resolved.kind !== 'operation' ? (
-      <ApiIndex selection={resolved} router={router} commandRouter={commandRouter} />
-    ) : null
-  }
-</StarlightPage>
+<DocsLayout
+  title={title}
+  description={description}
+  head={head}
+  sidebar={sidebar}
+  headings={false}
+  breadcrumbs={[]}
+  prevNext={{}}
+  showDescription={false}
+  wide={resolved !== undefined}
+>
+  {resolved ? <PageTitle slot="page-title" /> : null}
+  <div class="not-content">
+    {
+      command ? (
+        <CommandReference command={command} />
+      ) : resolved?.kind === 'operation' && page ? (
+        <Operation page={page} selectedTarget={target} />
+      ) : resolved && resolved.kind !== 'operation' ? (
+        <ApiIndex selection={resolved} router={router} commandRouter={commandRouter} />
+      ) : null
+    }
+  </div>
+</DocsLayout>
 
 <style is:global>
   /*
@@ -156,7 +163,7 @@ const frontmatter = {
     padding: 0.1rem 0.3rem;
     color: var(--cf-foreground);
     background: var(--cf-accent);
-    font-family: var(--sl-font-mono);
+    font-family: var(--nb-font-mono);
     font-size: 0.85em;
   }
 </style>

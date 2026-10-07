@@ -1,6 +1,5 @@
 ---
-import AnchorHeading from '@astrojs/starlight/components/AnchorHeading.astro';
-import { Aside } from '@astrojs/starlight/components';
+import { Aside } from '@/components/ui/aside';
 import type { FernPageSchema } from 'astro-fern';
 import { DEFER_THRESHOLD, nodeCount, operationView, responseSummary, topLevelNodes } from '../operation-sections.ts';
 import CodeSample from './CodeSample.astro';
@@ -67,9 +66,9 @@ const availabilityMessage = !op.deprecated ? op.availability?.message : undefine
     {
       view.fieldSections.map((section) => (
         <section class="forge-section">
-          <AnchorHeading level={2} id={section.slug}>
+          <h2 id={section.slug}>
             {section.title}
-          </AnchorHeading>
+          </h2>
           {section.section === 'body' && op.requestBody ? (
             <div class="forge-request-body-meta">
               {op.requestBody.description?.html ? (
@@ -123,7 +122,7 @@ const availabilityMessage = !op.deprecated ? op.availability?.message : undefine
     {
       view.response ? (
         <section class="forge-section">
-          <AnchorHeading level={2} id={view.responseSlug}>Returns</AnchorHeading>
+          <h2 id={view.responseSlug}>Returns</h2>
           {returnsSummary ? <p class="forge-returns-note">{returnsSummary}</p> : null}
           {showResponseSchemaSource && view.responseStatus && view.responseRepresentation ? (
             <p class="forge-returns-note">
@@ -236,18 +235,12 @@ const availabilityMessage = !op.deprecated ? op.availability?.message : undefine
     letter-spacing: -0.015em;
   }
 
-  .forge-section :global(.sl-heading-wrapper.level-h2) {
-    --sl-anchor-icon-size: 0.8em;
-    font-size: 1.125rem;
-    line-height: 1.35;
-  }
-
-  .forge-section :global(.sl-anchor-link) {
+  .forge-section :global(.heading-anchor) {
     color: var(--cf-muted-foreground);
   }
 
-  .forge-section :global(.sl-anchor-link:hover),
-  .forge-section :global(.sl-anchor-link:focus-visible) {
+  .forge-section :global(.heading-anchor:hover),
+  .forge-section :global(.heading-anchor:focus-visible) {
     color: var(--cf-link);
   }
 
@@ -274,7 +267,7 @@ const availabilityMessage = !op.deprecated ? op.availability?.message : undefine
         margin-top: 0;
       position: sticky;
       top: min(
-        calc(var(--sl-nav-height) + 1rem),
+        calc(3.5rem + 1rem),
         calc(100vh - var(--forge-example-height) - 1rem)
       );
       grid-column: 2;

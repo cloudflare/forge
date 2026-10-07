@@ -1,10 +1,11 @@
 ---
-import StarlightPage from '@astrojs/starlight/components/StarlightPage.astro';
+import DocsLayout from '../../layouts/DocsLayout.astro';
 import CommandReference from '../../components/commands/CommandReference.astro';
 import { getApiRouter } from '../../api-server.ts';
 import { commandPath, commandTitle } from '../../command-reference/routing.ts';
 import { getCommandRouter } from '../../command-reference/server.ts';
 import type { CommandMetadata } from '../../command-reference/schema.ts';
+import { getPageSidebar } from '../../page-sidebar.ts';
 
 export const prerender = true;
 
@@ -23,13 +24,19 @@ interface Props {
 
 const { command } = Astro.props;
 
-const frontmatter = {
-  title: commandTitle(command),
-  description: command.description,
-  tableOfContents: false,
-};
+const sidebar = await getPageSidebar(Astro.url);
 ---
 
-<StarlightPage frontmatter={frontmatter}>
-  <CommandReference command={command} />
-</StarlightPage>
+<DocsLayout
+  title={commandTitle(command)}
+  description={command.description}
+  sidebar={sidebar}
+  headings={false}
+  breadcrumbs={[]}
+  prevNext={{}}
+  showDescription={false}
+>
+  <div class="not-content">
+    <CommandReference command={command} />
+  </div>
+</DocsLayout>

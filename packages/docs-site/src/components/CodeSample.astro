@@ -465,7 +465,7 @@ function codeSampleSyntax(sample: OperationCodeSampleSchema): string {
     padding: 0.65rem 0.75rem 0.55rem;
     color: var(--cf-muted-foreground);
     background: transparent;
-    font-family: var(--sl-font-mono);
+    font-family: var(--nb-font-mono);
     font-size: 0.75rem;
     font-weight: 650;
     cursor: pointer;
@@ -547,7 +547,7 @@ function codeSampleSyntax(sample: OperationCodeSampleSchema): string {
     padding: 0.45rem 2rem 0.45rem 0.6rem;
     color: var(--cf-foreground);
     background: var(--cf-background);
-    font-family: var(--sl-font-mono);
+    font-family: var(--nb-font-mono);
     font-size: 0.75rem;
     cursor: pointer;
   }
@@ -561,7 +561,7 @@ function codeSampleSyntax(sample: OperationCodeSampleSchema): string {
   .forge-response-media-type code,
   .forge-response-example-header code,
   .forge-response-external code {
-    font-family: var(--sl-font-mono);
+    font-family: var(--nb-font-mono);
   }
 
   .forge-response-examples {
@@ -647,7 +647,7 @@ function codeSampleSyntax(sample: OperationCodeSampleSchema): string {
     padding: 0.2rem 0.35rem;
     color: var(--cf-muted-foreground);
     background: var(--cf-muted);
-    font-family: var(--sl-font-mono);
+    font-family: var(--nb-font-mono);
     font-size: 0.625rem;
     line-height: 1;
   }
@@ -710,17 +710,17 @@ function codeSampleSyntax(sample: OperationCodeSampleSchema): string {
     line-height: 1.65;
   }
   :global(.forge-code code) {
-    font-family: var(--__sl-font-mono);
+    font-family: var(--nb-font-mono);
     white-space: pre;
   }
   :global(.forge-code .token.comment),
   :global(.forge-code .token.prolog),
   :global(.forge-code .token.doctype),
   :global(.forge-code .token.cdata) {
-    color: var(--sl-color-gray-3);
+    color: var(--cf-muted-foreground);
   }
   :global(.forge-code .token.punctuation) {
-    color: var(--sl-color-gray-2);
+    color: var(--cf-muted-foreground);
   }
   :global(.forge-code .token.property),
   :global(.forge-code .token.tag),
@@ -729,7 +729,7 @@ function codeSampleSyntax(sample: OperationCodeSampleSchema): string {
   :global(.forge-code .token.constant),
   :global(.forge-code .token.symbol),
   :global(.forge-code .token.deleted) {
-    color: var(--sl-color-red-high);
+    color: var(--cf-danger);
   }
   :global(.forge-code .token.selector),
   :global(.forge-code .token.attr-name),
@@ -737,26 +737,26 @@ function codeSampleSyntax(sample: OperationCodeSampleSchema): string {
   :global(.forge-code .token.char),
   :global(.forge-code .token.builtin),
   :global(.forge-code .token.inserted) {
-    color: var(--sl-color-green-high);
+    color: var(--cf-success);
   }
   :global(.forge-code .token.operator),
   :global(.forge-code .token.entity),
   :global(.forge-code .token.url) {
-    color: var(--sl-color-blue-high);
+    color: var(--cf-info);
   }
   :global(.forge-code .token.atrule),
   :global(.forge-code .token.attr-value),
   :global(.forge-code .token.keyword) {
-    color: var(--sl-color-purple-high);
+    color: var(--cf-purple);
   }
   :global(.forge-code .token.function),
   :global(.forge-code .token.class-name) {
-    color: var(--sl-color-blue-high);
+    color: var(--cf-info);
   }
   :global(.forge-code .token.regex),
   :global(.forge-code .token.important),
   :global(.forge-code .token.variable) {
-    color: var(--sl-color-orange-high);
+    color: var(--cf-warning);
   }
   :global(.forge-code .token.important),
   :global(.forge-code .token.bold) {
