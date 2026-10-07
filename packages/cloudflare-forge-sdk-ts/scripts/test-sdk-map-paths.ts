@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test, type TestContext } from 'node:test';
 import { fileURLToPath } from 'node:url';
+import ts from 'typescript';
 
 const mapper = fileURLToPath(new URL('./generate-sdk-map.ts', import.meta.url));
 const packageRoot = fileURLToPath(new URL('..', import.meta.url));
@@ -15,6 +16,7 @@ interface Operation {
   operationId?: string;
   ignored?: boolean;
   generatedPath?: string;
+  requestProperties?: string[];
 }
 
 interface MapEntry {
@@ -22,6 +24,7 @@ interface MapEntry {
   path: string;
   httpMethod: string;
   operationIdSource?: string;
+  requiredRequestProperties?: string[];
 }
 
 function generateMap(t: TestContext, operations: Operation[]) {
@@ -45,7 +48,10 @@ function generateMap(t: TestContext, operations: Operation[]) {
 export class FixtureClient {
 ${operations
   .map(
-    (operation, index) => `  public endpoint${index}(): void {
+    (
+      operation,
+      index,
+    ) => `  public endpoint${index}(${operation.requestProperties === undefined ? '' : `request: { ${operation.requestProperties.map((name) => `${JSON.stringify(name)}: string;`).join(' ')} }`}): void {
     handleNonStatusCodeError(null, null, ${JSON.stringify(operation.method.toUpperCase())}, ${JSON.stringify(operation.generatedPath ?? operation.path)});
   }`,
   )
@@ -67,10 +73,39 @@ ${operations
   return {
     result,
     readMap: () => JSON.parse(readFileSync(join(generated, 'sdk-map.json'), 'utf8')) as Record<string, MapEntry>,
+    checkRequestFields: (entry: MapEntry) => {
+      const fields = [...entry.path.matchAll(/\{([^{}]+)\}/g)].map((match) => `${JSON.stringify(match[1])}: "value"`);
+      const consumer = join(generated, 'Consumer.ts');
+      writeFileSync(
+        consumer,
+        `import { FixtureClient } from "./Client.js";\nnew FixtureClient().${entry.method}({ ${fields.join(', ')} });\n`,
+      );
+      const program = ts.createProgram({
+        rootNames: [consumer],
+        options: {
+          noEmit: true,
+          skipLibCheck: true,
+          types: [],
+          target: ts.ScriptTarget.ES2022,
+          module: ts.ModuleKind.NodeNext,
+          moduleResolution: ts.ModuleResolutionKind.NodeNext,
+        },
+      });
+      const diagnostics = ts.getPreEmitDiagnostics(program);
+      assert.equal(
+        diagnostics.length,
+        0,
+        ts.formatDiagnostics(diagnostics, {
+          getCanonicalFileName: (file) => file,
+          getCurrentDirectory: () => generated,
+          getNewLine: () => '\n',
+        }),
+      );
+    },
   };
 }
 
-test('maps renamed path parameters to canonical paths and operation IDs', (t) => {
+test('preserves Fern parameter names while mapping to canonical operation IDs', (t) => {
   const operations: Operation[] = [
     {
       method: 'get',
@@ -114,11 +149,28 @@ test('maps renamed path parameters to canonical paths and operation IDs', (t) =>
       accessor: [],
       method: `endpoint${index}`,
       httpMethod: operation.method.toUpperCase(),
-      path: operation.path,
+      path: operation.generatedPath ?? operation.path,
       ...(operation.operationId === undefined ? { operationIdSource: 'synthetic' } : {}),
     });
   }
   assert.match(result.stdout, /unresolved spec ops: 0/);
+});
+
+test('mapped Fern placeholders produce request fields accepted by the SDK', (t) => {
+  const { result, readMap, checkRequestFields } = generateMap(t, [
+    {
+      method: 'get',
+      path: '/accounts/{account_id}/ai-search/namespaces/{name}/instances/{id}',
+      operationId: 'get-instance',
+      generatedPath: '/accounts/{account_id}/ai-search/namespaces/{namespace}/instances/{instance-id}',
+      requestProperties: ['account_id', 'namespace', 'instance-id'],
+    },
+  ]);
+  assert.equal(result.status, 0, result.stderr);
+  const entry = readMap()['get-instance'];
+  assert.ok(entry);
+  assert.deepEqual(entry.requiredRequestProperties, ['account_id', 'instance-id', 'namespace']);
+  checkRequestFields(entry);
 });
 
 test('repairs literal dots alongside renamed parameters without changing static segments', (t) => {
@@ -132,7 +184,7 @@ test('repairs literal dots alongside renamed parameters without changing static 
     { method: 'get', path: '/files/latest', operationId: 'latest' },
   ]);
   assert.equal(result.status, 0, result.stderr);
-  assert.equal(readMap()['download']?.path, '/files/{file_id}.{extension}');
+  assert.equal(readMap()['download']?.path, '/files/{id}.{format}');
   assert.equal(readMap()['latest']?.path, '/files/latest');
 });
 

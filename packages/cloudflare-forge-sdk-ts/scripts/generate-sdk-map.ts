@@ -22,7 +22,7 @@
 //                        literal dots next to path parameters into `/.`, which
 //                        is repaired before the spec lookup. Parameter-name
 //                        overrides are matched by route structure, retaining
-//                        the canonical OpenAPI path in the map.
+//                        the Fern names in the map for SDK request fields.
 //
 // Coverage is asserted against the spec: every non-ignored operation, including
 // deprecated operations that Fern still generates, must resolve to an entry or
@@ -571,13 +571,14 @@ function main(): void {
   let aliasCollisions = 0;
 
   for (const endpoint of endpoints) {
-    const op = findSpecOperation(endpoint.verb, endpoint.path);
-    if (!op) {
+    const match = findSpecOperation(endpoint.verb, endpoint.path);
+    if (!match) {
       unmatched.push(`${endpoint.verb} ${endpoint.path} (${[...endpoint.accessor, endpoint.method].join('.')})`);
       continue;
     }
+    const op = match.operation;
     if (op.ignored) continue;
-    const matchedPathEndpoint = { ...endpoint, path: op.path };
+    const matchedPathEndpoint = { ...endpoint, path: match.generatedPath };
     const queryProperties = sourceQueryProperties.get(op.operationId);
     const matchedEndpoint = queryProperties ? { ...matchedPathEndpoint, queryProperties } : matchedPathEndpoint;
     const existing = chosen.get(op.operationId);
