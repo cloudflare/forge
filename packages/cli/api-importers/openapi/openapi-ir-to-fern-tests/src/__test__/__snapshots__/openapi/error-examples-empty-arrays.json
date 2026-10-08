@@ -1,0 +1,404 @@
+{
+  "absoluteFilePath": "/DUMMY_PATH",
+  "importedDefinitions": {},
+  "namedDefinitionFiles": {
+    "__package__.yml": {
+      "absoluteFilepath": "/DUMMY_PATH",
+      "contents": {
+        "errors": {
+          "BadRequestError": {
+            "docs": "Invalid request parameters.",
+            "examples": [
+              {
+                "docs": undefined,
+                "name": "Missing search query",
+                "value": {
+                  "errors": [
+                    {
+                      "code": 1001,
+                      "message": "Missing required parameter: q",
+                    },
+                  ],
+                  "messages": [],
+                  "result": null,
+                  "success": false,
+                },
+              },
+              {
+                "docs": undefined,
+                "name": undefined,
+                "value": {
+                  "errors": [
+                    {
+                      "code": 1006,
+                      "message": "domains array must contain at least one domain",
+                    },
+                  ],
+                  "messages": [],
+                  "result": null,
+                  "success": false,
+                },
+              },
+            ],
+            "status-code": 400,
+            "type": "ApiResponseCommonFailure",
+          },
+          "ServiceUnavailableError": {
+            "docs": "Upstream failure.",
+            "examples": [
+              {
+                "docs": undefined,
+                "name": "All checks failed upstream",
+                "value": {
+                  "errors": [
+                    {
+                      "code": 10000,
+                      "message": "Internal API failure for domain example.com",
+                      "source": {
+                        "pointer": "/domains/0",
+                      },
+                    },
+                  ],
+                  "messages": [],
+                  "result": null,
+                  "success": false,
+                },
+              },
+            ],
+            "status-code": 503,
+            "type": "ApiResponseCommonFailure",
+          },
+        },
+        "service": {
+          "auth": false,
+          "base-path": "",
+          "endpoints": {
+            "checkDomains": {
+              "auth": undefined,
+              "docs": undefined,
+              "errors": [
+                "BadRequestError",
+                "ServiceUnavailableError",
+              ],
+              "examples": [
+                {
+                  "request": {
+                    "domains": [
+                      "domains",
+                    ],
+                  },
+                  "response": {
+                    "body": {
+                      "errors": [],
+                      "messages": [],
+                      "result": {
+                        "domains": [
+                          "domains",
+                        ],
+                      },
+                      "success": true,
+                    },
+                  },
+                },
+              ],
+              "method": "POST",
+              "pagination": undefined,
+              "path": "/domains/check",
+              "request": {
+                "body": {
+                  "properties": {
+                    "domains": "list<string>",
+                  },
+                },
+                "content-type": "application/json",
+                "headers": undefined,
+                "name": "CheckDomainsRequest",
+                "path-parameters": undefined,
+                "query-parameters": undefined,
+              },
+              "response": {
+                "docs": "Check results.",
+                "status-code": 200,
+                "type": "SearchResponse",
+              },
+              "source": {
+                "openapi": "../openapi.yml",
+              },
+            },
+            "searchDomains": {
+              "auth": undefined,
+              "docs": undefined,
+              "errors": [
+                "BadRequestError",
+              ],
+              "examples": [
+                {
+                  "name": "No results",
+                  "query-parameters": {
+                    "q": "q",
+                  },
+                  "response": {
+                    "body": {
+                      "errors": [],
+                      "messages": [],
+                      "result": {
+                        "domains": [],
+                      },
+                      "success": true,
+                    },
+                  },
+                },
+              ],
+              "method": "GET",
+              "pagination": undefined,
+              "path": "/domains/search",
+              "request": {
+                "name": "SearchDomainsRequest",
+                "query-parameters": {
+                  "q": "string",
+                },
+              },
+              "response": {
+                "docs": "Search results.",
+                "status-code": 200,
+                "type": "SearchResponse",
+              },
+              "source": {
+                "openapi": "../openapi.yml",
+              },
+            },
+          },
+          "source": {
+            "openapi": "../openapi.yml",
+          },
+        },
+        "types": {
+          "ApiResponseCommonFailure": {
+            "docs": undefined,
+            "inline": undefined,
+            "properties": {
+              "errors": "Messages",
+              "messages": "Messages",
+              "result": "nullable<map<string, unknown>>",
+              "success": "boolean",
+            },
+            "source": {
+              "openapi": "../openapi.yml",
+            },
+          },
+          "Messages": "list<MessagesItem>",
+          "MessagesItem": {
+            "docs": undefined,
+            "inline": undefined,
+            "properties": {
+              "code": {
+                "type": "integer",
+                "validation": {
+                  "exclusiveMax": undefined,
+                  "exclusiveMin": undefined,
+                  "max": undefined,
+                  "min": 1000,
+                  "multipleOf": undefined,
+                },
+              },
+              "message": "string",
+              "source": "optional<MessagesItemSource>",
+            },
+            "source": {
+              "openapi": "../openapi.yml",
+            },
+          },
+          "MessagesItemSource": {
+            "docs": undefined,
+            "inline": true,
+            "properties": {
+              "pointer": "string",
+            },
+            "source": {
+              "openapi": "../openapi.yml",
+            },
+          },
+          "SearchResponse": {
+            "docs": undefined,
+            "inline": undefined,
+            "properties": {
+              "errors": "Messages",
+              "messages": "Messages",
+              "result": "SearchResponseResult",
+              "success": "boolean",
+            },
+            "source": {
+              "openapi": "../openapi.yml",
+            },
+          },
+          "SearchResponseResult": {
+            "docs": undefined,
+            "inline": true,
+            "properties": {
+              "domains": "list<string>",
+            },
+            "source": {
+              "openapi": "../openapi.yml",
+            },
+          },
+        },
+      },
+      "rawContents": "errors:
+  BadRequestError:
+    status-code: 400
+    type: ApiResponseCommonFailure
+    docs: Invalid request parameters.
+    examples:
+      - value:
+          success: false
+          errors:
+            - code: 1001
+              message: 'Missing required parameter: q'
+          messages: []
+          result: null
+        name: Missing search query
+      - value:
+          success: false
+          errors:
+            - code: 1006
+              message: domains array must contain at least one domain
+          messages: []
+          result: null
+  ServiceUnavailableError:
+    status-code: 503
+    type: ApiResponseCommonFailure
+    docs: Upstream failure.
+    examples:
+      - value:
+          success: false
+          errors:
+            - code: 10000
+              message: Internal API failure for domain example.com
+              source:
+                pointer: /domains/0
+          messages: []
+          result: null
+        name: All checks failed upstream
+service:
+  auth: false
+  base-path: ''
+  endpoints:
+    searchDomains:
+      path: /domains/search
+      method: GET
+      source:
+        openapi: ../openapi.yml
+      request:
+        name: SearchDomainsRequest
+        query-parameters:
+          q: string
+      response:
+        docs: Search results.
+        type: SearchResponse
+        status-code: 200
+      errors:
+        - BadRequestError
+      examples:
+        - name: No results
+          query-parameters:
+            q: q
+          response:
+            body:
+              success: true
+              errors: []
+              messages: []
+              result:
+                domains: []
+    checkDomains:
+      path: /domains/check
+      method: POST
+      source:
+        openapi: ../openapi.yml
+      request:
+        name: CheckDomainsRequest
+        body:
+          properties:
+            domains: list<string>
+        content-type: application/json
+      response:
+        docs: Check results.
+        type: SearchResponse
+        status-code: 200
+      errors:
+        - BadRequestError
+        - ServiceUnavailableError
+      examples:
+        - request:
+            domains:
+              - domains
+          response:
+            body:
+              success: true
+              errors: []
+              messages: []
+              result:
+                domains:
+                  - domains
+  source:
+    openapi: ../openapi.yml
+types:
+  MessagesItemSource:
+    properties:
+      pointer: string
+    source:
+      openapi: ../openapi.yml
+    inline: true
+  MessagesItem:
+    properties:
+      code:
+        type: integer
+        validation:
+          min: 1000
+      message: string
+      source: optional<MessagesItemSource>
+    source:
+      openapi: ../openapi.yml
+  Messages: list<MessagesItem>
+  SearchResponseResult:
+    properties:
+      domains: list<string>
+    source:
+      openapi: ../openapi.yml
+    inline: true
+  SearchResponse:
+    properties:
+      success: boolean
+      errors: Messages
+      messages: Messages
+      result: SearchResponseResult
+    source:
+      openapi: ../openapi.yml
+  ApiResponseCommonFailure:
+    properties:
+      success: boolean
+      errors: Messages
+      messages: Messages
+      result: nullable<map<string, unknown>>
+    source:
+      openapi: ../openapi.yml
+",
+    },
+  },
+  "packageMarkers": {},
+  "rootApiFile": {
+    "contents": {
+      "display-name": "Error examples with empty arrays",
+      "error-discrimination": {
+        "strategy": "status-code",
+      },
+      "name": "api",
+    },
+    "defaultUrl": undefined,
+    "rawContents": "name: api
+error-discrimination:
+  strategy: status-code
+display-name: Error examples with empty arrays
+",
+  },
+  "specVersion": "1.0.0",
+}

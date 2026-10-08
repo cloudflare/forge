@@ -1,7 +1,15 @@
 import { FullExample, KeyValuePair, PrimitiveExample } from "@fern-api/openapi-ir";
 
+/**
+ * Converts an authored example value into a FullExample without consulting a schema.
+ *
+ * Empty arrays and nulls are values the author wrote, so they are kept. Only
+ * `undefined` and values that have no JSON representation produce `undefined`.
+ */
 export function convertToFullExample(value: unknown): FullExample | undefined {
-    if (typeof value === "string") {
+    if (value === null) {
+        return FullExample.null({});
+    } else if (typeof value === "string") {
         return FullExample.primitive(PrimitiveExample.string(value));
     } else if (typeof value === "number") {
         if (Number.isInteger(value)) {
@@ -11,11 +19,14 @@ export function convertToFullExample(value: unknown): FullExample | undefined {
     } else if (typeof value === "boolean") {
         return FullExample.primitive(PrimitiveExample.boolean(value));
     } else if (Array.isArray(value)) {
-        const examples = value.map((example) => convertToFullExample(example));
-        if (examples.length === 0) {
-            return undefined;
+        const examples: FullExample[] = [];
+        for (const item of value) {
+            const itemExample = convertToFullExample(item);
+            if (itemExample != null) {
+                examples.push(itemExample);
+            }
         }
-        return FullExample.array(examples.filter((example) => example != null) as FullExample[]);
+        return FullExample.array(examples);
     } else if (
         value != null &&
         typeof value === "object" &&

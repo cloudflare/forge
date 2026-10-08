@@ -1,0 +1,5 @@
+- summary: |
+    Keep `[]` and `null` values in authored OpenAPI error and webhook examples, so a
+    required array property such as `messages: []` no longer fails `valid-example-error`.
+    An optional array example whose items all fail to build is omitted, not replaced with `[]`.
+  type: fix

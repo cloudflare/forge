@@ -148,8 +148,7 @@ export class ExampleTypeFactory {
                     result != null &&
                     result.type === "array" &&
                     result.value.length === 0 &&
-                    !Array.isArray(example) &&
-                    !Array.isArray(this.getSchemaExample(schema))
+                    !this.isExplicitEmptyArrayExample(example, schema.value)
                 ) {
                     return undefined;
                 }
@@ -913,6 +912,21 @@ export class ExampleTypeFactory {
             schema = resolvedSchema;
         }
         return schema;
+    }
+
+    /**
+     * True when the example that the array builder uses is an authored `[]`. The
+     * array builder prefers a parsed array example and falls back to the schema
+     * example, so this follows the same order. A non-empty example whose items all
+     * fail to build is not an explicit empty array.
+     */
+    private isExplicitEmptyArrayExample(example: unknown, schema: SchemaWithExample): boolean {
+        const parsedExample = getFullExampleAsArray(example);
+        if (parsedExample != null) {
+            return parsedExample.length === 0;
+        }
+        const schemaExample = getFullExampleAsArray(this.getSchemaExample(schema));
+        return schemaExample != null && schemaExample.length === 0;
     }
 
     private getSchemaExample(schema: SchemaWithExample): unknown | undefined {

@@ -1,0 +1,891 @@
+{
+  "specVersion": "1.0.0",
+  "title": "Error examples with empty arrays",
+  "servers": [],
+  "websocketServers": [],
+  "tags": {
+    "tagsById": {}
+  },
+  "hasEndpointsMarkedInternal": false,
+  "endpoints": [
+    {
+      "audiences": [],
+      "operationId": "searchDomains",
+      "tags": [],
+      "pathParameters": [],
+      "queryParameters": [
+        {
+          "name": "q",
+          "schema": {
+            "schema": {
+              "type": "string"
+            },
+            "generatedName": "SearchDomainsRequestQ",
+            "groupName": [],
+            "type": "primitive"
+          },
+          "source": {
+            "file": "../openapi.yml",
+            "type": "openapi"
+          }
+        }
+      ],
+      "headers": [],
+      "generatedRequestName": "SearchDomainsRequest",
+      "response": {
+        "description": "Search results.",
+        "schema": {
+          "generatedName": "SearchDomainsResponse",
+          "schema": "search-response",
+          "source": {
+            "file": "../openapi.yml",
+            "type": "openapi"
+          },
+          "type": "reference"
+        },
+        "fullExamples": [
+          {
+            "name": "No results",
+            "value": {
+              "success": true,
+              "errors": [],
+              "messages": [],
+              "result": {
+                "domains": []
+              }
+            }
+          }
+        ],
+        "source": {
+          "file": "../openapi.yml",
+          "type": "openapi"
+        },
+        "statusCode": 200,
+        "type": "json"
+      },
+      "errors": {
+        "400": {
+          "generatedName": "BadRequestError",
+          "schema": {
+            "generatedName": "BadRequestErrorBody",
+            "schema": "api-response-common-failure",
+            "source": {
+              "file": "../openapi.yml",
+              "type": "openapi"
+            },
+            "type": "reference"
+          },
+          "description": "Invalid request parameters.",
+          "source": {
+            "file": "../openapi.yml",
+            "type": "openapi"
+          },
+          "examples": [
+            {
+              "name": "Missing search query",
+              "example": {
+                "value": [
+                  {
+                    "key": {
+                      "value": "success",
+                      "type": "string"
+                    },
+                    "value": {
+                      "value": {
+                        "value": false,
+                        "type": "boolean"
+                      },
+                      "type": "primitive"
+                    }
+                  },
+                  {
+                    "key": {
+                      "value": "errors",
+                      "type": "string"
+                    },
+                    "value": {
+                      "value": [
+                        {
+                          "value": [
+                            {
+                              "key": {
+                                "value": "code",
+                                "type": "string"
+                              },
+                              "value": {
+                                "value": {
+                                  "value": 1001,
+                                  "type": "int"
+                                },
+                                "type": "primitive"
+                              }
+                            },
+                            {
+                              "key": {
+                                "value": "message",
+                                "type": "string"
+                              },
+                              "value": {
+                                "value": {
+                                  "value": "Missing required parameter: q",
+                                  "type": "string"
+                                },
+                                "type": "primitive"
+                              }
+                            }
+                          ],
+                          "type": "map"
+                        }
+                      ],
+                      "type": "array"
+                    }
+                  },
+                  {
+                    "key": {
+                      "value": "messages",
+                      "type": "string"
+                    },
+                    "value": {
+                      "value": [],
+                      "type": "array"
+                    }
+                  },
+                  {
+                    "key": {
+                      "value": "result",
+                      "type": "string"
+                    },
+                    "value": {
+                      "type": "null"
+                    }
+                  }
+                ],
+                "type": "map"
+              }
+            }
+          ]
+        }
+      },
+      "servers": [],
+      "authed": false,
+      "method": "GET",
+      "path": "/domains/search",
+      "examples": [
+        {
+          "name": "No results",
+          "pathParameters": [],
+          "queryParameters": [
+            {
+              "name": "q",
+              "value": {
+                "value": {
+                  "value": "q",
+                  "type": "string"
+                },
+                "type": "primitive"
+              }
+            }
+          ],
+          "headers": [],
+          "response": {
+            "value": {
+              "properties": {
+                "success": {
+                  "value": {
+                    "value": true,
+                    "type": "boolean"
+                  },
+                  "type": "primitive"
+                },
+                "errors": {
+                  "value": [],
+                  "type": "array"
+                },
+                "messages": {
+                  "value": [],
+                  "type": "array"
+                },
+                "result": {
+                  "properties": {
+                    "domains": {
+                      "value": [],
+                      "type": "array"
+                    }
+                  },
+                  "type": "object"
+                }
+              },
+              "type": "object"
+            },
+            "type": "withoutStreaming"
+          },
+          "codeSamples": [],
+          "type": "full"
+        }
+      ],
+      "source": {
+        "file": "../openapi.yml",
+        "type": "openapi"
+      }
+    },
+    {
+      "audiences": [],
+      "operationId": "checkDomains",
+      "tags": [],
+      "pathParameters": [],
+      "queryParameters": [],
+      "headers": [],
+      "generatedRequestName": "CheckDomainsRequest",
+      "request": {
+        "schema": {
+          "allOf": [],
+          "properties": [
+            {
+              "conflict": {},
+              "generatedName": "checkDomainsRequestDomains",
+              "key": "domains",
+              "schema": {
+                "value": {
+                  "schema": {
+                    "type": "string"
+                  },
+                  "generatedName": "CheckDomainsRequestDomainsItem",
+                  "groupName": [],
+                  "type": "primitive"
+                },
+                "generatedName": "CheckDomainsRequestDomains",
+                "groupName": [],
+                "type": "array"
+              },
+              "audiences": []
+            }
+          ],
+          "allOfPropertyConflicts": [],
+          "generatedName": "CheckDomainsRequest",
+          "groupName": [],
+          "additionalProperties": false,
+          "source": {
+            "file": "../openapi.yml",
+            "type": "openapi"
+          },
+          "type": "object"
+        },
+        "contentType": "application/json",
+        "required": true,
+        "fullExamples": [],
+        "additionalProperties": false,
+        "source": {
+          "file": "../openapi.yml",
+          "type": "openapi"
+        },
+        "type": "json"
+      },
+      "response": {
+        "description": "Check results.",
+        "schema": {
+          "generatedName": "CheckDomainsResponse",
+          "schema": "search-response",
+          "source": {
+            "file": "../openapi.yml",
+            "type": "openapi"
+          },
+          "type": "reference"
+        },
+        "fullExamples": [],
+        "source": {
+          "file": "../openapi.yml",
+          "type": "openapi"
+        },
+        "statusCode": 200,
+        "type": "json"
+      },
+      "errors": {
+        "400": {
+          "generatedName": "BadRequestError",
+          "schema": {
+            "generatedName": "BadRequestErrorBody",
+            "schema": "api-response-common-failure",
+            "source": {
+              "file": "../openapi.yml",
+              "type": "openapi"
+            },
+            "type": "reference"
+          },
+          "description": "Invalid request body.",
+          "source": {
+            "file": "../openapi.yml",
+            "type": "openapi"
+          },
+          "examples": [
+            {
+              "example": {
+                "value": [
+                  {
+                    "key": {
+                      "value": "success",
+                      "type": "string"
+                    },
+                    "value": {
+                      "value": {
+                        "value": false,
+                        "type": "boolean"
+                      },
+                      "type": "primitive"
+                    }
+                  },
+                  {
+                    "key": {
+                      "value": "errors",
+                      "type": "string"
+                    },
+                    "value": {
+                      "value": [
+                        {
+                          "value": [
+                            {
+                              "key": {
+                                "value": "code",
+                                "type": "string"
+                              },
+                              "value": {
+                                "value": {
+                                  "value": 1006,
+                                  "type": "int"
+                                },
+                                "type": "primitive"
+                              }
+                            },
+                            {
+                              "key": {
+                                "value": "message",
+                                "type": "string"
+                              },
+                              "value": {
+                                "value": {
+                                  "value": "domains array must contain at least one domain",
+                                  "type": "string"
+                                },
+                                "type": "primitive"
+                              }
+                            }
+                          ],
+                          "type": "map"
+                        }
+                      ],
+                      "type": "array"
+                    }
+                  },
+                  {
+                    "key": {
+                      "value": "messages",
+                      "type": "string"
+                    },
+                    "value": {
+                      "value": [],
+                      "type": "array"
+                    }
+                  },
+                  {
+                    "key": {
+                      "value": "result",
+                      "type": "string"
+                    },
+                    "value": {
+                      "type": "null"
+                    }
+                  }
+                ],
+                "type": "map"
+              }
+            }
+          ]
+        },
+        "503": {
+          "generatedName": "ServiceUnavailableError",
+          "schema": {
+            "generatedName": "ServiceUnavailableErrorBody",
+            "schema": "api-response-common-failure",
+            "source": {
+              "file": "../openapi.yml",
+              "type": "openapi"
+            },
+            "type": "reference"
+          },
+          "description": "Upstream failure.",
+          "source": {
+            "file": "../openapi.yml",
+            "type": "openapi"
+          },
+          "examples": [
+            {
+              "name": "All checks failed upstream",
+              "example": {
+                "value": [
+                  {
+                    "key": {
+                      "value": "success",
+                      "type": "string"
+                    },
+                    "value": {
+                      "value": {
+                        "value": false,
+                        "type": "boolean"
+                      },
+                      "type": "primitive"
+                    }
+                  },
+                  {
+                    "key": {
+                      "value": "errors",
+                      "type": "string"
+                    },
+                    "value": {
+                      "value": [
+                        {
+                          "value": [
+                            {
+                              "key": {
+                                "value": "code",
+                                "type": "string"
+                              },
+                              "value": {
+                                "value": {
+                                  "value": 10000,
+                                  "type": "int"
+                                },
+                                "type": "primitive"
+                              }
+                            },
+                            {
+                              "key": {
+                                "value": "message",
+                                "type": "string"
+                              },
+                              "value": {
+                                "value": {
+                                  "value": "Internal API failure for domain example.com",
+                                  "type": "string"
+                                },
+                                "type": "primitive"
+                              }
+                            },
+                            {
+                              "key": {
+                                "value": "source",
+                                "type": "string"
+                              },
+                              "value": {
+                                "value": [
+                                  {
+                                    "key": {
+                                      "value": "pointer",
+                                      "type": "string"
+                                    },
+                                    "value": {
+                                      "value": {
+                                        "value": "/domains/0",
+                                        "type": "string"
+                                      },
+                                      "type": "primitive"
+                                    }
+                                  }
+                                ],
+                                "type": "map"
+                              }
+                            }
+                          ],
+                          "type": "map"
+                        }
+                      ],
+                      "type": "array"
+                    }
+                  },
+                  {
+                    "key": {
+                      "value": "messages",
+                      "type": "string"
+                    },
+                    "value": {
+                      "value": [],
+                      "type": "array"
+                    }
+                  },
+                  {
+                    "key": {
+                      "value": "result",
+                      "type": "string"
+                    },
+                    "value": {
+                      "type": "null"
+                    }
+                  }
+                ],
+                "type": "map"
+              }
+            }
+          ]
+        }
+      },
+      "servers": [],
+      "authed": false,
+      "method": "POST",
+      "path": "/domains/check",
+      "examples": [
+        {
+          "pathParameters": [],
+          "queryParameters": [],
+          "headers": [],
+          "request": {
+            "properties": {
+              "domains": {
+                "value": [
+                  {
+                    "value": {
+                      "value": "domains",
+                      "type": "string"
+                    },
+                    "type": "primitive"
+                  }
+                ],
+                "type": "array"
+              }
+            },
+            "type": "object"
+          },
+          "response": {
+            "value": {
+              "properties": {
+                "success": {
+                  "value": {
+                    "value": true,
+                    "type": "boolean"
+                  },
+                  "type": "primitive"
+                },
+                "errors": {
+                  "value": [],
+                  "type": "array"
+                },
+                "messages": {
+                  "value": [],
+                  "type": "array"
+                },
+                "result": {
+                  "properties": {
+                    "domains": {
+                      "value": [
+                        {
+                          "value": {
+                            "value": "domains",
+                            "type": "string"
+                          },
+                          "type": "primitive"
+                        }
+                      ],
+                      "type": "array"
+                    }
+                  },
+                  "type": "object"
+                }
+              },
+              "type": "object"
+            },
+            "type": "withoutStreaming"
+          },
+          "codeSamples": [],
+          "type": "full"
+        }
+      ],
+      "source": {
+        "file": "../openapi.yml",
+        "type": "openapi"
+      }
+    }
+  ],
+  "webhooks": [],
+  "channels": {},
+  "groupedSchemas": {
+    "rootSchemas": {
+      "messages": {
+        "value": {
+          "allOf": [],
+          "properties": [
+            {
+              "conflict": {},
+              "generatedName": "messagesItemCode",
+              "key": "code",
+              "schema": {
+                "schema": {
+                  "minimum": 1000,
+                  "type": "int"
+                },
+                "generatedName": "MessagesItemCode",
+                "groupName": [],
+                "type": "primitive"
+              },
+              "audiences": []
+            },
+            {
+              "conflict": {},
+              "generatedName": "messagesItemMessage",
+              "key": "message",
+              "schema": {
+                "schema": {
+                  "type": "string"
+                },
+                "generatedName": "MessagesItemMessage",
+                "groupName": [],
+                "type": "primitive"
+              },
+              "audiences": []
+            },
+            {
+              "conflict": {},
+              "generatedName": "messagesItemSource",
+              "key": "source",
+              "schema": {
+                "generatedName": "MessagesItemSource",
+                "value": {
+                  "allOf": [],
+                  "properties": [
+                    {
+                      "conflict": {},
+                      "generatedName": "messagesItemSourcePointer",
+                      "key": "pointer",
+                      "schema": {
+                        "schema": {
+                          "type": "string"
+                        },
+                        "generatedName": "MessagesItemSourcePointer",
+                        "groupName": [],
+                        "type": "primitive"
+                      },
+                      "audiences": []
+                    }
+                  ],
+                  "allOfPropertyConflicts": [],
+                  "generatedName": "MessagesItemSource",
+                  "groupName": [],
+                  "additionalProperties": false,
+                  "source": {
+                    "file": "../openapi.yml",
+                    "type": "openapi"
+                  },
+                  "type": "object"
+                },
+                "groupName": [],
+                "type": "optional"
+              },
+              "audiences": []
+            }
+          ],
+          "allOfPropertyConflicts": [],
+          "generatedName": "MessagesItem",
+          "groupName": [],
+          "additionalProperties": false,
+          "source": {
+            "file": "../openapi.yml",
+            "type": "openapi"
+          },
+          "type": "object"
+        },
+        "generatedName": "Messages",
+        "groupName": [],
+        "type": "array"
+      },
+      "search-response": {
+        "allOf": [],
+        "properties": [
+          {
+            "conflict": {},
+            "generatedName": "searchResponseSuccess",
+            "key": "success",
+            "schema": {
+              "schema": {
+                "type": "boolean"
+              },
+              "generatedName": "SearchResponseSuccess",
+              "groupName": [],
+              "type": "primitive"
+            },
+            "audiences": []
+          },
+          {
+            "conflict": {},
+            "generatedName": "searchResponseErrors",
+            "key": "errors",
+            "schema": {
+              "generatedName": "SearchResponseErrors",
+              "schema": "messages",
+              "source": {
+                "file": "../openapi.yml",
+                "type": "openapi"
+              },
+              "type": "reference"
+            },
+            "audiences": []
+          },
+          {
+            "conflict": {},
+            "generatedName": "searchResponseMessages",
+            "key": "messages",
+            "schema": {
+              "generatedName": "SearchResponseMessages",
+              "schema": "messages",
+              "source": {
+                "file": "../openapi.yml",
+                "type": "openapi"
+              },
+              "type": "reference"
+            },
+            "audiences": []
+          },
+          {
+            "conflict": {},
+            "generatedName": "searchResponseResult",
+            "key": "result",
+            "schema": {
+              "allOf": [],
+              "properties": [
+                {
+                  "conflict": {},
+                  "generatedName": "searchResponseResultDomains",
+                  "key": "domains",
+                  "schema": {
+                    "value": {
+                      "schema": {
+                        "type": "string"
+                      },
+                      "generatedName": "SearchResponseResultDomainsItem",
+                      "groupName": [],
+                      "type": "primitive"
+                    },
+                    "generatedName": "SearchResponseResultDomains",
+                    "groupName": [],
+                    "type": "array"
+                  },
+                  "audiences": []
+                }
+              ],
+              "allOfPropertyConflicts": [],
+              "generatedName": "SearchResponseResult",
+              "groupName": [],
+              "additionalProperties": false,
+              "source": {
+                "file": "../openapi.yml",
+                "type": "openapi"
+              },
+              "type": "object"
+            },
+            "audiences": []
+          }
+        ],
+        "allOfPropertyConflicts": [],
+        "generatedName": "SearchResponse",
+        "groupName": [],
+        "additionalProperties": false,
+        "source": {
+          "file": "../openapi.yml",
+          "type": "openapi"
+        },
+        "type": "object"
+      },
+      "api-response-common-failure": {
+        "allOf": [],
+        "properties": [
+          {
+            "conflict": {},
+            "generatedName": "apiResponseCommonFailureSuccess",
+            "key": "success",
+            "schema": {
+              "schema": {
+                "type": "boolean"
+              },
+              "generatedName": "ApiResponseCommonFailureSuccess",
+              "groupName": [],
+              "type": "primitive"
+            },
+            "audiences": []
+          },
+          {
+            "conflict": {},
+            "generatedName": "apiResponseCommonFailureErrors",
+            "key": "errors",
+            "schema": {
+              "generatedName": "ApiResponseCommonFailureErrors",
+              "schema": "messages",
+              "groupName": [],
+              "source": {
+                "file": "../openapi.yml",
+                "type": "openapi"
+              },
+              "type": "reference"
+            },
+            "audiences": []
+          },
+          {
+            "conflict": {},
+            "generatedName": "apiResponseCommonFailureMessages",
+            "key": "messages",
+            "schema": {
+              "generatedName": "ApiResponseCommonFailureMessages",
+              "schema": "messages",
+              "groupName": [],
+              "source": {
+                "file": "../openapi.yml",
+                "type": "openapi"
+              },
+              "type": "reference"
+            },
+            "audiences": []
+          },
+          {
+            "conflict": {},
+            "generatedName": "apiResponseCommonFailureResult",
+            "key": "result",
+            "schema": {
+              "generatedName": "ApiResponseCommonFailureResult",
+              "value": {
+                "key": {
+                  "schema": {
+                    "type": "string"
+                  },
+                  "generatedName": "ApiResponseCommonFailureResultKey",
+                  "groupName": [],
+                  "type": "primitive"
+                },
+                "value": {
+                  "generatedName": "ApiResponseCommonFailureResultValue",
+                  "groupName": [],
+                  "type": "unknown"
+                },
+                "generatedName": "ApiResponseCommonFailureResult",
+                "groupName": [],
+                "type": "map"
+              },
+              "groupName": [],
+              "type": "nullable"
+            },
+            "audiences": []
+          }
+        ],
+        "allOfPropertyConflicts": [],
+        "generatedName": "ApiResponseCommonFailure",
+        "groupName": [],
+        "additionalProperties": false,
+        "source": {
+          "file": "../openapi.yml",
+          "type": "openapi"
+        },
+        "type": "object"
+      }
+    },
+    "namespacedSchemas": {}
+  },
+  "variables": {},
+  "nonRequestReferencedSchemas": {},
+  "securitySchemes": {},
+  "globalHeaders": [],
+  "idempotencyHeaders": [],
+  "groups": {}
+}
