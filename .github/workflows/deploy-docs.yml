@@ -35,12 +35,12 @@ jobs:
       - uses: ./.github/actions/setup-workspace
 
       - name: Build
-        run: pnpm --filter docs-site build
+        run: pnpm --filter cloudflare-api-site build
         env:
           FORGE_OPENAPI_RELEASE: ${{ github.event.release.tag_name || inputs.openapi_release || '' }}
 
       - name: Deploy
-        run: pnpm --dir packages/docs-site exec wrangler deploy
+        run: pnpm --dir packages/cloudflare-api-site exec wrangler deploy
         env:
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}

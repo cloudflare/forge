@@ -1,0 +1,223 @@
+---
+import Icon from '@cloudflare/nimbus-docs/components/Icon.astro';
+import CopyButton from './CopyButton.astro';
+
+const libraries = [
+  {
+    id: 'typescript',
+    name: 'TypeScript',
+    version: '0.0.1',
+    install: 'npm install git+ssh://git@github.com:cloudflare/cloudflare-typescript.git',
+    icon: 'simple-icons:typescript',
+  },
+  {
+    id: 'python',
+    name: 'Python',
+    version: '5.4.0',
+    install: 'pip install cloudflare',
+    icon: 'simple-icons:python',
+  },
+  {
+    id: 'go',
+    name: 'Go',
+    version: '7.6.0',
+    install: "go get -u 'github.com/cloudflare/cloudflare-go@v7.6.0'",
+    icon: 'simple-icons:go',
+  },
+  {
+    id: 'terraform',
+    name: 'Terraform',
+    version: '5.22.0',
+    install: 'cloudflare = { source = "cloudflare/sdks/cloudflare" }',
+    icon: 'simple-icons:terraform',
+  },
+] as const;
+---
+
+<section class="api-libraries" aria-labelledby="api-libraries-title">
+  <h2 id="api-libraries-title">Libraries</h2>
+  <div class="library-grid">
+    {
+      libraries.map((library) => (
+        <article class="library-card" data-library={library.id}>
+          <header>
+            <span class="library-logo" aria-hidden="true">
+              <Icon name={library.icon} />
+            </span>
+            <div>
+              <h3>{library.name}</h3>
+              <p>{library.version}</p>
+            </div>
+          </header>
+          <div class="library-install-command">
+            <code title={library.install}>{library.install}</code>
+            <CopyButton
+              class="library-copy-button"
+              value={library.install}
+              label={`Copy ${library.name} install command`}
+              copiedLabel="Copied install command"
+            />
+          </div>
+        </article>
+      ))
+    }
+  </div>
+</section>
+
+<style>
+  .api-libraries {
+    margin-top: 2.5rem;
+  }
+
+  h2,
+  h3,
+  p {
+    margin: 0;
+  }
+
+  h2 {
+    color: var(--cf-foreground);
+    font-size: clamp(1.625rem, 4vw, 1.875rem);
+    font-weight: 550;
+    line-height: 1.2;
+    letter-spacing: -0.025em;
+  }
+
+  .library-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1rem;
+    margin-top: 2rem;
+  }
+
+  .library-card {
+    display: grid;
+    min-width: 0;
+    gap: 1rem;
+    border: 1px solid var(--cf-border-strong);
+    border-radius: 0.5rem;
+    padding: 1rem;
+    background: color-mix(in oklch, var(--cf-card) 48%, transparent);
+  }
+
+  .library-grid > .library-card {
+    height: 100%;
+    margin-block: 0;
+  }
+
+  header {
+    display: flex;
+    align-items: center;
+    min-width: 0;
+    gap: 0.75rem;
+  }
+
+  .library-logo {
+    display: grid;
+    flex: 0 0 auto;
+    width: 3.125rem;
+    height: 3.125rem;
+    place-items: center;
+    border: 1px solid var(--cf-border-strong);
+    border-radius: 0.375rem;
+    background: var(--cf-surface-sunken);
+  }
+
+  .library-logo :global(svg) {
+    width: 1.75rem;
+    height: 1.75rem;
+  }
+
+  [data-library='typescript'] .library-logo {
+    color: #3178c6;
+  }
+
+  [data-library='python'] .library-logo {
+    color: #4b8bbe;
+  }
+
+  [data-library='go'] .library-logo {
+    color: #00add8;
+  }
+
+  [data-library='terraform'] .library-logo {
+    color: #7b61ff;
+  }
+
+  h3 {
+    color: var(--cf-foreground);
+    font-size: 1rem;
+    font-weight: 650;
+    line-height: 1.25;
+  }
+
+  header p {
+    margin-top: 0.25rem;
+    color: var(--cf-muted-foreground);
+    font-family: var(--nb-font-mono);
+    font-size: 0.875rem;
+    line-height: 1.25;
+  }
+
+  .library-install-command {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 2.5rem;
+    min-width: 0;
+    min-height: 2.25rem;
+    overflow: hidden;
+    border: 1px solid var(--cf-border-strong);
+    border-radius: 0.375rem;
+    background: var(--cf-muted);
+  }
+
+  code {
+    min-width: 0;
+    overflow: hidden;
+    padding: 0.45rem 0.625rem;
+    color: var(--cf-foreground);
+    background: transparent;
+    font-family: var(--nb-font-mono);
+    font-size: 0.8125rem;
+    line-height: 1.25rem;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .library-install-command :global(.library-copy-button) {
+    --copy-button-width: 2.5rem;
+    --copy-button-height: 100%;
+    --copy-button-border: 0;
+    --copy-button-radius: 0;
+    --copy-button-background: transparent;
+    --copy-button-hover-background: var(--cf-accent);
+
+    border-inline-start: 1px solid transparent;
+  }
+
+  .library-install-command :global(.library-copy-button:hover) {
+    border-inline-start-color: var(--cf-border-strong);
+  }
+
+  @media (max-width: 40rem) {
+    .library-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  @media print {
+    .library-card {
+      break-inside: avoid;
+    }
+
+    .library-install-command {
+      grid-template-columns: minmax(0, 1fr);
+    }
+
+    code {
+      overflow: visible;
+      overflow-wrap: anywhere;
+      text-overflow: clip;
+      white-space: pre-wrap;
+    }
+  }
+</style>

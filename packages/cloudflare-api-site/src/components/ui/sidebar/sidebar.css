@@ -1,0 +1,141 @@
+/*
+ * Sidebar tree. Rows carry no classes or data attributes — the API sidebar has
+ * thousands of them per page — so everything is styled structurally under the
+ * `[data-nb-sidebar]` root.
+ */
+[data-nb-sidebar] ul {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+[data-nb-sidebar] .top-level {
+  gap: 0.125rem;
+}
+
+[data-nb-sidebar] details > ul {
+  margin: 0.125rem 0 0 0.75rem;
+  border-inline-start: 1px solid var(--nb-border);
+  padding-inline-start: 0.5rem;
+}
+
+[data-nb-sidebar] li > a,
+[data-nb-sidebar] summary {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 2rem;
+  border-radius: 0.5rem;
+  padding: 0.25rem 0.75rem;
+  color: var(--nb-muted-foreground);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  line-height: 1.35;
+  text-decoration: none;
+  overflow-wrap: anywhere;
+}
+
+[data-nb-sidebar] li > a:hover,
+[data-nb-sidebar] summary:hover {
+  color: var(--nb-foreground);
+  background: var(--nb-accent);
+}
+
+[data-nb-sidebar] li > a:focus-visible,
+[data-nb-sidebar] summary:focus-visible {
+  outline-offset: -2px;
+}
+
+[data-nb-sidebar] li > a[aria-current='page'] {
+  color: var(--nb-foreground);
+  background: var(--nb-accent);
+  font-weight: 600;
+}
+
+[data-nb-sidebar] summary {
+  cursor: pointer;
+  user-select: none;
+  list-style: none;
+}
+
+[data-nb-sidebar] summary::-webkit-details-marker {
+  display: none;
+}
+
+[data-nb-sidebar] summary > a {
+  flex: 1;
+  min-width: 0;
+  color: inherit;
+  text-decoration: none;
+}
+
+/* Groups on the current page's trail. */
+[data-nb-sidebar] details:has([aria-current='page']) > summary {
+  color: var(--nb-foreground);
+}
+
+[data-nb-sidebar] summary::after {
+  content: '';
+  flex-shrink: 0;
+  width: 1rem;
+  height: 1rem;
+  margin-inline: auto -1px;
+  background-color: currentColor;
+  opacity: 0.4;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 256 256'%3E%3Cpath d='m181.66 133.66-80 80a8 8 0 0 1-11.32-11.32L164.69 128 90.34 53.66a8 8 0 0 1 11.32-11.32l80 80a8 8 0 0 1 0 11.32Z'/%3E%3C/svg%3E")
+    50% / contain no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 256 256'%3E%3Cpath d='m181.66 133.66-80 80a8 8 0 0 1-11.32-11.32L164.69 128 90.34 53.66a8 8 0 0 1 11.32-11.32l80 80a8 8 0 0 1 0 11.32Z'/%3E%3C/svg%3E")
+    50% / contain no-repeat;
+  transition:
+    rotate 250ms cubic-bezier(0.87, 0, 0.13, 1),
+    opacity 250ms cubic-bezier(0.87, 0, 0.13, 1);
+}
+
+[data-nb-sidebar] summary:hover::after {
+  opacity: 1;
+}
+
+[data-nb-sidebar] details[open] > summary::after {
+  rotate: 90deg;
+}
+
+[dir='rtl'] [data-nb-sidebar] summary::after {
+  rotate: 180deg;
+}
+
+[dir='rtl'] [data-nb-sidebar] details[open] > summary::after {
+  rotate: 90deg;
+}
+
+[data-nb-sidebar-hidden] {
+  display: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-nb-sidebar] summary::after {
+    transition: none;
+  }
+}
+
+/* Keeps the filter visible while the tree scrolls, in the rail and the drawer. */
+.sb-filter-bar {
+  position: sticky;
+  z-index: 10;
+  top: 0;
+  margin-inline: -1rem;
+  padding: 1.25rem 1rem 0.75rem;
+  background: var(--nb-background);
+}
+
+/* The bar supplies the spacing below the filter. */
+.sb-filter-bar > * {
+  margin-bottom: 0;
+}
+
+/* In the mobile drawer, stick below the drawer's own "Navigation" bar. */
+[data-mobile-sidebar-nav] .sb-filter-bar {
+  top: 3.5rem;
+}

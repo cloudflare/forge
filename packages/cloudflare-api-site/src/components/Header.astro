@@ -1,0 +1,105 @@
+---
+import Icon from '@cloudflare/nimbus-docs/components/Icon.astro';
+import { ThemeToggle } from './ui/theme-toggle';
+import SiteTitle from './SiteTitle.astro';
+import VersionSelect from './VersionSelect.astro';
+
+interface Props {
+  /** Whether the page has a sidebar the mobile menu button can open. */
+  showSidebar?: boolean;
+}
+
+const { showSidebar = true } = Astro.props;
+---
+
+<header class="site-header">
+  <div class="site-header-bar">
+    <div class="site-header-brand">
+      <SiteTitle />
+    </div>
+
+    <div class="site-header-actions">
+      <VersionSelect />
+      <ThemeToggle />
+      {
+        showSidebar && (
+          <button type="button" class="site-header-menu" aria-label="Open navigation" data-menu-btn>
+            <Icon name="ph:list" aria-hidden="true" />
+          </button>
+        )
+      }
+    </div>
+  </div>
+</header>
+
+<style>
+  .site-header {
+    position: sticky;
+    z-index: 30;
+    top: 0;
+    border-bottom: 1px solid var(--cf-border);
+    background: color-mix(in oklch, var(--cf-card) 80%, transparent);
+    -webkit-backdrop-filter: blur(16px);
+    backdrop-filter: blur(16px);
+  }
+
+  .site-header-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    height: 3.5rem;
+    padding-inline: 1rem;
+  }
+
+  .site-header-brand {
+    display: flex;
+    min-width: 0;
+    align-items: center;
+  }
+
+  .site-header-actions {
+    display: flex;
+    flex-shrink: 0;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .site-header-menu {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2rem;
+    height: 2rem;
+    border: 0;
+    border-radius: 0.5rem;
+    color: var(--cf-muted-foreground);
+    background: transparent;
+    cursor: pointer;
+    transition:
+      color 150ms,
+      background-color 150ms;
+  }
+
+  .site-header-menu:hover {
+    color: var(--cf-foreground);
+    background: var(--cf-accent);
+  }
+
+  .site-header-menu :global(svg) {
+    width: 0.875rem;
+    height: 0.875rem;
+  }
+
+  @media (min-width: 48rem) {
+    .site-header-menu {
+      display: none;
+    }
+  }
+
+  @media (min-width: 64rem) {
+    .site-header-bar {
+      padding-inline: 1.5rem;
+    }
+  }
+</style>

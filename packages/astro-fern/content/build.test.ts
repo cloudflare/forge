@@ -21,7 +21,7 @@ import type { SnippetInput } from '../snippets/index.ts';
 import { defineFernExtension } from '../extensions.ts';
 
 // Unit: builds against the product-agnostic in-memory fixture (no registry,
-// no Cloudflare data). Product-specific behaviour is covered in docs-site.
+// no Cloudflare data). Product-specific behaviour is covered in cloudflare-api-site.
 const model = buildDocsModel({ source: widgetsSpec, products: [widgetsProduct], snippets: fixtureSnippets });
 
 function ops(): DocOperation[] {
