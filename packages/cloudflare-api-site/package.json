@@ -1,5 +1,5 @@
 {
-  "name": "docs-site",
+  "name": "cloudflare-api-site",
   "private": true,
   "type": "module",
   "scripts": {
