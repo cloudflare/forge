@@ -1,4 +1,4 @@
-# docs-site
+# cloudflare-api-site
 
 Cloudflare's deployable API reference, built with Astro,
 [Nimbus](https://nimbus-docs.com), and `astro-fern`.
@@ -124,16 +124,16 @@ WebAssembly runtime is unavailable in the deployed Worker.
 From the repository root after `pnpm install`:
 
 ```bash
-pnpm --filter docs-site dev
-pnpm --filter docs-site check
-pnpm --filter docs-site build
-pnpm --filter docs-site preview
+pnpm --filter cloudflare-api-site dev
+pnpm --filter cloudflare-api-site check
+pnpm --filter cloudflare-api-site build
+pnpm --filter cloudflare-api-site preview
 ```
 
 To reproduce a release-triggered build, pin the release asset:
 
 ```bash
-FORGE_OPENAPI_RELEASE='openapi@<api-schemas-commit>' pnpm --filter docs-site build
+FORGE_OPENAPI_RELEASE='openapi@<api-schemas-commit>' pnpm --filter cloudflare-api-site build
 ```
 
 Set `FORGE_OPENAPI_SPEC` to an already-downloaded artifact to build without
