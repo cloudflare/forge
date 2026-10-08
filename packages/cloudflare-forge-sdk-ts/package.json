@@ -33,7 +33,7 @@
     "@cloudflare/fern-config": "workspace:*",
     "@cloudflare/forge": "workspace:*",
     "@types/node": "26.0.1",
-    "fern-api": "5.112.0",
+    "fern-api": "file:../../vendor/codegen-cli/fern-api-5.112.0.tgz",
     "tsx": "4.22.4",
     "typescript": "6.0.3"
   },

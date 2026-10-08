@@ -1,18 +1,39 @@
 #!/usr/bin/env node
 import { execFileSync } from 'node:child_process';
-import { copyFileSync, cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  chmodSync,
+  copyFileSync,
+  cpSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
-import { dirname, join, resolve } from 'node:path';
+import { delimiter, dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { applyFernCompatibilityFixes } from '@cloudflare/forge/fern-openapi-compat';
 
-const requireFromHere = createRequire(import.meta.url);
 const DIST_ROOT = dirname(fileURLToPath(import.meta.url));
+// The vendored fern-api and @cloudflare/codegen-typescript-sdk packages
+// (Cloudflare's forks of the Fern CLI and Fern TypeScript generator), copied
+// into dist by build-package.ts so the packed tarball has no file: dependency
+// on this repo's vendor/ directory.
+const FERN_CLI = join(DIST_ROOT, 'vendor', 'codegen-cli', 'cli.cjs');
+const TYPESCRIPT_GENERATOR = join(DIST_ROOT, 'vendor', 'codegen-typescript-sdk', 'cli.cjs');
 const GENERATOR_ROOT = join(DIST_ROOT, 'generator');
 const BASELINE_SDK = join(DIST_ROOT, 'baseline-sdk');
 const BASELINE_TAR = join(DIST_ROOT, 'baseline-sdk.tar');
-const TYPESCRIPT_GENERATOR_VERSION = '3.80.1';
+const TYPESCRIPT_GENERATOR_VERSION = '3.88.3';
+// Cloudflare's IR is ~242 MB; node's default heap is too small for it.
+const TYPESCRIPT_GENERATOR_HEAP_MB = 8192;
+// Fern's TypeScript generator formats and lints its output with these. Found on
+// PATH, it uses them as-is; otherwise it installs them into the generated
+// project each run.
+const CHECK_FIX_TOOLS = ['oxfmt', 'oxlint'] as const;
 
 type OpenApiDoc = {
   paths?: Record<string, Record<string, unknown>>;
@@ -32,8 +53,8 @@ function usage(): string {
 
 The OpenAPI may be a file path or - for stdin. With no positional OpenAPI, the
 pre-generated SDK is copied without running Fern and --base supplies its matching
-complete OpenAPI. A positional OpenAPI uses sharded Fern generation and requires
-Docker. The finalized OpenAPI, SDK source, and sdk-map.json are written to --out.
+complete OpenAPI. A positional OpenAPI runs the vendored Fern generator natively.
+The finalized OpenAPI, SDK source, and sdk-map.json are written to --out.
 
 Usage:
   forge [openapi.json|-] --out <dir> [options]
@@ -117,9 +138,39 @@ function writeFernWorkspace(root: string, generated: string, fernSpec: string): 
   writeJson(join(root, 'fern/fern.config.json'), { organization: 'cloudflare', version: '5.112.0' });
   writeFileSync(
     join(apiDir, 'generators.yml'),
-    `api:\n  specs:\n    - openapi: ../../../openapi.json\n      settings:\n        only-include-referenced-schemas: false\n        object-query-parameters: true\n        respect-nullable-schemas: true\n        coerce-enums-to-literals: true\n        path-parameter-order: url-order\n        resolve-schema-collisions: true\ndefault-group: typescript-sdk\ngroups:\n  typescript-sdk:\n    generators:\n      - name: fernapi/fern-typescript-sdk\n        version: ${TYPESCRIPT_GENERATOR_VERSION}\n        output:\n          location: local-file-system\n          path: ${JSON.stringify(generated)}\n        config:\n          allowCustomFetcher: true\n          formatter: oxfmt\n          linter: oxlint\n          skipResponseValidation: true\n          fetchSupport: native\n          formDataSupport: Node18\n          fileResponseType: binary-response\n          streamType: web\n          omitUndefined: true\n          offsetSemantics: page-index\n          maxRetries: 2\n          retryStatusCodes: recommended\n`,
+    `api:\n  specs:\n    - openapi: ../../../openapi.json\n      settings:\n        only-include-referenced-schemas: false\n        object-query-parameters: true\n        respect-nullable-schemas: true\n        coerce-enums-to-literals: true\n        path-parameter-order: url-order\n        resolve-schema-collisions: true\ndefault-group: typescript-sdk\ngroups:\n  typescript-sdk:\n    generators:\n      - name: fernapi/fern-typescript-sdk\n        version: ${TYPESCRIPT_GENERATOR_VERSION}\n        local-command:\n          - ${JSON.stringify(process.execPath)}\n          - --max-old-space-size=${TYPESCRIPT_GENERATOR_HEAP_MB}\n          - ${JSON.stringify(TYPESCRIPT_GENERATOR)}\n        output:\n          location: local-file-system\n          path: ${JSON.stringify(generated)}\n        config:\n          allowCustomFetcher: true\n          formatter: oxfmt\n          linter: oxlint\n          skipResponseValidation: true\n          fetchSupport: native\n          formDataSupport: Node18\n          fileResponseType: binary-response\n          streamType: web\n          omitUndefined: true\n          offsetSemantics: page-index\n          maxRetries: 2\n          retryStatusCodes: recommended\n`,
   );
   copyFileSync(fernSpec, join(root, 'openapi.json'));
+}
+
+// npm allows `bin` as a single path (named after the package) or a name->path map.
+function binScript(manifest: unknown, tool: string, manifestPath: string): string {
+  const bin = manifest && typeof manifest === 'object' && 'bin' in manifest ? manifest.bin : undefined;
+  const script =
+    typeof bin === 'string'
+      ? bin
+      : bin && typeof bin === 'object'
+        ? Object.entries(bin).find(([name]) => name === tool)?.[1]
+        : undefined;
+  if (typeof script !== 'string') {
+    throw new Error(`${manifestPath} has no "bin" entry for ${tool}`);
+  }
+  return script;
+}
+
+// Expose this package's own oxfmt/oxlint to the generator through PATH shims;
+// package managers do not put a dependency's bins on the consumer's PATH.
+function writeCheckFixToolShims(binDir: string): void {
+  const require = createRequire(import.meta.url);
+  mkdirSync(binDir, { recursive: true });
+  for (const tool of CHECK_FIX_TOOLS) {
+    const manifestPath = require.resolve(`${tool}/package.json`);
+    const bin = binScript(readJson<unknown>(manifestPath), tool, manifestPath);
+    const script = join(dirname(manifestPath), bin);
+    const shim = join(binDir, tool);
+    writeFileSync(shim, `#!/bin/sh\nexec ${JSON.stringify(process.execPath)} ${JSON.stringify(script)} "$@"\n`);
+    chmodSync(shim, 0o755);
+  }
 }
 
 function installCustomRuntime(generated: string): void {
@@ -152,7 +203,6 @@ function main(): void {
     return;
   }
 
-  run('docker', ['--version'], process.cwd());
   const source = readBundle(args.openapi);
   const sourceLabel = args.openapi === '-' ? 'stdin' : resolve(args.openapi);
   const work = mkdtempSync(join(tmpdir(), 'forge-transformer-sdk-ts-'));
@@ -171,19 +221,28 @@ function main(): void {
         `forge-transformer-sdk-ts: applied ${fernCompatibilityFixCount} Fern OpenAPI compatibility repair(s)\n`,
       );
     }
-    run('bash', [join(GENERATOR_ROOT, 'build-generator-image.sh'), 'typescript', TYPESCRIPT_GENERATOR_VERSION], work, {
-      PKG_ROOT: DIST_ROOT,
-    });
     writeFernWorkspace(work, generated, fernSpec);
-    const fernCli = requireFromHere.resolve('fern-api/cli.cjs');
-    run('bash', [join(GENERATOR_ROOT, 'generate-fern-typescript-sharded.sh')], work, {
-      FERN_TYPESCRIPT_GENERATOR_VERSION: TYPESCRIPT_GENERATOR_VERSION,
-      FERN_TYPESCRIPT_WORKSPACE_ROOT: work,
-      FERN_TYPESCRIPT_OUT_DIR: generated,
-      FERN_TYPESCRIPT_FERN_CLI: process.execPath,
-      FERN_TYPESCRIPT_FERN_CLI_SCRIPT: fernCli,
-      FERN_TYPESCRIPT_INSTALL_CUSTOM_RUNTIME: '0',
-    });
+    const binDir = join(work, 'bin');
+    writeCheckFixToolShims(binDir);
+    run(
+      process.execPath,
+      [
+        // The CLI builds the ~242 MB IR in-process as well.
+        `--max-old-space-size=${TYPESCRIPT_GENERATOR_HEAP_MB}`,
+        FERN_CLI,
+        'generate',
+        '--group',
+        'typescript-sdk',
+        '--local',
+        '--force',
+        '--no-prompt',
+      ],
+      work,
+      { PATH: `${binDir}${delimiter}${process.env['PATH'] ?? ''}` },
+    );
+    if (!existsSync(join(generated, 'index.ts'))) {
+      throw new Error(`Fern exited 0 but produced no ${join(generated, 'index.ts')}`);
+    }
     installCustomRuntime(generated);
     run(process.execPath, [join(GENERATOR_ROOT, 'generate-sdk-map.js')], work, {
       FORGE_SDK_GENERATED: generated,

@@ -14,10 +14,12 @@
 # - The other eight languages generate one folder per language under
 #   packages/cloudflare-forge-sdk-{lang}.
 #
-# The TypeScript generator needs a larger heap than the official image ships
-# with: Cloudflare's IR is ~242 MB and node exits 133 on it with the default
-# max-old-space-size. generate-sdk.ts retags a heap-tuned wrapper over the
-# official fernapi/* name before invoking Fern.
+# TypeScript runs Cloudflare's fork of Fern's TypeScript generator
+# (fernapi/fern-typescript-sdk 3.88.3), vendored and run natively via
+# `local-command` instead of the Docker image; see vendor/codegen-cli/README.md
+# at the repo root. The command runs with this directory as cwd. Cloudflare's
+# IR is ~242 MB, so node needs a larger heap than its default. The other
+# languages still run the official fernapi/* images.
 api:
   specs:
     - openapi: ./openapi.json
@@ -40,7 +42,11 @@ groups:
   typescript-sdk:
     generators:
       - name: fernapi/fern-typescript-sdk
-        version: 3.80.1
+        version: 3.88.3
+        local-command:
+          - node
+          - --max-old-space-size=8192
+          - ../node_modules/@cloudflare/codegen-typescript-sdk/cli.cjs
         output:
           location: local-file-system
           path: ../../cloudflare-forge-sdk-ts/src/_generated

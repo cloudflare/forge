@@ -24,16 +24,18 @@
     "typecheck:source": "tsc -p tsconfig.source.json --noEmit"
   },
   "dependencies": {
-    "fern-api": "5.112.0",
     "oxfmt": "0.57.0",
+    "oxlint": "1.72.0",
     "tar": "7.5.20",
     "typescript": "6.0.3"
   },
   "devDependencies": {
+    "@cloudflare/codegen-typescript-sdk": "file:../../vendor/codegen-cli/cloudflare-codegen-typescript-sdk-3.88.3.tgz",
     "@cloudflare/forge": "workspace:*",
     "@types/node": "26.0.1",
     "@types/tar": "^7.0.87",
     "esbuild": "0.27.3",
+    "fern-api": "file:../../vendor/codegen-cli/fern-api-5.112.0.tgz",
     "tsx": "4.22.4"
   },
   "engines": {

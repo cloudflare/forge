@@ -1,4 +1,5 @@
 import { chmodSync, cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { createRequire } from 'node:module';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { buildSync } from 'esbuild';
@@ -16,7 +17,7 @@ type OpenApiDocument = { paths?: Record<string, Record<string, OpenApiOperation>
 
 rmSync(DIST, { recursive: true, force: true });
 mkdirSync(join(DIST, 'generator', 'custom', 'core', 'fetcher'), { recursive: true });
-mkdirSync(join(DIST, 'vendor'), { recursive: true });
+mkdirSync(join(DIST, 'vendor', 'codegen-cli'), { recursive: true });
 
 buildSync({
   entryPoints: [join(PKG_ROOT, 'scripts', 'generate-from-openapi.ts')],
@@ -24,7 +25,7 @@ buildSync({
   platform: 'node',
   format: 'esm',
   target: 'node22',
-  external: ['fern-api', 'typescript'],
+  external: ['typescript'],
   outfile: join(DIST, 'cli.js'),
 });
 
@@ -78,30 +79,6 @@ writeFileSync(join(DIST, 'openapi.json'), `${JSON.stringify(openapi, null, 2)}\n
 console.log(`==> Packaged OpenAPI spec from ${spec} with metadata from ${metadataSpec}`);
 
 cpSync(
-  join(REPO_ROOT, 'packages', 'cloudflare-forge-sdk-ts', 'scripts', 'fern-typescript-entrypoint.sh'),
-  join(DIST, 'generator', 'fern-typescript-entrypoint.sh'),
-);
-cpSync(
-  join(REPO_ROOT, 'packages', 'cloudflare-forge-sdk-ts', 'scripts', 'patch-fern-cli-capture.mjs'),
-  join(DIST, 'generator', 'patch-fern-cli-capture.mjs'),
-);
-cpSync(
-  join(REPO_ROOT, 'packages', 'cloudflare-forge-sdk-ts', 'scripts', 'merge-fern-typescript-shards.mjs'),
-  join(DIST, 'generator', 'merge-fern-typescript-shards.mjs'),
-);
-cpSync(
-  join(REPO_ROOT, 'packages', 'cloudflare-forge-sdk-ts', 'scripts', 'generate-fern-typescript-sharded.sh'),
-  join(DIST, 'generator', 'generate-fern-typescript-sharded.sh'),
-);
-cpSync(
-  join(REPO_ROOT, 'packages', 'cloudflare-forge-sdk-ts', 'scripts', 'build-generator-image.sh'),
-  join(DIST, 'generator', 'build-generator-image.sh'),
-);
-cpSync(
-  join(REPO_ROOT, 'packages', 'cloudflare-forge-sdk-ts', 'scripts', 'patch-fern-typescript-cli.mjs'),
-  join(DIST, 'generator', 'patch-fern-typescript-cli.mjs'),
-);
-cpSync(
   join(REPO_ROOT, 'packages', 'cloudflare-forge-sdk-ts', 'custom', '.fernignore'),
   join(DIST, 'generator', 'custom', '.fernignore'),
 );
@@ -112,6 +89,18 @@ cpSync(
 cpSync(
   join(REPO_ROOT, 'packages', 'cloudflare-forge-sdk-ts', 'custom', 'core', 'fetcher', 'unwrapCloudflareEnvelope.ts'),
   join(DIST, 'generator', 'custom', 'core', 'fetcher', 'unwrapCloudflareEnvelope.ts'),
+);
+
+// Ship the vendored Fern CLI and Fern TypeScript generator forks inside dist so
+// consumers of the packed tarball never resolve a file: dependency on this
+// repo's vendor/ directory. The generator directory carries cli.cjs plus the
+// assets and native dprint binaries it loads relative to itself.
+const vendorRequire = createRequire(import.meta.url);
+cpSync(vendorRequire.resolve('fern-api/cli.cjs'), join(DIST, 'vendor', 'codegen-cli', 'cli.cjs'));
+cpSync(
+  dirname(vendorRequire.resolve('@cloudflare/codegen-typescript-sdk/cli.cjs')),
+  join(DIST, 'vendor', 'codegen-typescript-sdk'),
+  { recursive: true, filter: (source) => !source.endsWith('.map') },
 );
 
 chmodSync(join(DIST, 'cli.js'), 0o755);
