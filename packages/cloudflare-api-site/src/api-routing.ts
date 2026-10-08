@@ -242,7 +242,7 @@ export class ApiRouter {
     const defaultSnapshot = defaultSnapshots[0];
     if (defaultSnapshots.length !== 1 || !defaultSnapshot) {
       throw new Error(
-        `docs-site: the global catalog has ${defaultSnapshots.length} default snapshots; configure exactly one default snapshot in the source config`,
+        `cloudflare-api-site: the global catalog has ${defaultSnapshots.length} default snapshots; configure exactly one default snapshot in the source config`,
       );
     }
     this.#defaultSnapshotId = defaultSnapshot.id;
@@ -278,7 +278,7 @@ export class ApiRouter {
           const resource = this.#resourcesByPath.get(normalized)?.snapshots.get(snapshot.id);
           if (resource) {
             throw new Error(
-              `docs-site: snapshot "${snapshot.id}" maps SDK resource "${resource.path.map((segment) => segment.id).join('.')}" and operation "${operation.operationId}" to "${pathname}"; rename the resource because "methods" is reserved between SDK resources and method names`,
+              `cloudflare-api-site: snapshot "${snapshot.id}" maps SDK resource "${resource.path.map((segment) => segment.id).join('.')}" and operation "${operation.operationId}" to "${pathname}"; rename the resource because "methods" is reserved between SDK resources and method names`,
             );
           }
           let snapshots = this.#operationsByPath.get(normalized);
@@ -288,7 +288,7 @@ export class ApiRouter {
           }
           if (snapshots.has(snapshot.id)) {
             throw new Error(
-              `docs-site: snapshot "${snapshot.id}" maps more than one operation to "${pathname}"; give the operations distinct OpenAPI operationIds or source config section IDs so their slugs differ`,
+              `cloudflare-api-site: snapshot "${snapshot.id}" maps more than one operation to "${pathname}"; give the operations distinct OpenAPI operationIds or source config section IDs so their slugs differ`,
             );
           }
           snapshots.set(snapshot.id, { pathname, product, snapshot, operation });
