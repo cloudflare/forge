@@ -4,11 +4,11 @@ set -euo pipefail
 # Build the Cloudflare fork of the Fern CLI as an npm tarball for a downstream
 # repo to vendor. Nothing is published; commit the tarball into the consumer
 # and depend on it via
-#   "@cloudflare/codegen-cli": "file:<path>/cloudflare-codegen-cli-<version>.tgz"
+#   "fern-api": "file:<path>/fern-api-<version>.tgz"
 # The package installs the `fern` command.
 #
 # Usage: scripts/build-vendor-cli.sh [output-dir]   (default: ./vendor-out)
-# Writes cloudflare-codegen-cli-<version>.tgz and appends to SHA256SUMS in output-dir.
+# Writes fern-api-<version>.tgz and appends to SHA256SUMS in output-dir.
 #
 # The version is the upstream CLI version this branch is based on, so the
 # CLI's version check matches the fern.config.json consumers write. Two builds
@@ -21,11 +21,11 @@ OUT_DIR="$(mkdir -p "${1:-$REPO_ROOT/vendor-out}" && cd "${1:-$REPO_ROOT/vendor-
 
 cd "$REPO_ROOT"
 VERSION=$(grep -m1 '^- version:' packages/cli/cli/versions.yml | sed 's/^- version: *//; s/["'\'']//g')
-TARBALL="cloudflare-codegen-cli-${VERSION}.tgz"
+TARBALL="fern-api-${VERSION}.tgz"
 CLI_GIT_HEAD=$(git rev-parse HEAD)
 export CLI_GIT_HEAD
 
-echo "==> Building @cloudflare/codegen-cli ${VERSION} from ${CLI_GIT_HEAD}"
+echo "==> Building fern-api (Cloudflare fork) ${VERSION} from ${CLI_GIT_HEAD}"
 pnpm install --frozen-lockfile
 pnpm turbo run compile --concurrency=2 --filter @fern-api/cli
 (cd packages/cli/cli && node build.prod.mjs "$VERSION")

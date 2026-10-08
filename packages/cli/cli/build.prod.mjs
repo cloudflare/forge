@@ -24,11 +24,11 @@ buildCli({
         APP_DOCS_TAR_PREVIEW_BUCKET: "https://prod-local-preview-bundle4.s3.amazonaws.com/",
         APP_DOCS_PREVIEW_BUCKET: "https://prod-local-preview-bundle3.s3.amazonaws.com/",
         CLI_NAME: "fern",
-        CLI_PACKAGE_NAME: "@cloudflare/codegen-cli"
+        CLI_PACKAGE_NAME: "fern-api"
     },
 
     packageJsonOverrides: {
-        name: "@cloudflare/codegen-cli",
+        name: "fern-api",
         repository: { type: "git", url: "git+https://github.com/cloudflare/forge.git", directory: "packages/cli/cli" },
         bin: { fern: "cli.cjs" },
         ...(process.env.CLI_GIT_HEAD != null && { gitHead: process.env.CLI_GIT_HEAD })

@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # Build the Cloudflare fork of the TypeScript SDK generator as an npm tarball
-# for a downstream repo to vendor next to @cloudflare/codegen-cli. Nothing is
+# for a downstream repo to vendor next to the fern-api CLI tarball. Nothing is
 # published; commit the tarball into the consumer and depend on it via
 #   "@cloudflare/codegen-typescript-sdk": "file:<path>/cloudflare-codegen-typescript-sdk-<version>.tgz"
 # then run it natively from generators.yml instead of the Docker image:

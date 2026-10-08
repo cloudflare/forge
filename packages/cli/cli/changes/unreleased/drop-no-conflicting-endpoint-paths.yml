@@ -1,0 +1,6 @@
+# yaml-language-server: $schema=../../../../fern-changes-yml.schema.json
+
+- summary: |
+    `fern check` no longer warns when endpoints differ only by a literal segment versus a path
+    parameter (e.g. `/a/{x}` and `/a/anything`). They are distinct SDK methods and do not conflict.
+  type: fix
