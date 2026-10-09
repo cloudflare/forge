@@ -1,5 +1,5 @@
 import { z } from 'astro/zod';
-import { argumentSchema, methodArgumentSchema, paramOverrideSchema } from './arguments.ts';
+import { methodArgumentSchema, paramOverrideSchema } from './arguments.ts';
 import { nonEmptyStringSchema } from './shared.ts';
 
 /** Availability values accepted by the Forge OpenAPI contract. */
@@ -24,7 +24,6 @@ export const forgeOperationDataSchema = z
     ignore: z.boolean(),
     hidden: z.boolean(),
     internal: z.boolean().optional(),
-    globals: z.array(argumentSchema).optional(),
     epilogue: z.string().optional(),
     args: z.array(methodArgumentSchema).optional(),
     params: z.record(z.string(), paramOverrideSchema).optional(),
@@ -63,7 +62,6 @@ export const operationProjectionFieldsSchema = z.object({
   'x-fern-ignore': z.boolean().optional(),
   'x-forge-hidden': z.boolean().optional(),
   'x-forge-internal': z.boolean().optional(),
-  'x-forge-globals': z.array(argumentSchema).optional(),
   'x-forge-epilogue': z.string().optional(),
   'x-forge-args': z.array(methodArgumentSchema).optional(),
   'x-forge-params': z.record(z.string(), paramOverrideSchema).optional(),

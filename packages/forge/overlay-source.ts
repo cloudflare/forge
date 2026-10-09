@@ -60,7 +60,6 @@ type OperationForgeMetadata = {
   'x-forge-hidden': boolean;
   /** Explicitly keep this upstream-internal operation in first-party SDKs. */
   'x-forge-internal'?: boolean;
-  'x-forge-globals'?: ExtensionMethods['x-forge-globals'];
   'x-forge-epilogue'?: string;
   'x-forge-args'?: ExtensionMethods['x-forge-args'];
   'x-forge-params'?: ExtensionMethods['x-forge-params'];
@@ -275,7 +274,7 @@ function toSchemaCommand(
     name: commandName,
     description: command.description,
     methods: [...topLevelMethods, ...groups],
-    globalCliArgs: methodMetadata.find((m) => m['x-forge-globals'])?.['x-forge-globals'] ?? [],
+    globalCliArgs: [],
     hideCommand: visibleMethods.every((m) => m['x-forge-hidden']),
   };
 }
@@ -389,7 +388,6 @@ function buildOperationForgeMetadata(commands: Record<string, ForgeCommand>): Ma
           'x-fern-ignore': method['x-fern-ignore'] ?? false,
           'x-forge-hidden': method['x-forge-hidden'] ?? false,
         };
-        if (method['x-forge-globals'] !== undefined) metadata['x-forge-globals'] = method['x-forge-globals'];
         if (method['x-forge-internal'] !== undefined) metadata['x-forge-internal'] = method['x-forge-internal'];
         if (method['x-forge-epilogue'] !== undefined) metadata['x-forge-epilogue'] = method['x-forge-epilogue'];
         if (method['x-forge-args'] !== undefined) metadata['x-forge-args'] = method['x-forge-args'];

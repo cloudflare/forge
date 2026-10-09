@@ -31,7 +31,6 @@ function toOperationData(value: ReturnType<typeof projectionSchema>['_output']):
     ignore: value['x-fern-ignore'] ?? false,
     hidden: value['x-forge-hidden'] ?? false,
     ...(value['x-forge-internal'] !== undefined ? { internal: value['x-forge-internal'] } : {}),
-    ...(value['x-forge-globals'] !== undefined ? { globals: value['x-forge-globals'] } : {}),
     ...(value['x-forge-epilogue'] !== undefined ? { epilogue: value['x-forge-epilogue'] } : {}),
     ...(value['x-forge-args'] !== undefined ? { args: value['x-forge-args'] } : {}),
     ...(value['x-forge-params'] !== undefined ? { params: value['x-forge-params'] } : {}),
