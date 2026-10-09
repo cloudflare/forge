@@ -1,0 +1,49 @@
+{
+  "name": "@cloudflare/forge-typespec",
+  "version": "0.1.0",
+  "description": "Forge OpenAPI loader for specs written in TypeSpec",
+  "keywords": [
+    "code-generation",
+    "openapi",
+    "typespec"
+  ],
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/cloudflare/forge"
+  },
+  "files": [
+    "index.ts",
+    "typespec-loader.ts",
+    "tsconfig.json",
+    "!**/*.map"
+  ],
+  "type": "module",
+  "exports": {
+    ".": {
+      "import": "./index.ts"
+    }
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "node --import tsx --test typespec-loader.test.ts"
+  },
+  "devDependencies": {
+    "@cloudflare/forge": "workspace:*",
+    "@types/node": "26.0.1",
+    "@typespec/compiler": "1.16.0",
+    "@typespec/http": "1.16.0",
+    "@typespec/openapi": "1.16.0",
+    "@typespec/openapi3": "1.16.0",
+    "@typespec/versioning": "0.86.0",
+    "tsx": "4.22.4",
+    "typescript": "6.0.3"
+  },
+  "peerDependencies": {
+    "@cloudflare/forge": "*",
+    "@typespec/compiler": "^1.15.0"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

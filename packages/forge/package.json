@@ -21,6 +21,8 @@
     "index.ts",
     "init.ts",
     "init-from-openapi.ts",
+    "openapi-file-loaders.ts",
+    "openapi-source.ts",
     "openapi-resolver.ts",
     "forge.ts",
     "overlay-source.ts",
@@ -40,7 +42,7 @@
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "test": "node --import tsx --test openapi-resolver.test.ts overlay-source.test.ts shared/fern-openapi-compat.test.ts shared/sdk-method-names.test.ts"
+    "test": "node --import tsx --test openapi-file-loaders.test.ts openapi-resolver.test.ts openapi-source.test.ts overlay-source.test.ts shared/fern-openapi-compat.test.ts shared/sdk-method-names.test.ts"
   },
   "dependencies": {
     "openapi-format": "^1.33.5",

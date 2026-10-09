@@ -1,0 +1,510 @@
+# The Library API in YAML: the document openapi.json holds, written with anchors, aliases and a merge key.
+openapi: 3.0.0
+info:
+  title: Library
+  version: 1.0.0
+  description: |-
+    A lending library that uses every part of an OpenAPI document Forge reads. The same document is written in
+    JSON (openapi.json) and YAML (openapi.yaml) beside this file.
+tags:
+  - name: Books
+  - name: Reviews
+  - name: Shelves
+paths:
+  /books:
+    get:
+      operationId: Books_list
+      description: List the books in the catalogue.
+      parameters:
+        - name: genre
+          in: query
+          required: false
+          description: Only books of this genre.
+          schema:
+            $ref: '#/components/schemas/Genre'
+          explode: false
+        - name: tags
+          in: query
+          required: false
+          description: Only books with all of these tags.
+          schema:
+            type: array
+            items:
+              type: string
+        - name: limit
+          in: query
+          required: false
+          description: The most books to return.
+          schema:
+            type: integer
+            format: int32
+            default: 20
+          explode: false
+        - name: cursor
+          in: query
+          required: false
+          description: A cursor from a previous page.
+          schema:
+            type: string
+          explode: false
+        - name: x-request-id
+          in: header
+          required: false
+          description: An identifier for tracing the request.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BookPage'
+      tags:
+        - Books
+      x-forge-args:
+        - options:
+            - name: limit
+              type: number
+              required:
+                default: 20
+      x-fern-availability: generally-available
+      x-fern-sdk-method-name: list
+      x-fern-sdk-group-name: books
+    post:
+      operationId: Books_create
+      description: Add a book to the catalogue.
+      parameters: []
+      responses:
+        '201': &created
+          description: The request has succeeded and a new resource has been created as a result.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Book'
+      tags:
+        - Books
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Book'
+      x-forge-params:
+        title:
+          positional: true
+      x-fern-availability: beta
+      x-fern-sdk-method-name: create
+      x-fern-sdk-group-name: books
+  /books/export:
+    get:
+      operationId: Books_export
+      description: Export the catalogue as CSV.
+      parameters: []
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            text/csv:
+              schema:
+                type: string
+      tags:
+        - Books
+      x-forge-hidden: true
+      x-fern-availability: preview
+      x-fern-sdk-method-name: export
+      x-fern-sdk-group-name: books
+  /books/import:
+    post:
+      operationId: Books_importLegacy
+      description: Import books from the previous catalogue.
+      parameters: []
+      responses:
+        '204': &noContent
+          description: There is no content to send for this request, but the headers may be useful.
+      tags:
+        - Books
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: '#/components/schemas/Book'
+      deprecated: true
+      x-fern-availability: deprecated
+      x-fern-sdk-method-name: import
+      x-fern-sdk-group-name: books
+  /books/reindex:
+    post:
+      operationId: Books_reindex
+      description: Rebuild the search index.
+      parameters: []
+      responses:
+        '204': *noContent
+      tags:
+        - Books
+      x-fern-ignore: true
+      x-fern-sdk-method-name: reindex
+      x-fern-sdk-group-name: books
+  /books/search:
+    get:
+      operationId: Books_find
+      description: Find books by title.
+      parameters:
+        - name: q
+          in: query
+          required: true
+          description: Text to find in book titles.
+          schema:
+            type: string
+          explode: false
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Book'
+      tags:
+        - Books
+      x-forge-aliases:
+        - x-fern-sdk-group-name: books
+          x-fern-sdk-method-name: find
+          x-fern-availability: generally-available
+        - x-fern-sdk-group-name: search
+          x-fern-sdk-method-name: books
+          x-fern-availability: beta
+          x-forge-globals:
+            - name: branch
+              type: string
+              required:
+                default: main
+              description: The library branch to search.
+  /books/{bookId}:
+    get:
+      operationId: Books_get
+      summary: Get a book
+      description: Return one book from the catalogue.
+      parameters:
+        - &bookId
+          name: bookId
+          in: path
+          required: true
+          description: The book's identifier.
+          schema:
+            type: string
+      responses:
+        # The book, as the created response returns it, with the success description.
+        '200': &book
+          <<: *created
+          description: The request has succeeded.
+        '404': &notFound
+          description: The resource does not exist.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotFoundError'
+      tags:
+        - Books
+      x-fern-availability: generally-available
+      x-fern-sdk-method-name: get
+      x-fern-sdk-group-name: books
+    put:
+      operationId: Books_update
+      description: Replace a book in the catalogue.
+      parameters:
+        - *bookId
+      responses:
+        '200': *book
+        '404': *notFound
+      tags:
+        - Books
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Book'
+      x-forge-params:
+        tags:
+          hidden: true
+      x-fern-availability: generally-available
+      x-fern-sdk-method-name: update
+      x-fern-sdk-group-name: books
+    delete:
+      operationId: Books_delete
+      description: Remove a book from the catalogue.
+      parameters:
+        - *bookId
+      responses:
+        '204': *noContent
+        '404': *notFound
+      tags:
+        - Books
+      x-forge-epilogue: A removed book cannot be restored.
+      x-forge-require-confirmation: This operation removes the book from the catalogue.
+      x-fern-availability: generally-available
+      x-fern-sdk-method-name: delete
+      x-fern-sdk-group-name: books
+  /books/{bookId}/reviews:
+    get:
+      operationId: Reviews_list
+      description: List the reviews of a book.
+      parameters:
+        - *bookId
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Review'
+        '404': *notFound
+      tags:
+        - Reviews
+      x-fern-availability: generally-available
+      x-fern-sdk-method-name: list
+      x-fern-sdk-group-name: books.reviews
+    post:
+      operationId: Reviews_create
+      description: Review a book.
+      parameters:
+        - *bookId
+      responses:
+        '201':
+          description: The request has succeeded and a new resource has been created as a result.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Review'
+        '404': *notFound
+      tags:
+        - Reviews
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Review'
+      x-fern-availability: generally-available
+      x-fern-sdk-method-name: create
+      x-fern-sdk-group-name: books.reviews
+  # Forge metadata for the shelves comes from an overlay rather than the spec.
+  /shelves:
+    get:
+      operationId: Shelves_list
+      description: List the shelves.
+      parameters: []
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Shelf'
+      tags:
+        - Shelves
+  /shelves/{shelfId}:
+    get:
+      operationId: Shelves_get
+      description: Return one shelf.
+      parameters:
+        - name: shelfId
+          in: path
+          required: true
+          description: The shelf's identifier.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Shelf'
+        '404': *notFound
+      tags:
+        - Shelves
+components:
+  schemas:
+    Author:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          description: The author's name.
+        born:
+          type: string
+          format: date
+          description: The author's date of birth.
+      description: A person who wrote a book.
+    Book:
+      type: object
+      required:
+        - id
+        - title
+        - authors
+        - genre
+      properties:
+        id:
+          type: string
+          description: The book's identifier.
+          readOnly: true
+        title:
+          type: string
+          description: The book's title.
+        authors:
+          type: array
+          items:
+            $ref: '#/components/schemas/Author'
+          description: The book's authors.
+        genre:
+          allOf:
+            - $ref: '#/components/schemas/Genre'
+          description: The book's genre.
+        tags:
+          type: array
+          items:
+            type: string
+          description: Free-form tags.
+        published:
+          type: string
+          format: date
+          nullable: true
+          description: The date the book was published, or null when unknown.
+        metadata:
+          type: object
+          additionalProperties:
+            type: string
+          description: Extra catalogue fields.
+      description: A book in the catalogue.
+    BookPage:
+      type: object
+      required:
+        - items
+        - next
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Book'
+          description: The books on this page.
+        next:
+          type: string
+          nullable: true
+          description: The cursor for the next page, or null on the last page.
+      description: A page of books.
+    Collection:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          description: The collection's name.
+        description:
+          type: string
+          description: What the collection holds.
+      description: A named collection of books.
+    Genre:
+      type: string
+      enum:
+        - fiction
+        - history
+        - science
+      description: A genre of book.
+    NotFoundError:
+      type: object
+      required:
+        - code
+        - message
+      properties:
+        code:
+          type: string
+          enum:
+            - not_found
+          description: The error code.
+        message:
+          type: string
+          description: A description of the error.
+      description: The resource does not exist.
+    Review:
+      type: object
+      oneOf:
+        - $ref: '#/components/schemas/StarReview'
+        - $ref: '#/components/schemas/WrittenReview'
+      discriminator:
+        propertyName: kind
+        mapping:
+          stars: '#/components/schemas/StarReview'
+          written: '#/components/schemas/WrittenReview'
+      description: A review of a book.
+    Shelf:
+      type: object
+      required:
+        - id
+        - books
+      properties:
+        id:
+          type: string
+          description: The shelf's identifier.
+          readOnly: true
+        books:
+          type: array
+          items:
+            type: string
+          description: The identifiers of the books on the shelf.
+      allOf:
+        - $ref: '#/components/schemas/Collection'
+      description: A shelf of books.
+    StarReview:
+      type: object
+      required:
+        - kind
+        - stars
+      properties:
+        kind:
+          type: string
+          enum:
+            - stars
+        stars:
+          type: integer
+          format: int32
+          minimum: 1
+          maximum: 5
+          description: The number of stars, from one to five.
+      description: A review that gives stars.
+    WrittenReview:
+      type: object
+      required:
+        - kind
+        - text
+      properties:
+        kind:
+          type: string
+          enum:
+            - written
+        text:
+          type: string
+          description: The review text.
+      description: A review in words.
+# Forge's catalogue of commands and their groups.
+x-forge-commands:
+  books:
+    description: Manage the catalogue.
+    groups:
+      reviews:
+        description: Manage reviews of a book.
+        x-forge-epilogue: Reviews are public.
+  search:
+    description: Search the library.

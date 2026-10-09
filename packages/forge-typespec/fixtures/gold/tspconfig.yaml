@@ -1,0 +1,10 @@
+# `tsp compile .` from this directory regenerates openapi.json.
+emit:
+  - '@typespec/openapi3'
+options:
+  '@typespec/openapi3':
+    openapi-versions:
+      - 3.0.0
+    file-type: json
+    output-file: openapi.json
+    emitter-output-dir: '{project-root}'

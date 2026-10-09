@@ -1,0 +1,3 @@
+options:
+  '@typespec/openapi3':
+    omit-unreachable-type: true

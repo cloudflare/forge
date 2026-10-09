@@ -4,7 +4,8 @@ Open-source schema-first OpenAPI code generation and surface tooling framework.
 
 ## Architecture
 
-- **`packages/forge`**: Core engine — OpenAPI 3.x resolver, typed schema model, JSONPath overlays, and plugin lifecycle.
+- **`packages/forge`**: Core engine — OpenAPI 3.x resolver, typed schema model, JSONPath overlays, plugin lifecycle, and the format-agnostic OpenAPI loader registry (with JSON and YAML loaders).
+- **`packages/forge-typespec`**: OpenAPI loader for specs written in TypeSpec, plugging into the core loader registry.
 - **`packages/astro-fern`**: Generic Astro engine for rendering Fern-based API documentation.
 - **`packages/docs-site`**: API documentation website consuming `astro-fern`.
 - **`packages/cloudflare-fern-config`**: Fern generator configuration (`generators.yml`, `fern.config.json`).
@@ -14,7 +15,7 @@ Open-source schema-first OpenAPI code generation and surface tooling framework.
 
 ## Conventions
 
-- **Open Source Separation**: Generic packages (`forge`, `astro-fern`) must remain free of Cloudflare-specific dependencies. All Cloudflare-specific SDK wrappers and configurations must be prefixed with `cloudflare-*`.
+- **Open Source Separation**: Generic packages (`forge`, `forge-typespec`, `astro-fern`) must remain free of Cloudflare-specific dependencies. All Cloudflare-specific SDK wrappers and configurations must be prefixed with `cloudflare-*`.
 - **Formatting & Linting**: `oxfmt` and `oxlint` via `pnpm check`.
 - **Type Checking**: Strict TypeScript compiler settings across all packages via `pnpm typecheck`.
 - **Tests**: Node-native test runner via `pnpm test` (or `pnpm -r run test`).
