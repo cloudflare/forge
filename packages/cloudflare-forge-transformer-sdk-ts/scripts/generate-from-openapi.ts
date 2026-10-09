@@ -198,6 +198,7 @@ function main(): void {
     } else {
       throw new Error(`baseline generated SDK not found at ${BASELINE_TAR} or ${BASELINE_SDK}`);
     }
+    run(process.execPath, [join(GENERATOR_ROOT, 'narrow-sdk-error-imports.js'), targetSdk], process.cwd());
     copyFileSync(resolve(args.base), join(out, 'openapi.json'));
     process.stderr.write(`forge-transformer-sdk-ts: copied packaged baseline SDK to ${out}\n`);
     return;
@@ -244,6 +245,7 @@ function main(): void {
       throw new Error(`Fern exited 0 but produced no ${join(generated, 'index.ts')}`);
     }
     installCustomRuntime(generated);
+    run(process.execPath, [join(GENERATOR_ROOT, 'narrow-sdk-error-imports.js'), generated], work);
     run(process.execPath, [join(GENERATOR_ROOT, 'generate-sdk-map.js')], work, {
       FORGE_SDK_GENERATED: generated,
       FORGE_SDK_SOURCE_SPEC: sourceSpec,

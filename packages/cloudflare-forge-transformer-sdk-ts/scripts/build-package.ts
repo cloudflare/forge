@@ -39,6 +39,16 @@ buildSync({
   outfile: join(DIST, 'generator', 'generate-sdk-map.js'),
 });
 
+buildSync({
+  entryPoints: [join(REPO_ROOT, 'packages', 'cloudflare-forge-sdk-ts', 'scripts', 'narrow-sdk-error-imports.ts')],
+  bundle: true,
+  platform: 'node',
+  format: 'esm',
+  target: 'node22',
+  external: ['typescript'],
+  outfile: join(DIST, 'generator', 'narrow-sdk-error-imports.js'),
+});
+
 if (existsSync(join(BASELINE_SDK, 'index.ts')) && existsSync(join(BASELINE_SDK, 'sdk-map.json'))) {
   createTar(
     {
