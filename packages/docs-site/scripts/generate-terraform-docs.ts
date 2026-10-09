@@ -1,312 +1,183 @@
 #!/usr/bin/env node
+/**
+ * Generates `src/generated/terraform-docs.json` from local checkouts of the Cloudflare Terraform
+ * provider and the cloudflare-go SDK modules it imports.
+ *
+ * This script is deliberately offline. It never downloads anything, never spawns processes, and
+ * never executes code from the checkouts. All reads go through `SourceTree`, which confines them to
+ * each checkout and refuses symbolic links. Fetching pinned sources is the caller's job, e.g. the
+ * `sync-terraform-docs` workflow or a manual `git clone --depth 1 --branch <tag>`.
+ */
 
+import { existsSync } from 'node:fs';
 import { readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import process from 'node:process';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { parseArgs } from 'node:util';
-import { loadForgeOpenApi } from '../src/openapi-source.ts';
+import { SourceTree } from './source-tree.ts';
+import {
+  buildTerraformDocs,
+  declarationFiles,
+  parseSdkApiMarkdown,
+  parseServiceSource,
+  SERVICE_FILES,
+  type ServiceSource,
+} from './terraform-provider.ts';
 
-const HTTP_METHODS = ['get', 'post', 'put', 'patch', 'delete', 'head', 'options', 'trace'] as const;
-const OUTPUT_FILE = new URL('../src/generated/terraform-docs.json', import.meta.url);
-type TerraformDeclarationKind = 'resource' | 'data-source' | 'list-data-source';
-type TerraformAttributeGroup = 'required' | 'optional' | 'computed';
+const PROVIDER_REPOSITORY = 'https://github.com/cloudflare/terraform-provider-cloudflare';
+const DEFAULT_OUTPUT = fileURLToPath(new URL('../src/generated/terraform-docs.json', import.meta.url));
 
-interface TerraformTypeInput {
-  category?: string;
-  type?: string;
-  elementType?: TerraformTypeInput;
-  allowedSubtypes?: string[];
-}
+const USAGE = `Usage: generate-terraform-docs --provider-dir <path> --sdk-dir <module>=<path> [...] [options]
 
-interface TerraformAttributeInput {
-  kind: 'TerraformDeclAttribute';
-  name: string;
-  type: TerraformTypeInput;
-  description?: string;
-  deprecated?: string | boolean;
-  sensitive?: boolean;
-  requiresReplace?: boolean;
-  children?: string[];
-}
+  --provider-dir <path>          Checkout of cloudflare/terraform-provider-cloudflare at a release tag
+  --sdk-dir <module>=<path>      Checkout of a cloudflare-go module the provider imports (repeatable),
+                                 e.g. github.com/cloudflare/cloudflare-go/v7=../cloudflare-go
+  --output <path>                Output file (default: src/generated/terraform-docs.json)
+  --check                        Fail if the output is out of date instead of writing it
+  --allow-unresolved             Do not fail when provider SDK calls cannot be resolved to endpoints
 
-interface TerraformSourceInput {
-  kind: 'TerraformDeclSource';
-  name: string;
-  methodName: string;
-  required?: string[];
-  optional?: string[];
-  computed?: string[];
-}
+Fetch sources with, for example:
+  git clone --depth 1 --branch v5.27.0 https://github.com/cloudflare/terraform-provider-cloudflare provider
+  git clone --depth 1 --branch v7.12.0 https://github.com/cloudflare/cloudflare-go sdk-v7`;
 
-interface TerraformServiceNodeInput {
-  kind: 'TerraformDeclServiceNode';
-  resource?: string;
-  dataSource?: string;
-  listDataSource?: string;
-}
-
-type TerraformDeclarationInput = TerraformAttributeInput | TerraformSourceInput | TerraformServiceNodeInput;
-
-interface TerraformResourceInput {
-  stainlessPath?: string;
-  methods?: Record<string, { endpoint?: string }>;
-  subresources?: Record<string, TerraformResourceInput>;
-}
-
-interface TerraformSdkInput {
-  resources: Record<string, TerraformResourceInput>;
-  decls: { terraform: Record<string, TerraformDeclarationInput> };
-  snippets: {
-    'terraform.default': Record<string, { default?: { content?: string } }>;
-  };
-  metadata?: { terraform?: unknown };
-}
-
-interface OpenApiInput {
-  paths: Record<string, Partial<Record<(typeof HTTP_METHODS)[number], { operationId?: string }>>>;
-}
-
-interface TerraformAttribute {
-  name: string;
-  type: string;
-  description?: string;
-  deprecated?: string;
-  sensitive?: boolean;
-  requiresReplace?: boolean;
-  children?: TerraformAttribute[];
-}
-
-interface TerraformDeclaration {
-  kind: TerraformDeclarationKind;
-  name: string;
-  stainlessResource: string;
-  methodName: string;
-  snippet?: string;
-  required: TerraformAttribute[];
-  optional: TerraformAttribute[];
-  computed: TerraformAttribute[];
-}
-
-interface OperationEntry {
-  operationId: string;
-  declarations: TerraformDeclaration[];
-}
-
-function usage() {
-  return 'Usage: node --experimental-strip-types scripts/generate-terraform-docs.ts --sdk-json <terraform.json>';
-}
-
-export function canonicalTerraformEndpoint(method: string, endpointPath: string): string {
-  return `${method.toLowerCase()} ${endpointPath.replaceAll(/\{[^}]+\}/g, '{}')}`;
-}
-
-function terraformTypeLabel(type: TerraformTypeInput): string {
-  const name = type.type ?? 'unknown';
-  if (type.category === 'collection' && type.elementType) return `${name}[${terraformTypeLabel(type.elementType)}]`;
-  if (type.category === 'dynamic') {
-    const variants = type.allowedSubtypes ?? [];
-    return variants.length > 0 ? `Dynamic ${variants.join(' | ')}` : 'Dynamic';
+/** Returns cloudflare-go modules and versions required by the provider's go.mod. */
+export function parseSdkRequirements(goMod: string): Map<string, string> {
+  const requirements = new Map<string, string>();
+  for (const match of goMod.matchAll(/^\s*(?:require\s+)?(github\.com\/cloudflare\/cloudflare-go\/v\d+)\s+(v\S+)/gm)) {
+    requirements.set(match[1]!, match[2]!);
   }
-  if (type.category === 'nested')
-    return name === 'SingleNested' ? 'Attributes' : `${name.replace(/Nested$/, '')}[Attributes]`;
-  return name;
+  return requirements;
 }
 
-function deprecatedMessage(value: unknown): string | undefined {
-  if (typeof value === 'string' && value.trim()) return value.trim();
-  return value === true ? 'Deprecated.' : undefined;
+/** Reads `const PackageVersion = "x.y.z"` from a release-please managed `internal/version.go`. */
+export function parsePackageVersion(versionGo: string, label: string): string {
+  const version = versionGo.match(/^const PackageVersion = "(\d+\.\d+\.\d+[^"]*)"/m)?.[1];
+  if (!version) throw new Error(`${label}: internal/version.go has no PackageVersion`);
+  return version;
 }
 
-function resolveAttribute(
-  declarations: Record<string, TerraformDeclarationInput>,
-  reference: string,
-  ancestors: ReadonlySet<string> = new Set(),
-): TerraformAttribute {
-  if (ancestors.has(reference)) throw new Error(`Terraform declaration cycle at ${reference}`);
-  const declaration = declarations[reference];
-  if (!declaration || declaration.kind !== 'TerraformDeclAttribute') {
-    throw new Error(`Expected ${reference} to be a TerraformDeclAttribute`);
-  }
-  const nextAncestors = new Set(ancestors).add(reference);
-  const children = (declaration.children ?? []).map((child) => resolveAttribute(declarations, child, nextAncestors));
-  return {
-    name: declaration.name,
-    type: terraformTypeLabel(declaration.type),
-    ...(typeof declaration.description === 'string' && declaration.description
-      ? { description: declaration.description }
-      : {}),
-    ...(deprecatedMessage(declaration.deprecated) ? { deprecated: deprecatedMessage(declaration.deprecated) } : {}),
-    ...(declaration.sensitive === true ? { sensitive: true } : {}),
-    ...(declaration.requiresReplace === true ? { requiresReplace: true } : {}),
-    ...(children.length > 0 ? { children } : {}),
-  };
-}
-
-function terraformResourceNodes(
-  resources: Record<string, TerraformResourceInput>,
-): Map<string, TerraformResourceInput> {
-  const nodes = new Map<string, TerraformResourceInput>();
-  function visit(entries: Record<string, TerraformResourceInput>): void {
-    for (const resource of Object.values(entries)) {
-      if (resource.stainlessPath) {
-        nodes.set(resource.stainlessPath.replace(/^\(resource\) /, ''), resource);
-      }
-      if (resource.subresources) visit(resource.subresources);
-    }
-  }
-  visit(resources);
-  return nodes;
-}
-
-function openApiOperations(document: OpenApiInput): Map<string, string> {
-  const operations = new Map<string, string>();
-  for (const [endpointPath, pathItem] of Object.entries(document.paths)) {
-    for (const method of HTTP_METHODS) {
-      const operation = pathItem[method];
-      if (!operation) continue;
-      const operationId = operation.operationId;
-      if (typeof operationId !== 'string' || !operationId) continue;
-      const key = canonicalTerraformEndpoint(method, endpointPath);
-      if (operations.has(key))
-        throw new Error(`OpenAPI endpoint key ${key} is ambiguous after parameter normalization`);
-      operations.set(key, operationId);
-    }
-  }
-  return operations;
-}
-
-export function extractTerraformDocs(sdkJson: TerraformSdkInput, openapi: OpenApiInput) {
-  const declarations = sdkJson.decls.terraform;
-  const snippets = sdkJson.snippets['terraform.default'];
-  const resources = terraformResourceNodes(sdkJson.resources);
-  const operations = openApiOperations(openapi);
-  const outputOperations = new Map<string, OperationEntry>();
-  const unmatched: Array<{ kind: TerraformDeclarationKind; name: string; endpoint: string }> = [];
-  let missingSnippets = 0;
-
-  const serviceNodes = Object.entries(declarations)
-    .filter((entry): entry is [string, TerraformServiceNodeInput] => entry[1].kind === 'TerraformDeclServiceNode')
-    .sort(([left], [right]) => left.localeCompare(right));
-
-  for (const [servicePath, serviceNode] of serviceNodes) {
-    const stainlessResource = servicePath.replace(/^\(resource\) /, '');
-    const resource = resources.get(stainlessResource);
-    if (!resource) throw new Error(`No Terraform SDK resource found for ${servicePath}`);
-    const methods = resource.methods ?? {};
-
-    const sources: Array<[TerraformDeclarationKind, unknown]> = [
-      ['resource', serviceNode.resource],
-      ['data-source', serviceNode.dataSource],
-      ['list-data-source', serviceNode.listDataSource],
-    ];
-    for (const [kind, sourceReferenceValue] of sources) {
-      if (typeof sourceReferenceValue !== 'string') continue;
-      const sourceReference = sourceReferenceValue;
-      const source = declarations[sourceReference];
-      if (source?.kind !== 'TerraformDeclSource') {
-        throw new Error(`Expected ${sourceReference} to be a TerraformDeclSource`);
-      }
-      const methodName = source.methodName;
-      const method = methods[methodName];
-      if (!method?.endpoint) {
-        throw new Error(`Terraform method ${stainlessResource}.${methodName} has no endpoint`);
-      }
-      const separator = method.endpoint.indexOf(' ');
-      if (separator < 1) throw new Error(`Invalid Terraform endpoint ${method.endpoint}`);
-      const key = canonicalTerraformEndpoint(method.endpoint.slice(0, separator), method.endpoint.slice(separator + 1));
-      const operationId = operations.get(key);
-      if (!operationId) {
-        unmatched.push({ kind, name: source.name, endpoint: method.endpoint });
-        continue;
-      }
-      const snippet = snippets[sourceReference]?.default?.content;
-      if (typeof snippet !== 'string' || !snippet) missingSnippets += 1;
-      const resolveGroup = (name: TerraformAttributeGroup): TerraformAttribute[] => {
-        const references = source[name];
-        if (!Array.isArray(references)) throw new Error(`Terraform source ${sourceReference}.${name} is not an array`);
-        return references.map((reference) => resolveAttribute(declarations, String(reference)));
-      };
-      const declaration: TerraformDeclaration = {
-        kind,
-        name: source.name,
-        stainlessResource,
-        methodName,
-        ...(typeof snippet === 'string' && snippet ? { snippet } : {}),
-        required: resolveGroup('required'),
-        optional: resolveGroup('optional'),
-        computed: resolveGroup('computed'),
-      };
-      const entry = outputOperations.get(key) ?? { operationId, declarations: [] };
-      if (entry.operationId !== operationId) throw new Error(`Conflicting operation IDs for ${key}`);
-      entry.declarations.push(declaration);
-      outputOperations.set(key, entry);
-    }
-  }
-
-  const orderedOperations = Object.fromEntries(
-    [...outputOperations]
-      .sort(([left], [right]) => left.localeCompare(right))
-      .map(([key, entry]) => [
-        key,
-        {
-          operationId: entry.operationId,
-          declarations: entry.declarations.sort(
-            (left, right) => left.kind.localeCompare(right.kind) || left.name.localeCompare(right.name),
-          ),
-        },
-      ]),
+async function collectServices(provider: SourceTree): Promise<ServiceSource[]> {
+  const files = await provider.listFiles('internal/services', (file) =>
+    /^internal\/services\/\w+\/(?:resource|data_source|list_data_source)\.go$/.test(file),
   );
-  const declarationCount = Object.values(orderedOperations).reduce(
-    (count, operation) => count + operation.declarations.length,
-    0,
-  );
-  return {
-    format: 1,
-    source: {
-      terraform: sdkJson.metadata?.terraform ?? {},
-    },
-    stats: {
-      operations: Object.keys(orderedOperations).length,
-      declarations: declarationCount,
-      missingSnippets,
-      unmatched: unmatched.length,
-    },
-    unmatched,
-    operations: orderedOperations,
-  };
+  const services: ServiceSource[] = [];
+  for (const file of files) {
+    const kind = SERVICE_FILES[path.posix.basename(file)]!;
+    const parsed = parseServiceSource(await provider.requireText(file), kind);
+    if (parsed) services.push(parsed);
+  }
+  return services;
 }
 
-async function readJson<T>(filePath: string): Promise<T> {
-  return JSON.parse(await readFile(filePath, 'utf8')) as T;
+async function collectApiMarkdown(sdk: SourceTree): Promise<Map<string, string>> {
+  const endpoints = new Map<string, string>();
+  for (const file of await sdk.listFiles('.', (relative) => /(?:^|\/)api\.md$/.test(relative))) {
+    parseSdkApiMarkdown(await sdk.requireText(file), endpoints);
+  }
+  return endpoints;
 }
 
 async function main() {
   const { values } = parseArgs({
     args: process.argv.slice(2),
     options: {
-      'sdk-json': { type: 'string' },
+      'provider-dir': { type: 'string' },
+      'sdk-dir': { type: 'string', multiple: true },
+      output: { type: 'string' },
+      check: { type: 'boolean', default: false },
+      'allow-unresolved': { type: 'boolean', default: false },
+      help: { type: 'boolean', default: false },
     },
     strict: true,
     allowPositionals: false,
   });
-  const sdkJsonPath = values['sdk-json'];
-  if (!sdkJsonPath) throw new Error(`Missing --sdk-json\n\n${usage()}`);
-  const [sdkJson, openapi] = await Promise.all([
-    readJson<TerraformSdkInput>(sdkJsonPath),
-    loadForgeOpenApi() as Promise<OpenApiInput>,
-  ]);
-  const output = extractTerraformDocs(sdkJson, openapi);
-  await writeFile(OUTPUT_FILE, `${JSON.stringify(output)}\n`, 'utf8');
-  const relativeOutput = path.relative(process.cwd(), fileURLToPath(OUTPUT_FILE));
-  console.log(
-    `generate-terraform-docs: wrote ${relativeOutput} (${output.stats.operations} operations, ${output.stats.declarations} declarations, ${output.stats.unmatched} unmatched, ${output.stats.missingSnippets} missing snippets)`,
-  );
+  if (values.help) {
+    console.log(USAGE);
+    return;
+  }
+  if (!values['provider-dir']) throw new Error(`Missing --provider-dir\n\n${USAGE}`);
+
+  const provider = await SourceTree.open('provider', values['provider-dir']);
+  const version = parsePackageVersion(await provider.requireText('internal/version.go'), 'provider');
+  const services = await collectServices(provider);
+  const requirements = parseSdkRequirements(await provider.requireText('go.mod'));
+
+  const sdkDirs = new Map<string, string>();
+  for (const entry of values['sdk-dir'] ?? []) {
+    const separator = entry.indexOf('=');
+    if (separator < 1) throw new Error(`--sdk-dir expects <module>=<path>, received ${entry}`);
+    sdkDirs.set(entry.slice(0, separator), entry.slice(separator + 1));
+  }
+
+  const usedModules = [...new Set(services.flatMap(({ sdkModule }) => (sdkModule ? [sdkModule] : [])))].sort();
+  const sdks: Array<{ module: string; version: string; commit?: string }> = [];
+  const sdkEndpoints = new Map<string, Map<string, string>>();
+  for (const module of usedModules) {
+    const required = requirements.get(module);
+    if (!required) throw new Error(`Provider imports ${module} but its go.mod does not require it`);
+    const directory = sdkDirs.get(module);
+    if (!directory) {
+      throw new Error(`Missing --sdk-dir ${module}=<path> (provider v${version} requires ${module} ${required})`);
+    }
+    const sdk = await SourceTree.open(module, directory);
+    const sdkVersion = parsePackageVersion(await sdk.requireText('internal/version.go'), module);
+    const commit = await sdk.gitCommit();
+    // Pseudo-versions (`v7.12.1-0.20261001120000-0123456789ab`) pin a commit, not a release.
+    const pseudoCommit = required.match(/[.-]\d{14}-([0-9a-f]{12})$/)?.[1];
+    const matches = pseudoCommit ? commit?.startsWith(pseudoCommit) === true : `v${sdkVersion}` === required;
+    if (!matches) {
+      const found = pseudoCommit ? `commit ${commit ?? '<unknown>'}` : `v${sdkVersion}`;
+      throw new Error(`${module}: checkout is ${found} but provider v${version} requires ${required}`);
+    }
+    sdks.push({ module, version: required, ...(commit ? { commit } : {}) });
+    sdkEndpoints.set(module, await collectApiMarkdown(sdk));
+  }
+
+  // Read only the documentation and example files each declaration needs.
+  const providerFiles = new Map<string, string | undefined>();
+  for (const service of services) {
+    for (const file of Object.values(declarationFiles(service.kind, service.name))) {
+      if (!providerFiles.has(file)) providerFiles.set(file, await provider.readText(file));
+    }
+  }
+
+  const commit = await provider.gitCommit();
+  const docs = buildTerraformDocs({
+    provider: { repository: PROVIDER_REPOSITORY, version, ...(commit ? { commit } : {}) },
+    sdks,
+    services,
+    sdkEndpoints,
+    readProviderFile: (file) => providerFiles.get(file),
+  });
+
+  const summary = `${docs.stats.declarations} declarations (${docs.stats.linkedDeclarations} linked), ${docs.stats.endpoints} endpoints, ${docs.stats.unresolvedCalls} unresolved calls`;
+  if (docs.unresolvedCalls.length > 0 && !values['allow-unresolved']) {
+    const sample = docs.unresolvedCalls.slice(0, 20).map(({ declaration, call }) => `  ${declaration}: ${call}`);
+    throw new Error(
+      `Provider v${version}: ${docs.unresolvedCalls.length} SDK calls could not be resolved to an endpoint.\n${sample.join('\n')}\n` +
+        'The provider or cloudflare-go code shape may have changed. Re-run with --allow-unresolved to inspect.',
+    );
+  }
+
+  const output = path.resolve(values.output ?? DEFAULT_OUTPUT);
+  const serialized = `${JSON.stringify(docs, null, 1)}\n`;
+  const relativeOutput = path.relative(process.cwd(), output);
+  if (values.check) {
+    const current = existsSync(output) ? await readFile(output, 'utf8') : '';
+    if (current !== serialized) {
+      throw new Error(`${relativeOutput} is out of date for provider v${version}. Run generate:terraform-docs.`);
+    }
+    console.log(`generate-terraform-docs: ${relativeOutput} is up to date with provider v${version} (${summary})`);
+    return;
+  }
+  await writeFile(output, serialized, 'utf8');
+  console.log(`generate-terraform-docs: wrote ${relativeOutput} for provider v${version} (${summary})`);
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
-  main().catch((error) => {
-    console.error(error instanceof Error ? error.stack : error);
+  main().catch((error: unknown) => {
+    console.error(error instanceof Error ? (process.env['DEBUG'] ? error.stack : error.message) : error);
     process.exitCode = 1;
   });
 }

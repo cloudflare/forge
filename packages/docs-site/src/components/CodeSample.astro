@@ -222,15 +222,25 @@ function codeSampleSyntax(sample: OperationCodeSampleSchema): string {
                   {terraform.declarations.map((declaration) => (
                     <section class="forge-terraform-sample">
                       <h3>{terraformDeclarationLabel(declaration)}</h3>
-                      {declaration.snippet ? (
+                      {declaration.example ? (
                         <CopyableCode
-                          code={declaration.snippet}
+                          code={declaration.example}
                           lang="hcl"
                           label={`Copy ${terraformDeclarationLabel(declaration)} example`}
                         />
                       ) : (
-                        <p class="forge-coming-soon">No generated HCL example is available for this declaration.</p>
+                        <p class="forge-coming-soon">No HCL example is available for this declaration.</p>
                       )}
+                      {declaration.importExample ? (
+                        <>
+                          <h3>Import</h3>
+                          <CopyableCode
+                            code={declaration.importExample}
+                            lang="bash"
+                            label={`Copy ${declaration.name} import command`}
+                          />
+                        </>
+                      ) : null}
                     </section>
                   ))}
                 </div>
@@ -745,6 +755,10 @@ function codeSampleSyntax(sample: OperationCodeSampleSchema): string {
   }
 
   .forge-terraform-sample + .forge-terraform-sample {
+    border-top: 1px solid var(--cf-border);
+  }
+
+  .forge-terraform-sample * + h3 {
     border-top: 1px solid var(--cf-border);
   }
 

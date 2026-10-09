@@ -16,7 +16,6 @@ const { fields } = Astro.props;
         <div class="forge-terraform-field-head">
           <code>{field.name}</code>
           <span class="forge-terraform-type">{field.type}</span>
-          {field.requiresReplace ? <span class="forge-terraform-replace">forces replacement</span> : null}
           {field.sensitive ? <span class="forge-terraform-sensitive">sensitive</span> : null}
           {field.deprecated ? <span class="forge-terraform-deprecated">deprecated</span> : null}
         </div>
@@ -74,7 +73,6 @@ const { fields } = Astro.props;
     font-size: 0.75rem;
   }
 
-  .forge-terraform-replace,
   .forge-terraform-sensitive,
   .forge-terraform-deprecated {
     font-size: 0.7rem;
@@ -83,7 +81,6 @@ const { fields } = Astro.props;
     letter-spacing: 0.04em;
   }
 
-  .forge-terraform-replace,
   .forge-terraform-sensitive {
     color: var(--cf-muted-foreground);
   }
