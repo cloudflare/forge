@@ -49,6 +49,7 @@ describe("validate", () => {
     itFixture("docs");
     itFixture("no-api");
     itFixture("no-generator");
+    itFixture("error-examples-empty-arrays");
 
     it("check with --api resolves all APIs referenced by docs", async ({ signal }) => {
         const fixture = await createTempFixture({

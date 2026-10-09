@@ -1,0 +1,171 @@
+openapi: 3.0.3
+info:
+  title: Error examples with empty arrays
+  version: 1.0.0
+paths:
+  /domains/search:
+    get:
+      operationId: searchDomains
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Search results.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/search-response"
+              examples:
+                no_results:
+                  summary: No results
+                  value:
+                    success: true
+                    errors: []
+                    messages: []
+                    result:
+                      domains: []
+        "400":
+          description: Invalid request parameters.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/api-response-common-failure"
+              examples:
+                missing_query:
+                  summary: Missing search query
+                  value:
+                    success: false
+                    errors:
+                      - code: 1001
+                        message: "Missing required parameter: q"
+                    messages: []
+                    result: null
+  /domains/check:
+    post:
+      operationId: checkDomains
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - domains
+              properties:
+                domains:
+                  type: array
+                  items:
+                    type: string
+      responses:
+        "200":
+          description: Check results.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/search-response"
+        "400":
+          description: Invalid request body.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/api-response-common-failure"
+              example:
+                success: false
+                errors:
+                  - code: 1006
+                    message: domains array must contain at least one domain
+                messages: []
+                result: null
+        "503":
+          description: Upstream failure.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/api-response-common-failure"
+              examples:
+                all_failed:
+                  summary: All checks failed upstream
+                  value:
+                    success: false
+                    errors:
+                      - code: 10000
+                        message: Internal API failure for domain example.com
+                        source:
+                          pointer: /domains/0
+                    messages: []
+                    result: null
+components:
+  schemas:
+    messages:
+      type: array
+      items:
+        type: object
+        required:
+          - code
+          - message
+        properties:
+          code:
+            type: integer
+            minimum: 1000
+          message:
+            type: string
+          source:
+            type: object
+            required:
+              - pointer
+            properties:
+              pointer:
+                type: string
+      example: []
+    search-response:
+      type: object
+      required:
+        - success
+        - errors
+        - messages
+        - result
+      properties:
+        success:
+          type: boolean
+        errors:
+          $ref: "#/components/schemas/messages"
+        messages:
+          $ref: "#/components/schemas/messages"
+        result:
+          type: object
+          required:
+            - domains
+          properties:
+            domains:
+              type: array
+              items:
+                type: string
+    api-response-common-failure:
+      type: object
+      required:
+        - success
+        - errors
+        - messages
+        - result
+      properties:
+        success:
+          type: boolean
+          enum:
+            - false
+        errors:
+          allOf:
+            - $ref: "#/components/schemas/messages"
+          minItems: 1
+        messages:
+          allOf:
+            - $ref: "#/components/schemas/messages"
+          example: []
+        result:
+          type: object
+          nullable: true
+          enum:
+            - null

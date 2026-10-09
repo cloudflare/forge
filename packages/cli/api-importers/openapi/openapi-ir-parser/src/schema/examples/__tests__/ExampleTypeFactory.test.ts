@@ -170,10 +170,30 @@ function makeStringSchema(): SchemaWithExample {
     );
 }
 
-function makeArraySchema(): SchemaWithExample {
+function makeMissingReferenceSchema(): SchemaWithExample {
+    return SchemaWithExample.reference({
+        schema: "MissingSchema",
+        description: undefined,
+        availability: undefined,
+        generatedName: "MissingSchema",
+        nameOverride: undefined,
+        groupName: undefined,
+        namespace: undefined,
+        title: undefined,
+        source: undefined
+    });
+}
+
+function makeArraySchema({
+    items = makeStringSchema(),
+    example
+}: {
+    items?: SchemaWithExample;
+    example?: unknown[];
+} = {}): SchemaWithExample {
     return SchemaWithExample.array({
-        value: makeStringSchema(),
-        example: undefined,
+        value: items,
+        example,
         minItems: undefined,
         maxItems: undefined,
         default: undefined,
@@ -576,6 +596,54 @@ describe("ExampleTypeFactory", () => {
 
             expect(explicitResult).toMatchObject({ type: "array", value: [] });
             expect(absentResult).toBeUndefined();
+        });
+
+        it("should keep a required array property whose example is []", () => {
+            const schema = makeObjectSchema({
+                properties: {
+                    success: makeStringSchema(),
+                    messages: makeArraySchema()
+                },
+                additionalProperties: false
+            });
+
+            const result = factory.buildExample({
+                schema,
+                exampleId: undefined,
+                example: { success: "false", messages: [] },
+                options: DEFAULT_OPTIONS
+            });
+
+            expect(result).toMatchObject({
+                type: "object",
+                properties: { messages: { type: "array", value: [] } }
+            });
+        });
+
+        it("should keep an optional array whose schema-level example is []", () => {
+            const schema = makeOptionalSchema(makeArraySchema({ example: [] }));
+
+            const result = factory.buildExample({
+                schema,
+                exampleId: undefined,
+                example: undefined,
+                options: DEFAULT_OPTIONS
+            });
+
+            expect(result).toMatchObject({ type: "array", value: [] });
+        });
+
+        it("should omit an optional array whose non-empty example has no buildable items", () => {
+            const schema = makeOptionalSchema(makeArraySchema({ items: makeMissingReferenceSchema() }));
+
+            const result = factory.buildExample({
+                schema,
+                exampleId: undefined,
+                example: [{ id: "unbuildable" }],
+                options: DEFAULT_OPTIONS
+            });
+
+            expect(result).toBeUndefined();
         });
     });
 
