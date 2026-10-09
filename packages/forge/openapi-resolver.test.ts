@@ -3,6 +3,57 @@ import { test } from 'node:test';
 import { Forge } from './forge.ts';
 import { populateOperationMap, resolveOperation } from './openapi-resolver.ts';
 
+test('response metadata preserves inline and referenced headers', () => {
+  populateOperationMap({
+    paths: {
+      '/uploads': {
+        post: {
+          operationId: 'create-upload',
+          responses: {
+            '201': { $ref: '#/components/responses/UploadCreated' },
+            '204': { description: 'No content' },
+          },
+        },
+      },
+    },
+    components: {
+      schemas: { UploadUrl: { type: 'string', format: 'uri' } },
+      headers: {
+        UploadLocation: {
+          description: 'Upload URL',
+          required: true,
+          schema: { $ref: '#/components/schemas/UploadUrl' },
+        },
+      },
+      responses: {
+        UploadCreated: {
+          description: 'Created',
+          headers: {
+            Location: { $ref: '#/components/headers/UploadLocation' },
+            'Upload-Version': { schema: { type: 'string' } },
+          },
+        },
+      },
+    },
+  });
+
+  const operation = resolveOperation('create-upload');
+  assert.ok(operation);
+  assert.deepEqual(operation.responses['201'], {
+    description: 'Created',
+    content: {},
+    headers: {
+      Location: {
+        description: 'Upload URL',
+        required: true,
+        schema: { type: 'string', format: 'uri' },
+      },
+      'Upload-Version': { schema: { type: 'string' } },
+    },
+  });
+  assert.deepEqual(operation.responses['204'], { description: 'No content', content: {} });
+});
+
 test('parameter metadata separates resolved type from schema identity', () => {
   populateOperationMap({
     paths: {
