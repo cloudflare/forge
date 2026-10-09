@@ -7,7 +7,8 @@
     "build": "astro build",
     "preview": "astro preview",
     "check": "astro check",
-    "test": "node --experimental-strip-types --test src/*.test.ts"
+    "generate:terraform-docs": "node --experimental-strip-types scripts/generate-terraform-docs.ts",
+    "test": "node --experimental-strip-types --test src/*.test.ts scripts/*.test.mjs"
   },
   "dependencies": {
     "@astrojs/cloudflare": "^14.2.5",

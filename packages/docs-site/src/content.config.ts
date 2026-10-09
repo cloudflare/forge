@@ -14,6 +14,7 @@ import {
 import { cfCommandCatalog } from './command-reference/cf-commands.ts';
 import { commandCatalogLoader } from './command-reference/loader.ts';
 import { loadForgeOpenApi } from './openapi-source.ts';
+import { cloudflareTerraformExtension } from './terraform-extension.ts';
 import { cloudflareApiVersionLabel, cloudflareApiVersionSlug, parseCloudflareApiVersion } from './version.ts';
 
 const source = async () => hoistForgeCommands(await loadForgeOpenApi());
@@ -50,6 +51,6 @@ export const collections = {
     operationRoutingPreference: cloudflareOperationRoutingPreference,
     isOperationHidden: hasRemovedForgeOperationFields,
     snippets: cloudflareSnippets,
-    extensions: [forgeExtension()],
+    extensions: [forgeExtension(), cloudflareTerraformExtension],
   } satisfies FernContentOptions),
 };

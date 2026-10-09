@@ -36,6 +36,39 @@ and method metadata defines each public product, resource hierarchy, and method
 route. OpenAPI tags remain internal ownership metadata and do not appear in
 SDK-backed URLs.
 
+### Terraform
+
+The Terraform target is built from `src/generated/terraform-docs.json`. That file is generated
+from local checkouts of the released Cloudflare Terraform provider and the cloudflare-go modules
+it imports:
+
+```sh
+git clone --depth 1 --branch v5.27.0 https://github.com/cloudflare/terraform-provider-cloudflare /tmp/tf/provider
+git clone --depth 1 --branch v7.12.0 https://github.com/cloudflare/cloudflare-go /tmp/tf/sdk-v7   # versions from the provider's go.mod
+git clone --depth 1 --branch v6.10.0 https://github.com/cloudflare/cloudflare-go /tmp/tf/sdk-v6
+
+pnpm generate:terraform-docs --provider-dir /tmp/tf/provider \
+  --sdk-dir github.com/cloudflare/cloudflare-go/v7=/tmp/tf/sdk-v7 \
+  --sdk-dir github.com/cloudflare/cloudflare-go/v6=/tmp/tf/sdk-v6   # add --check to verify instead
+```
+
+The generator is offline and read-only. It doesn't download, spawn or execute anything (a test
+enforces this). It reads checkouts through `scripts/source-tree.ts`, which refuses symbolic links
+and paths outside each checkout. It reads:
+
+- `docs/{resources,data-sources}/*.md` (tfplugindocs output, the same content as the Terraform
+  Registry) for descriptions and Required / Optional / Read-only attributes;
+- `examples/` for HCL and import syntax;
+- `internal/services/*` client calls plus cloudflare-go `api.md` to link each declaration to the
+  API operations it calls (create, read, update, delete, import);
+- `internal/version.go` and `.git/HEAD` to record the versions and commits used.
+
+The parsers are strict. Unexpected Markdown fails with `file:line`, and so does an SDK call that
+can't be resolved. `.github/workflows/sync-terraform-docs.yml` runs daily and opens a PR when a new
+provider release is published. Untrusted sources are only handled in a job with read-only
+permissions and no secrets. `src/terraform-extension.ts` attaches declarations to OpenAPI
+operations and warns during builds about declarations that match no operation.
+
 ## Project ownership
 
 - `src/content.config.ts` selects OpenAPI sources, discovers SDK products and ownership sections, configures snapshots and execution targets, and registers the canonical, route-neutral API collection.
