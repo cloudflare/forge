@@ -274,7 +274,6 @@ function toSchemaCommand(
     name: commandName,
     description: command.description,
     methods: [...topLevelMethods, ...groups],
-    globalCliArgs: [],
     hideCommand: visibleMethods.every((m) => m['x-forge-hidden']),
   };
 }

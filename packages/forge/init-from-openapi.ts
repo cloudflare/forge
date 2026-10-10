@@ -231,7 +231,6 @@ function toSchemaCommand(
     name: commandName,
     description,
     methods: [...topLevelMethods, ...toMethodGroups(groups, groupInfo)],
-    globalCliArgs: [],
     hideCommand: visible.every((item) => item.hidden),
   };
 }
