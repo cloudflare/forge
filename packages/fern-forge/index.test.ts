@@ -44,7 +44,6 @@ test('validates and exposes every known operation-level Forge field', () => {
     'x-fern-ignore': false,
     'x-forge-hidden': true,
     'x-forge-internal': true,
-    'x-forge-globals': [{ name: 'account-id', type: 'string', required: true, description: 'Account ID' }],
     'x-forge-epilogue': 'Additional guidance.',
     'x-forge-args': [{ options: [{ name: 'force', type: 'boolean', required: { default: false } }] }],
     'x-forge-params': {
