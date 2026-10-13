@@ -1,3 +1,6 @@
 packages:
   - packages/*
   - src/bin/forge/ts/lib
+allowBuilds:
+  esbuild: true
+  workerd: true

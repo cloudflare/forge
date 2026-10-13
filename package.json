@@ -19,7 +19,7 @@
     "oxlint": "1.86.0"
   },
   "engines": {
-    "node": ">=22.0.0"
+    "node": ">=26.0.0"
   },
-  "packageManager": "pnpm@10.27.0"
+  "packageManager": "pnpm@12.11.2"
 }
