@@ -795,7 +795,9 @@ The ambient declaration adds these locals:
 ## Process source Markdown
 
 OpenAPI descriptions become `{ markdown, html }` values. The HTML is intended
-for Astro's `set:html` directive.
+for Astro's `set:html` directive. Content loading renders it with Astro's
+Markdown processor, or with the `renderMarkdown` function passed to
+`defineFernCollections()`, which takes the Markdown and returns sanitized HTML.
 
 With Astro's Satteri processor active, the integration installs an MDAST plugin
 that turns source HTML nodes into text. It replaces complete link, image, and
@@ -809,9 +811,10 @@ Add an equivalent sanitizer when another processor is active.
 
 Another integration can replace or wrap Astro's processor after `astroFern()`
 installs the plugin. Content loading therefore renders a probe through the
-processor in use and fails the build if raw HTML or a `javascript:` link
-survives. When an integration owns the processor, pass the exported
-`sanitizeFernMarkdownPlugin` to that integration's MDAST plugin option.
+renderer in use and fails the build if raw HTML or a `javascript:` link
+survives. When an integration owns the processor, pass a sanitizing
+`renderMarkdown` to `defineFernCollections()`, such as `renderMarkdown` from
+`@cloudflare/nimbus-docs/markdown`.
 
 The plugin covers source nodes present when it runs. Markdown plugins that add
 HTML or links later in the pipeline must enforce the same URL and HTML policy.

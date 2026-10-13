@@ -283,6 +283,27 @@ test('loader enriches operation and nested Markdown descriptions', async () => {
   assert.equal(name.description.html, wrap(name.description.markdown));
 });
 
+test('a renderMarkdown option replaces the content loader renderer', async () => {
+  const options: FernContentOptions = {
+    ...fixtureOptions(),
+    renderMarkdown: (markdown) => `<p>${markdown.replaceAll('<', '&lt;')}</p>`,
+  };
+  const { context, entries, artifacts } = fakeContext();
+  await fernContentLoader(options).load(context);
+  const project = entries.get(FERN_PROJECT_ENTRY_ID);
+  assert.ok(project?.kind === 'project');
+  assert.equal(project.description?.html, `<p>${widgetsSpec.info?.description}</p>`);
+  const entry = [...artifacts.values()][0];
+  assert.ok(entry?.kind === 'operation');
+  assert.equal(entry.operation.description.html, '<p>Updates a [widget](https://example.com/widgets) by ID.</p>');
+});
+
+test('the sanitizer probe runs against a renderMarkdown option', async () => {
+  const options: FernContentOptions = { ...fixtureOptions(), renderMarkdown: (markdown) => markdown };
+  const { context } = fakeContext();
+  await assert.rejects(fernContentLoader(options).load(context), /Pass a sanitizing `renderMarkdown`/);
+});
+
 test('loader enriches Fern enum metadata and retains associated examples', async () => {
   const source = structuredClone(widgetsSpec);
   const update = source.paths?.['/widgets/{widget_id}']?.patch;
@@ -448,20 +469,20 @@ test('the operation entry schema enforces normalized deprecation metadata', asyn
 
 test('content loading fails when the active Markdown renderer emits raw HTML', async () => {
   await assert.rejects(
-    assertSanitizedMarkdownRenderer(async (markdown) => ({ html: `<p>${markdown}</p>` })),
+    assertSanitizedMarkdownRenderer(async (markdown) => `<p>${markdown}</p>`),
     /renders raw HTML or unsafe URLs/,
   );
 });
 
 test('content loading fails when the active Markdown renderer emits javascript: links', async () => {
   await assert.rejects(
-    assertSanitizedMarkdownRenderer(async () => ({ html: '<p>&lt;i&gt; <a href="javascript:probe">probe</a></p>' })),
+    assertSanitizedMarkdownRenderer(async () => '<p>&lt;i&gt; <a href="javascript:probe">probe</a></p>'),
     /renders raw HTML or unsafe URLs/,
   );
 });
 
 test('content loading accepts a renderer that escapes source HTML and neutralizes unsafe URLs', async () => {
-  await assertSanitizedMarkdownRenderer(async () => ({
-    html: '<p>&lt;i data-astro-fern-probe&gt;&lt;/i&gt; <a href="#">probe</a></p>',
-  }));
+  await assertSanitizedMarkdownRenderer(
+    async () => '<p>&lt;i data-astro-fern-probe&gt;&lt;/i&gt; <a href="#">probe</a></p>',
+  );
 });
