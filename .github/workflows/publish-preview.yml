@@ -43,9 +43,10 @@ permissions:
 # whose variables rust-cache adds to its key, and the CROSS_ and XWIN_
 # prefixes, which cross and cargo-xwin read as settings.
 env:
-  # cross has had no release since v0.2.5 in 2023, and compile.mjs installs
-  # it from git, so this pins a commit on its main branch from 2026-09-24
-  # that passed all of cross's CI.
+  # cross has had no release since v0.2.5 in 2023, and compile.mjs tells you
+  # to install it from git, so this pins a commit on its main branch from
+  # 2026-09-24 that passed all of cross's CI. The Install cross steps install
+  # it.
   TOOL_CROSS_REV: 74e99b2223de06166f8cdcc1af7f1308ec52baf4
   TOOL_CARGO_XWIN_VERSION: 0.23.1
 
@@ -92,6 +93,9 @@ jobs:
       # A prerelease of the version in Cargo.toml. The run number orders the
       # builds. The `g` stops a short SHA like 0123456 from being read as a
       # number with a leading zero, which semver forbids.
+      #
+      # Only the npm package gets this version. The binaries still report the
+      # one in Cargo.toml, so `forge --version` prints 0.1.0.
       - name: Compute version
         id: version
         env:
@@ -241,16 +245,16 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
-  # The two Windows jobs download the CRT and SDK for both architectures, so
-  # they share one cache entry.
+  # Each Windows job downloads the CRT and SDK for its own architecture only,
+  # so each has its own cache entry, and the two never race to save one.
   build-win32-arm64:
     name: Build (win32-arm64)
     needs: meta
     runs-on: ubuntu-latest
     timeout-minutes: 60
     env:
-      # Read by cargo-xwin. Change the CRT and SDK cache's key with them.
-      XWIN_ARCH: x86_64,aarch64
+      # Read by cargo-xwin, and part of the CRT and SDK cache's key.
+      XWIN_ARCH: aarch64
       XWIN_VARIANT: desktop
 
     steps:
@@ -283,8 +287,7 @@ jobs:
             ${{ runner.temp }}/xwin
             !${{ runner.temp }}/xwin/xwin/dl
             !${{ runner.temp }}/xwin/xwin/unpack
-          # Spelled out, since cache keys can't contain the comma in XWIN_ARCH.
-          key: xwin-${{ runner.os }}-${{ env.TOOL_CARGO_XWIN_VERSION }}-x86_64-aarch64-desktop
+          key: xwin-${{ runner.os }}-${{ env.TOOL_CARGO_XWIN_VERSION }}-${{ env.XWIN_ARCH }}-${{ env.XWIN_VARIANT }}
 
       - name: Build
         env:
@@ -304,8 +307,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 60
     env:
-      # Read by cargo-xwin. Change the CRT and SDK cache's key with them.
-      XWIN_ARCH: x86_64,aarch64
+      # Read by cargo-xwin, and part of the CRT and SDK cache's key.
+      XWIN_ARCH: x86_64
       XWIN_VARIANT: desktop
 
     steps:
@@ -335,7 +338,7 @@ jobs:
             ${{ runner.temp }}/xwin
             !${{ runner.temp }}/xwin/xwin/dl
             !${{ runner.temp }}/xwin/xwin/unpack
-          key: xwin-${{ runner.os }}-${{ env.TOOL_CARGO_XWIN_VERSION }}-x86_64-aarch64-desktop
+          key: xwin-${{ runner.os }}-${{ env.TOOL_CARGO_XWIN_VERSION }}-${{ env.XWIN_ARCH }}-${{ env.XWIN_VARIANT }}
 
       - name: Build
         env:
@@ -419,20 +422,54 @@ jobs:
           VERSION: ${{ needs.meta.outputs.version }}
         run: |
           set -euo pipefail
-          if [ "$(npm view "@cloudflare/forge@$VERSION" version 2>/dev/null)" = "$VERSION" ]; then
-            echo "@cloudflare/forge@$VERSION is published already"
+          pkg="@cloudflare/forge@$VERSION"
+
+          # Only E404 means this version isn't published yet. Any other
+          # failure, such as a bad token (E401), stops here with npm's error.
+          if npm view "$pkg" version >"$RUNNER_TEMP/view.out" 2>"$RUNNER_TEMP/view.err"; then
+            have=$(cat "$RUNNER_TEMP/view.out")
+          elif grep -q 'code E404' "$RUNNER_TEMP/view.err"; then
+            have=
+          else
+            cat "$RUNNER_TEMP/view.err" >&2
+            exit 1
+          fi
+          if [ "$have" = "$VERSION" ]; then
+            echo "$pkg is published already"
           else
             npm publish "./package/cloudflare-forge-$VERSION.tgz" --tag "$TAG"
           fi
+
+          # The registry can take a moment to list a version it just took.
+          for attempt in 1 2 3 4 5; do
+            tarball=$(npm view "$pkg" dist.tarball 2>/dev/null) && [ -n "$tarball" ] && break
+            [ "$attempt" = 5 ] && { echo "cannot read the tarball URL of $pkg" >&2; exit 1; }
+            sleep 3
+          done
+
+          # Installing from the tarball URL leaves the @cloudflare scope on
+          # npmjs.com. Mapping the scope to GitHub Packages would send every
+          # @cloudflare/* package there, and the others would 404.
           cat >> "$GITHUB_STEP_SUMMARY" <<EOF
-          ### @cloudflare/forge@$VERSION
+          ### $pkg
 
           Published to GitHub Packages with the dist-tag \`$TAG\`, from $SHA.
 
-          \`\`\`sh
-          npm install @cloudflare/forge@$VERSION
-          npm view @cloudflare/forge@$TAG version   # newest $TAG build
+          Add a token with \`read:packages\` to your .npmrc, and leave out any \`@cloudflare:registry\` line, which would send every @cloudflare/* package to GitHub Packages:
+
+          \`\`\`ini
+          //npm.pkg.github.com/:_authToken=\${GITHUB_TOKEN}
           \`\`\`
 
-          Both need \`@cloudflare:registry=https://npm.pkg.github.com\` and a token with \`read:packages\` in your .npmrc.
+          Then install this build from its tarball:
+
+          \`\`\`sh
+          npm install $tarball
+          \`\`\`
+
+          To find the newest \`$TAG\` build later:
+
+          \`\`\`sh
+          npm view @cloudflare/forge@$TAG version dist.tarball --registry=https://npm.pkg.github.com
+          \`\`\`
           EOF
