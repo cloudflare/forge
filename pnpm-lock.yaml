@@ -74,6 +74,12 @@ importers:
       fern-forge:
         specifier: workspace:*
         version: link:../fern-forge
+      hast-util-sanitize:
+        specifier: ^5.0.2
+        version: 5.0.2
+      satteri:
+        specifier: ^0.10.5
+        version: 0.10.5
       tailwind-merge:
         specifier: ^3.7.0
         version: 3.7.0

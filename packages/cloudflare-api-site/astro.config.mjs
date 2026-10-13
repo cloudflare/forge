@@ -2,7 +2,7 @@
 import cloudflare from '@astrojs/cloudflare';
 import nimbus, { defineConfig as defineNimbusConfig } from '@cloudflare/nimbus-docs';
 import tailwindcss from '@tailwindcss/vite';
-import astroFern, { sanitizeFernMarkdownPlugin } from 'astro-fern';
+import astroFern from 'astro-fern';
 import { defineConfig } from 'astro/config';
 
 const nimbusConfig = defineNimbusConfig({
@@ -30,12 +30,6 @@ export default defineConfig({
       rules: {
         'nimbus/frontmatter-shape': 'error',
         'nimbus/internal-link': 'error',
-      },
-      markdown: {
-        // Nimbus replaces Astro's Markdown processor, so astro-fern cannot install
-        // its sanitizer on its own. OpenAPI descriptions are rendered with this
-        // processor and are untrusted; astro-fern fails the build without it.
-        mdastPlugins: [sanitizeFernMarkdownPlugin],
       },
     }),
     astroFern({

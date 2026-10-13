@@ -22,6 +22,8 @@
     "astro-fern": "workspace:*",
     "clsx": "^2.1.1",
     "fern-forge": "workspace:*",
+    "hast-util-sanitize": "^5.0.2",
+    "satteri": "^0.10.5",
     "tailwind-merge": "^3.7.0",
     "wrangler": "^4.127.0"
   },
