@@ -45,9 +45,10 @@ SDK-backed URLs.
 - `src/api-server.ts` binds that policy to `astro-fern`'s lazy server APIs.
 - `src/pages/[product]/[...slug].astro` owns the SSR human operation route and renderer.
 - `src/pages/[...slug].astro` renders authored pages from `src/content/docs/` on request, with the same API sidebar.
-- `src/pages/[...document].md.ts` and the `llms.txt` endpoints own the SSR agent routes. `llms.txt` and `[product]/llms.txt` combine the astro-fern API index with the authored-page index Nimbus prepares at build time; `[...slug]/index.md`, `index.mdx`, and `llms-full.txt` are Nimbus routes for authored pages.
+- `src/pages/[product]/[...document].md.ts` and the `llms.txt` endpoints own the SSR agent routes. `llms.txt` and `[product]/llms.txt` combine the astro-fern API index with the authored-page index Nimbus prepares at build time; `[...slug]/index.md`, `index.mdx`, and `llms-full.txt` are Nimbus routes for authored pages.
 - `src/layouts/` and `src/components/ui/` are the Nimbus page shells and UI components; `src/components/` also contains the operation, schema, and code UI.
 - `src/sidebar.ts` maps the selected version and execution target into Nimbus sidebar items, and `src/page-sidebar.ts` resolves them for a request.
+- Nimbus publishes agent discovery (`.well-known/ard.json`, `ai-catalog.json`, and a `rel="ard"` homepage `Link`) at the origin root and under `/api`. The root copy is correct while this Worker owns its host; if the site moves to a domain shared with other sites, its entries belong in the root site's discovery files instead.
 - `src/styles/globals.css` holds the Cloudflare palette as Nimbus `--nb-*` tokens; `src/styles/cloudflare.css` aliases them as the `--cf-*` tokens used by the API components.
 
 ### Styling
