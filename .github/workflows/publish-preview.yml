@@ -470,6 +470,6 @@ jobs:
           To find the newest \`$TAG\` build later:
 
           \`\`\`sh
-          npm view @cloudflare/forge@$TAG version dist.tarball --registry=https://npm.pkg.github.com
+          npm view @cloudflare/forge@$TAG version dist.tarball --@cloudflare:registry=https://npm.pkg.github.com
           \`\`\`
           EOF
