@@ -1,0 +1,45 @@
+.oxfmtrc.json
+  s_40948424877c65::t_7c8becbccefc4f 10-18
+packages/cloudflare-api-site/src/components/ui/aside/index.ts
+  s_40948424877c65::t_8f72008ca6550d 1
+packages/cloudflare-api-site/src/components/ui/badge/index.ts
+  s_40948424877c65::t_eb0494432e7b35 1
+packages/cloudflare-api-site/src/components/ui/banner/banner.client.ts
+  s_40948424877c65::t_bb236729d2c69c 6,8,30,35,44,46,49
+packages/cloudflare-api-site/src/components/ui/banner/index.ts
+  s_40948424877c65::t_7323cac21b2f39 1
+packages/cloudflare-api-site/src/components/ui/breadcrumbs/index.ts
+  s_40948424877c65::t_bd66295fb8ad52 1
+packages/cloudflare-api-site/src/components/ui/page-actions/index.ts
+  s_40948424877c65::t_964c90e25e817f 1
+packages/cloudflare-api-site/src/components/ui/page-actions/page-actions.client.ts
+  s_40948424877c65::t_e268b253357283 1,4-7,14,16-19,25-27,35,40,42,46,50,54
+packages/cloudflare-api-site/src/components/ui/theme-toggle/index.ts
+  s_40948424877c65::t_90470b01ebe9ce 1
+packages/cloudflare-api-site/src/components/ui/theme-toggle/theme-toggle.client.ts
+  s_40948424877c65::t_1a1c92c624b1ed 7,17,19,27-28,31
+packages/cloudflare-api-site/src/components/ui/toc/index.ts
+  s_40948424877c65::t_95a0c0994d9d15 1-2
+packages/cloudflare-api-site/src/components/ui/toc/mobile-toc.client.ts
+  s_40948424877c65::t_669c38ba0f9202 17,24,28,32-34,41,58,67-70,104-105,107,136
+packages/cloudflare-api-site/src/components/ui/toc/toc.client.ts
+  s_40948424877c65::t_29d92e72caafad 7,14-16,19,28-30,52,63,102,112,122,124,148,150,191-193,261,264,284-294,298,303,310,314,334
+packages/cloudflare-api-site/src/lib/cn.ts
+  s_40948424877c65::t_7011514ed72fec 1-2
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "ee3d4e13d42bd8dd5a2c0d1da37a0f27668cf592",
+  "prompts": {},
+  "sessions": {
+    "s_40948424877c65": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "b986cd6a-02da-414a-a47a-74d0e86476b3",
+        "model": "unknown"
+      },
+      "human_author": "mohamedh <mhassan@cloudflare.com>"
+    }
+  }
+}

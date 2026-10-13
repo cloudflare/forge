@@ -1,0 +1,60 @@
+packages/cloudflare-api-site/src/pages/[product]/[...document].md.ts
+  s_40948424877c65::t_9c67b3aad2a848 3
+packages/cloudflare-api-site/src/middleware.ts
+  s_40948424877c65::t_f99280df0c563e 1,3-6,10,13-14
+packages/cloudflare-api-site/package.json
+  s_40948424877c65::t_a3a087f786067c 16
+packages/cloudflare-api-site/nimbus.json
+  s_bf88e10c129005::t_12b58210650dc0 4
+packages/cloudflare-api-site/public/.assetsignore
+  s_40948424877c65::t_57620720d8eaa6 1-4
+pnpm-lock.yaml
+  s_40948424877c65::t_7c58bf59805c68 51-52,527-528,990-992,1981-1988,3002-3004,3550-3553,4459,4465,4469,4483,4500,4799-4800,5455-5462,6653-6664,7646-7647
+packages/cloudflare-api-site/README.md
+  s_40948424877c65::t_d3517f82d6c69c 48
+  s_40948424877c65::t_861b55a1288004 42
+packages/astro-fern/README.md
+  s_bf88e10c129005::t_138698d122fc15 30-31,68,82,161,288,315,326,376,449,897
+packages/astro-fern/content-contract.ts
+  s_bf88e10c129005::t_641e2a4d142074 1-2
+packages/astro-fern/server.ts
+  s_bf88e10c129005::t_715b098327befa 6,35,38
+packages/astro-fern/e2e/fixtures/snapshots/src/content.config.ts
+  s_bf88e10c129005::t_b8f6bd1f112dcc 2,87-115
+packages/astro-fern/collections.ts
+  s_bf88e10c129005::t_9f9ad1c30d8549 3,7-9,11-14
+packages/cloudflare-api-site/src/command-reference/server.ts
+  s_bf88e10c129005::t_c31d584e042ee3 7,13
+packages/cloudflare-api-site/src/content.config.ts
+  s_bf88e10c129005::t_d10a8a1f96020d 4,32-33
+packages/astro-fern/integration.ts
+  s_bf88e10c129005::t_2ba5d94c1332e4 35
+packages/astro-fern/e2e/fixtures/snapshots/astro.config.ts
+  s_bf88e10c129005::t_2e361198a8ef5b 11
+packages/fern-forge/README.md
+  s_bf88e10c129005::t_aa30c4a51fdafc 23,29,43,156
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "f3bcc190153a8514264318cdfb9b44a5699ccd83",
+  "prompts": {},
+  "sessions": {
+    "s_40948424877c65": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "b986cd6a-02da-414a-a47a-74d0e86476b3",
+        "model": "unknown"
+      },
+      "human_author": "mohamedh <mhassan@cloudflare.com>"
+    },
+    "s_bf88e10c129005": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_ec9c6fdc8ffe2cBpRs3heaHCXW",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "mohamedh <mhassan@cloudflare.com>"
+    }
+  }
+}
