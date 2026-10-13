@@ -141,3 +141,9 @@ downloading it again.
 
 `check` validates the Astro components. `build` verifies the Cloudflare SSR
 bundle.
+
+`test:visual` compares screenshots of key pages against local baselines. It
+serves the last build with `wrangler dev`, or uses `VISUAL_BASE_URL` when set.
+Build the known-good revision and run it with `--update-snapshots` to record
+baselines, then build the change and run it again. Pin `FORGE_OPENAPI_RELEASE`
+for both builds; baselines and results are not committed.
