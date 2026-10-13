@@ -39,7 +39,6 @@ export default defineConfig({
       },
     }),
     astroFern({
-      collection: '_apiReference',
       routing: { base: '/', target: 'hash' },
       agents: { injectRoutes: false, markdown: false, llms: false },
     }),

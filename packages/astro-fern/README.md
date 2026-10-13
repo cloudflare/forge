@@ -27,10 +27,8 @@ The server setup uses these files:
 | `src/env.d.ts`                  | Adds the `Astro.locals` types                                       |
 | `src/pages/api/[...slug].astro` | Renders human operation pages under the configured Fern base        |
 
-The server APIs locate the catalog and operation artifacts by collection name.
-The catalog defaults to `apiReference`; register it under another key and pass
-that key to `astroFern({ collection })` when the name must change. The
-`apiOperations` live collection name is fixed.
+The collection names are fixed because the server APIs use them to locate the
+catalog and operation artifacts.
 
 ### Configure Astro
 
@@ -67,7 +65,7 @@ options belong in `astro.config`; OpenAPI sources and content policy belong in
 ```ts
 // src/content.config.ts
 import { defineFernManifest, type FernContentOptions } from 'astro-fern';
-import { fernCollection } from 'astro-fern/collections';
+import { defineFernCollections } from 'astro-fern/collections';
 
 const manifest = defineFernManifest({
   targets: [{ id: 'curl', kind: 'http', label: 'curl', language: 'bash' }],
@@ -81,7 +79,7 @@ const manifest = defineFernManifest({
 });
 
 export const collections = {
-  apiReference: fernCollection({
+  ...defineFernCollections({
     source: new URL('./openapi.json', import.meta.url),
     manifest,
   } satisfies FernContentOptions),
@@ -160,7 +158,7 @@ product pages, section pages, and navigation belong to the Astro application.
 
 ## Supply OpenAPI content
 
-`fernCollection()` accepts one source or an explicit snapshot registry.
+`defineFernCollections()` accepts one source or an explicit snapshot registry.
 Each source resolves to a parsed OpenAPI object or a local JSON file.
 
 | Input                             | Example                                              | Behavior                                         |
@@ -287,7 +285,7 @@ no longer contains them.
 can add another visibility rule through `isOperationHidden`:
 
 ```ts
-fernCollection({
+defineFernCollections({
   source,
   manifest,
   isOperationHidden: (operation) => operation['x-internal'] === true,
@@ -314,7 +312,7 @@ const snippets = createSnippetProvider({
 });
 ```
 
-Pass the provider to `fernCollection()` and configure a target with the
+Pass the provider to `defineFernCollections()` and configure a target with the
 same ID:
 
 ```ts
@@ -325,7 +323,7 @@ const curlTarget = {
   language: 'bash',
 } as const;
 
-fernCollection({
+defineFernCollections({
   source,
   snippets,
   manifest: defineFernManifest({
@@ -375,7 +373,7 @@ revisions:
 
 ```ts
 export const collections = {
-  apiReference: fernCollection({
+  ...defineFernCollections({
     source: {
       kind: 'snapshots',
       snapshots: [
@@ -448,7 +446,7 @@ Register the shared descriptor in `content.config`:
 ```ts
 import { audienceExtension } from './fern/audience.ts';
 
-fernCollection({
+defineFernCollections({
   source,
   manifest,
   extensions: [audienceExtension],
@@ -896,7 +894,7 @@ one `publicDir` need a single writer.
 | Import                                         | Main exports                                                                                           | Intended use                                  |
 | ---------------------------------------------- | ------------------------------------------------------------------------------------------------------ | --------------------------------------------- |
 | `astro-fern`                                   | `astroFern`, `defineFernManifest`, project builders, extension APIs, snippet APIs, route context types | Astro config and shared project configuration |
-| `astro-fern/collections`                       | `fernCollection`                                                                                       | `src/content.config.ts`                       |
+| `astro-fern/collections`                       | `defineFernCollections`                                                                                | `src/content.config.ts`                       |
 | `astro-fern/live`                              | `fernOperationLiveLoader`, `FernArtifactFetcher`                                                       | `src/live.config.ts` and artifact transports  |
 | `astro-fern/server`                            | Catalog, page, route, cache, static path, and response helpers                                         | Astro server code                             |
 | `astro-fern/agents`                            | `renderPageMarkdown`, `renderLlmsIndexFromCatalog`, `renderLlmsIndex`, semantic link types             | Agent document routes                         |
