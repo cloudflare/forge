@@ -242,7 +242,6 @@ Primary operation metadata accepts these fields:
 | `x-fern-ignore`                | Boolean, default `false`                       | `ignore`              | Removes the operation from generated content when true    |
 | `x-forge-hidden`               | Boolean, default `false`                       | `hidden`              | Stores approval state and lowers route-collision priority |
 | `x-forge-internal`             | Boolean                                        | `internal`            | Stores internal visibility metadata                       |
-| `x-forge-globals`              | Argument array                                 | `globals`             | Stores shared command arguments                           |
 | `x-forge-epilogue`             | String                                         | `epilogue`            | Stores command or method footer text                      |
 | `x-forge-args`                 | Method argument array                          | `args`                | Stores method argument configuration                      |
 | `x-forge-params`               | Parameter override map                         | `params`              | Stores overrides by parameter name                        |
@@ -269,8 +268,7 @@ legacy
 
 ## Argument metadata reference
 
-`x-forge-globals` contains arguments. `x-forge-args` contains arguments or
-argument groups.
+`x-forge-args` contains arguments or argument groups.
 
 ### Arguments
 

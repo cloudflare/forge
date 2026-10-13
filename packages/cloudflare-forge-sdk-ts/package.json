@@ -27,13 +27,13 @@
     "dev": "tsc -p tsconfig.generated.json --watch",
     "typecheck": "pnpm run typecheck:scripts && ([ ! -f src/_generated/index.ts ] || tsc -p tsconfig.generated.json --noEmit)",
     "typecheck:scripts": "tsc -p tsconfig.scripts.json --noEmit",
-    "test": "node --import tsx --test scripts/test-envelope-unwrap.ts scripts/test-sdk-map-ast.ts scripts/test-passthrough-query-join.ts"
+    "test": "node --import tsx --test scripts/test-envelope-unwrap.ts scripts/test-sdk-map-ast.ts scripts/test-sdk-map-paths.ts scripts/test-passthrough-query-join.ts"
   },
   "devDependencies": {
     "@cloudflare/fern-config": "workspace:*",
     "@cloudflare/forge": "workspace:*",
     "@types/node": "26.0.1",
-    "fern-api": "5.112.0",
+    "fern-api": "file:../../vendor/codegen-cli/fern-api-5.112.0.tgz",
     "tsx": "4.22.4",
     "typescript": "6.0.3"
   },

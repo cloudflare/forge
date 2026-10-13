@@ -21,7 +21,6 @@ type OperationMetadata = {
   status: MethodStatus;
   ignore: boolean;
   hidden: boolean;
-  globals?: Schema.arg[];
   epilogue?: string;
   args?: Schema.methodArg[];
   params?: Record<string, Schema.paramOverride>;
@@ -111,7 +110,6 @@ function parseMetadata(operationId: string, source: Record<string, unknown>, ign
     hidden: source['x-forge-hidden'] === true,
   };
 
-  if (Array.isArray(source['x-forge-globals'])) metadata.globals = source['x-forge-globals'] as Schema.arg[];
   if (typeof source['x-forge-epilogue'] === 'string') metadata.epilogue = source['x-forge-epilogue'];
   if (Array.isArray(source['x-forge-args'])) metadata.args = source['x-forge-args'] as Schema.methodArg[];
   const params = source['x-forge-params'];
@@ -233,7 +231,6 @@ function toSchemaCommand(
     name: commandName,
     description,
     methods: [...topLevelMethods, ...toMethodGroups(groups, groupInfo)],
-    globalCliArgs: items.find((item) => item.globals)?.globals ?? [],
     hideCommand: visible.every((item) => item.hidden),
   };
 }

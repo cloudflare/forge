@@ -227,8 +227,6 @@ export namespace Schema {
     description: string;
     /** Methods in this group */
     methods: (method | methodGroup)[];
-    /** Global CLI arguments for this command */
-    globalCliArgs: arg[];
     /**
      * Whether this command family is hidden by default.
      *

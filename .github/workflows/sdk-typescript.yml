@@ -6,16 +6,17 @@
 #
 # The job runs the workspace's own target, `pnpm --filter @cloudflare/forge-sdk-ts
 # generate`, which is the same command a contributor runs locally. Everything
-# else -- spec resolution, the heap-tuned generator image, the custom runtime
-# overlay, sdk-map -- lives in the packages, not here.
+# else -- spec resolution, the custom runtime overlay, sdk-map -- lives in the
+# packages, not here.
 #
 # Differences from the GitLab job, and why:
 #   - GitLab bootstrapped Node from a pinned tarball because its VM shell runner
-#     had none. GitHub-hosted runners ship Docker and Node tooling, so
+#     had none. GitHub-hosted runners ship Node tooling, so
 #     actions/setup-node + pnpm/action-setup replace ~35 lines of before_script.
-#   - GitLab sharded TypeScript generation into 3x2304 MB to fit an 8 GB runner.
-#     ubuntu-latest has 16 GB, so a single heap-tuned generator image is enough
-#     and the shard/merge machinery is dropped.
+#   - GitLab sharded TypeScript generation into 3x2304 MB Docker containers to
+#     fit an 8 GB runner. Fern's TypeScript generator now runs natively in one
+#     process with an 8 GB heap on ubuntu-latest (16 GB), so the shard/merge
+#     machinery is gone.
 name: SDK / TypeScript
 
 # GitHub Actions does not support YAML anchors, so the path filter is repeated.

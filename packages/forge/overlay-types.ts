@@ -20,7 +20,6 @@ export type ForgeExtensions = {
    * is fixed, then remove this field from the overlay.
    */
   'x-forge-internal'?: boolean;
-  'x-forge-globals'?: Schema.arg[];
   'x-forge-epilogue'?: string;
   'x-forge-args'?: Schema.methodArg[];
   'x-forge-params'?: Record<string, Schema.paramOverride>;

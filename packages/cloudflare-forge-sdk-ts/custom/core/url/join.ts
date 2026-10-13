@@ -1,6 +1,6 @@
 // Cloudflare custom runtime: query-string / fragment preservation in join().
 //
-// Divergence from stock Fern TS 3.80.1 `core/url/join.ts`:
+// Divergence from stock Fern TS 3.88.3 `core/url/join.ts`:
 //   - A path segment carrying a `?query` or `#fragment` suffix has that suffix
 //     peeled off and reattached to the URL's search/hash, instead of being folded
 //     into the pathname.

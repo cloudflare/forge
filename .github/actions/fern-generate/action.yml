@@ -56,8 +56,8 @@ runs:
         done
 
     # One command, the same one a contributor runs locally. generate-sdk.ts owns
-    # spec resolution, the heap-tuned generator image and the custom runtime
-    # overlay; the TypeScript package additionally chains sdk-map generation.
+    # spec resolution and the custom runtime overlay; the TypeScript package
+    # additionally chains sdk-map generation.
     - name: Generate ${{ inputs.language }} SDK
       shell: bash
       env:
@@ -82,9 +82,9 @@ runs:
         fi
         echo "==> $(find "${OUTPUT_PATH}" -type f | wc -l | tr -d ' ') files in ${OUTPUT_PATH}"
 
-    # Saved after generation so the tarball holds the heap-tuned wrapper that
-    # generate-sdk.ts retagged, not the stock image. actions/cache uploads the
-    # path at post-job.
+    # Saved after generation so the tarball holds exactly the images the run
+    # pulled. Fern's TypeScript generator runs natively and pulls none.
+    # actions/cache uploads the path at post-job.
     - name: Save generator image
       if: steps.image-cache.outputs.cache-hit != 'true'
       shell: bash
