@@ -1,0 +1,47 @@
+packages/astro-fern/README.md
+  s_bf88e10c129005::t_138698d122fc15 30-31,68,82,161,288,315,326,376,449,897
+packages/astro-fern/content-contract.ts
+  s_bf88e10c129005::t_641e2a4d142074 1-2
+packages/astro-fern/server.ts
+  s_bf88e10c129005::t_715b098327befa 6,35,38
+packages/cloudflare-api-site/README.md
+  s_40948424877c65::t_861b55a1288004 42
+packages/astro-fern/e2e/fixtures/snapshots/src/content.config.ts
+  s_bf88e10c129005::t_b8f6bd1f112dcc 2,87-115
+packages/astro-fern/collections.ts
+  s_bf88e10c129005::t_9f9ad1c30d8549 3,7-9,11-14
+packages/cloudflare-api-site/src/command-reference/server.ts
+  s_bf88e10c129005::t_c31d584e042ee3 7,13
+packages/cloudflare-api-site/src/content.config.ts
+  s_bf88e10c129005::t_d10a8a1f96020d 4,32-33
+packages/astro-fern/integration.ts
+  s_bf88e10c129005::t_2ba5d94c1332e4 35
+packages/astro-fern/e2e/fixtures/snapshots/astro.config.ts
+  s_bf88e10c129005::t_2e361198a8ef5b 11
+packages/fern-forge/README.md
+  s_bf88e10c129005::t_aa30c4a51fdafc 23,29,43,156
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "293f1037b4025cd6b8c67683877ba5f6b8f20f15",
+  "prompts": {},
+  "sessions": {
+    "s_40948424877c65": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "b986cd6a-02da-414a-a47a-74d0e86476b3",
+        "model": "unknown"
+      },
+      "human_author": "mohamedh <mhassan@cloudflare.com>"
+    },
+    "s_bf88e10c129005": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_ec9c6fdc8ffe2cBpRs3heaHCXW",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "mohamedh <mhassan@cloudflare.com>"
+    }
+  }
+}
