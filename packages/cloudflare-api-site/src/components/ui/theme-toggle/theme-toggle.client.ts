@@ -4,7 +4,7 @@
  * transitions, OS changes, and cross-tab edits stay in sync.
  */
 
-import { mount } from '@cloudflare/nimbus-docs/client';
+import { mount } from "@cloudflare/nimbus-docs/client";
 
 declare global {
   interface Window {
@@ -14,9 +14,9 @@ declare global {
 
 function initThemeToggle(button: HTMLElement): () => void {
   function handleClick() {
-    const isDark = document.documentElement.getAttribute('data-mode') === 'dark';
+    const isDark = document.documentElement.getAttribute("data-mode") === "dark";
     try {
-      localStorage.setItem('ui-mode', isDark ? 'light' : 'dark');
+      localStorage.setItem("ui-mode", isDark ? "light" : "dark");
     } catch {
       // Ignore storage errors (private mode / restricted contexts).
     }
@@ -24,8 +24,8 @@ function initThemeToggle(button: HTMLElement): () => void {
   }
 
   window.__nbApplyTheme?.();
-  button.addEventListener('click', handleClick);
-  return () => button.removeEventListener('click', handleClick);
+  button.addEventListener("click", handleClick);
+  return () => button.removeEventListener("click", handleClick);
 }
 
-mount('[data-nb-theme-toggle]', initThemeToggle);
+mount("[data-nb-theme-toggle]", initThemeToggle);
