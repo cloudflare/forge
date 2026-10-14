@@ -80,7 +80,7 @@ pub fn models(forge: &Forge) -> Vec<&str> {
         .chain(forge.groups().flat_map(|group| group.models()))
         .map(|model| model.schema_name())
         .collect();
-    names.sort();
+    names.sort_unstable();
     names
 }
 

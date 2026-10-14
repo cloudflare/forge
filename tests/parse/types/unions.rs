@@ -389,7 +389,7 @@ fn members_with_only_required_are_dropped() {
     ));
 
     let mut names = field_names(object(response_type(&forge, "a.get")));
-    names.sort();
+    names.sort_unstable();
     assert_eq!(names, ["appeals", "type"]);
 }
 

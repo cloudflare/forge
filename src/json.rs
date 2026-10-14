@@ -194,7 +194,7 @@ mod tests {
 
     #[test]
     fn integers_beyond_2_to_the_53_lose_precision() {
-        assert_eq!(read("9007199254740993"), Json::Number(9007199254740992.0));
+        assert_eq!(read("9007199254740993"), Json::Number(9_007_199_254_740_992.0));
     }
 
     #[test]

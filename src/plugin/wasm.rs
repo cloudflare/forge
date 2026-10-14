@@ -605,7 +605,7 @@ impl wit::Host for State {
             TypeData::Union(union) => wit::TypeInfo::Union(wit::UnionInfo {
                 members: forge.members.get(union.members).iter().map(|id| id.0).collect(),
                 exclusive: union.exclusive,
-                discriminator: union.discriminator.as_deref().map(|data| wit::DiscriminatorInfo {
+                discriminator: union.discriminator.as_ref().map(|data| wit::DiscriminatorInfo {
                     wire_name: s(data.wire_name),
                     name: words(&data.name),
                     cases: data.cases.iter().map(|&(value, id)| (s(value), id.0)).collect(),
