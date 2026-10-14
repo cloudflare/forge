@@ -5,6 +5,7 @@
 #   push to main                  0.1.0-main.<run>.g<sha>     dist-tag `main`
 #   workflow_dispatch on main     0.1.0-main.<run>.g<sha>     dist-tag `main`
 #   workflow_dispatch on <branch> 0.1.0-<slug>.<run>.g<sha>   dist-tag `branch-<slug>`
+#   pull request #<n> to main     0.1.0-pr-<n>.<run>.g<sha>   dist-tag `pr-<n>`
 #
 # <slug> is the branch name in lowercase, with every run of characters other
 # than letters, digits and hyphens turned into one hyphen, and hyphens
@@ -14,7 +15,11 @@
 #
 # Only the publish job can write packages, and it runs none of the
 # repository's code. It downloads the tarball the pack job made and
-# publishes it.
+# publishes it. Pull requests from forks build and pack but don't publish:
+# their GITHUB_TOKEN can't write packages.
+#
+# A pull request builds GitHub's merge of its branch into main, so <sha> is
+# that merge commit. A new push to the pull request cancels its running build.
 #
 # The checkouts set no `ref:`, so every job builds the commit that started
 # the run and saves its caches under that branch. CodeQL flags a checkout of
@@ -34,21 +39,25 @@ on:
       - 'pnpm-lock.yaml'
       - '.github/actions/setup-workspace/**'
       - '.github/workflows/publish-preview.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - 'src/**'
+      - 'packages/forge/**'
+      - '!packages/forge/test/**'
+      - 'pnpm-lock.yaml'
+      - '.github/actions/setup-workspace/**'
+      - '.github/workflows/publish-preview.yml'
   workflow_dispatch:
 
 permissions:
   contents: read
 
-# The build tools, pinned. Their names avoid the CARGO and RUST prefixes,
-# whose variables rust-cache adds to its key, and the CROSS_ and XWIN_
-# prefixes, which cross and cargo-xwin read as settings.
-env:
-  # cross has had no release since v0.2.5 in 2023, and compile.mjs tells you
-  # to install it from git, so this pins a commit on its main branch from
-  # 2026-09-24 that passed all of cross's CI. The Install cross steps install
-  # it.
-  TOOL_CROSS_REV: 74e99b2223de06166f8cdcc1af7f1308ec52baf4
-  TOOL_CARGO_XWIN_VERSION: 0.23.1
+concurrency:
+  group: publish-preview-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   meta:
@@ -63,13 +72,17 @@ jobs:
     steps:
       - name: Resolve branch
         id: resolve
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
           set -euo pipefail
-          if [[ "$GITHUB_REF" != refs/heads/* ]]; then
-            echo "::error::builds branches only, not $GITHUB_REF"
+          if [ "$GITHUB_EVENT_NAME" = pull_request ]; then
+            channel="pr-$PR_NUMBER"
+            tag="pr-$PR_NUMBER"
+          elif [[ "$GITHUB_REF" != refs/heads/* ]]; then
+            echo "::error::builds branches and pull requests only, not $GITHUB_REF"
             exit 1
-          fi
-          if [ "$GITHUB_REF_NAME" = main ]; then
+          elif [ "$GITHUB_REF_NAME" = main ]; then
             channel=main
             tag=main
           else
@@ -86,7 +99,7 @@ jobs:
             echo "tag=$tag"
           } >> "$GITHUB_OUTPUT"
 
-      - uses: actions/checkout@v7.0.1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
@@ -108,271 +121,129 @@ jobs:
           echo "version=$version" >> "$GITHUB_OUTPUT"
           echo "Building @cloudflare/forge@$version from $SHA"
 
-  # Each build job builds one platform, so the six run side by side, and
-  # uploads its binary as forge-<platform>. upload-artifact keeps the path
-  # from the first wildcard on, so target/*/release/forge keeps
+  # One job per platform, each on a runner that builds its target with plain
+  # `cargo build`: macOS for both Mac targets, x64 and arm64 Linux runners with
+  # musl-tools for the static Linux binaries, and Windows for both MSVC
+  # targets. The list must match `platforms` in packages/forge/scripts/
+  # platforms.mjs; scripts/archive.mjs refuses to pack a package that misses
+  # a platform.
+  #
+  # Each job uploads its binary as forge-<platform>. upload-artifact keeps the
+  # path from the first wildcard on, so target/*/release/forge keeps
   # <target>/release/, where scripts/archive.mjs looks. A job builds only its
   # own target, so the wildcard matches one file.
-  #
-  # rust-cache caches the compiled dependencies and ~/.cargo/bin, which
-  # holds any tool cargo installed. Its key includes the job, and it saves
-  # nothing on an exact hit. So a job that installs a tool puts the tool's
-  # pin in `key`, or a bumped pin would reinstall the tool on every run until
-  # something else changed the key. When the cache has the pinned version
-  # already, `cargo install` does nothing.
-
-  build-darwin-arm64:
-    name: Build (darwin-arm64)
+  build:
+    name: Build (${{ matrix.platform }})
     needs: meta
-    runs-on: macos-latest
+    runs-on: ${{ matrix.runner }}
     timeout-minutes: 60
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - platform: darwin-arm64
+            target: aarch64-apple-darwin
+            runner: macos-latest
+            exe: forge
+            runs: true
+          - platform: darwin-x64
+            target: x86_64-apple-darwin
+            runner: macos-latest
+            exe: forge
+            runs: false
+          - platform: linux-arm64
+            target: aarch64-unknown-linux-musl
+            runner: ubuntu-24.04-arm
+            exe: forge
+            runs: true
+          - platform: linux-x64
+            target: x86_64-unknown-linux-musl
+            runner: ubuntu-24.04
+            exe: forge
+            runs: true
+          # Link the C runtime in, or the binary needs VCRUNTIME140.dll from
+          # the Visual C++ Redistributable, which many machines don't have.
+          - platform: win32-arm64
+            target: aarch64-pc-windows-msvc
+            runner: windows-latest
+            exe: forge.exe
+            rustflags: -C target-feature=+crt-static
+            runs: false
+          - platform: win32-x64
+            target: x86_64-pc-windows-msvc
+            runner: windows-latest
+            exe: forge.exe
+            rustflags: -C target-feature=+crt-static
+            runs: true
+    defaults:
+      run:
+        shell: bash
 
     steps:
-      - uses: actions/checkout@v7.0.1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
-      - name: Install Rust
-        run: |
-          rustup toolchain install stable --profile minimal --target aarch64-apple-darwin
-          rustup default stable
-
-      - uses: Swatinem/rust-cache@v2.9.2
-
-      - name: Build
-        run: node packages/forge/scripts/compile.mjs --platform darwin-arm64
-
-      - uses: actions/upload-artifact@v7.0.2
+      # Installs the channel pinned in rust-toolchain.toml and the matrix
+      # target, and caches ~/.cargo/registry and target/<target>/release,
+      # where `cargo build --target` puts the build. cache-target is part of
+      # the cache key, so every target gets a cache of its own.
+      - name: Install toolchain
+        uses: moonrepo/setup-rust@abb2d32350334249b178c401e5ec5836e0cd88d3 # v1.3.0
         with:
-          name: forge-darwin-arm64
-          path: target/*/release/forge
-          if-no-files-found: error
-          retention-days: 7
+          targets: ${{ matrix.target }}
+          cache-target: ${{ matrix.target }}/release
+          cache-base: main
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-  build-darwin-x64:
-    name: Build (darwin-x64)
-    needs: meta
-    runs-on: macos-latest
-    timeout-minutes: 60
-
-    steps:
-      - uses: actions/checkout@v7.0.1
-        with:
-          persist-credentials: false
-
-      - name: Install Rust
-        run: |
-          rustup toolchain install stable --profile minimal --target x86_64-apple-darwin
-          rustup default stable
-
-      - uses: Swatinem/rust-cache@v2.9.2
-
-      - name: Build
-        run: node packages/forge/scripts/compile.mjs --platform darwin-x64
-
-      - uses: actions/upload-artifact@v7.0.2
-        with:
-          name: forge-darwin-x64
-          path: target/*/release/forge
-          if-no-files-found: error
-          retention-days: 7
-
-  build-linux-arm64:
-    name: Build (linux-arm64)
-    needs: meta
-    runs-on: ubuntu-latest
-    timeout-minutes: 60
-
-    steps:
-      - uses: actions/checkout@v7.0.1
-        with:
-          persist-credentials: false
-
-      # No target here, because cross adds the musl one itself.
-      - name: Install Rust
-        run: |
-          rustup toolchain install stable --profile minimal
-          rustup default stable
-
-      - uses: Swatinem/rust-cache@v2.9.2
-        with:
-          key: cross-${{ env.TOOL_CROSS_REV }}
-
-      - name: Install cross
-        run: cargo install cross --locked --git https://github.com/cross-rs/cross --rev "$TOOL_CROSS_REV"
-
-      - name: Build
-        run: node packages/forge/scripts/compile.mjs --platform linux-arm64
-
-      - uses: actions/upload-artifact@v7.0.2
-        with:
-          name: forge-linux-arm64
-          path: target/*/release/forge
-          if-no-files-found: error
-          retention-days: 7
-
-  build-linux-x64:
-    name: Build (linux-x64)
-    needs: meta
-    runs-on: ubuntu-latest
-    timeout-minutes: 60
-
-    steps:
-      - uses: actions/checkout@v7.0.1
-        with:
-          persist-credentials: false
-
-      # No target here, because cross adds the musl one itself.
-      - name: Install Rust
-        run: |
-          rustup toolchain install stable --profile minimal
-          rustup default stable
-
-      - uses: Swatinem/rust-cache@v2.9.2
-        with:
-          key: cross-${{ env.TOOL_CROSS_REV }}
-
-      - name: Install cross
-        run: cargo install cross --locked --git https://github.com/cross-rs/cross --rev "$TOOL_CROSS_REV"
-
-      - name: Build
-        run: node packages/forge/scripts/compile.mjs --platform linux-x64
-
-      - uses: actions/upload-artifact@v7.0.2
-        with:
-          name: forge-linux-x64
-          path: target/*/release/forge
-          if-no-files-found: error
-          retention-days: 7
-
-  # Each Windows job downloads the CRT and SDK for its own architecture only,
-  # so each has its own cache entry, and the two never race to save one.
-  build-win32-arm64:
-    name: Build (win32-arm64)
-    needs: meta
-    runs-on: ubuntu-latest
-    timeout-minutes: 60
-    env:
-      # Read by cargo-xwin, and part of the CRT and SDK cache's key.
-      XWIN_ARCH: aarch64
-      XWIN_VARIANT: desktop
-
-    steps:
-      - uses: actions/checkout@v7.0.1
-        with:
-          persist-credentials: false
-
-      - name: Install Rust
-        run: |
-          rustup toolchain install stable --profile minimal --target aarch64-pc-windows-msvc
-          rustup default stable
-
-      - uses: Swatinem/rust-cache@v2.9.2
-        with:
-          key: xwin-${{ env.TOOL_CARGO_XWIN_VERSION }}
-
-      - name: Install cargo-xwin
+      # The C compiler for musl, which the cc crate uses for wasmtime's C code.
+      - name: Install musl-tools
+        if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends clang lld llvm
-          cargo install cargo-xwin --locked --version "$TOOL_CARGO_XWIN_VERSION"
+          sudo apt-get install -y --no-install-recommends musl-tools
 
-      # The Microsoft CRT and Windows SDK that cargo-xwin downloads. It skips
-      # the download when its DONE file lists every architecture in
-      # XWIN_ARCH. dl/ and unpack/ hold intermediate files, so they're left out.
-      - name: Cache the Windows CRT and SDK
-        uses: actions/cache@v6.1.0
-        with:
-          path: |
-            ${{ runner.temp }}/xwin
-            !${{ runner.temp }}/xwin/xwin/dl
-            !${{ runner.temp }}/xwin/xwin/unpack
-          key: xwin-${{ runner.os }}-${{ env.TOOL_CARGO_XWIN_VERSION }}-${{ env.XWIN_ARCH }}-${{ env.XWIN_VARIANT }}
-
+      # `wasm` gives `--target wasm://`, which runs plugins.
       - name: Build
         env:
-          XWIN_CACHE_DIR: ${{ runner.temp }}/xwin
-        run: node packages/forge/scripts/compile.mjs --platform win32-arm64
+          RUSTFLAGS: ${{ matrix.rustflags }}
+          TARGET: ${{ matrix.target }}
+        run: cargo build --release --locked --features wasm --target "$TARGET"
 
-      - uses: actions/upload-artifact@v7.0.2
-        with:
-          name: forge-win32-arm64
-          path: target/*/release/forge.exe
-          if-no-files-found: error
-          retention-days: 7
-
-  build-win32-x64:
-    name: Build (win32-x64)
-    needs: meta
-    runs-on: ubuntu-latest
-    timeout-minutes: 60
-    env:
-      # Read by cargo-xwin, and part of the CRT and SDK cache's key.
-      XWIN_ARCH: x86_64
-      XWIN_VARIANT: desktop
-
-    steps:
-      - uses: actions/checkout@v7.0.1
-        with:
-          persist-credentials: false
-
-      - name: Install Rust
-        run: |
-          rustup toolchain install stable --profile minimal --target x86_64-pc-windows-msvc
-          rustup default stable
-
-      - uses: Swatinem/rust-cache@v2.9.2
-        with:
-          key: xwin-${{ env.TOOL_CARGO_XWIN_VERSION }}
-
-      - name: Install cargo-xwin
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends clang lld llvm
-          cargo install cargo-xwin --locked --version "$TOOL_CARGO_XWIN_VERSION"
-
-      - name: Cache the Windows CRT and SDK
-        uses: actions/cache@v6.1.0
-        with:
-          path: |
-            ${{ runner.temp }}/xwin
-            !${{ runner.temp }}/xwin/xwin/dl
-            !${{ runner.temp }}/xwin/xwin/unpack
-          key: xwin-${{ runner.os }}-${{ env.TOOL_CARGO_XWIN_VERSION }}-${{ env.XWIN_ARCH }}-${{ env.XWIN_VARIANT }}
-
-      - name: Build
+      # A binary the runner can execute gets a quick run, which catches a
+      # broken link before the package is published.
+      - name: Smoke test
+        if: matrix.runs
         env:
-          XWIN_CACHE_DIR: ${{ runner.temp }}/xwin
-        run: node packages/forge/scripts/compile.mjs --platform win32-x64
+          BIN: target/${{ matrix.target }}/release/${{ matrix.exe }}
+        run: '"$BIN" --version'
 
-      - uses: actions/upload-artifact@v7.0.2
+      # Artifacts drop the executable bit, which scripts/archive.mjs sets
+      # again when it packs.
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: forge-win32-x64
-          path: target/*/release/forge.exe
+          name: forge-${{ matrix.platform }}
+          path: target/*/release/${{ matrix.exe }}
           if-no-files-found: error
           retention-days: 7
 
   pack:
     name: Pack
-    needs:
-      - meta
-      - build-darwin-arm64
-      - build-darwin-x64
-      - build-linux-arm64
-      - build-linux-x64
-      - build-win32-arm64
-      - build-win32-x64
+    needs: [meta, build]
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
     steps:
-      - uses: actions/checkout@v7.0.1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
       - uses: ./.github/actions/setup-workspace
 
-      - uses: actions/download-artifact@v8.0.2
+      # Merges the build jobs' artifacts into binaries/<target>/release/,
+      # where scripts/archive.mjs picks them up.
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           pattern: forge-*
           merge-multiple: true
@@ -385,7 +256,7 @@ jobs:
           VERSION: ${{ needs.meta.outputs.version }}
         run: node scripts/archive.mjs --artifacts "$BINARIES" --version "$VERSION"
 
-      - uses: actions/upload-artifact@v7.0.2
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: package
           path: packages/forge/dist/cloudflare-forge-${{ needs.meta.outputs.version }}.tgz
@@ -395,20 +266,21 @@ jobs:
   publish:
     name: Publish to GitHub Packages
     needs: [meta, pack]
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
       packages: write
 
     steps:
-      - uses: actions/download-artifact@v8.0.2
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: package
           path: package
 
       # Writes an .npmrc that sends @cloudflare to GitHub Packages, with
       # NODE_AUTH_TOKEN as the token.
-      - uses: actions/setup-node@v7.0.0
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: '26'
           registry-url: https://npm.pkg.github.com
