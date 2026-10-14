@@ -1766,7 +1766,7 @@ impl<'de> Deserialize<'de> for Count {
 
             fn visit_f64<E: de::Error>(self, v: f64) -> Result<Count, E> {
                 // 2^64 is the first float that does not fit in a `u64`.
-                if v >= 0.0 && v.fract() == 0.0 && v < 18_446_744_073_709_551_616.0 {
+                if v >= 0.0 && v.fract() == 0.0 && v < 18_446_744_073_709_552_000.0 {
                     Ok(Count(v as u64))
                 } else {
                     Err(E::invalid_value(de::Unexpected::Float(v), &self))

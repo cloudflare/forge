@@ -604,7 +604,7 @@ pub(crate) struct UnionData {
     /// Whether a value is at most one of the members.
     pub(crate) exclusive: bool,
     /// Boxed, since most unions have none, to keep `TypeData` small.
-    pub(crate) discriminator: Option<Box<DiscriminatorData>>,
+    pub(crate) discriminator: Option<DiscriminatorData>,
 }
 
 pub(crate) struct DiscriminatorData {

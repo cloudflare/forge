@@ -1006,7 +1006,7 @@ impl<'d> Builder<'d> {
     fn push_union(
         &mut self,
         members: &[TypeId],
-        discriminator: Option<Box<DiscriminatorData>>,
+        discriminator: Option<DiscriminatorData>,
         exclusive: bool,
     ) -> TypeId {
         let members = self.members.extend(members.iter().copied());
@@ -1752,7 +1752,7 @@ impl<'d> Builder<'d> {
     fn union_of(
         &mut self,
         members: &[TypeId],
-        discriminator: Option<Box<DiscriminatorData>>,
+        discriminator: Option<DiscriminatorData>,
         mut exclusive: bool,
     ) -> TypeId {
         let mut out = Vec::with_capacity(members.len());
@@ -1825,7 +1825,7 @@ impl<'d> Builder<'d> {
         &mut self,
         discriminator: &'d Discriminator,
         members: &[(Schema, TypeId)],
-    ) -> Box<DiscriminatorData> {
+    ) -> DiscriminatorData {
         let doc = self.doc;
         let wire_name = doc.str(discriminator.property_name);
         let mut name = Name::new(wire_name);
@@ -1875,12 +1875,12 @@ impl<'d> Builder<'d> {
             }
         }
         let wire_name = self.strings.push(wire_name);
-        Box::new(DiscriminatorData {
+        DiscriminatorData {
             wire_name,
             name,
             cases,
             default,
-        })
+        }
     }
 
     /// Returns the type a discriminator's mapping names: a `$ref`, or the
@@ -1956,7 +1956,7 @@ impl<'d> Builder<'d> {
         };
         let object = doc.get(object);
         let has_ref = !object.reference.is_empty();
-        if !object.description.is_empty() && !(has_ref && self.v30) {
+        if !(object.description.is_empty() || has_ref && self.v30) {
             return doc.str(object.description);
         }
         if has_ref {
