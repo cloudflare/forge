@@ -21,19 +21,19 @@ export const distDir = join(npmDir, 'dist');
  * process.platform and process.arch, which the launcher looks the binary up
  * by, and `target` is the Rust target that builds it.
  *
- * `builder` says how scripts/compile.mjs builds it: with cargo itself for
- * macOS, which needs a Mac; with cross, in Docker, for Linux; and with
- * cargo-xwin for Windows, since cross has no image for MSVC.
+ * `just build <target>` builds one (see the justfile); the publish-preview
+ * workflow's build matrix and the justfile's target lists must name the same
+ * platforms, and scripts/archive.mjs refuses to pack a package that misses one.
  *
  * Linux builds against musl so the binary is static and runs on any distro.
  */
 export const platforms = [
-  { os: 'darwin', cpu: 'arm64', target: 'aarch64-apple-darwin', builder: 'cargo' },
-  { os: 'darwin', cpu: 'x64', target: 'x86_64-apple-darwin', builder: 'cargo' },
-  { os: 'linux', cpu: 'arm64', target: 'aarch64-unknown-linux-musl', builder: 'cross' },
-  { os: 'linux', cpu: 'x64', target: 'x86_64-unknown-linux-musl', builder: 'cross' },
-  { os: 'win32', cpu: 'arm64', target: 'aarch64-pc-windows-msvc', builder: 'xwin' },
-  { os: 'win32', cpu: 'x64', target: 'x86_64-pc-windows-msvc', builder: 'xwin' },
+  { os: 'darwin', cpu: 'arm64', target: 'aarch64-apple-darwin' },
+  { os: 'darwin', cpu: 'x64', target: 'x86_64-apple-darwin' },
+  { os: 'linux', cpu: 'arm64', target: 'aarch64-unknown-linux-musl' },
+  { os: 'linux', cpu: 'x64', target: 'x86_64-unknown-linux-musl' },
+  { os: 'win32', cpu: 'arm64', target: 'aarch64-pc-windows-msvc' },
+  { os: 'win32', cpu: 'x64', target: 'x86_64-pc-windows-msvc' },
 ].map((platform) => ({
   ...platform,
   id: `${platform.os}-${platform.cpu}`,

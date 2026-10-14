@@ -276,18 +276,20 @@ or list it in `package.json`. A path or URL to the tarball both work:
 
 ## Releasing
 
-From `packages/forge` in the forge repository, on a Mac with Docker running:
+From the root of the forge repository, with [just](https://just.systems) installed:
 
 ```sh
-pnpm install                # the dev dependencies, which build the plugin library
-node scripts/version.mjs    # after bumping the version in Cargo.toml
-node scripts/wit.mjs        # after changing the WIT in src/plugin/wasm.rs
-node scripts/compile.mjs    # builds all six binaries into target/
-node scripts/archive.mjs    # packs them into dist/cloudflare-forge-<version>.tgz
-node scripts/publish.mjs    # publishes that tarball; takes npm publish options
+pnpm install                            # the dev dependencies, which build the plugin library
+node packages/forge/scripts/version.mjs # after bumping the version in Cargo.toml
+node packages/forge/scripts/wit.mjs     # after changing the WIT in src/plugin/wasm.rs
+just build-all                          # builds all six binaries into target/binaries/ (or: just fetch <run-id>)
+just pack                               # packs them into packages/forge/dist/cloudflare-forge-<version>.tgz
 ```
 
-The tarball that `archive.mjs` makes is the one that gets published, so a
+To vendor the package in another repository, copy the tarball from
+`packages/forge/dist/` and depend on it with a `file:` specifier.
+
+The tarball that `just pack` makes is the one that gets published, so a
 tarball you hand around and the package on the registry are the same.
 `npm pack` and `npm publish` refuse to run in this directory, which has no
 binaries of its own.
@@ -315,35 +317,42 @@ runs its tests in Node: the tests of `forge::ts` in
 
 ### Building the binaries
 
-`scripts/compile.mjs` builds each platform with the tool that can:
+Every way of getting the binaries puts them in `target/binaries/<target>/release/`,
+and `just pack` packs whatever is there:
 
-| Platform | Tool                                                           | Needs                                   |
-| -------- | -------------------------------------------------------------- | --------------------------------------- |
-| macOS    | `cargo build`                                                  | a Mac, Xcode's command line tools       |
-| Linux    | [`cross build`](https://github.com/cross-rs/cross)             | Docker                                  |
-| Windows  | [`cargo xwin build`](https://github.com/rust-cross/cargo-xwin) | nothing; it downloads the MSVC CRT once |
+| Recipe                       | Builds                                      | Needs                    |
+| ---------------------------- | ------------------------------------------- | ------------------------ |
+| `just build <target>`        | one target, with this machine's `cargo`     | a host that can build it |
+| `just build-docker <target>` | a Linux (musl) or Windows (MSVC) target     | Docker                   |
+| `just build-all`             | all six: macOS natively, the rest in Docker | a Mac and Docker         |
+| `just fetch <run-id>`        | nothing; downloads a publish-preview run's  | the GitHub CLI, `gh`     |
 
-One-time setup:
+macOS binaries build only on a Mac. On Linux, `just build-all` builds the
+other four, and `just fetch` gets all six from CI. The Docker images are in
+`docker/release.Dockerfile` and build with the Rust in `rust-toolchain.toml`;
+on an Apple silicon Mac, the x64 Linux build runs emulated, so it's slow.
 
-```sh
-rustup target add x86_64-apple-darwin aarch64-apple-darwin \
-  aarch64-pc-windows-msvc x86_64-pc-windows-msvc
-cargo install cross --git https://github.com/cross-rs/cross
-cargo install --locked cargo-xwin
-```
+Behind a proxy that re-signs HTTPS traffic, such as Cloudflare's Zero Trust
+gateway, the containers need its CA certificate, or every download fails with
+"self-signed certificate in certificate chain". `just build-docker` adds the
+certificates in `FORGE_DOCKER_CA_CERT` to the images, or else those in
+`NODE_EXTRA_CA_CERTS`, which Cloudflare machines usually set already.
 
-cross can't build macOS or Windows MSVC binaries, because it has no prebuilt
-images for them. The Windows binaries link the C runtime statically.
+CI builds each target with `just build` on a runner that builds it natively,
+in the publish-preview workflow, then packs them with `just pack`.
+
+The Windows binaries link the C runtime statically (see the `justfile`), so
+they don't need the Visual C++ Redistributable.
 
 ### Trying it out locally
 
-`compile.mjs` and `archive.mjs` take `--platform <os>-<cpu>`, repeated, to
-build or pack only some platforms. For a package that runs on this machine:
+`just pack` takes `--platform <os>-<cpu>`, repeated, to pack only some
+platforms. For a package that runs on this machine:
 
 ```sh
-cargo build --release --features wasm
-node scripts/archive.mjs --platform darwin-arm64
+just build aarch64-apple-darwin
+just pack --platform darwin-arm64
 ```
 
 A tarball that leaves platforms out lists the ones it has in its name, as in
-`cloudflare-forge-0.1.0-darwin-arm64.tgz`, and `publish.mjs` won't publish it.
+`cloudflare-forge-0.1.0-darwin-arm64.tgz`, so it can't pass for the full package.

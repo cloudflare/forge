@@ -35,6 +35,7 @@ on:
       - 'Cargo.toml'
       - 'Cargo.lock'
       - 'rust-toolchain.toml'
+      - 'justfile'
       - 'src/**'
       - 'packages/forge/**'
       - '!packages/forge/test/**'
@@ -47,6 +48,7 @@ on:
       - 'Cargo.toml'
       - 'Cargo.lock'
       - 'rust-toolchain.toml'
+      - 'justfile'
       - 'src/**'
       - 'packages/forge/**'
       - '!packages/forge/test/**'
@@ -70,10 +72,8 @@ jobs:
   # platforms.mjs; scripts/archive.mjs refuses to pack a package that misses
   # a platform.
   #
-  # Each job uploads its binary as forge-<platform>. upload-artifact keeps the
-  # path from the first wildcard on, so target/*/release/forge keeps
-  # <target>/release/, where scripts/archive.mjs looks. A job builds only its
-  # own target, so the wildcard matches one file.
+  # Each job builds with `just build <target>`, the recipe local builds use,
+  # and uploads target/binaries as forge-<platform>.
   build:
     name: Build (${{ matrix.platform }})
     runs-on: ${{ matrix.runner }}
@@ -102,19 +102,16 @@ jobs:
             runner: ubuntu-24.04
             exe: forge
             runs: true
-          # Link the C runtime in, or the binary needs VCRUNTIME140.dll from
-          # the Visual C++ Redistributable, which many machines don't have.
+          # `just build` links the C runtime into both Windows binaries.
           - platform: win32-arm64
             target: aarch64-pc-windows-msvc
             runner: windows-latest
             exe: forge.exe
-            rustflags: -C target-feature=+crt-static
             runs: false
           - platform: win32-x64
             target: x86_64-pc-windows-msvc
             runner: windows-latest
             exe: forge.exe
-            rustflags: -C target-feature=+crt-static
             runs: true
     defaults:
       run:
@@ -133,6 +130,7 @@ jobs:
         uses: moonrepo/setup-rust@abb2d32350334249b178c401e5ec5836e0cd88d3 # v1.3.0
         with:
           targets: ${{ matrix.target }}
+          bins: just@1.58.0
           cache-target: ${{ matrix.target }}/release
           cache-base: main
         env:
@@ -145,27 +143,28 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends musl-tools
 
-      # `wasm` gives `--target wasm://`, which runs plugins.
+      # The same recipe builds locally; it puts the binary in
+      # target/binaries/<target>/release/.
       - name: Build
         env:
-          RUSTFLAGS: ${{ matrix.rustflags }}
           TARGET: ${{ matrix.target }}
-        run: cargo build --release --locked --features wasm --target "$TARGET"
+        run: just build "$TARGET"
 
       # A binary the runner can execute gets a quick run, which catches a
       # broken link before the package is published.
       - name: Smoke test
         if: matrix.runs
         env:
-          BIN: target/${{ matrix.target }}/release/${{ matrix.exe }}
+          BIN: target/binaries/${{ matrix.target }}/release/${{ matrix.exe }}
         run: '"$BIN" --version'
 
+      # Uploading target/binaries keeps <target>/release/ inside the artifact.
       # Artifacts drop the executable bit, which scripts/archive.mjs sets
       # again when it packs.
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: forge-${{ matrix.platform }}
-          path: target/*/release/${{ matrix.exe }}
+          path: target/binaries
           if-no-files-found: error
           retention-days: 7
 
@@ -182,19 +181,20 @@ jobs:
 
       - uses: ./.github/actions/setup-workspace
 
-      # Merges the build jobs' artifacts into binaries/<target>/release/,
-      # where scripts/archive.mjs picks them up.
+      - uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3 # v4.0.0
+        with:
+          just-version: 1.58.0
+
+      # Merges the build jobs' artifacts into target/binaries/<target>/release/,
+      # where `just pack` picks them up, as it does locally.
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           pattern: forge-*
           merge-multiple: true
-          path: ${{ runner.temp }}/binaries
+          path: target/binaries
 
       - name: Pack
-        working-directory: packages/forge
-        env:
-          BINARIES: ${{ runner.temp }}/binaries
-        run: node scripts/archive.mjs --artifacts "$BINARIES"
+        run: just pack
 
       - name: Publish
         id: publish
