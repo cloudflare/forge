@@ -7,6 +7,9 @@ on:
       - 'Cargo.toml'
       - 'Cargo.lock'
       - 'rustfmt.toml'
+      - 'clippy.toml'
+      - 'rust-toolchain.toml'
+      - 'justfile'
       - 'src/**'
       - 'tests/**'
       - 'benches/**'
@@ -17,6 +20,9 @@ on:
       - 'Cargo.toml'
       - 'Cargo.lock'
       - 'rustfmt.toml'
+      - 'clippy.toml'
+      - 'rust-toolchain.toml'
+      - 'justfile'
       - 'src/**'
       - 'tests/**'
       - 'benches/**'
@@ -41,15 +47,19 @@ jobs:
     steps:
       - uses: actions/checkout@v7.0.1
 
-      - name: Install Rust
-        run: rustup toolchain install stable --profile minimal --component rustfmt && rustup default stable
+      # Installs the channel pinned in rust-toolchain.toml, and caches
+      # ~/.cargo/registry and target/debug.
+      - name: Install toolchain
+        uses: moonrepo/setup-rust@abb2d32350334249b178c401e5ec5836e0cd88d3 # v1.3.0
+        with:
+          components: rustfmt
+          bins: just@1.58.0
+          cache-base: main
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Check formatting
-        run: cargo fmt --check
-
-      # The wasm guest is its own workspace, so the root `cargo fmt` skips it.
-      - name: Check formatting of the wasm guest
-        run: cargo fmt --check --manifest-path tests/wasm/ts/Cargo.toml
+        run: just fmt
 
   clippy:
     name: Clippy
@@ -59,17 +69,19 @@ jobs:
     steps:
       - uses: actions/checkout@v7.0.1
 
-      - name: Install Rust
-        run: rustup toolchain install stable --profile minimal --component clippy && rustup default stable
+      # Installs the channel pinned in rust-toolchain.toml, and caches
+      # ~/.cargo/registry and target/debug.
+      - name: Install toolchain
+        uses: moonrepo/setup-rust@abb2d32350334249b178c401e5ec5836e0cd88d3 # v1.3.0
+        with:
+          components: clippy
+          bins: just@1.58.0
+          cache-base: main
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - uses: Swatinem/rust-cache@v2.9.2
-
-      - name: Clippy (all features)
-        run: cargo clippy --locked --all-targets --all-features -- -D warnings
-
-      # The library on its own, as users with `default-features = false` build it.
-      - name: Clippy (no default features)
-        run: cargo clippy --locked --all-targets --no-default-features -- -D warnings
+      - name: Clippy
+        run: just lint
 
   test:
     name: Test
@@ -79,11 +91,16 @@ jobs:
     steps:
       - uses: actions/checkout@v7.0.1
 
-      # tests/wasm.rs builds the guest in tests/wasm/ts for wasm32-wasip2.
-      - name: Install Rust
-        run: rustup toolchain install stable --profile minimal --target wasm32-wasip2 && rustup default stable
-
-      - uses: Swatinem/rust-cache@v2.9.2
+      # Installs the channel pinned in rust-toolchain.toml, and caches
+      # ~/.cargo/registry and target/debug. tests/wasm.rs builds the guest in
+      # tests/wasm/ts for wasm32-wasip2.
+      - name: Install toolchain
+        uses: moonrepo/setup-rust@abb2d32350334249b178c401e5ec5836e0cd88d3 # v1.3.0
+        with:
+          targets: wasm32-wasip2
+          cache-base: main
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Test
         run: cargo test --locked --all-features

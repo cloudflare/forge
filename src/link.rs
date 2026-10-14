@@ -1003,12 +1003,7 @@ impl<'d> Builder<'d> {
     /// Returns the union of `members`, which must be different, with
     /// `discriminator`, which is `exclusive` if a value is at most one of
     /// them.
-    fn push_union(
-        &mut self,
-        members: &[TypeId],
-        discriminator: Option<DiscriminatorData>,
-        exclusive: bool,
-    ) -> TypeId {
+    fn push_union(&mut self, members: &[TypeId], discriminator: Option<DiscriminatorData>, exclusive: bool) -> TypeId {
         let members = self.members.extend(members.iter().copied());
         self.push(TypeData::Union(UnionData {
             members,
@@ -1821,11 +1816,7 @@ impl<'d> Builder<'d> {
 
     /// Returns the discriminator of a union of `members`, each with its
     /// schema.
-    fn discriminator(
-        &mut self,
-        discriminator: &'d Discriminator,
-        members: &[(Schema, TypeId)],
-    ) -> DiscriminatorData {
+    fn discriminator(&mut self, discriminator: &'d Discriminator, members: &[(Schema, TypeId)]) -> DiscriminatorData {
         let doc = self.doc;
         let wire_name = doc.str(discriminator.property_name);
         let mut name = Name::new(wire_name);
