@@ -32,7 +32,7 @@ function reloadsFernContent(path: string): boolean {
 /**
  * Installs runtime context and package-owned agent routes. Human HTML routes
  * remain consumer-owned, while OpenAPI ingestion and content policy belong to
- * `fernCollection()` and never enter this integration's module graph.
+ * `defineFernCollections()` and never enter this integration's module graph.
  */
 export default function astroFern(options: AstroFernIntegrationOptions): AstroIntegration {
   const runtime = resolveRuntimeConfig(options);

@@ -21,7 +21,6 @@ export type {
   FernTargetKind,
 } from './manifest.ts';
 export { buildFernContent, defineFernProject } from './project.ts';
-export { sanitizeFernMarkdownPlugin } from './markdown.ts';
 export type { FernOperationRoutingPreferenceContext } from './content/build.ts';
 export type {
   AgentScope,

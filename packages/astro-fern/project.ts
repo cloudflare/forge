@@ -84,6 +84,11 @@ export interface FernProjectOptions {
 /** Content-loader options, including sources that require asynchronous resolution. */
 export type FernContentOptions = Omit<FernProjectOptions, 'source'> & {
   source: FernContentSource;
+  /**
+   * Renders one OpenAPI description to sanitized HTML, returning the HTML string. Replaces the
+   * Markdown processor Astro's content loader provides. The sanitizer probe still runs against it.
+   */
+  renderMarkdown?: (markdown: string) => string | Promise<string>;
 };
 
 /** One snapshot-specific raw-Markdown operation produced before artifact enrichment. */

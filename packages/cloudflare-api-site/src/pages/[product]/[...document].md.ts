@@ -1,6 +1,6 @@
 import type { APIRoute } from 'astro';
 import { renderPageMarkdown } from 'astro-fern/agents';
-import { getApiOperation, getApiRouter } from '../api-server.ts';
+import { getApiOperation, getApiRouter } from '../../api-server.ts';
 
 export const GET: APIRoute = async ({ locals, request, url }) => {
   const resolved = await getApiOperation(url, request, locals, 'markdown');

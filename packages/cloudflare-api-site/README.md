@@ -39,15 +39,16 @@ SDK-backed URLs.
 
 ## Project ownership
 
-- `src/content.config.ts` selects OpenAPI sources, discovers SDK products and ownership sections, configures snapshots and execution targets, and registers the canonical, route-neutral API collection. Data-only collections are prefixed with `_` so Nimbus leaves them out of its Markdown and `llms.txt` index.
-- `astro.config.mjs` independently configures routing and installs Nimbus, `astro-fern`, and the Cloudflare adapter. Nimbus replaces Astro's Markdown processor, so the config passes astro-fern's `sanitizeFernMarkdownPlugin` to Nimbus's processor; astro-fern fails the build if OpenAPI descriptions would render raw HTML or unsafe URLs.
+- `src/content.config.ts` selects OpenAPI sources, discovers SDK products and ownership sections, configures snapshots and execution targets, and registers the canonical, route-neutral API collection. It renders OpenAPI descriptions with `src/description-markdown.ts`: Nimbus's sanitizing renderer, after escaping placeholders like `metadata.<key>` so they show as text. astro-fern fails the build if descriptions would render raw HTML or unsafe URLs.
+- `astro.config.mjs` independently configures routing and installs Nimbus, `astro-fern`, and the Cloudflare adapter.
 - `src/api-routing.ts` owns the query-parameter URL policy and semantic link resolution.
 - `src/api-server.ts` binds that policy to `astro-fern`'s lazy server APIs.
-- `src/pages/[product]/[...slug].astro` owns the SSR human operation route and renderer.
+- `src/pages/[product]/[...slug].astro` owns the SSR human operation route and renderer; `src/plain-text.ts` turns description HTML into its meta description.
 - `src/pages/[...slug].astro` renders authored pages from `src/content/docs/` on request, with the same API sidebar.
-- `src/pages/[...document].md.ts` and the `llms.txt` endpoints own the SSR agent routes. `llms.txt` and `[product]/llms.txt` combine the astro-fern API index with the authored-page index Nimbus prepares at build time; `[...slug]/index.md`, `index.mdx`, and `llms-full.txt` are Nimbus routes for authored pages.
+- `src/pages/[product]/[...document].md.ts` and the `llms.txt` endpoints own the SSR agent routes. `llms.txt` and `[product]/llms.txt` combine the astro-fern API index with the authored-page index Nimbus prepares at build time; `[...slug]/index.md`, `index.mdx`, and `llms-full.txt` are Nimbus routes for authored pages.
 - `src/layouts/` and `src/components/ui/` are the Nimbus page shells and UI components; `src/components/` also contains the operation, schema, and code UI.
 - `src/sidebar.ts` maps the selected version and execution target into Nimbus sidebar items, and `src/page-sidebar.ts` resolves them for a request.
+- Nimbus publishes agent discovery (`.well-known/ard.json`, `ai-catalog.json`, and a `rel="ard"` homepage `Link`) at the origin root and under `/api`. The root copy is correct while this Worker owns its host; if the site moves to a domain shared with other sites, its entries belong in the root site's discovery files instead.
 - `src/styles/globals.css` holds the Cloudflare palette as Nimbus `--nb-*` tokens; `src/styles/cloudflare.css` aliases them as the `--cf-*` tokens used by the API components.
 
 ### Styling
@@ -141,3 +142,9 @@ downloading it again.
 
 `check` validates the Astro components. `build` verifies the Cloudflare SSR
 bundle.
+
+`test:visual` compares screenshots of key pages against local baselines. It
+serves the last build with `wrangler dev`, or uses `VISUAL_BASE_URL` when set.
+Build the known-good revision and run it with `--update-snapshots` to record
+baselines, then build the change and run it again. Pin `FORGE_OPENAPI_RELEASE`
+for both builds; baselines and results are not committed.

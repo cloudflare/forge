@@ -12,7 +12,7 @@
   "ignorePatterns": ["node_modules", "dist", "**/_generated/**", ".wrangler"],
   "overrides": [
     {
-      "files": ["packages/astro-fern/**", "packages/docs-site/**", "packages/fern-forge/**"],
+      "files": ["packages/astro-fern/**", "packages/cloudflare-api-site/**", "packages/fern-forge/**"],
       "rules": {
         "curly": "off"
       }
