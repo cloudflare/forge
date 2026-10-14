@@ -332,11 +332,7 @@ other four, and `just fetch` gets all six from CI. The Docker images are in
 `docker/release.Dockerfile` and build with the Rust in `rust-toolchain.toml`;
 on an Apple silicon Mac, the x64 Linux build runs emulated, so it's slow.
 
-Behind a proxy that re-signs HTTPS traffic, such as Cloudflare's Zero Trust
-gateway, the containers need its CA certificate, or every download fails with
-"self-signed certificate in certificate chain". `just build-docker` adds the
-certificates in `FORGE_DOCKER_CA_CERT` to the images, or else those in
-`NODE_EXTRA_CA_CERTS`, which Cloudflare machines usually set already.
+The images also trust any `.crt` files in `docker/certs/`, which is gitignored.
 
 CI builds each target with `just build` on a runner that builds it natively,
 in the publish-preview workflow, then packs them with `just pack`.

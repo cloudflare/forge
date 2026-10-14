@@ -67,21 +67,8 @@ build-docker target:
       *) echo "error: build-docker builds Linux and Windows targets; build $target with: just build $target" >&2; exit 1 ;;
     esac
     image="forge-release-$stage:$rust${platform:+-${platform#linux/}}"
-    # Extra CA certificates for the images to trust, behind a proxy that
-    # re-signs HTTPS traffic: FORGE_DOCKER_CA_CERT, or else the bundle Node
-    # trusts, NODE_EXTRA_CA_CERTS. They go one per file, because Alpine's
-    # update-ca-certificates skips a file that holds more than one.
-    ca_dir=target/docker/extra-ca
-    rm -rf "$ca_dir" && mkdir -p "$ca_dir"
-    ca="${FORGE_DOCKER_CA_CERT:-${NODE_EXTRA_CA_CERTS:-}}"
-    if [ -n "$ca" ]; then
-      [ -f "$ca" ] || { echo "error: no CA certificate file at $ca" >&2; exit 1; }
-      awk -v dir="$ca_dir" '/-----BEGIN CERTIFICATE-----/ { n++; out = sprintf("%s/extra-%d.crt", dir, n) } out { print > out } /-----END CERTIFICATE-----/ { close(out); out = "" }' "$ca"
-      echo "==> trusting $(ls "$ca_dir" | wc -l | tr -d ' ') extra CA certificate(s) from $ca"
-    fi
     echo "==> $target in $image"
     docker build --quiet ${platform:+--platform "$platform"} --target "$stage" --build-arg "RUST_VERSION=$rust" \
-      --build-context "extra-ca=$ca_dir" \
       --tag "$image" --file docker/release.Dockerfile docker >/dev/null
     # Runs as you, so everything it writes under target/ is yours. Each target
     # builds into a directory of its own: the host's target/ holds build
