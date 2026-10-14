@@ -7,8 +7,13 @@ alias l := lint
 # The wasm guest is its own workspace, so the root `cargo fmt` skips it and it
 # gets its own run.
 
-# Check formatting, including the wasm guest
+# Format the code, including the wasm guest
 fmt:
+    cargo fmt
+    cargo fmt --manifest-path tests/wasm/ts/Cargo.toml
+
+# Check formatting without changing files, as CI does
+fmt-check:
     cargo fmt --check
     cargo fmt --check --manifest-path tests/wasm/ts/Cargo.toml
 

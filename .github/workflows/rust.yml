@@ -59,7 +59,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Check formatting
-        run: just fmt
+        run: just fmt-check
 
   clippy:
     name: Clippy
