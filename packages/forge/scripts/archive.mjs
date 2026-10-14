@@ -2,7 +2,7 @@
 // tarball. That tarball is the package: scripts/publish.mjs publishes it, and
 // another package can install it straight from the file:
 //
-//     node scripts/archive.mjs [--artifacts <dir>] [--platform <os-cpu>]... [--out <dir>] [--version <v>]
+//     node scripts/archive.mjs [--artifacts <dir>] [--platform <os-cpu>]... [--out <dir>]
 //
 //     npm install /path/to/cloudflare-forge-0.1.0.tgz
 //     # or, in package.json: "@cloudflare/forge": "file:../cloudflare-forge-0.1.0.tgz"
@@ -20,9 +20,6 @@
 // does, which needs this directory's dev dependencies: pnpm install here.
 //
 // The tarball goes in dist/ unless --out says otherwise.
-//
-// --version packs the package at a prerelease of the version in Cargo.toml,
-// such as 0.1.0-main.42.gabc1234, for preview builds.
 
 import { execFileSync } from 'node:child_process';
 import { chmodSync, copyFileSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
@@ -32,13 +29,13 @@ import { parseArgs } from 'node:util';
 
 import {
   buildPlugin,
+  checkVersion,
   checkWit,
   display,
   distDir,
   fail,
   findBinary,
   npmDir,
-  packageVersion,
   platforms,
   readJson,
   repoDir,
@@ -53,20 +50,19 @@ try {
       artifacts: { type: 'string', default: join(repoDir, 'target') },
       platform: { type: 'string', multiple: true },
       out: { type: 'string', default: distDir },
-      version: { type: 'string' },
     },
   });
-  archive(values.artifacts, values.platform, resolve(values.out), values.version);
+  archive(values.artifacts, values.platform, resolve(values.out));
 } catch (err) {
   fail(err);
 }
 
 /**
  * Packs the binaries in `artifacts` for the platforms in `only`, or for all
- * of them, into a tarball in `out`, at the version `override` if given.
+ * of them, into a tarball in `out`.
  */
-function archive(artifacts, only, out, override) {
-  const version = packageVersion(override);
+function archive(artifacts, only, out) {
+  const version = checkVersion();
   checkWit();
 
   const known = platforms.map((platform) => platform.id);
@@ -113,7 +109,6 @@ function archive(artifacts, only, out, override) {
     const pkg = readJson(join(npmDir, 'package.json'));
     delete pkg.scripts;
     delete pkg.devDependencies;
-    pkg.version = version;
     writeFileSync(join(stage, 'package.json'), `${JSON.stringify(pkg, null, 2)}\n`);
 
     const [{ filename }] = JSON.parse(

@@ -170,27 +170,6 @@ export function checkVersion() {
 }
 
 /**
- * Returns the version to pack, `override` if given or else the version in
- * Cargo.toml. It runs checkVersion either way. An override must be a
- * prerelease of the Cargo.toml version, such as 0.1.0-main.42.gabc1234 for
- * 0.1.0, so a preview build can't pass for a release.
- */
-export function packageVersion(override) {
-  const version = checkVersion();
-  if (override === undefined) {
-    return version;
-  }
-  // Dot-separated identifiers of [0-9A-Za-z-], numeric ones without leading
-  // zeros, as semver has it.
-  const ident = '(?:0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*)';
-  const prerelease = new RegExp(`^-${ident}(?:\\.${ident})*$`);
-  if (!override.startsWith(version) || !prerelease.test(override.slice(version.length))) {
-    throw new Error(`--version ${override} is not a prerelease of ${version}, such as ${version}-main.1`);
-  }
-  return override;
-}
-
-/**
  * Returns the path of the tarball scripts/archive.mjs makes in `out` for
  * `version`, holding the binaries for `ids`. Only a tarball with every
  * platform goes without a suffix, so only that name can be published.

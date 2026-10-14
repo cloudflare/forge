@@ -1,25 +1,26 @@
-# Publishes preview builds of @cloudflare/forge to GitHub Packages. It makes
-# no GitHub release, publishes nothing to npmjs.com, and never uses the
-# `latest` dist-tag.
+# Publishes preview builds of @cloudflare/forge to pkg.pr.new. It makes no
+# GitHub release and publishes nothing to npmjs.com. The package keeps the
+# version in package.json; pkg.pr.new tells builds apart by commit.
 #
-#   push to main                  0.1.0-main.<run>.g<sha>     dist-tag `main`
-#   workflow_dispatch on main     0.1.0-main.<run>.g<sha>     dist-tag `main`
-#   workflow_dispatch on <branch> 0.1.0-<slug>.<run>.g<sha>   dist-tag `branch-<slug>`
-#   pull request #<n> to main     0.1.0-pr-<n>.<run>.g<sha>   dist-tag `pr-<n>`
+#   push to main               .../@cloudflare/forge@main
+#   pull request #<n> to main  .../@cloudflare/forge@<n>
+#   workflow_dispatch          .../@cloudflare/forge@<branch>
 #
-# <slug> is the branch name in lowercase, with every run of characters other
-# than letters, digits and hyphens turned into one hyphen, and hyphens
-# trimmed from the ends. So feat/Foo_bar becomes feat-foo-bar. The `branch-`
-# prefix keeps a branch from taking a dist-tag like `latest` or `main`, or
-# one npm would read as a version range, such as `v2`.
+# where ... is https://pkg.pr.new/cloudflare/forge. Each of those follows the
+# newest build; every build can also be installed by commit, as
+# .../@cloudflare/forge@<sha>. The URLs are long-form because
+# @cloudflare/forge isn't on npmjs.com, which pkg.pr.new needs for its short
+# ones.
 #
-# Only the publish job can write packages, and it runs none of the
-# repository's code. It downloads the tarball the pack job made and
-# publishes it. Pull requests from forks build and pack but don't publish:
-# their GITHUB_TOKEN can't write packages.
+# pkg.pr.new needs no token. Its GitHub App, which must be installed on the
+# repository, checks that the upload comes from a run of this repository's
+# workflows. That holds for pull requests from forks too, so the publish step
+# skips them: they build and pack, but their code doesn't get a URL under
+# this repository.
 #
-# A pull request builds GitHub's merge of its branch into main, so <sha> is
-# that merge commit. A new push to the pull request cancels its running build.
+# A pull request builds GitHub's merge of its branch into main, but
+# pkg.pr.new files the build under the branch's head commit, so <sha> is
+# that. A new push to the pull request cancels its running build.
 #
 # The checkouts set no `ref:`, so every job builds the commit that started
 # the run and saves its caches under that branch. CodeQL flags a checkout of
@@ -33,6 +34,7 @@ on:
     paths:
       - 'Cargo.toml'
       - 'Cargo.lock'
+      - 'rust-toolchain.toml'
       - 'src/**'
       - 'packages/forge/**'
       - '!packages/forge/test/**'
@@ -44,6 +46,7 @@ on:
     paths:
       - 'Cargo.toml'
       - 'Cargo.lock'
+      - 'rust-toolchain.toml'
       - 'src/**'
       - 'packages/forge/**'
       - '!packages/forge/test/**'
@@ -60,67 +63,6 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
-  meta:
-    name: Resolve version
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    outputs:
-      sha: ${{ steps.resolve.outputs.sha }}
-      tag: ${{ steps.resolve.outputs.tag }}
-      version: ${{ steps.version.outputs.version }}
-
-    steps:
-      - name: Resolve branch
-        id: resolve
-        env:
-          PR_NUMBER: ${{ github.event.pull_request.number }}
-        run: |
-          set -euo pipefail
-          if [ "$GITHUB_EVENT_NAME" = pull_request ]; then
-            channel="pr-$PR_NUMBER"
-            tag="pr-$PR_NUMBER"
-          elif [[ "$GITHUB_REF" != refs/heads/* ]]; then
-            echo "::error::builds branches and pull requests only, not $GITHUB_REF"
-            exit 1
-          elif [ "$GITHUB_REF_NAME" = main ]; then
-            channel=main
-            tag=main
-          else
-            channel=$(printf '%s' "$GITHUB_REF_NAME" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^0-9a-z-]+/-/g; s/^-+//; s/-+$//')
-            if [ -z "$channel" ]; then
-              echo "::error::cannot make a version out of the branch name $GITHUB_REF_NAME"
-              exit 1
-            fi
-            tag="branch-$channel"
-          fi
-          {
-            echo "sha=$GITHUB_SHA"
-            echo "channel=$channel"
-            echo "tag=$tag"
-          } >> "$GITHUB_OUTPUT"
-
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-
-      # A prerelease of the version in Cargo.toml. The run number orders the
-      # builds. The `g` stops a short SHA like 0123456 from being read as a
-      # number with a leading zero, which semver forbids.
-      #
-      # Only the npm package gets this version. The binaries still report the
-      # one in Cargo.toml, so `forge --version` prints 0.1.0.
-      - name: Compute version
-        id: version
-        env:
-          CHANNEL: ${{ steps.resolve.outputs.channel }}
-          SHA: ${{ steps.resolve.outputs.sha }}
-        run: |
-          set -euo pipefail
-          base=$(node --input-type=module -e "import { cargoVersion } from './packages/forge/scripts/platforms.mjs'; console.log(cargoVersion());")
-          version="$base-$CHANNEL.$GITHUB_RUN_NUMBER.g${SHA::7}"
-          echo "version=$version" >> "$GITHUB_OUTPUT"
-          echo "Building @cloudflare/forge@$version from $SHA"
-
   # One job per platform, each on a runner that builds its target with plain
   # `cargo build`: macOS for both Mac targets, x64 and arm64 Linux runners with
   # musl-tools for the static Linux binaries, and Windows for both MSVC
@@ -134,7 +76,6 @@ jobs:
   # own target, so the wildcard matches one file.
   build:
     name: Build (${{ matrix.platform }})
-    needs: meta
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 60
     strategy:
@@ -228,9 +169,9 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
-  pack:
-    name: Pack
-    needs: [meta, build]
+  publish:
+    name: Pack and publish to pkg.pr.new
+    needs: build
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
@@ -253,95 +194,35 @@ jobs:
         working-directory: packages/forge
         env:
           BINARIES: ${{ runner.temp }}/binaries
-          VERSION: ${{ needs.meta.outputs.version }}
-        run: node scripts/archive.mjs --artifacts "$BINARIES" --version "$VERSION"
-
-      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        with:
-          name: package
-          path: packages/forge/dist/cloudflare-forge-${{ needs.meta.outputs.version }}.tgz
-          if-no-files-found: error
-          retention-days: 7
-
-  publish:
-    name: Publish to GitHub Packages
-    needs: [meta, pack]
-    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    permissions:
-      packages: write
-
-    steps:
-      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
-        with:
-          name: package
-          path: package
-
-      # Writes an .npmrc that sends @cloudflare to GitHub Packages, with
-      # NODE_AUTH_TOKEN as the token.
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
-        with:
-          node-version: '26'
-          registry-url: https://npm.pkg.github.com
-          scope: '@cloudflare'
+        run: node scripts/archive.mjs --artifacts "$BINARIES"
 
       - name: Publish
+        id: publish
+        if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+        run: >-
+          pnpm exec pkg-pr-new publish
+          --no-compact
+          --no-template
+          'packages/forge/dist/cloudflare-forge-*.tgz'
+
+      - name: Summary
+        if: steps.publish.outcome == 'success'
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          SHA: ${{ needs.meta.outputs.sha }}
-          TAG: ${{ needs.meta.outputs.tag }}
-          VERSION: ${{ needs.meta.outputs.version }}
+          URL: ${{ steps.publish.outputs.urls }}
+          REF: ${{ github.event.pull_request.number || github.ref_name }}
         run: |
-          set -euo pipefail
-          pkg="@cloudflare/forge@$VERSION"
-
-          # Only E404 means this version isn't published yet. Any other
-          # failure, such as a bad token (E401), stops here with npm's error.
-          if npm view "$pkg" version >"$RUNNER_TEMP/view.out" 2>"$RUNNER_TEMP/view.err"; then
-            have=$(cat "$RUNNER_TEMP/view.out")
-          elif grep -q 'code E404' "$RUNNER_TEMP/view.err"; then
-            have=
-          else
-            cat "$RUNNER_TEMP/view.err" >&2
-            exit 1
-          fi
-          if [ "$have" = "$VERSION" ]; then
-            echo "$pkg is published already"
-          else
-            npm publish "./package/cloudflare-forge-$VERSION.tgz" --tag "$TAG"
-          fi
-
-          # The registry can take a moment to list a version it just took.
-          for attempt in 1 2 3 4 5; do
-            tarball=$(npm view "$pkg" dist.tarball 2>/dev/null) && [ -n "$tarball" ] && break
-            [ "$attempt" = 5 ] && { echo "cannot read the tarball URL of $pkg" >&2; exit 1; }
-            sleep 3
-          done
-
-          # Installing from the tarball URL leaves the @cloudflare scope on
-          # npmjs.com. Mapping the scope to GitHub Packages would send every
-          # @cloudflare/* package there, and the others would 404.
           cat >> "$GITHUB_STEP_SUMMARY" <<EOF
-          ### $pkg
+          ### @cloudflare/forge
 
-          Published to GitHub Packages with the dist-tag \`$TAG\`, from $SHA.
-
-          Add a token with \`read:packages\` to your .npmrc, and leave out any \`@cloudflare:registry\` line, which would send every @cloudflare/* package to GitHub Packages:
-
-          \`\`\`ini
-          //npm.pkg.github.com/:_authToken=\${GITHUB_TOKEN}
-          \`\`\`
-
-          Then install this build from its tarball:
+          Published to pkg.pr.new. Install this build:
 
           \`\`\`sh
-          npm install $tarball
+          npm install $URL
           \`\`\`
 
-          To find the newest \`$TAG\` build later:
+          Or the newest build of $REF:
 
           \`\`\`sh
-          npm view @cloudflare/forge@$TAG version dist.tarball --@cloudflare:registry=https://npm.pkg.github.com
+          npm install https://pkg.pr.new/$GITHUB_REPOSITORY/@cloudflare/forge@$REF
           \`\`\`
           EOF
