@@ -32,8 +32,8 @@
 // classes behind them stay private, so the bindings never show in
 // index.d.ts.
 
-import * as host from 'forge:plugin/forge@0.2.0';
-import type * as hostPlugin from 'forge:plugin/plugin@0.2.0';
+import * as host from 'forge:plugin/forge@0.3.0';
+import type * as hostPlugin from 'forge:plugin/plugin@0.3.0';
 
 // ---------------------------------------------------------------------------
 // The API.
@@ -291,12 +291,20 @@ export interface Field {
 export type Type = ScalarType | EnumType | ArrayType | ObjectType | UnionType | IntersectionType | ModelType;
 
 /** A primitive, or any value (`unknown`). */
-export type ScalarType =
+export type ScalarType = {
+  /**
+   * The original `format`, including an empty or unrecognized one, or
+   * undefined if absent. The scalar classification is unchanged: a UUID
+   * is `string`, for example. Forge does not validate values.
+   */
+  readonly format: string | undefined;
+} & (
   | {
       readonly kind: 'scalar';
       readonly scalar: 'unknown' | 'null' | 'boolean' | 'string' | 'date-time' | 'date' | 'bytes' | 'binary';
     }
-  | { readonly kind: 'scalar'; readonly scalar: 'number'; readonly number: NumberFormat };
+  | { readonly kind: 'scalar'; readonly scalar: 'number'; readonly number: NumberFormat }
+);
 
 /** The size of a number, from its `format`. `int` and `double` have none. */
 export type NumberFormat =
@@ -322,6 +330,8 @@ export interface EnumType {
 export interface ArrayType {
   readonly kind: 'array';
   readonly elem: Type;
+  /** The fewest elements, `minItems`, or undefined if absent. An explicit zero is kept. */
+  readonly minItems: number | undefined;
   /** The most elements the array can have, `maxItems`, or undefined if it has no limit. */
   readonly maxItems: number | undefined;
 }
@@ -959,13 +969,14 @@ function makeType(forge: ForgeImpl, id: host.TypeId): Type {
   const type = (ty: host.TypeId) => forge.type(ty);
   switch (t.tag) {
     case 'scalar':
-      return t.val.tag === 'number'
-        ? { kind: 'scalar', scalar: 'number', number: t.val.val }
-        : { kind: 'scalar', scalar: t.val.tag };
+      return t.val.kind.tag === 'number'
+        ? { kind: 'scalar', scalar: 'number', number: t.val.kind.val, format: opt(t.val.format) }
+        : { kind: 'scalar', scalar: t.val.kind.tag, format: opt(t.val.format) };
     case 'enum':
       return { kind: 'enum', values: t.val.map((value) => value.val) };
     case 'array': {
       const { elem } = t.val;
+      const minItems = opt(t.val.minItems);
       const maxItems = opt(t.val.maxItems);
       return {
         kind: 'array',
@@ -973,6 +984,7 @@ function makeType(forge: ForgeImpl, id: host.TypeId): Type {
           return type(elem);
         },
         // A u64 comes as a bigint; no array's limit needs more than a number.
+        minItems: minItems === undefined ? undefined : Number(minItems),
         maxItems: maxItems === undefined ? undefined : Number(maxItems),
       };
     }

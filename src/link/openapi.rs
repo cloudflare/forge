@@ -352,7 +352,7 @@ pub(super) struct SchemaObject {
     /// The types the schema allows: one for a string, any number for an
     /// array, and none without `type`.
     pub(super) types: Span<SchemaType>,
-    pub(super) format: Format,
+    pub(super) format: Option<Str>,
     pub(super) content_encoding: ContentEncoding,
     pub(super) nullable: bool,
     /// The values of `enum`, or none without it. An empty `enum`, which
@@ -368,6 +368,8 @@ pub(super) struct SchemaObject {
     pub(super) unevaluated_properties: Schema,
     pub(super) required: Span<Str>,
     pub(super) items: Option<Schema>,
+    /// The `minItems`, or `None` without it.
+    pub(super) min_items: Option<u64>,
     /// The `maxItems`, or `None` without it.
     pub(super) max_items: Option<u64>,
     /// Whether the schema has `prefixItems`: it is a tuple, which is not
@@ -421,10 +423,9 @@ pub(super) enum SchemaType {
     Null,
 }
 
-/// A `format` in a Schema Object that decides a type. Every other format,
-/// and no format, is `Other`.
-#[derive(Deserialize, Default, Clone, Copy, PartialEq, Eq)]
-#[serde(rename_all = "kebab-case")]
+/// A recognized `format` that decides a type. The original text is kept
+/// separately, including formats that do not change the classification.
+#[derive(Clone, Copy, PartialEq, Eq)]
 pub(super) enum Format {
     DateTime,
     Date,
@@ -440,9 +441,29 @@ pub(super) enum Format {
     Uint64,
     Float,
     Double,
-    #[default]
-    #[serde(other)]
     Other,
+}
+
+impl Format {
+    pub(super) fn from_str(format: &str) -> Self {
+        match format {
+            "date-time" => Self::DateTime,
+            "date" => Self::Date,
+            "byte" => Self::Byte,
+            "binary" => Self::Binary,
+            "int8" => Self::Int8,
+            "int16" => Self::Int16,
+            "int32" => Self::Int32,
+            "int64" => Self::Int64,
+            "uint8" => Self::Uint8,
+            "uint16" => Self::Uint16,
+            "uint32" => Self::Uint32,
+            "uint64" => Self::Uint64,
+            "float" => Self::Float,
+            "double" => Self::Double,
+            _ => Self::Other,
+        }
+    }
 }
 
 /// A `contentEncoding` in a Schema Object. Every encoding but base64, and
@@ -1602,6 +1623,7 @@ keys! {
         UnevaluatedProperties = "unevaluatedProperties",
         Required = "required",
         Items = "items",
+        MinItems = "minItems",
         MaxItems = "maxItems",
         PrefixItems = "prefixItems",
         AllOf = "allOf",
@@ -1634,7 +1656,7 @@ impl ReadObject for SchemaObject {
             match key {
                 SchemaKey::Ref => schema.reference = map.next_value_seed(seed::<Reference>(doc))?,
                 SchemaKey::Type => schema.types = map.next_value_seed(seed::<Types>(doc))?,
-                SchemaKey::Format => schema.format = map.next_value()?,
+                SchemaKey::Format => schema.format = Some(map.next_value_seed(seed::<ReadStr>(doc))?),
                 SchemaKey::ContentEncoding => schema.content_encoding = map.next_value()?,
                 SchemaKey::Nullable => schema.nullable = map.next_value()?,
                 SchemaKey::Enum => schema.values = map.next_value_seed(seed::<Seq<Literal>>(doc))?,
@@ -1654,6 +1676,7 @@ impl ReadObject for SchemaObject {
                     schema.required = map.next_value_seed(SeqOfStrsSeed(doc))?;
                 }
                 SchemaKey::Items => schema.items = map.next_value_seed(seed::<Nullable<Schema>>(doc))?,
+                SchemaKey::MinItems => schema.min_items = Some(map.next_value::<Count>()?.0),
                 SchemaKey::MaxItems => schema.max_items = Some(map.next_value::<Count>()?.0),
                 SchemaKey::PrefixItems => schema.prefix_items = present(&mut map)?,
                 SchemaKey::AllOf => schema.all_of = map.next_value_seed(seed::<Seq<Schema>>(doc))?,

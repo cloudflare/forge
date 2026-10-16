@@ -21,6 +21,59 @@ fn array_of_items() {
 }
 
 #[test]
+fn min_items_preserves_absence_zero_and_positive_bounds() {
+    for (bound, want) in [
+        ("", None),
+        (", \"minItems\": 0", Some(0)),
+        (", \"minItems\": 1", Some(1)),
+    ] {
+        let forge = parse(&responding_with(&format!(
+            r#"{{"type": "array", "items": {{"type": "string"}}, "maxItems": 50{bound}}}"#
+        )));
+        let array = array(response_type(&forge, "a.get"));
+        assert_eq!(array.min_items(), want);
+        assert_eq!(array.max_items(), Some(50));
+    }
+}
+
+#[test]
+fn arrays_with_different_minimums_keep_their_own_bounds() {
+    let forge = parse(&responding_with_schemas(
+        r##"{"type": "object", "properties": {
+          "zero": {"type": "array", "items": {}, "minItems": 0},
+          "one": {"$ref": "#/components/schemas/One"},
+          "any": {"items": {}}
+        }}"##,
+        r#"{"One": {"type": "array", "items": {}, "minItems": 1, "maxItems": 50}}"#,
+    ));
+    let object = object(response_type(&forge, "a.get"));
+    assert_eq!(array(field(object, "zero").ty()).min_items(), Some(0));
+    let one = array(model_of(field(object, "one").ty()).ty());
+    assert_eq!(one.min_items(), Some(1));
+    assert_eq!(one.max_items(), Some(50));
+    assert_eq!(array(field(object, "any").ty()).min_items(), None);
+}
+
+#[test]
+fn min_items_follows_the_same_number_rules_as_max_items() {
+    let forge = parse(&responding_with(r#"{"type": "array", "minItems": 1.0}"#));
+    assert_eq!(array(response_type(&forge, "a.get")).min_items(), Some(1));
+
+    for value in ["-1", "2.5", r#""3""#, "null", "true"] {
+        let err = parse_err(&responding_with(&format!(
+            r#"{{"type": "array", "minItems": {value}}}"#
+        )));
+        assert!(err.contains("expected a non-negative integer"), "{value}: {err}");
+    }
+}
+
+#[test]
+fn min_items_on_a_non_array_is_ignored() {
+    let forge = parse(&responding_with(r#"{"type": "string", "minItems": 1}"#));
+    assert_eq!(scalar(response_type(&forge, "a.get")), Scalar::String);
+}
+
+#[test]
 fn empty_items_are_unknown() {
     let forge = parse(&responding_with(r#"{"type": "array", "items": {}}"#));
 

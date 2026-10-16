@@ -60,7 +60,7 @@ macro_rules! wit {
 
 wit!(
     r#"
-package forge:plugin@0.2.0;
+package forge:plugin@0.3.0;
 
 /// Read-only access to the forge a plugin runs on, which the host keeps.
 /// Each id is an index the host gave out. An id the host never gave out
@@ -192,6 +192,12 @@ interface forge {
         unknown, null, boolean, %string, number(number), date-time, date, bytes, binary,
     }
 
+    record scalar-info {
+        kind: scalar,
+        /// The original `format`, including an empty or unrecognized one.
+        format: option<string>,
+    }
+
     variant enum-value {
         %string(string),
         number(f64),
@@ -215,6 +221,8 @@ interface forge {
 
     record array-info {
         elem: type-id,
+        /// The `minItems`, or none if it is absent; zero is kept.
+        min-items: option<u64>,
         /// The `maxItems`, or none if the array has no limit.
         max-items: option<u64>,
     }
@@ -239,7 +247,7 @@ interface forge {
     }
 
     variant type-info {
-        scalar(scalar),
+        scalar(scalar-info),
         %enum(list<enum-value>),
         array(array-info),
         object(object-info),
@@ -544,28 +552,31 @@ impl wit::Host for State {
         let forge = self.forge()?;
         let s = |s: Str| forge.strings.get(s).to_owned();
         Ok(match get(&forge.types, id, "type")? {
-            TypeData::Scalar(scalar) => wit::TypeInfo::Scalar(match *scalar {
-                Scalar::Unknown => wit::Scalar::Unknown,
-                Scalar::Null => wit::Scalar::Null,
-                Scalar::Boolean => wit::Scalar::Boolean,
-                Scalar::String => wit::Scalar::String,
-                Scalar::Number(number) => wit::Scalar::Number(match number {
-                    Number::Int => wit::Number::Int,
-                    Number::Int8 => wit::Number::Int8,
-                    Number::Int16 => wit::Number::Int16,
-                    Number::Int32 => wit::Number::Int32,
-                    Number::Int64 => wit::Number::Int64,
-                    Number::Uint8 => wit::Number::Uint8,
-                    Number::Uint16 => wit::Number::Uint16,
-                    Number::Uint32 => wit::Number::Uint32,
-                    Number::Uint64 => wit::Number::Uint64,
-                    Number::Float => wit::Number::Float,
-                    Number::Double => wit::Number::Double,
-                }),
-                Scalar::DateTime => wit::Scalar::DateTime,
-                Scalar::Date => wit::Scalar::Date,
-                Scalar::Bytes => wit::Scalar::Bytes,
-                Scalar::Binary => wit::Scalar::Binary,
+            TypeData::Scalar(scalar) => wit::TypeInfo::Scalar(wit::ScalarInfo {
+                kind: match scalar.kind {
+                    Scalar::Unknown => wit::Scalar::Unknown,
+                    Scalar::Null => wit::Scalar::Null,
+                    Scalar::Boolean => wit::Scalar::Boolean,
+                    Scalar::String => wit::Scalar::String,
+                    Scalar::Number(number) => wit::Scalar::Number(match number {
+                        Number::Int => wit::Number::Int,
+                        Number::Int8 => wit::Number::Int8,
+                        Number::Int16 => wit::Number::Int16,
+                        Number::Int32 => wit::Number::Int32,
+                        Number::Int64 => wit::Number::Int64,
+                        Number::Uint8 => wit::Number::Uint8,
+                        Number::Uint16 => wit::Number::Uint16,
+                        Number::Uint32 => wit::Number::Uint32,
+                        Number::Uint64 => wit::Number::Uint64,
+                        Number::Float => wit::Number::Float,
+                        Number::Double => wit::Number::Double,
+                    }),
+                    Scalar::DateTime => wit::Scalar::DateTime,
+                    Scalar::Date => wit::Scalar::Date,
+                    Scalar::Bytes => wit::Scalar::Bytes,
+                    Scalar::Binary => wit::Scalar::Binary,
+                },
+                format: scalar.format.map(s),
             }),
             TypeData::Enum(values) => wit::TypeInfo::Enum(
                 forge
@@ -581,6 +592,7 @@ impl wit::Host for State {
             ),
             TypeData::Array(array) => wit::TypeInfo::Array(wit::ArrayInfo {
                 elem: array.elem.0,
+                min_items: array.min_items,
                 max_items: array.max_items,
             }),
             TypeData::Object(object) => wit::TypeInfo::Object(wit::ObjectInfo {
