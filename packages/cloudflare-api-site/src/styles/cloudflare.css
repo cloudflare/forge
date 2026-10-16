@@ -1,0 +1,117 @@
+/*
+ * Cloudflare site tokens.
+ *
+ * The palette lives in the Nimbus `--nb-*` tokens in globals.css. The API
+ * reference components use the `--cf-*` names below, which alias those tokens
+ * and add the few values Nimbus has no token for.
+ */
+:root {
+  --cf-background: var(--nb-background);
+  --cf-foreground: var(--nb-foreground);
+  --cf-card: var(--nb-card);
+  --cf-muted: var(--nb-muted);
+  --cf-muted-foreground: var(--nb-muted-foreground);
+  --cf-accent: var(--nb-accent);
+  --cf-primary: var(--nb-primary);
+  --cf-primary-foreground: var(--nb-primary-foreground);
+  --cf-primary-hover: var(--nb-primary-hover);
+  --cf-border: var(--nb-border);
+  --cf-border-strong: var(--nb-border-strong);
+  --cf-ring: var(--nb-ring);
+  --cf-success: var(--nb-success);
+  --cf-success-muted: var(--nb-success-muted);
+  --cf-info: var(--nb-info);
+  --cf-info-muted: var(--nb-info-muted);
+  --cf-warning: var(--nb-warning);
+  --cf-warning-muted: var(--nb-warning-muted);
+  --cf-danger: var(--nb-danger);
+  --cf-danger-muted: var(--nb-danger-muted);
+  --cf-shadow-sm: var(--nb-shadow-sm);
+  --cf-shadow: var(--nb-shadow);
+
+  --cf-link: #b83900;
+  --cf-surface-sunken: oklch(0.975 0 0);
+  --cf-purple: oklch(0.45 0.18 300);
+
+  /* Two-pane API reference pages need more room than authored prose. */
+  --cf-content-wide-max: 70rem;
+}
+
+[data-mode='dark'] {
+  --cf-link: #ff8a50;
+  --cf-surface-sunken: oklch(0.13 0 0);
+  --cf-purple: oklch(0.82 0.1 300);
+}
+
+::selection {
+  background: color-mix(in oklch, var(--cf-primary) 15%, transparent);
+}
+
+@media print {
+  :root,
+  [data-mode='dark'] {
+    --nb-background: #fff;
+    --nb-foreground: #202020;
+    --nb-card: #fff;
+    --nb-muted: #f5f5f5;
+    --nb-muted-foreground: #555;
+    --nb-accent: #f1f1f1;
+    --nb-border: #d8d8d8;
+    --nb-border-strong: #b8b8b8;
+    --cf-surface-sunken: #f7f7f7;
+    --cf-link: #8a2c00;
+    color-scheme: light;
+  }
+
+  .forge-example-pane {
+    position: static !important;
+    margin-top: 0;
+  }
+
+  .forge-sample-card {
+    break-inside: avoid;
+    box-shadow: none !important;
+  }
+
+  .forge-sample-code {
+    max-height: none !important;
+    overflow: visible !important;
+  }
+
+  .forge-code {
+    min-width: 0 !important;
+    white-space: pre-wrap !important;
+  }
+
+  .forge-code code {
+    white-space: inherit !important;
+    overflow-wrap: anywhere;
+  }
+}
+
+/*
+ * Nimbus's `headingAnchors()` appends a `#` self-link to every h2–h4 with an
+ * id inside `.docs-content`, including API reference headings. Show it on hover.
+ */
+.docs-content :where(h2[id], h3[id], h4[id]) {
+  position: relative;
+}
+
+.docs-content .heading-anchor {
+  margin-left: 0.5rem;
+  color: var(--cf-muted-foreground);
+  text-decoration: none;
+  opacity: 0;
+  transition:
+    opacity 0.15s,
+    color 0.15s;
+}
+
+.docs-content :where(h2[id], h3[id], h4[id]):hover .heading-anchor,
+.docs-content .heading-anchor:focus-visible {
+  opacity: 1;
+}
+
+.docs-content .heading-anchor:hover {
+  color: var(--cf-foreground);
+}

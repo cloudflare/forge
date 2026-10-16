@@ -193,12 +193,32 @@ export async function enrichOperationArtifact(
   };
 }
 
-function cachedRenderer(renderMarkdown: LoaderContext['renderMarkdown']): MarkdownRenderer {
+type HtmlRenderer = NonNullable<FernContentOptions['renderMarkdown']>;
+
+/** Markdown that a sanitizing renderer must not emit as live HTML or as a `javascript:` link. */
+const SANITIZER_PROBE = '<i data-astro-fern-probe></i> [probe](javascript:probe)';
+
+/**
+ * OpenAPI descriptions are untrusted. Rendering them with a processor that
+ * passes raw HTML or unsafe URLs through would publish live markup, so fail the
+ * build instead. Other integrations can replace or wrap Astro's processor after
+ * `astroFern()` installs its sanitizer, so verify the renderer actually in use.
+ */
+export async function assertSanitizedMarkdownRenderer(renderMarkdown: HtmlRenderer): Promise<void> {
+  const html = await renderMarkdown(SANITIZER_PROBE);
+  if (/<i\b[^>]*data-astro-fern-probe/i.test(html) || /href\s*=\s*["']?\s*javascript:/i.test(html)) {
+    throw new Error(
+      'astro-fern: the active Markdown renderer renders raw HTML or unsafe URLs from OpenAPI descriptions. Pass a sanitizing `renderMarkdown` to `defineFernCollections()`, such as `renderMarkdown` from `@cloudflare/nimbus-docs/markdown`.',
+    );
+  }
+}
+
+function cachedRenderer(renderMarkdown: HtmlRenderer): MarkdownRenderer {
   const cache = new Map<string, RichTextSchema>();
   return async (markdown: string): Promise<RichTextSchema> => {
     const hit = cache.get(markdown);
     if (hit) return hit;
-    const { html } = await renderMarkdown(markdown);
+    const html = await renderMarkdown(markdown);
     const rich: RichTextSchema = { markdown, html };
     cache.set(markdown, rich);
     return rich;
@@ -269,9 +289,12 @@ export type FernContentLoaderContext = Omit<FernContentLoadContext, 'logger'> & 
 
 /** Builds, validates, deduplicates, and atomically publishes one complete snapshot generation. */
 export async function loadFernContent(options: FernContentOptions, context: FernContentLoadContext): Promise<void> {
-  const source = await sourceForContext(options.source, context.config.root);
-  const content = buildFernContent({ ...options, source }, { logger: context.logger });
-  const render = cachedRenderer(context.renderMarkdown);
+  const { renderMarkdown, ...projectOptions } = options;
+  const source = await sourceForContext(projectOptions.source, context.config.root);
+  const content = buildFernContent({ ...projectOptions, source }, { logger: context.logger });
+  const toHtml = renderMarkdown ?? (async (markdown: string) => (await context.renderMarkdown(markdown)).html);
+  await assertSanitizedMarkdownRenderer(toHtml);
+  const render = cachedRenderer(toHtml);
   const description = content.catalog.description !== undefined ? await render(content.catalog.description) : undefined;
   const operationPublications = new Map<string, FernOperationArtifactPublication>();
   const artifactDigests = new Map<string, string>();

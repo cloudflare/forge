@@ -1,0 +1,87 @@
+---
+/**
+ * SidebarGroup — a collapsible section built on native `<details>`, so the
+ * thousands of groups in the API sidebar need no per-group script and still
+ * open and close without JavaScript. Groups on the active trail render open.
+ * Like SidebarLink, it carries no classes or data attributes; `sidebar.css`
+ * styles it structurally.
+ */
+import type { SidebarBadge, SidebarItem } from "@cloudflare/nimbus-docs/types";
+import { withBase } from "@cloudflare/nimbus-docs/runtime";
+import { Badge } from "@/components/ui/badge";
+import SidebarLink from "./SidebarLink.astro";
+
+interface Props {
+  label: string;
+  items: SidebarItem[];
+  collapsed?: boolean;
+  badge?: SidebarBadge;
+  /** Landing-page URL. Renders the label as a link inside the summary. */
+  indexHref?: string;
+  /** True when the landing page is the current route. */
+  indexIsCurrent?: boolean;
+  /** True when `indexHref` is an off-site URL. */
+  indexIsExternal?: boolean;
+}
+
+const { label, items, collapsed, badge, indexHref, indexIsCurrent, indexIsExternal } = Astro.props;
+
+function hasActiveDescendant(entries: SidebarItem[]): boolean {
+  return entries.some((item) =>
+    item.type === "link"
+      ? Boolean(item.isCurrent)
+      : item.type === "group"
+        ? Boolean(item.indexIsCurrent) || hasActiveDescendant(item.children)
+        : false,
+  );
+}
+
+const hasActive = Boolean(indexIsCurrent) || hasActiveDescendant(items);
+const isOpen = hasActive || collapsed === false || collapsed === undefined;
+const resolvedIndexHref = indexHref ? withBase(indexHref, import.meta.env.BASE_URL) : undefined;
+---
+
+<details open={isOpen}>
+  <summary
+    >{
+      resolvedIndexHref ? (
+        <a
+          href={resolvedIndexHref}
+          aria-current={indexIsCurrent ? "page" : undefined}
+          target={indexIsExternal ? "_blank" : undefined}
+          rel={indexIsExternal ? "noopener" : undefined}
+        >
+          {label}
+        </a>
+      ) : (
+        label
+      )
+    }{
+      badge &&
+        (typeof badge === "string" ? <Badge text={badge} /> : <Badge text={badge.text} variant={badge.variant} />)
+    }</summary
+  >
+  <ul>
+    {
+      items.map((item) => (
+        <li>
+          {item.type === "group" ? (
+            <Astro.self
+              label={item.label}
+              items={item.children}
+              collapsed={item.collapsed}
+              badge={item.badge}
+              indexHref={item.indexHref}
+              indexIsCurrent={item.indexIsCurrent}
+              indexIsExternal={item.indexIsExternal}
+            />
+          ) : item.type === "external" ? (
+            <SidebarLink label={item.label} href={item.href} badge={item.badge} target="_blank" rel="noopener" />
+          ) : (
+            <SidebarLink label={item.label} href={item.href} isCurrent={item.isCurrent} badge={item.badge} />
+          )}
+        </li>
+      ))
+    }
+  </ul>
+</details>

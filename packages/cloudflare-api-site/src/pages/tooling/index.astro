@@ -1,0 +1,40 @@
+---
+import DocsLayout from '../../layouts/DocsLayout.astro';
+import CommandDirectory from '../../components/commands/CommandDirectory.astro';
+import CopyableCommand from '../../components/commands/CopyableCommand.astro';
+import { getApiRouter } from '../../api-server.ts';
+import { getCommandRouter } from '../../command-reference/server.ts';
+import { getPageSidebar } from '../../page-sidebar.ts';
+
+export const prerender = true;
+
+const [apiRouter, router, sidebar] = await Promise.all([
+  getApiRouter(),
+  getCommandRouter(),
+  getPageSidebar(Astro.url),
+]);
+const productIds = new Set(apiRouter.plan.catalog.products.map((product) => product.id));
+const commands = router.commands.filter((command) => !productIds.has(command.fullPath[0]));
+---
+
+<DocsLayout
+  title="Developer Tooling"
+  description="Reference for commands implemented directly by the cf CLI."
+  sidebar={sidebar}
+  headings={false}
+  breadcrumbs={[]}
+  showDescription={false}
+>
+  <div class="command-overview">
+    <CopyableCommand command="cf --help" label="Copy cf help command" />
+    <CommandDirectory router={router} commands={commands} />
+  </div>
+</DocsLayout>
+
+<style>
+  .command-overview {
+    display: grid;
+    max-width: 58rem;
+    gap: 2rem;
+  }
+</style>

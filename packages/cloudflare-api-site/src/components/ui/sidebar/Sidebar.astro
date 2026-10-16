@@ -1,0 +1,57 @@
+---
+/**
+ * Sidebar — recursive navigation tree from a `SidebarItem[]`. Pass `persist`
+ * to keep open groups and scroll position across navigations (desktop only).
+ */
+import type { HTMLAttributes } from "astro/types";
+import SidebarGroup from "./SidebarGroup.astro";
+import SidebarLink from "./SidebarLink.astro";
+import type { SidebarItem } from "@cloudflare/nimbus-docs/types";
+import { sidebarHash } from "@cloudflare/nimbus-docs/runtime";
+import "./sidebar.css";
+
+interface Props extends HTMLAttributes<"div"> {
+  items: SidebarItem[];
+  /** Persist open/scroll state to sessionStorage. Desktop sidebar only. */
+  persist?: boolean;
+}
+
+const { items, persist = false, class: className, ...attrs } = Astro.props;
+const hash = sidebarHash(items);
+---
+
+<div
+  data-nb-sidebar
+  data-nb-sidebar-hash={hash}
+  data-nb-sidebar-persist={persist ? "" : undefined}
+  class:list={[className]}
+  {...attrs}
+>
+  <ul class="top-level">
+    {
+      items.map((item) => (
+        <li>
+          {item.type === "group" ? (
+            <SidebarGroup
+              label={item.label}
+              items={item.children}
+              collapsed={item.collapsed}
+              badge={item.badge}
+              indexHref={item.indexHref}
+              indexIsCurrent={item.indexIsCurrent}
+              indexIsExternal={item.indexIsExternal}
+            />
+          ) : item.type === "external" ? (
+            <SidebarLink label={item.label} href={item.href} badge={item.badge} target="_blank" rel="noopener" />
+          ) : (
+            <SidebarLink label={item.label} href={item.href} isCurrent={item.isCurrent} badge={item.badge} />
+          )}
+        </li>
+      ))
+    }
+  </ul>
+</div>
+
+<script>
+  import "./sidebar.client";
+</script>

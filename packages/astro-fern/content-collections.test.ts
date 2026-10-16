@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import type { FernArtifactGeneration } from './artifacts.ts';
 import {
+  assertSanitizedMarkdownRenderer,
   enrichOperationEntry,
   type FernContentLoaderContext,
   fernContentLoader,
@@ -75,7 +76,8 @@ function fakeContext(parse?: (id: string, data: unknown) => void | Promise<void>
       await parse?.(id, data);
       return data;
     },
-    renderMarkdown: async (markdown: string) => ({ html: wrap(markdown) }),
+    // Like a sanitizing processor, never emit source HTML as markup.
+    renderMarkdown: async (markdown: string) => ({ html: wrap(markdown.replaceAll('<', '&lt;')) }),
     publishArtifacts: async (generation) => {
       generations.push(generation);
       artifacts.clear();
@@ -281,6 +283,27 @@ test('loader enriches operation and nested Markdown descriptions', async () => {
   assert.equal(name.description.html, wrap(name.description.markdown));
 });
 
+test('a renderMarkdown option replaces the content loader renderer', async () => {
+  const options: FernContentOptions = {
+    ...fixtureOptions(),
+    renderMarkdown: (markdown) => `<p>${markdown.replaceAll('<', '&lt;')}</p>`,
+  };
+  const { context, entries, artifacts } = fakeContext();
+  await fernContentLoader(options).load(context);
+  const project = entries.get(FERN_PROJECT_ENTRY_ID);
+  assert.ok(project?.kind === 'project');
+  assert.equal(project.description?.html, `<p>${widgetsSpec.info?.description}</p>`);
+  const entry = [...artifacts.values()][0];
+  assert.ok(entry?.kind === 'operation');
+  assert.equal(entry.operation.description.html, '<p>Updates a [widget](https://example.com/widgets) by ID.</p>');
+});
+
+test('the sanitizer probe runs against a renderMarkdown option', async () => {
+  const options: FernContentOptions = { ...fixtureOptions(), renderMarkdown: (markdown) => markdown };
+  const { context } = fakeContext();
+  await assert.rejects(fernContentLoader(options).load(context), /Pass a sanitizing `renderMarkdown`/);
+});
+
 test('loader enriches Fern enum metadata and retains associated examples', async () => {
   const source = structuredClone(widgetsSpec);
   const update = source.paths?.['/widgets/{widget_id}']?.patch;
@@ -441,5 +464,25 @@ test('the operation entry schema enforces normalized deprecation metadata', asyn
       operation: { ...entry.operation, deprecated: 'yes' },
     }).success,
     false,
+  );
+});
+
+test('content loading fails when the active Markdown renderer emits raw HTML', async () => {
+  await assert.rejects(
+    assertSanitizedMarkdownRenderer(async (markdown) => `<p>${markdown}</p>`),
+    /renders raw HTML or unsafe URLs/,
+  );
+});
+
+test('content loading fails when the active Markdown renderer emits javascript: links', async () => {
+  await assert.rejects(
+    assertSanitizedMarkdownRenderer(async () => '<p>&lt;i&gt; <a href="javascript:probe">probe</a></p>'),
+    /renders raw HTML or unsafe URLs/,
+  );
+});
+
+test('content loading accepts a renderer that escapes source HTML and neutralizes unsafe URLs', async () => {
+  await assertSanitizedMarkdownRenderer(
+    async () => '<p>&lt;i data-astro-fern-probe&gt;&lt;/i&gt; <a href="#">probe</a></p>',
   );
 });

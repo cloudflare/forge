@@ -1,6 +1,6 @@
 // Packs @cloudflare/forge, with the forge binary for every platform, into a
-// tarball. That tarball is the package: scripts/publish.mjs publishes it, and
-// another package can install it straight from the file:
+// tarball. That tarball is the package: the publish-preview workflow publishes
+// it, and another package can install it straight from the file:
 //
 //     node scripts/archive.mjs [--artifacts <dir>] [--platform <os-cpu>]... [--out <dir>]
 //
@@ -8,13 +8,14 @@
 //     # or, in package.json: "@cloudflare/forge": "file:../cloudflare-forge-0.1.0.tgz"
 //
 // The binaries come from <dir>, the crate's target directory unless you say
-// otherwise (see findBinary in platforms.mjs); scripts/compile.mjs builds
-// them all. Every platform needs one.
+// otherwise (see findBinary in platforms.mjs). Every platform needs one.
+// `just pack` runs this script on target/binaries, which `just build-all`
+// fills, or `just fetch` from a CI run; see the justfile.
 //
 // --platform packs only the platforms it names, such as darwin-arm64, which
 // is enough to try the package out locally; `cargo build --release
 // --features wasm` builds the binary for this machine. The tarball's name
-// then lists them, and scripts/publish.mjs won't publish it.
+// then lists them, so it can't pass for the full package.
 //
 // It builds @cloudflare/forge/plugin into the package, as scripts/build.mjs
 // does, which needs this directory's dev dependencies: pnpm install here.
@@ -77,7 +78,8 @@ function archive(artifacts, only, out) {
   if (missing.length > 0) {
     throw new Error(
       `no forge binary in ${artifacts} for ${missing.join(', ')}; ` +
-        `run node scripts/compile.mjs${only ? '' : ', or pack only some platforms with --platform'}`,
+        `build them with just build-all, or fetch a CI run's with just fetch <run-id>` +
+        (only ? '' : ', or pack only some platforms with --platform'),
     );
   }
 

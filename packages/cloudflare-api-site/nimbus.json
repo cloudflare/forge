@@ -1,0 +1,18 @@
+{
+  "$schema": "https://nimbus-docs.com/schema/nimbus.json",
+  "version": "0.7.12",
+  "lastReviewedNimbusVersion": "0.18.0",
+  "templatesTag": "templates-v0.7.12",
+  "variant": "empty",
+  "registry": "https://nimbus-docs.com/registry",
+  "serverOutput": {
+    "adapter": "cloudflare"
+  },
+  "install": {
+    "root": "src",
+    "aliases": {
+      "@/*": "src/*"
+    }
+  },
+  "components": []
+}

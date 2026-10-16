@@ -1,0 +1,37 @@
+---
+import { getFernCatalog } from 'astro-fern/server';
+
+const { description } = await getFernCatalog();
+---
+
+{description?.html ? <div class="api-overview" set:html={description.html} /> : null}
+
+<style>
+  .api-overview {
+    max-width: 48rem;
+    color: var(--cf-muted-foreground);
+    line-height: 1.65;
+  }
+
+  .api-overview :global(p) {
+    margin: 0;
+  }
+
+  .api-overview :global(p + p) {
+    margin-top: 1rem;
+  }
+
+  .api-overview :global(a) {
+    color: var(--cf-link);
+    font-weight: 500;
+    text-decoration: underline;
+    text-decoration-color: color-mix(in oklch, var(--cf-link) 40%, transparent);
+    text-decoration-thickness: 1px;
+    text-underline-offset: 3px;
+    transition: text-decoration-color 150ms;
+  }
+
+  .api-overview :global(a:hover) {
+    text-decoration-color: var(--cf-link);
+  }
+</style>

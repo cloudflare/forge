@@ -1,0 +1,199 @@
+---
+import type { CommandRouter } from '../../command-reference/routing.ts';
+import type { CommandMetadata } from '../../command-reference/schema.ts';
+import { commandTitle } from '../../command-reference/routing.ts';
+
+interface Props {
+  router: CommandRouter;
+  commands?: readonly CommandMetadata[];
+}
+
+const { router, commands = router.commands } = Astro.props;
+const { descriptions } = router;
+const standalone = commands.filter((command) => command.fullPath.length === 1);
+const grouped = new Map<string, CommandMetadata[]>();
+for (const command of commands) {
+  if (command.fullPath.length === 1) continue;
+  const name = command.fullPath[0];
+  const group = grouped.get(name) ?? [];
+  group.push(command);
+  grouped.set(name, group);
+}
+const sections = [
+  ...(standalone.length > 0 ? [{ id: 'command-list', title: 'Commands', commands: standalone }] : []),
+  ...[...grouped].map(([name, groupCommands]) => ({
+    id: `command-group-${name}`,
+    title: commandTitle({ name }),
+    description: descriptions[name],
+    commands: groupCommands,
+  })),
+];
+---
+
+<div class="command-directory">
+  <p class="command-introduction">
+    Commands implemented directly by <code>cf</code> rather than generated from the Cloudflare OpenAPI specification.
+  </p>
+  <div class="command-sections">
+    {
+      sections.map((section) => (
+        <section aria-labelledby={section.id}>
+          <header>
+            <h2 id={section.id}>{section.title}</h2>
+            {'description' in section && section.description ? <p>{section.description}</p> : null}
+          </header>
+          <ul>
+            {section.commands.map((command) => (
+              <li>
+                <a href={router.commandHref(command)}>
+                  <span class="command-marker" aria-hidden="true">$</span>
+                  <span class="command-summary">
+                    <code>{command.command}</code>
+                    <span>{command.description}</span>
+                  </span>
+                  <span class="command-count">
+                    {command.arguments.length + command.options.length}{' '}
+                    {command.arguments.length + command.options.length === 1 ? 'parameter' : 'parameters'}
+                  </span>
+                  <span class="command-arrow" aria-hidden="true">&rarr;</span>
+                </a>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ))
+    }
+  </div>
+</div>
+
+<style>
+  .command-directory {
+    max-width: 58rem;
+  }
+
+  .command-introduction {
+    max-width: 46rem;
+    margin: 0 0 2rem;
+    color: var(--cf-muted-foreground);
+    font-size: 1rem;
+    line-height: 1.7;
+  }
+
+  .command-introduction code {
+    color: var(--cf-foreground);
+    font-family: var(--nb-font-mono);
+  }
+
+  .command-sections {
+    display: grid;
+    gap: 2.5rem;
+  }
+
+  header {
+    margin-bottom: 0.75rem;
+  }
+
+  header h2 {
+    margin: 0;
+    color: var(--cf-foreground);
+    font-size: 1.125rem;
+    font-weight: 650;
+    line-height: 1.35;
+    letter-spacing: -0.015em;
+  }
+
+  header p {
+    max-width: 46rem;
+    margin: 0.5rem 0 0;
+    color: var(--cf-muted-foreground);
+    font-size: 0.8125rem;
+    line-height: 1.6;
+    white-space: pre-line;
+  }
+
+  ul {
+    overflow: hidden;
+    margin: 0;
+    border: 1px solid var(--cf-border);
+    border-radius: 0.5rem;
+    padding: 0;
+    list-style: none;
+  }
+
+  li + li {
+    border-top: 1px solid var(--cf-border);
+  }
+
+  a {
+    display: grid;
+    grid-template-columns: 1.5rem minmax(0, 1fr) auto auto;
+    align-items: center;
+    gap: 1rem;
+    padding: 1rem;
+    color: inherit;
+    text-decoration: none;
+  }
+
+  a:hover {
+    background: var(--cf-accent);
+  }
+
+  .command-marker {
+    color: var(--cf-primary);
+    font-family: var(--nb-font-mono);
+    font-size: 0.8125rem;
+    font-weight: 700;
+  }
+
+  .command-summary {
+    display: grid;
+    min-width: 0;
+    gap: 0.3rem;
+  }
+
+  .command-summary code {
+    overflow: hidden;
+    color: var(--cf-foreground);
+    background: transparent;
+    font-family: var(--nb-font-mono);
+    font-size: 0.875rem;
+    font-weight: 600;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .command-summary > span,
+  .command-count {
+    color: var(--cf-muted-foreground);
+    font-size: 0.8125rem;
+  }
+
+  .command-summary > span {
+    display: -webkit-box;
+    overflow: hidden;
+    line-height: 1.5;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+  }
+
+  .command-count {
+    white-space: nowrap;
+  }
+
+  .command-arrow {
+    color: var(--cf-border-strong);
+  }
+
+  @media (max-width: 39.99rem) {
+    a {
+      grid-template-columns: 1rem minmax(0, 1fr);
+      gap: 0.75rem;
+      padding: 0.875rem;
+    }
+
+    .command-count,
+    .command-arrow {
+      display: none;
+    }
+  }
+</style>

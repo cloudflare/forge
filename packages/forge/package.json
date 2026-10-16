@@ -41,14 +41,12 @@
     "access": "public"
   },
   "scripts": {
-    "compile": "node scripts/compile.mjs",
     "wit": "node scripts/wit.mjs",
     "build": "node scripts/build.mjs",
     "test": "node scripts/build.mjs && tsc -p test && node --test \"test/*.test.js\"",
     "archive": "node scripts/archive.mjs",
-    "release": "node scripts/publish.mjs",
     "sync-version": "node scripts/version.mjs",
-    "prepack": "node -e \"console.error('error: this directory has no binaries; pack with npm run archive, publish with npm run release'); process.exit(1)\""
+    "prepack": "node -e \"console.error('error: this directory has no binaries; pack the package with just pack from the repository root'); process.exit(1)\""
   },
   "devDependencies": {
     "@bytecodealliance/jco": "1.37.0",

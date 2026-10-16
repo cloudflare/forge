@@ -1,0 +1,155 @@
+---
+import type { CommandArgument, CommandOption } from '../../command-reference/schema.ts';
+
+interface Props {
+  id: string;
+  title: string;
+  kind: 'argument' | 'option';
+  parameters: readonly (CommandArgument | CommandOption)[];
+}
+
+const { id, title, kind, parameters } = Astro.props;
+
+function defaultLabel(value: unknown): string {
+  return JSON.stringify(value) ?? String(value);
+}
+---
+
+<section class="command-parameters" aria-labelledby={id}>
+  <h2 id={id}>{title}</h2>
+  <dl>
+    {
+      parameters.map((parameter) => (
+        <div class="parameter-row">
+          <dt>
+            <code>{kind === 'option' ? `--${parameter.name}` : `<${parameter.name}>`}</code>
+            <span>{parameter.type}</span>
+            <strong data-required={parameter.required}>{parameter.required ? 'required' : 'optional'}</strong>
+          </dt>
+          <dd>
+            <p>{parameter.description}</p>
+            {'default' in parameter && parameter.default !== undefined ? (
+              <p class="parameter-detail">
+                Default <code>{defaultLabel(parameter.default)}</code>
+              </p>
+            ) : null}
+            {parameter.enum ? (
+              <p class="parameter-detail">
+                Allowed {parameter.enum.map((value) => <code>{JSON.stringify(value)}</code>)}
+              </p>
+            ) : null}
+          </dd>
+        </div>
+      ))
+    }
+  </dl>
+</section>
+
+<style>
+  .command-parameters {
+    margin-top: 2.75rem;
+  }
+
+  .command-parameters > h2 {
+    margin-bottom: 1rem;
+    color: var(--cf-foreground);
+    font-size: 1.125rem;
+    font-weight: 650;
+    line-height: 1.35;
+    letter-spacing: -0.015em;
+  }
+
+  dl {
+    overflow: hidden;
+    margin: 0;
+    border-block: 1px solid var(--cf-border);
+  }
+
+  .parameter-row {
+    display: grid;
+    grid-template-columns: minmax(12rem, 0.7fr) minmax(0, 1.3fr);
+    gap: 1.5rem;
+    padding: 1rem 0;
+  }
+
+  .parameter-row + .parameter-row {
+    border-top: 1px solid var(--cf-border);
+  }
+
+  dt {
+    display: flex;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  dt code,
+  .parameter-detail code {
+    color: var(--cf-foreground);
+    background: transparent;
+    font-family: var(--nb-font-mono);
+  }
+
+  dt code {
+    font-size: 0.8125rem;
+    font-weight: 600;
+  }
+
+  dt > span {
+    color: var(--cf-muted-foreground);
+    font-family: var(--nb-font-mono);
+    font-size: 0.75rem;
+  }
+
+  dt strong {
+    color: var(--cf-muted-foreground);
+    font-size: 0.625rem;
+    font-weight: 650;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  dt strong[data-required='true'] {
+    color: var(--cf-warning);
+  }
+
+  dd,
+  p {
+    margin: 0;
+  }
+
+  dd {
+    min-width: 0;
+    color: var(--cf-muted-foreground);
+    font-size: 0.8125rem;
+    line-height: 1.6;
+  }
+
+  dd > p:first-child {
+    white-space: pre-line;
+  }
+
+  .parameter-detail {
+    display: flex;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: 0.375rem;
+    margin-top: 0.5rem;
+    font-size: 0.75rem;
+  }
+
+  .parameter-detail code {
+    border: 1px solid var(--cf-border);
+    border-radius: 0.25rem;
+    padding: 0.1rem 0.3rem;
+    background: var(--cf-muted);
+    font-size: 0.6875rem;
+  }
+
+  @media (max-width: 39.99rem) {
+    .parameter-row {
+      grid-template-columns: 1fr;
+      gap: 0.625rem;
+    }
+  }
+</style>
