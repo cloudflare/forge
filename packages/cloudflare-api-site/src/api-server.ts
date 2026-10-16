@@ -18,6 +18,7 @@ import {
 } from './api-routing.ts';
 import { requireAssetFetcher } from './artifact-fetcher.ts';
 import { assertToolingRouteNamespace } from './command-reference/routing.ts';
+import { withTerraformTarget } from './terraform.ts';
 
 export type ResolvedApiPage =
   | ApiProductSelection
@@ -55,7 +56,8 @@ async function operationLoadOptions(request: Request, locals: App.Locals): Promi
 export async function getApiPage(url: URL, request: Request, locals: App.Locals): Promise<ResolvedApiPage | undefined> {
   const selection: ApiPageSelection | undefined = (await getApiRouter()).resolvePage(url);
   if (!selection || selection.kind !== 'operation') return selection;
-  return { ...selection, page: await getFernPage(selection.pageId, await operationLoadOptions(request, locals)) };
+  const page = await getFernPage(selection.pageId, await operationLoadOptions(request, locals));
+  return { ...selection, page: withTerraformTarget(page) };
 }
 
 export async function getApiOperation(
@@ -67,7 +69,8 @@ export async function getApiOperation(
   const router = await getApiRouter();
   const selection = router.resolveOperation(url, representation);
   if (!selection) return undefined;
-  return { ...selection, page: await getFernPage(selection.pageId, await operationLoadOptions(request, locals)) };
+  const page = await getFernPage(selection.pageId, await operationLoadOptions(request, locals));
+  return { ...selection, page: withTerraformTarget(page) };
 }
 
 /** Loads one exact operation snapshot for deferred server-island rendering. */

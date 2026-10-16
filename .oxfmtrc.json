@@ -13,6 +13,7 @@
     ".wrangler",
     "Cargo.toml",
     "packages/cloudflare-api-site/src/components/ui/**/*.ts",
+    "packages/cloudflare-api-site/src/generated",
     "packages/cloudflare-api-site/src/lib/cn.ts",
     "packages/cloudflare-api-site/src/styles/globals.css"
   ]
