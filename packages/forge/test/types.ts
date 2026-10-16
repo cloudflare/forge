@@ -3,6 +3,24 @@
 // the types must reject, and fails the test if they accept it.
 
 import { type File, type Ident, type Module, type Part, file, frag, ident, join, module } from '../plugin/ts.js';
+import type { Type } from '../plugin/index.js';
+
+function metadata(type: Type): number | string | undefined {
+  if (type.kind === 'array') {
+    const min: number | undefined = type.minItems;
+    const max: number | undefined = type.maxItems;
+    // @ts-expect-error Metadata is read-only.
+    type.minItems = 0;
+    return min ?? max;
+  }
+  if (type.kind === 'scalar') {
+    const format: string | undefined = type.format;
+    // @ts-expect-error Metadata is read-only.
+    type.format = 'uuid';
+    return format;
+  }
+  return undefined;
+}
 
 const f: File = file('a.ts');
 const m: Module = module('m.ts');
@@ -66,4 +84,4 @@ f.module = m;
 // @ts-expect-error Nor can what it printed be reached.
 f.body;
 
-export { printed, parts, notModule, notIdent, typeOnly, dir, fn, bound, path, content };
+export { metadata, printed, parts, notModule, notIdent, typeOnly, dir, fn, bound, path, content };

@@ -179,13 +179,24 @@ const FEATURES: &str = r##"{
     "Pet": {"type": "object", "properties": {
       "id": {"type": "string", "readOnly": true},
       "password": {"type": "string", "x-sensitive": true},
-      "tags": {"type": "array", "items": {"type": "string"}, "maxItems": 3},
+      "tags": {"type": "array", "items": {"type": "string"}, "minItems": 0, "maxItems": 3},
+      "dataset_scope": {"oneOf": [
+        {"type": "object", "properties": {"type": {"const": "default"}}, "required": ["type"], "additionalProperties": false},
+        {"type": "object", "properties": {
+          "type": {"const": "datasets"},
+          "dataset_ids": {"$ref": "#/components/schemas/DatasetIDs"}
+        }, "required": ["type", "dataset_ids"], "additionalProperties": false}
+      ]},
+      "empty_format": {"type": "string", "format": ""},
+      "custom_format": {"type": "string", "format": "custom-ID"},
       "kind": {"type": "string", "enum": ["cat", "dog"], "default": "cat"},
       "meta": {"type": "object", "additionalProperties": true, "default": {"z": 1, "a": [true, null]}},
       "owner": {"$ref": "#/components/schemas/Owner", "description": "Who has the pet."},
       "nickname": {"anyOf": [{"type": "string"}, {"type": "integer"}]},
       "age": {"oneOf": [{"type": "string"}, {"type": "integer"}]}
     }, "required": ["id"]},
+    "DatasetIDs": {"type": "array", "minItems": 1, "maxItems": 50, "items": {"$ref": "#/components/schemas/ID"}},
+    "ID": {"type": "string", "format": "uuid"},
     "Owner": {"type": "object", "description": "A person.", "properties": {
       "pets": {"type": "array", "items": {"$ref": "#/components/schemas/Pet"}}
     }}
@@ -213,7 +224,13 @@ fn reads_all_of_the_forge() {
                 "read only true",
                 "sensitive true",
                 "default Some(",
-                "max items Some(3)",
+                "min items Some(0) max items Some(3)",
+                "min items Some(1) max items Some(50)",
+                "min items None max items None",
+                "String format Some(\"uuid\")",
+                "String format Some(\"custom-ID\")",
+                "String format Some(\"\")",
+                "String format None",
                 "Binary",
                 "description \"The photo.\"",
                 "union exclusive false",

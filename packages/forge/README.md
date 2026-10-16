@@ -78,6 +78,17 @@ by `kind`, so a `never` check in a `switch` turns a kind you missed into a
 compile error. The same group, method or model is always the same object,
 so you can compare them with `===` and keep them in a `Map`.
 
+Array types expose `minItems` and `maxItems`; an absent bound is
+`undefined`, and an explicit zero is kept. Scalar types expose the original
+`format`, including custom formats such as `uuid`, separately from their
+classification (`scalar: 'string'` for a UUID). These are metadata for
+plugins to interpret; Forge does not validate request values.
+
+The plugin interface is `forge:plugin@0.3.0`. Rebuild plugins compiled
+against `0.2.0` with the updated package before running them with this
+version of Forge. In Rust, `Type::Scalar` now contains a `ScalarType`: use
+`kind()` for its `Scalar` classification and `format()` for the annotation.
+
 A plugin fails by throwing; forge stops and prints the message. Its files
 go through the same checks as forge's own: a path must be relative, use `/`,
 have no `.` or `..` parts, and no two files may share one.

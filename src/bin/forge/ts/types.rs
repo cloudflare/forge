@@ -21,7 +21,7 @@ pub(super) enum Prec {
 /// ```
 pub(super) fn typ(t: Type<'_>, prec: Prec) -> Fragment {
     match t {
-        Type::Scalar(scalar) => frag!(scalar_type(scalar)),
+        Type::Scalar(scalar) => frag!(scalar_type(scalar.kind())),
         Type::Model(m) => frag!(Ident::model(m).ty()),
         Type::Array(array) => frag!(typ(array.elem(), Prec::Array), "[]"),
         Type::Object(object) => object_type(object),
@@ -138,7 +138,7 @@ pub(super) fn fields(object: Object<'_>) -> Vec<Field<'_>> {
 /// Returns the type of the values of a map, which is unknown when the map
 /// does not say.
 pub(super) fn elem(object: Object<'_>) -> Type<'_> {
-    object.extra().unwrap_or(Type::Scalar(Scalar::Unknown))
+    object.extra().unwrap_or(Type::Scalar(Scalar::Unknown.into()))
 }
 
 /// Reports whether `t` is an object type with a property the SDK keeps. An
@@ -171,7 +171,7 @@ pub(super) fn all_optional(t: Type<'_>) -> bool {
     fn walk<'f>(t: Type<'f>, seen: &mut HashSet<Model<'f>>) -> bool {
         match t {
             Type::Object(object) => !object.fields().any(|f| kept(f) && f.is_required()),
-            Type::Scalar(Scalar::Unknown) => true,
+            Type::Scalar(scalar) if scalar.kind() == Scalar::Unknown => true,
             Type::Model(m) => seen.insert(m) && walk(m.ty(), seen),
             Type::Intersection(intersection) => intersection.members().all(|m| walk(m, seen)),
             Type::Union(union) => union.members().any(|m| walk(m, seen)),

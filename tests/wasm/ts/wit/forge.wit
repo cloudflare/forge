@@ -1,5 +1,5 @@
 
-package forge:plugin@0.2.0;
+package forge:plugin@0.3.0;
 
 /// Read-only access to the forge a plugin runs on, which the host keeps.
 /// Each id is an index the host gave out. An id the host never gave out
@@ -131,6 +131,12 @@ interface forge {
         unknown, null, boolean, %string, number(number), date-time, date, bytes, binary,
     }
 
+    record scalar-info {
+        kind: scalar,
+        /// The original `format`, including an empty or unrecognized one.
+        format: option<string>,
+    }
+
     variant enum-value {
         %string(string),
         number(f64),
@@ -154,6 +160,8 @@ interface forge {
 
     record array-info {
         elem: type-id,
+        /// The `minItems`, or none if it is absent; zero is kept.
+        min-items: option<u64>,
         /// The `maxItems`, or none if the array has no limit.
         max-items: option<u64>,
     }
@@ -178,7 +186,7 @@ interface forge {
     }
 
     variant type-info {
-        scalar(scalar),
+        scalar(scalar-info),
         %enum(list<enum-value>),
         array(array-info),
         object(object-info),

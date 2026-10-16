@@ -22,7 +22,7 @@ use crate::arena::{List, Span, Str, Strings};
 use crate::json::Json;
 use crate::method::{BodyData, ContentData, ResponseData, is_json};
 use crate::types::{
-    ArrayData, DiscriminatorData, EnumData, FieldData, NameId, ObjectData, TypeData, TypeId, UnionData,
+    ArrayData, DiscriminatorData, EnumData, FieldData, NameId, ObjectData, ScalarData, TypeData, TypeId, UnionData,
 };
 use crate::{
     Availability, EnumValue, Forge, GroupData, GroupId, HttpMethod, Location, MethodData, MethodId, ModelData, ModelId,
@@ -403,8 +403,8 @@ struct Builder<'d> {
     /// Each method by group and name.
     method_index: HashMap<(GroupId, Name), MethodId>,
     types: Vec<TypeData>,
-    /// The type of each scalar, which every use shares.
-    scalars: Vec<(Scalar, TypeId)>,
+    /// The type of each scalar and format, which every matching use shares.
+    scalars: HashMap<(Scalar, Option<&'d str>), TypeId>,
     models: Vec<ModelData>,
     /// The type of each model, indexed by `ModelId`, which every use
     /// shares.
@@ -461,7 +461,7 @@ impl<'d> Builder<'d> {
             methods: Vec::new(),
             method_index: HashMap::new(),
             types: Vec::new(),
-            scalars: Vec::new(),
+            scalars: HashMap::new(),
             models: Vec::new(),
             model_types: Vec::new(),
             model_index: HashMap::new(),
@@ -1529,8 +1529,10 @@ impl<'d> Builder<'d> {
 
     /// Returns the type of `schema` as the one type `ty`.
     fn single(&mut self, schema: &'d SchemaObject, ty: SchemaType) -> TypeId {
+        let format = schema.format.map(|s| self.doc.str(s));
+        let recognized = Format::from_str(format.unwrap_or_default());
         let scalar = match ty {
-            SchemaType::String => match schema.format {
+            SchemaType::String => match recognized {
                 Format::DateTime => Scalar::DateTime,
                 Format::Date => Scalar::Date,
                 Format::Byte => Scalar::Bytes,
@@ -1538,7 +1540,7 @@ impl<'d> Builder<'d> {
                 _ if schema.content_encoding == ContentEncoding::Base64 => Scalar::Bytes,
                 _ => Scalar::String,
             },
-            SchemaType::Integer | SchemaType::Number => Scalar::Number(match schema.format {
+            SchemaType::Integer | SchemaType::Number => Scalar::Number(match recognized {
                 Format::Int8 => Number::Int8,
                 Format::Int16 => Number::Int16,
                 Format::Int32 => Number::Int32,
@@ -1557,7 +1559,7 @@ impl<'d> Builder<'d> {
             SchemaType::Array => return self.array(schema),
             SchemaType::Object => return self.object(schema),
         };
-        self.scalar(scalar)
+        self.formatted_scalar(scalar, format)
     }
 
     fn array(&mut self, schema: &'d SchemaObject) -> TypeId {
@@ -1567,6 +1569,7 @@ impl<'d> Builder<'d> {
         };
         self.push(TypeData::Array(ArrayData {
             elem,
+            min_items: schema.min_items,
             max_items: schema.max_items,
         }))
     }
@@ -1797,7 +1800,7 @@ impl<'d> Builder<'d> {
     /// already there, to `values` if it is an enum, or to `null`.
     fn add_member(&self, member: TypeId, out: &mut Vec<TypeId>, values: &mut Vec<EnumData>, null: &mut bool) {
         match &self.types[member.index()] {
-            TypeData::Scalar(Scalar::Null) => *null = true,
+            TypeData::Scalar(ScalarData { kind: Scalar::Null, .. }) => *null = true,
             TypeData::Enum(enum_values) => {
                 for &value in self.values.get(*enum_values) {
                     let new = value.get(&self.strings);
@@ -2112,22 +2115,35 @@ impl<'d> Builder<'d> {
     /// Returns `ty`, or the union of it and null if `nullable`.
     fn nullable(&mut self, ty: TypeId, nullable: bool) -> TypeId {
         let data = &self.types[ty.index()];
-        if !nullable || matches!(data, TypeData::Scalar(Scalar::Unknown | Scalar::Null)) {
+        if !nullable
+            || matches!(
+                data,
+                TypeData::Scalar(ScalarData {
+                    kind: Scalar::Unknown | Scalar::Null,
+                    ..
+                })
+            )
+        {
             return ty;
         }
         let null = self.scalar(Scalar::Null);
         self.union_of(&[ty, null], None, true)
     }
 
-    /// Returns the type of `scalar`, which every use shares.
+    /// Returns the type of `scalar` without a format.
     fn scalar(&mut self, scalar: Scalar) -> TypeId {
-        for &(s, id) in &self.scalars {
-            if s == scalar {
-                return id;
-            }
+        self.formatted_scalar(scalar, None)
+    }
+
+    /// Shares scalars only when both classification and format match.
+    fn formatted_scalar(&mut self, kind: Scalar, format: Option<&'d str>) -> TypeId {
+        let key = (kind, format);
+        if let Some(&id) = self.scalars.get(&key) {
+            return id;
         }
-        let id = self.push(TypeData::Scalar(scalar));
-        self.scalars.push((scalar, id));
+        let format = format.map(|s| self.strings.push(s));
+        let id = self.push(TypeData::Scalar(ScalarData { kind, format }));
+        self.scalars.insert(key, id);
         id
     }
 

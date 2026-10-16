@@ -16,8 +16,8 @@ use crate::{Forge, Json, Model, ModelId, Name};
 /// `const: null`, or `null` among the values of an `enum`.
 #[derive(Clone, Copy, Debug)]
 pub enum Type<'f> {
-    /// A type with no parts.
-    Scalar(Scalar),
+    /// A primitive, with its original `format` annotation.
+    Scalar(ScalarType<'f>),
     /// One of the values of an `enum`, which are all different, in the
     /// order it lists them. There is at least one, and none is null: an
     /// `enum` that lists `null` is a union of the other values and
@@ -73,7 +73,7 @@ pub enum Type<'f> {
     Model(Model<'f>),
 }
 
-/// A type with no parts: a primitive, or any value.
+/// A primitive's classification, apart from its [`ScalarType::format`].
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum Scalar {
     /// Any value: from a schema that does not constrain its type, such as
@@ -102,6 +102,37 @@ pub enum Scalar {
     /// Format `binary` decides the type even with `contentEncoding:
     /// base64`.
     Binary,
+}
+
+/// A primitive and the `format` written on its schema.
+///
+/// The classification keeps its existing meaning: a UUID is still
+/// [`Scalar::String`], and a date-time is still [`Scalar::DateTime`]. The
+/// annotation lets plugins apply their own format handling, including
+/// formats Forge does not recognize. Forge does not validate values.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct ScalarType<'f> {
+    kind: Scalar,
+    format: Option<&'f str>,
+}
+
+impl<'f> ScalarType<'f> {
+    /// Returns the primitive's classification.
+    pub fn kind(self) -> Scalar {
+        self.kind
+    }
+
+    /// Returns the original `format`, including an empty or unrecognized
+    /// one, or `None` if the schema has no `format`.
+    pub fn format(self) -> Option<&'f str> {
+        self.format
+    }
+}
+
+impl From<Scalar> for ScalarType<'_> {
+    fn from(kind: Scalar) -> Self {
+        Self { kind, format: None }
+    }
 }
 
 /// The size of a [`Scalar::Number`], from the `format` of an `integer` or
@@ -209,7 +240,10 @@ impl<'f> Type<'f> {
     /// Returns the type with ID `id` in `forge`.
     pub(crate) fn new(forge: &'f Forge, id: TypeId) -> Type<'f> {
         match &forge.types[id.index()] {
-            TypeData::Scalar(scalar) => Type::Scalar(*scalar),
+            TypeData::Scalar(data) => Type::Scalar(ScalarType {
+                kind: data.kind,
+                format: data.format.map(|s| forge.strings.get(s)),
+            }),
             TypeData::Enum(values) => Type::Enum(Enum {
                 forge,
                 values: forge.values.get(*values),
@@ -249,6 +283,15 @@ impl<'f> Array<'f> {
     /// Returns the type of the elements.
     pub fn elem(self) -> Type<'f> {
         Type::new(self.forge, self.data.elem)
+    }
+
+    /// Returns the fewest elements the array can have: its `minItems`, or
+    /// `None` if it is absent. An explicit zero is `Some(0)`.
+    ///
+    /// Reading and reference handling follow [`Array::max_items`]. Forge
+    /// preserves the bounds without checking whether they are consistent.
+    pub fn min_items(self) -> Option<u64> {
+        self.data.min_items
     }
 
     /// Returns the most elements the array can have, or `None` if it has
@@ -555,13 +598,19 @@ impl NameId {
 /// What a [`Forge`] stores for a type. The types inside it are stored
 /// separately, by ID, and its lists in the `Forge`'s arenas.
 pub(crate) enum TypeData {
-    Scalar(Scalar),
+    Scalar(ScalarData),
     Enum(Span<EnumData>),
     Array(ArrayData),
     Object(ObjectData),
     Union(UnionData),
     Intersection(Span<TypeId>),
     Model(ModelId),
+}
+
+#[derive(Clone, Copy)]
+pub(crate) struct ScalarData {
+    pub(crate) kind: Scalar,
+    pub(crate) format: Option<Str>,
 }
 
 /// What a [`Forge`] stores for an [`EnumValue`].
@@ -575,6 +624,8 @@ pub(crate) enum EnumData {
 #[derive(Clone, Copy)]
 pub(crate) struct ArrayData {
     pub(crate) elem: TypeId,
+    /// The `minItems`, if the schema specifies it.
+    pub(crate) min_items: Option<u64>,
     /// The `maxItems`, if the array has a limit.
     pub(crate) max_items: Option<u64>,
 }

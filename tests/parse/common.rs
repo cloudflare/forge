@@ -129,7 +129,7 @@ pub fn scalar(ty: Type<'_>) -> Scalar {
     let Type::Scalar(scalar) = ty else {
         panic!("want a scalar, got {ty:?}");
     };
-    scalar
+    scalar.kind()
 }
 
 /// Returns the values of the enum `ty` is.
@@ -194,7 +194,7 @@ pub fn non_null(ty: Type<'_>) -> Type<'_> {
     let others: Vec<Type> = members
         .iter()
         .copied()
-        .filter(|m| !matches!(m, Type::Scalar(Scalar::Null)))
+        .filter(|m| !matches!(m, Type::Scalar(s) if s.kind() == Scalar::Null))
         .collect();
     let [other] = others[..] else {
         panic!("want a union of one type and null, got {ty:?}");
@@ -208,7 +208,7 @@ pub fn non_null(ty: Type<'_>) -> Type<'_> {
 /// name of the variant.
 pub fn kind(ty: Type<'_>) -> String {
     match ty {
-        Type::Scalar(scalar) => format!("{scalar:?}"),
+        Type::Scalar(scalar) => format!("{:?}", scalar.kind()),
         Type::Enum(_) => "Enum".to_string(),
         Type::Array(_) => "Array".to_string(),
         Type::Object(_) => "Object".to_string(),

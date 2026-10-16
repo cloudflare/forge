@@ -161,10 +161,22 @@ fn content(o: &mut String, content: Content<'_>) {
 /// Writes `ty`, and the location in `method` of each field it has.
 fn ty(o: &mut String, depth: usize, method: Option<Method<'_>>, ty: Type<'_>) {
     match ty {
-        Type::Scalar(scalar) => line(o, depth, format_args!("{scalar:?}")),
+        Type::Scalar(scalar) => line(
+            o,
+            depth,
+            format_args!("{:?} format {:?}", scalar.kind(), scalar.format()),
+        ),
         Type::Enum(values) => line(o, depth, format_args!("enum {:?}", values.values().collect::<Vec<_>>())),
         Type::Array(array) => {
-            line(o, depth, format_args!("array max items {:?}", array.max_items()));
+            line(
+                o,
+                depth,
+                format_args!(
+                    "array min items {:?} max items {:?}",
+                    array.min_items(),
+                    array.max_items()
+                ),
+            );
             self::ty(o, depth + 1, method, array.elem());
         }
         Type::Object(object) => self::object(o, depth, method, object),
