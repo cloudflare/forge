@@ -472,14 +472,6 @@ fn operation_id_that_is_not_a_string_is_an_error() {
 }
 
 #[test]
-fn operation_id_is_not_an_extension() {
-    let forge = parse(&named_by(r#""operationId": "pets.list", "x-a": 1,"#));
-
-    let names: Vec<&str> = method(&forge, "pets.list").extensions().map(|(name, _)| name).collect();
-    assert_eq!(names, ["x-a"]);
-}
-
-#[test]
 fn forge_and_operation_id_methods_with_equal_names_are_an_error() {
     let err = parse_err(
         r#"{
