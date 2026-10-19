@@ -1,0 +1,262 @@
+---
+title: Rust plugins
+description: Write a Forge plugin in Rust, either as a WebAssembly component that any forge runs, or by depending on Forge as a library and implementing the Plugin trait.
+sidebar:
+  order: 4
+---
+
+Rust gets two ways in:
+
+- **As a WebAssembly component.** Build a `cdylib` against Forge's WIT for `wasm32-wasip2`, and run
+  it with `forge --target wasm://`. It is sandboxed, small (tens of KB), and runs with the `forge`
+  your users already have.
+- **As a library.** Depend on the `forge` crate, implement `forge::Plugin`, and ship your own binary.
+  You get the full, typed Rust API, the same one the built-in targets use, and no sandbox.
+
+## As a WebAssembly component
+
+### Set up
+
+You need the `wasm32-wasip2` target, and Forge's WIT, which `forge-plugin` prints:
+
+```sh
+rustup target add wasm32-wasip2
+cargo new --lib forge-plugin-routes
+cd forge-plugin-routes
+mkdir wit && npx forge-plugin wit > wit/forge.wit
+cargo add wit-bindgen
+```
+
+```toml title="Cargo.toml"
+[package]
+name = "forge-plugin-routes"
+version = "0.1.0"
+edition = "2024"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+wit-bindgen = "0.57"
+
+[profile.release]
+opt-level = "s"
+lto = true
+strip = true
+```
+
+### Write it
+
+`wit_bindgen::generate!` makes a `Guest` trait from the `plugin` world. Implement `generate` and
+`generate_group`, and read the model through the `forge` interface's functions.
+
+```rust title="src/lib.rs"
+//! Writes one `routes.txt`: every method's HTTP method, path and name.
+
+mod wit {
+    wit_bindgen::generate!({ path: "wit/forge.wit", world: "plugin" });
+}
+
+use wit::File;
+use wit::forge::plugin::forge as host;
+use wit::forge::plugin::forge::HttpMethod;
+
+struct Plugin;
+
+impl wit::Guest for Plugin {
+    fn generate() -> Result<Vec<File>, String> {
+        let mut lines = Vec::new();
+        for group_id in host::groups() {
+            let group = host::get_group(group_id);
+            let path: Vec<String> = group.path.iter().map(|&id| host::get_group(id).name.join("_")).collect();
+            for method_id in group.methods {
+                let method = host::get_method(method_id);
+                lines.push(format!(
+                    "{:<7} {:<45} {}.{}",
+                    http(&method.http_method),
+                    method.path,
+                    path.join("."),
+                    method.name.join("_"),
+                ));
+            }
+        }
+        if lines.is_empty() {
+            return Err("the document has no methods".to_owned());
+        }
+        let content = (lines.join("\n") + "\n").into_bytes();
+        Ok(vec![File { path: "routes.txt".to_owned(), content }])
+    }
+
+    fn generate_group(_group: u32) -> Result<Vec<File>, String> {
+        Ok(Vec::new())
+    }
+}
+
+fn http(method: &HttpMethod) -> String {
+    match method {
+        HttpMethod::Get => "GET".into(),
+        HttpMethod::Put => "PUT".into(),
+        HttpMethod::Post => "POST".into(),
+        HttpMethod::Delete => "DELETE".into(),
+        HttpMethod::Options => "OPTIONS".into(),
+        HttpMethod::Head => "HEAD".into(),
+        HttpMethod::Patch => "PATCH".into(),
+        HttpMethod::Trace => "TRACE".into(),
+        HttpMethod::Query => "QUERY".into(),
+        HttpMethod::Connect => "CONNECT".into(),
+        HttpMethod::Other(other) => other.clone(),
+    }
+}
+
+wit::export!(Plugin with_types_in wit);
+```
+
+### Build and run it
+
+Build for `wasm32-wasip2`, then pass the component to `forge`:
+
+```sh
+cargo build --release --target wasm32-wasip2
+forge openapi.json --target wasm://target/wasm32-wasip2/release/forge_plugin_routes.wasm --out out
+```
+
+```text title="out/routes.txt"
+GET     /accounts/{account_id}                        accounts.get
+POST    /accounts/{account_id}/members                accounts.members.create
+DELETE  /accounts/{account_id}/members/{member_id}    accounts.members.delete
+GET     /accounts/{account_id}/members                accounts.members.list
+PUT     /pets/{id}                                    pets.replace_tags
+```
+
+The release build is about 58 KB.
+
+### Working with the WIT
+
+The WIT is lower level than the Rust or TypeScript APIs, on purpose: it is what every language
+shares.
+
+- Every part is a `u32` id. `get-group`, `get-method`, `get-model` and `get-type` return a record of
+  its data, with ids for the parts inside it.
+- A name is `list<string>`, its lower-case words. Join them for the casing you want.
+- A JSON value, such as an extension or a field's default, is its JSON text.
+- `get-location(method, object, index)` says where a method sends field `index` of the object type
+  `object`.
+- A trap (a panic, or an id the host never gave out) fails the run.
+
+A record holds everything a part has, so fetch each part once per call and keep it. Since the WIT
+mirrors the Rust API, the [Rust API docs](/reference/rust-api/) give the meaning and order of every
+field; [the WIT reference](/reference/wit/) has the whole file.
+
+Standard error is passed through, so `eprintln!` and panic messages show up in your terminal while
+you debug.
+
+## Use Forge as a library
+
+When your generator needs more than the sandbox gives it (reading templates from disk, formatting the
+output with a tool, a CLI of its own), depend on Forge and run it in your own binary.
+
+### Set up
+
+Forge is not on crates.io yet; depend on it from Git. Turn off the default `cli` feature, which only
+the `forge` command needs:
+
+```toml title="Cargo.toml"
+[dependencies]
+forge = { git = "https://github.com/cloudflare/forge", default-features = false }
+serde_json = "1"
+```
+
+Add `features = ["wasm"]` to run WebAssembly plugins from your binary, with
+`forge::wasm::WasmPlugin`.
+
+### Write it
+
+A `Forge` is read with Serde. Linking happens during deserialization, so a document with errors fails
+there, with every error in the message. Implement `Plugin` with a `File` type of your own, then `run`
+it and `write` the files:
+
+```rust title="src/main.rs"
+use std::borrow::Cow;
+
+use forge::{Err, Forge, Group, Plugin};
+
+/// Writes a `<group>.md` for each group that has methods.
+struct Markdown;
+
+/// A file whose content is already rendered.
+struct Doc {
+    path: String,
+    text: String,
+}
+
+impl forge::File for Doc {
+    fn path(&self) -> &str {
+        &self.path
+    }
+
+    fn content(&self) -> Result<Cow<'_, [u8]>, Err> {
+        Ok(Cow::Borrowed(self.text.as_bytes()))
+    }
+}
+
+impl Plugin for Markdown {
+    type File = Doc;
+
+    fn generate_group(&self, group: Group<'_>) -> Result<impl Iterator<Item = Doc>, Err> {
+        let path: Vec<String> = group.path().map(|name| name.kebab()).collect();
+        let mut text = format!("# {}\n\n", group.name().pascal());
+        for method in group.methods() {
+            text.push_str(&format!(
+                "- `{}` `{} {}`\n",
+                method.name().camel(),
+                method.http_method().as_str(),
+                method.path(),
+            ));
+        }
+        let doc = Doc { path: format!("{}.md", path.join("/")), text };
+        Ok((group.methods().len() > 0).then_some(doc).into_iter())
+    }
+}
+
+fn main() -> Result<(), Err> {
+    let usage = "usage: my-generator SPEC OUT";
+    let spec = std::env::args().nth(1).ok_or(usage)?;
+    let out = std::env::args().nth(2).ok_or(usage)?;
+    let forge: Forge = serde_json::from_slice(&std::fs::read(spec)?)?;
+    forge::write(out, forge::run(&forge, &Markdown)?)
+}
+```
+
+`Plugin` requires `Sync`, since `generate_group` runs on many threads at once; `File` requires
+`Send`. Both methods have default implementations that return no files.
+
+`File::content` is called after every plugin call has finished, in parallel, so a file type can defer
+expensive rendering until then. If any file fails to render, nothing is written.
+
+### The Rust TypeScript printer
+
+`forge::ts` is the printer the built-in TypeScript target uses, and the original of
+[`@cloudflare/forge/ts`](/plugins/ts-printer/). It has the same `Module`, `Ident` and `File`, with
+the `p!` macro to print a line and `frag!` for a fragment, where JavaScript uses tagged templates.
+A `ts::File` implements `forge::File`.
+
+```rust
+use forge::ts::{self, p};
+
+let models = ts::Module::new("pets/models.ts");
+let mut f = ts::File::new(ts::Module::new("pets/client.ts"));
+f.doc("A client of pets.");
+p!(f, "export interface ", f.ident("Client"), " {");
+f.indent(|f| {
+    p!(f, "get(): Promise<", models.ident("Pet").ty(), ">;");
+});
+p!(f, "}");
+```
+
+## Which one?
+
+Start with WebAssembly if users will run your plugin with their own `forge`, or if you would rather
+not ship binaries for six platforms. Use the library when the generator is part of a larger tool, or
+needs the file system or network.
+
+The two share the model, so moving between them is a change of plumbing, not of logic.

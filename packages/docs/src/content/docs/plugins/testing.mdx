@@ -1,0 +1,94 @@
+---
+title: Testing plugins
+description: Test a Forge plugin by running it on small documents, snapshotting the output, and compiling what it generates.
+sidebar:
+  order: 6
+---
+
+A plugin is a function from a model to files, which makes it easy to test: feed it a document,
+compare the files. Three kinds of test cover most of what can go wrong.
+
+## 1. A small document per feature
+
+Write documents that each exercise one thing: a nested group, a query array with `explode: false`,
+a discriminated union, a nullable field, a model that refers to itself. Small documents keep
+failures readable, and a document is cheap to write inline.
+
+Forge's own tests do this: its TypeScript-as-WebAssembly test uses one document "with nested groups,
+path and query parameters, bodies, errors, and models that are enums, unions with a discriminator,
+intersections, maps and nullable, and that refer to each other in a cycle". That covers all seven
+[kinds of type](/concepts/types/) in under a hundred lines.
+
+Run the plugin with the CLI, from any test runner:
+
+```sh
+forge test/fixtures/unions.json --target wasm://plugin.wasm --out test/out/unions
+```
+
+`forge -` reads the document from standard input, which is handy for inline fixtures.
+
+## 2. Snapshots
+
+Commit the generated output, and fail the test when it changes. A plain `git diff --exit-code` after
+regenerating is enough:
+
+```sh
+rm -rf test/out && for spec in test/fixtures/*.json; do
+  forge "$spec" --target wasm://plugin.wasm --out "test/out/$(basename "$spec" .json)"
+done
+git diff --exit-code test/out
+```
+
+Remove the output directory first: Forge does not delete files it no longer generates, so a stale
+file would hide a change.
+
+Forge sorts groups and methods, but leaves the order of fields, union members and models within a
+group unspecified. If your output lists any of those, sort them (by wire name, or schema name) so
+snapshots are stable.
+
+## 3. Compile the output
+
+A snapshot shows that the output changed, not that it is right. Compile it with the target
+language's own tools:
+
+- TypeScript: `tsc --noEmit` over the output, with `strict` on.
+- Rust: `cargo check` or `cargo build` in the output.
+- Anything else: the language's compiler or linter.
+
+Forge's own CLI tests include one that generates the MCP server and builds it with Cargo. It
+downloads the server's dependencies, so it is marked `#[ignore]` and runs with
+`cargo test --test cli -- --ignored`. Gating a slow compile behind an opt-in flag like that keeps the
+everyday test run fast.
+
+## Errors are part of the interface
+
+Test the documents your plugin rejects, too. A plugin that throws on something it does not support
+should say what and where:
+
+```ts
+throw new Error(`${method.httpMethod} ${method.path}: multipart bodies are not supported`);
+```
+
+The CLI prints `forge: ` and the message, and exits with status 1, which a test can check.
+
+## Testing a Rust library plugin
+
+With Forge as a library, there is no process to spawn. Deserialize a `Forge` from an inline document,
+`run` the plugin, and inspect the files in memory:
+
+```rust
+#[test]
+fn writes_one_file_per_group() {
+    let forge: forge::Forge = serde_json::from_str(SPEC).unwrap();
+    let files = forge::run(&forge, &Markdown).unwrap();
+    let paths: Vec<&str> = files.iter().map(|f| forge::File::path(f)).collect();
+    assert_eq!(paths, ["accounts.md", "accounts/members.md", "pets.md"]);
+}
+```
+
+`run` returns `generate`'s files first, then each group's in the order of `forge.groups()`, so
+assertions on the order are stable.
+
+A `WasmPlugin` is a `Plugin` too, so the same test can load a component with
+`forge::wasm::WasmPlugin::from_file` and check that a WebAssembly build of a plugin matches the
+native one. That is how Forge tests that its WIT carries the whole model.

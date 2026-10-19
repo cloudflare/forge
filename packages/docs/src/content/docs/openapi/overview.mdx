@@ -1,0 +1,92 @@
+---
+title: Preparing a document
+description: What Forge needs from an OpenAPI document, how to adopt it on a large existing API a group at a time, and the extensions that shape the output.
+sidebar:
+  order: 1
+  label: Overview
+---
+
+Forge reads OpenAPI **3.0, 3.1 and 3.2**, as **JSON**. Swagger 2.0 and YAML are not read; convert a
+YAML document to JSON first, with any YAML tool.
+
+It needs very little: for each operation you want in an SDK, the group it is in and its name.
+Everything else is optional, and improves the output.
+
+## The minimum
+
+Give each operation an `operationId` written as `<group>.<method>`:
+
+```json
+"/zones/{zone_id}/dns_records": {
+  "get": {
+    "operationId": "dns.records.list",
+    "responses": { "200": { "description": "The records." } }
+  }
+}
+```
+
+That is a method `list` in group `records` in group `dns`: `client.dns.records.list()` in
+TypeScript, and the tool `dns_records_list` in MCP. [Naming methods](/openapi/naming/) has the rules.
+
+## Adopting it on a large API
+
+Operations whose `operationId` has no dot, or that have none, are left out, without error, and so
+are the schemas only they use. So you can rename a large document's operationIds one group at a
+time, generate after each, and grow the SDK as you go.
+
+Every method is checked in full. Operations that are not methods are not built, so a dangling `$ref`
+or an unsupported parameter style in a part you have not converted yet does not block you. The
+exception is a value of the wrong JSON type, such as `"deprecated": "no"`, or a negative `maxItems`:
+those are caught while reading, anywhere in the document.
+
+If your document is already annotated for another generator, check **Compatibility Modes** in the
+sidebar: Forge may read those annotations as they are.
+
+## Shaping the output
+
+These extensions refine what Forge builds. All are optional. The [extensions reference](/openapi/extensions/)
+has the exact rules.
+
+| Goal                                    | Extension                      | On              |
+| --------------------------------------- | ------------------------------ | --------------- |
+| Describe a group                        | `x-forge-commands`             | Document root   |
+| Expose one operation as several methods | `x-forge-aliases`              | Operation       |
+| Keep a method out of listings           | `x-forge-hidden`               | Operation       |
+| Ask before calling a method             | `x-forge-require-confirmation` | Operation       |
+| Mark a field as a secret                | `x-sensitive`                  | Property schema |
+| Leave a property out                    | `x-stainless-skip`             | Property schema |
+| Pass data to your own plugin            | Any other `x-` key             | Operation       |
+
+## Standard fields that matter
+
+Forge reads standard OpenAPI too, and these make the largest difference to the output:
+
+- **`servers`**: the first server's URL is the base URL, with its variables replaced by their
+  defaults.
+- **`summary` and `description`** on operations become doc comments and tool descriptions.
+- **`description`** on schemas and properties becomes doc comments. A schema's `title` is used when
+  it has no description.
+- **`required`** on schemas and parameters decides what is optional.
+- **`format`** decides dates, instants, bytes and number sizes: see [types](/concepts/types/).
+- **`readOnly`** keeps a field out of what a client sends, in the targets that honour it.
+- **`deprecated`** on operations, schemas, properties and parameters.
+- **`discriminator`** on unions.
+
+## What is not read
+
+Forge ignores, without error: security schemes and requirements, webhooks, callbacks, response
+headers, cookie parameters, examples, links, tags, `externalDocs`, and extensions it does not read,
+except those on operations, which it passes to plugins.
+
+[OpenAPI support](/openapi/support/) lists what is read in detail, and what is read but not covered
+yet, which is an error rather than silently wrong output.
+
+## Check a document
+
+Run any target. A document with errors stops before any plugin runs, and lists every error at once:
+
+```sh
+forge openapi.json --target ts --out /tmp/check
+```
+
+[Errors](/openapi/errors/) explains what each one means.

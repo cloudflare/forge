@@ -1,0 +1,83 @@
+---
+title: Plugins
+description: Every Forge target, built in or not, is a plugin. Write your own in TypeScript, in Rust, or in any language that compiles to a WebAssembly component.
+sidebar:
+  order: 1
+  label: Overview
+---
+
+Forge does two jobs: it turns an OpenAPI document into a [model](/concepts/the-model/), and it runs a
+**plugin** on that model to produce files. The first job is the same for every output. The second is
+whatever you want it to be.
+
+The built-in targets are plugins too. The TypeScript SDK and the MCP server are implementations of
+the same `Plugin` trait you would implement, given the same model you would get. Nothing about them
+is special except that they ship in the binary.
+
+## Three ways to write one
+
+| | [TypeScript or JavaScript](/plugins/typescript/) | [Rust, as WebAssembly](/plugins/rust/) | [Rust, as a library](/plugins/rust/#use-forge-as-a-library) |
+| --- | --- | --- | --- |
+| You write                | A module that calls `definePlugin`          | A `cdylib` that implements the WIT          | A binary that implements `forge::Plugin` |
+| You build                | `forge-plugin build plugin.ts`              | `cargo build --target wasm32-wasip2`        | `cargo build`                            |
+| You run                  | `forge --target wasm://plugin.wasm`         | `forge --target wasm://plugin.wasm`         | Your own binary                          |
+| API                      | Objects and arrays, like the Rust API       | Raw ids and records, from the WIT           | The full Rust API                        |
+| Sandbox                  | Yes                                         | Yes                                         | No: ordinary native code                 |
+| Typical size             | About 1.8 MB (QuickJS inside)               | Tens of KB                                  | Part of your binary                      |
+| Good for                 | Most generators; text templates; JS tooling | Small, fast plugins you distribute          | Generators that need files, network, or a CLI of their own |
+
+[Other languages](/plugins/other-languages/) work through the same WebAssembly interface: anything
+that can build a component of Forge's `plugin` world, such as Go, Python or C, can be a plugin.
+
+## The contract
+
+Whatever the language, a plugin is two functions:
+
+```ts
+generate(forge)        // called once, with the whole model
+generateGroup(group)   // called once per group, in parallel
+```
+
+Each returns a list of files: a path relative to the output directory, and the content. Either can
+be left out, and returns no files. Either can fail, and the run stops before anything is written.
+
+That is all. A plugin does not parse OpenAPI, resolve `$ref`s, decide what is a method, name things,
+or write to disk, and it cannot write outside the output directory. It gets a checked model, and
+returns text.
+
+## Which call writes which file
+
+The split between `generate` and `generateGroup` is about parallelism. Most plugins follow one rule:
+
+- `generate` writes what belongs to the whole API: an entry point, a README, a runtime library, and
+  the [models placed at the top level](/concepts/models/).
+- `generateGroup` writes what belongs to one group: its methods, and the models placed in it.
+
+Since each model is placed in exactly one group, or at the top level, following that rule writes
+every model exactly once, with no coordination between calls. A plugin that only needs one file,
+such as a list of routes, can do everything in `generate` and leave `generateGroup` out.
+
+## Running a plugin
+
+Pass the component to `--target` with a `wasm://` prefix:
+
+```sh
+forge openapi.json --target wasm://plugin.wasm --out sdk
+```
+
+`wasm://` takes a path to a component, relative to the working directory. The `forge` from npm
+includes WebAssembly support; a `forge` built with Cargo needs the `wasm` feature. See
+[installation](/start/installation/).
+
+## Where next
+
+<NavList
+  items={[
+    { title: 'TypeScript plugins', description: 'definePlugin, the API, building and errors.', href: '/plugins/typescript/' },
+    { title: 'The TypeScript printer', description: 'Write TypeScript output with imports worked out for you.', href: '/plugins/ts-printer/' },
+    { title: 'Rust plugins', description: 'As a WebAssembly component, or Forge as a library.', href: '/plugins/rust/' },
+    { title: 'Other languages', description: 'Build a component of the plugin world in anything.', href: '/plugins/other-languages/' },
+    { title: 'Testing plugins', description: 'Snapshot output and check it compiles.', href: '/plugins/testing/' },
+    { title: 'Designing a target', description: 'Decisions every generator makes, and how the built-in ones make them.', href: '/plugins/designing-a-target/' },
+  ]}
+/>

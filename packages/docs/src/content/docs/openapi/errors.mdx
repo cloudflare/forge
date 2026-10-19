@@ -1,0 +1,100 @@
+---
+title: Errors
+description: The two kinds of error Forge reports in a document, what common messages mean, and how to fix them.
+sidebar:
+  order: 5
+---
+
+Forge checks the document before any plugin runs, and never generates from a document with errors.
+Every error starts with `forge: ` and the path of the document (`-` for standard input), and the
+command exits with status 1.
+
+## Two kinds
+
+**Reading errors** are about the shape of the JSON: a value of the wrong type, invalid JSON, a key
+written twice. Forge stops at the first one, and says where it is:
+
+```text
+forge: openapi.json: invalid type: string "yes", expected a boolean at line 1 column 198
+```
+
+The line and column point into the file. These are caught anywhere in the document, including in
+operations that are not methods.
+
+**Linking errors** are about meaning: a `$ref` to nothing, an unsupported style, two methods with one
+name. Forge collects all of them, and prints one per line, each starting with where it is: the
+operation's HTTP method and path, a schema's name, or a server:
+
+```text
+forge: openapi.json: GET /b: method "list" is also GET /a in the same group
+GET /c: $ref "#/components/parameters/Nope" points to nothing
+schema "U": fields "user_id" and "userId" have equal names
+```
+
+These are only reported for the parts Forge builds: methods, and the schemas they use.
+
+## Common errors
+
+### The document
+
+| Message | Cause and fix |
+| --- | --- |
+| `the document has no openapi version: only OpenAPI 3.0, 3.1 and 3.2 are read` | No `openapi` key, as in a Swagger 2.0 document. Convert it to OpenAPI 3. |
+| `openapi version "3.3.0" is not read: only OpenAPI 3.0, 3.1 and 3.2 are` | A version Forge does not know. |
+| `EOF while parsing a value at line 2 column 0` | The file is not valid JSON, or is YAML. Forge reads JSON only. |
+| `server url "https://{region}.x.com": variable "region" is not defined` | The first server's URL uses a variable its `variables` does not declare. Add it, with a `default`. |
+
+### Methods
+
+| Message | Cause and fix |
+| --- | --- |
+| `method "list" is also GET /a in the same group` | Two operations, or aliases, have equal method names in one group. Names are compared as words, so `pets.list_all` and `pets.listAll` collide too. Rename one. |
+| `operationId has a group name with no letters or digits` | An empty or symbol-only part before the last dot, as in `a..b.list`. |
+| `operationId has a method name with no letters or digits` | Nothing usable after the last dot, as in `pets.`. |
+| `x-forge-aliases[0]: operationId has a group name with no letters or digits` | The same, in the alias at that position. |
+| `two entries in x-forge-commands have the name "records"` | The same group is described twice, for example as `dns.records` and as `records` under `dns`. Keep one. |
+
+### References
+
+| Message | Cause and fix |
+| --- | --- |
+| `$ref "#/components/parameters/Nope" points to nothing` | A typo, or a component that was removed. |
+| `$ref "other.json#/X" is to another document, which is not covered` | Forge reads one document. Bundle external references into it first, with a tool such as Redocly's `bundle`. |
+| `$ref "#/paths/..." is not covered: only $refs into components.schemas are` | A schema that refers into another part of the document. Move the schema into `components.schemas` and refer to it there. |
+| `$ref "..." is not covered: only $refs to components.parameters are` | A parameter, request body, response or path item must refer to its own kind of component, such as `components.parameters`. |
+
+### Parameters
+
+| Message | Cause and fix |
+| --- | --- |
+| `query parameter "f" has style "deepObject", which is not covered: only form is` | Only the default styles are covered: `form` for the query, `simple` for the path and headers. |
+| `query parameter "f" has content, which is not covered: only schema is` | Parameters described by `content` instead of `schema` are not covered yet. Use `schema`. |
+
+### Schemas
+
+| Message | Cause and fix |
+| --- | --- |
+| `fields "user_id" and "userId" have equal names` | Two properties that would be one identifier in every language. Skip one with `x-stainless-skip`, or rename it with a compatibility mode's extension. |
+| `invalid value: integer -1, expected a non-negative integer` | `maxItems` must be a non-negative integer. |
+
+## Errors from plugins
+
+A plugin can fail too, after the document checked out. Its message is printed as it is:
+
+```text
+forge: the document has no methods
+```
+
+A path that would escape the output directory is caught by Forge, whatever the plugin:
+
+```text
+forge: "../evil.txt" is not a relative path with `/` separators
+```
+
+So is a plugin that returns two files with one path:
+
+```text
+forge: "index.ts" is generated more than once
+```
+
+Nothing is written when a plugin fails.

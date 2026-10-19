@@ -1,0 +1,55 @@
+---
+title: Targets
+description: "The outputs Forge can produce today: the built-in TypeScript SDK and MCP server, and any plugin. How to pick one with --target."
+sidebar:
+  order: 1
+  label: Overview
+---
+
+A target is what Forge generates. You pick one per run with `--target`:
+
+| `--target`         | Generates                                              | Written in |
+| ------------------ | ------------------------------------------------------ | ---------- |
+| `ts`               | A [TypeScript SDK](/targets/typescript/): typed client, models, codecs and a small runtime. | Rust, built in |
+| `mcp`              | A [Model Context Protocol server](/targets/mcp/), as a Rust crate, with a tool per method. | Rust, built in |
+| `wasm://PATH`      | Whatever the [plugin](/plugins/overview/) at `PATH` generates. | Anything |
+
+```sh
+forge openapi.json --target ts --out sdk
+forge openapi.json --target mcp --out server
+forge openapi.json --target wasm://plugins/zod.wasm --out schemas
+```
+
+## Built in is not special
+
+`ts` and `mcp` are implementations of the same `Plugin` trait a library plugin implements, and read
+the same model a WebAssembly plugin reads. Forge's own test suite compiles the TypeScript target to
+WebAssembly and checks that it writes exactly the same files as the native build.
+
+So if a built-in target is close to what you want but not quite, you have two routes: write your
+own target from scratch, or start from the built-in one's source and change it. Neither needs a
+change to Forge.
+
+## Choosing
+
+- For a **typed client** in TypeScript, use `ts`.
+- For **agents**, use `mcp`, which turns each method into a tool with JSON Schema input and
+  behaviour hints.
+- For anything else (another language, a CLI, API reference pages, validators, mocks, route tables),
+  [write a plugin](/plugins/overview/). [Designing a target](/plugins/designing-a-target/) collects
+  the decisions you will need to make.
+
+## One document, many targets
+
+Every target reads the same document, so annotations pay off across all of them. Group and method
+names drive the TypeScript client's shape, the MCP tool names, and your plugin's layout at once. A
+`x-forge-require-confirmation` makes an MCP tool destructive, and is there for your CLI plugin to
+prompt with.
+
+Running several targets is several runs:
+
+```sh
+forge openapi.json --target ts --out packages/sdk/src
+forge openapi.json --target mcp --out packages/mcp
+forge openapi.json --target wasm://tools/docs.wasm --out site/src/content/api
+```

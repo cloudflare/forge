@@ -1,0 +1,150 @@
+---
+title: Requests and responses
+description: How a method's parameters and body become one request type, where each field is sent, and how responses, errors and media types are exposed.
+sidebar:
+  order: 4
+---
+
+An OpenAPI operation spreads its inputs across path parameters, query parameters, headers and a
+body. An SDK method usually wants one argument. Forge builds that argument for you, as the method's
+**request** type, and keeps a note of where each field goes.
+
+## The request type
+
+`method.request()` is the type of what a caller passes, or none when the method takes nothing. It is
+built from the path and query parameters (as one object, the **parameters**) and the JSON body:
+
+| The method has                                                   | The request is                                  |
+| ---------------------------------------------------------------- | ----------------------------------------------- |
+| Parameters, no body                                              | The parameters object.                          |
+| A body, no parameters                                            | The body, whatever its type.                    |
+| Parameters, and a body that is an object (or a model, union or intersection of objects) | The **intersection** of the parameters and the body. |
+| Parameters, and any other body                                   | The parameters, with a `body` field holding the body. |
+| Neither                                                          | None.                                           |
+
+The `body` field is also used when a body field has the same name as a parameter, so nothing is
+shadowed. It is required when the body is. In the intersection, the parameters are always the first
+member, and in the parameters object, `body` is always the last field.
+
+For example, `POST /accounts/{account_id}/members` with a `NewMember` body is
+`{ accountId } & NewMember`, and the TypeScript target writes:
+
+```ts
+export type CreateRequest = {
+  /** The account. */
+  accountId: string;
+} & NewMember;
+```
+
+`PUT /pets/{id}` with an array body is `{ id, body }`:
+
+```ts
+export interface ReplaceTagsRequest {
+  id: string;
+  body?: string[];
+}
+```
+
+## Where a field is sent
+
+The request type is one object, but its fields go to different places. Find the parameters (the
+request itself, or the first member of its intersection) and ask the method about each field:
+
+```rust
+use forge::{Location, Method, Type};
+
+fn route(method: Method<'_>) {
+    let params = match method.request() {
+        Some(Type::Object(object)) => Some(object),
+        Some(Type::Intersection(all)) => match all.members().next() {
+            Some(Type::Object(object)) => Some(object),
+            _ => None,
+        },
+        _ => None,
+    };
+    for field in params.into_iter().flat_map(|params| params.fields()) {
+        match method.location(field) {
+            Some(Location::Path) => { /* substitute into the path template */ }
+            Some(Location::Query { exploded }) => { /* add to the query string */ }
+            None => { /* sent in the body */ }
+        }
+    }
+}
+```
+
+The same in TypeScript is `method.location(field)`, which returns `{ in: 'path' }`,
+`{ in: 'query', exploded }` or `undefined`.
+
+`location` is `None` for any field that is not one of the method's parameters, including the
+`body` field and every field of the body. `exploded` is OpenAPI's `explode`: whether an array is sent
+as `ids=1&ids=2` (true, the default) or `ids=1,2` (false).
+
+The fields come in a fixed order: path parameters in the order of the path template, then query
+parameters in the order they are declared, the path item's before the operation's.
+
+### Parameter rules
+
+- A field is named after the parameter's name, unless a compatibility mode renames it. Its description is
+  the parameter's, or else its schema's.
+- An operation's parameter replaces the path item's parameter with the same name and location.
+- A placeholder in the path template that no parameter declares is a required string; a declared path
+  parameter that is not in the template is left out.
+- Path parameters are always required.
+- Only the default styles are covered: `simple` for the path, `form` for the query. Other styles,
+  and parameters with `content` instead of `schema`, are errors.
+- Cookie parameters are ignored.
+- From OpenAPI 3.2, the properties of an `in: querystring` object are query parameters.
+
+## Headers
+
+Header parameters are not part of the request. They are `method.headers()`: an object with a field
+per header, named like a query parameter, and sent as the header its **wire name** says. They have
+no `location`.
+
+They are apart because SDKs treat them differently. Many generated clients set headers from client
+options rather than per call, and a target that sets `Accept`, `Content-Type` or `Authorization`
+itself can ignore those; Forge keeps them because APIs declare them for callers to set, such as the
+content type of a raw upload. Operation headers replace path item headers case-insensitively.
+
+## The body
+
+`method.body()` is the request body in every media type it can be sent as:
+
+| Member        | What it is                                                                            |
+| ------------- | ------------------------------------------------------------------------------------- |
+| `is_required` | Whether a request must have it.                                                       |
+| `description` | The body's own description.                                                           |
+| `contents`    | One `Content` per media type, sorted.                                                 |
+| `json`        | The JSON content a client sends: `application/json`, or else the first `+json` type.  |
+
+Each `Content` has a `media_type`, an `is_json` flag, a `description`, and a `ty`. Every media type
+is typed, JSON or not, so a plugin that supports `multipart/form-data` can read its parts. The
+request type only ever uses the JSON content; a body with no JSON content is `unknown` there.
+
+## Responses and errors
+
+`method.responses()` are the `2XX` responses, sorted by status. `method.errors()` are all the rest,
+sorted by status, with `default` last. Each has:
+
+| Member        | What it is                                                     |
+| ------------- | -------------------------------------------------------------- |
+| `status`      | A code such as `200`, a range such as `4XX`, or `default`.     |
+| `description` | The response's description.                                    |
+| `contents`    | One `Content` per media type; none when it has no body.        |
+| `json`        | Its JSON content, chosen as for the body.                      |
+
+A method usually has one success response, but nothing requires it. The TypeScript target, for
+example, returns a union of every `2XX` body, plus `undefined` when one of them has none.
+
+Response headers are not read.
+
+## Read-only fields
+
+A model is the same object in requests and responses, so the body keeps fields marked `readOnly`.
+`field.is_read_only()` reports them, and a target leaves them out of what a client sends. The MCP
+target does; the TypeScript target keeps one interface for both.
+
+## Next
+
+- [Types](/concepts/types/): what `ty()` gives you.
+- [Naming methods](/openapi/naming/): where a method's group and name come from.

@@ -1,0 +1,72 @@
+---
+title: Names
+description: Every name in the model is a list of lower-case words, so a plugin spells it in its own language's casing, and two spellings of one name are equal.
+sidebar:
+  order: 6
+---
+
+Documents name things in every casing at once: `account_id` in a path, `accountId` in a property,
+`AccountMember` for a schema, `abuse-reports` for a group. A generator wants exactly one casing per
+kind of identifier, and it is never the same across languages. So Forge never hands a plugin a
+name as written. It hands it a `Name`: the words.
+
+```ts
+group.name.camel();   // "abuseReports"
+group.name.pascal();  // "AbuseReports"
+group.name.snake();   // "abuse_reports"
+group.name.kebab();   // "abuse-reports"
+group.name.words;     // ["abuse", "reports"]
+```
+
+Group, method, model and field names are all `Name`s, as is a discriminator's property. Wire names,
+the strings actually sent over HTTP, stay strings: `field.wire_name()`.
+
+## How words are split
+
+A word ends at any character that is not a letter or digit, and at a change of case:
+
+| Written       | Words              | camel          |
+| ------------- | ------------------ | -------------- |
+| `pet-store`   | pet, store         | `petStore`     |
+| `created_at`  | created, at        | `createdAt`    |
+| `getByID`     | get, by, id        | `getById`      |
+| `XMLDocument` | xml, document      | `xmlDocument`  |
+| `GraphQL`     | graph, ql          | `graphQl`      |
+| `ipv4_cidr`   | ipv4, cidr         | `ipv4Cidr`     |
+| `name.eq`     | name, eq           | `nameEq`       |
+| `2fa`         | 2fa                | `2fa`          |
+| `__x__`       | x                  | `x`            |
+
+Digits belong to the word before them, and an acronym ends one letter before a lower-case one, so
+`XMLDocument` is "xml document". Every word is lower case, so a name has exactly one spelling in each
+casing: `GraphQL` comes out as `graphQl`. If that matters, rename the schema, property or
+`operationId` part, or rename it in the plugin.
+
+## Equality
+
+A name is only its words. `get_by_id`, `getByID` and `get-by-id` are the same name, and names sort
+by their words. This is what makes collisions visible early: two fields `user_id` and `userId` in
+one object would be one identifier in every target, so Forge reports them, before any plugin runs.
+
+```text
+schema "U": fields "user_id" and "userId" have equal names
+```
+
+The same goes for methods in a group. Groups with equal names merge into one.
+
+## Empty names
+
+A name with no letters or digits, such as `-`, has no words. `is_empty()` reports it. Group and
+method names cannot be empty; that is an error. Field and model names can be, in principle, for a
+property named `$`: a plugin that writes identifiers should handle that, for example by falling back
+to a quoted wire name.
+
+## What Forge does not do
+
+A `Name` is not an identifier in any language. Forge does not know your keywords, and does not
+escape them: a method named `delete` is `delete` in every casing. Escaping (`delete_`, `r#type`,
+`` `default` ``) is the plugin's job, because only the plugin knows its language.
+
+The [TypeScript printer](/plugins/ts-printer/) does two smaller things: the identifiers it makes for
+groups and models get a `_` in front when they start with a digit (`2fa` becomes `_2fa`), and an
+import whose name clashes with one in the file gets a `$` appended.

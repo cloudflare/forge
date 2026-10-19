@@ -1,0 +1,100 @@
+---
+title: CLI
+description: "Reference for the forge and forge-plugin commands: arguments, options, environment variables and exit status."
+sidebar:
+  order: 1
+---
+
+## forge
+
+Generates files from an OpenAPI document with a target.
+
+```text
+forge --target <TARGET> --out <OUT> <SPEC>
+```
+
+| Argument            | Meaning                                                                    |
+| ------------------- | -------------------------------------------------------------------------- |
+| `<SPEC>`            | The OpenAPI JSON document, or `-` to read it from standard input.          |
+| `--target <TARGET>` | `ts` for the [TypeScript SDK](/targets/typescript/), `mcp` for the [MCP server](/targets/mcp/), or `wasm://PATH` for the [plugin](/plugins/overview/) compiled to a WebAssembly component at `PATH`. |
+| `--out <OUT>`       | The directory to write to. Created if it does not exist.                   |
+| `--help`            | Prints help.                                                               |
+| `--version`         | Prints the version.                                                        |
+
+Both `--target` and `--out` are required. `PATH` in `wasm://PATH` is a file path, relative to the
+working directory or absolute (`wasm:///opt/plugins/docs.wasm`).
+
+```sh
+forge openapi.json --target ts --out sdk
+forge - --target mcp --out server < openapi.json
+forge openapi.json --target wasm://plugin.wasm --out out
+```
+
+### Output
+
+Files are written under `--out`, creating directories as needed. Existing files with the same paths
+are overwritten; **other files are left alone**, so remove the directory first to regenerate from
+scratch. A file with no content is not written. Nothing is written if the document, the plugin, or
+any file's content fails.
+
+With `wasm://`, the plugin is compiled while the document is read, in parallel.
+
+### Exit status
+
+| Status | Meaning                                                                       |
+| ------ | ----------------------------------------------------------------------------- |
+| `0`    | Generated.                                                                    |
+| `1`    | An error: a missing or invalid document, a plugin failure, or a write failure. The message is on standard error, after `forge: `. |
+| `2`    | Invalid arguments, such as a missing `--out` or an unknown target.            |
+
+### Environment
+
+| Variable       | Meaning                                                                   |
+| -------------- | ------------------------------------------------------------------------- |
+| `FORGE_BINARY` | Read by the npm launcher, `bin/forge.cjs`: the native binary to run instead of the one for this platform. |
+
+### Without WebAssembly support
+
+A `forge` built with Cargo without the `wasm` feature rejects `wasm://`:
+
+```text
+error: invalid value 'wasm://plugin.wasm' for '--target <TARGET>': this forge was built without wasm plugins; build it with `--features wasm`
+```
+
+The npm package's binaries are built with it.
+
+## forge-plugin
+
+Builds JavaScript and TypeScript plugins, and prints the WIT for plugins in other languages. Ships in
+`@cloudflare/forge`.
+
+```text
+forge-plugin build <entry> [--out plugin.wasm]
+forge-plugin wit
+```
+
+### build
+
+Bundles the entry module and its imports, and compiles them with QuickJS into a WebAssembly
+component of the `plugin` world. The entry is a `.ts` or `.js` file that exports `generate` and
+`generateGroup`, from [`definePlugin`](/plugins/typescript/).
+
+| Option  | Meaning                                                    |
+| ------- | ---------------------------------------------------------- |
+| `--out` | The component to write. Defaults to `plugin.wasm`.         |
+
+It needs `@bytecodealliance/jco`, found in the entry's project or next to `@cloudflare/forge`:
+
+```text
+forge-plugin: building a plugin needs jco; run npm install --save-dev @bytecodealliance/jco
+```
+
+### wit
+
+Prints the WIT that plugins are built against to standard output:
+
+```sh
+npx forge-plugin wit > wit/forge.wit
+```
+
+See the [WIT reference](/reference/wit/).

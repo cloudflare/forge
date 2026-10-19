@@ -1,0 +1,86 @@
+---
+title: Introduction
+description: What Forge is, the problem it solves, how it is put together, and how much of it exists today.
+sidebar:
+  order: 1
+---
+
+Forge is a schema-first code generator. It reads an [OpenAPI](https://spec.openapis.org/oas/latest.html)
+document, builds one typed, language-neutral model of it, and hands that model to **plugins** that
+write files: SDKs, CLIs, MCP servers, documentation, or anything else you can derive from an API
+description.
+
+It is open source under the Apache 2.0 license, and it is what Cloudflare uses to generate the
+surfaces of its own API, starting with the [`cf` CLI](https://blog.cloudflare.com/cloudflare-cf-cli-launch/).
+
+## The problem
+
+An API with thousands of operations, owned by hundreds of teams, needs the same set of surfaces kept
+in step with every change: an SDK per language, a CLI, an MCP server, reference docs. Generators
+exist for each of those, but each one re-reads the document its own way, disagrees with the others
+about edge cases, and is hard to extend past the targets its authors chose.
+
+Forge splits the work in two:
+
+- **The shared part** is done once, in Forge's core. It parses the document, follows every `$ref`,
+  decides which operations are methods and how they are grouped, turns schemas into types, places
+  each model in the group that uses it, and reports every problem in the document at once.
+- **The language part** is done by plugins. A plugin never sees JSON Schema or OpenAPI. It sees
+  groups, methods, models and types, and returns a list of files.
+
+## Pluggable by design
+
+The generators that ship with Forge are plugins. The TypeScript SDK and the MCP server implement
+the same two-method interface that you will, and read the same model through the same API. There is
+no privileged internal representation that only built-in targets can reach.
+
+You can write a plugin three ways:
+
+| How                      | Language                     | Runs as                                                                |
+| ------------------------ | ---------------------------- | ---------------------------------------------------------------------- |
+| A WebAssembly component  | TypeScript or JavaScript     | `--target wasm://plugin.wasm`, built with `forge-plugin build`         |
+| A WebAssembly component  | Rust, or any component language | `--target wasm://plugin.wasm`, built for `wasm32-wasip2`            |
+| Native, in Rust          | Rust                         | A built-in `--target`, or your own binary that uses Forge as a library |
+
+A WebAssembly plugin is a single file. It runs sandboxed, with no access to files, the network or
+the environment, so you can run one you did not write. See [writing plugins](/plugins/overview/).
+
+## How it fits together
+
+Forge is a Rust crate with a command on top:
+
+1. **Read.** `forge openapi.json` parses the document into arenas of its objects, keeping only what
+   it needs.
+2. **Link.** It walks the operations under `paths`, follows `$ref`s, builds the type of every
+   parameter, body and response, and turns the schemas they reach into models. Every error is
+   collected and reported together.
+3. **Run.** It calls the plugin's `generate` once for the whole document, then `generate_group` for
+   every group, in parallel.
+4. **Write.** It checks every path the plugin returned, renders every file, and only then writes
+   them to `--out`.
+
+[The pipeline](/concepts/pipeline/) has the detail.
+
+## What exists today
+
+Forge is early. It is being built for Cloudflare's own SDKs first and opened up as it goes, so
+expect the model and the plugin interface to grow.
+
+Today:
+
+- **Input:** OpenAPI 3.0, 3.1 and 3.2, as JSON.
+- **Built-in targets:** a TypeScript SDK (`ts`) and a Rust MCP server (`mcp`).
+- **Plugins:** WebAssembly components against a published WIT, with first-class libraries for
+  TypeScript authors, and native plugins in Rust.
+- **Docs:** Astro packages that render API reference documentation from a Forge-annotated document.
+
+On the way, as Cloudflare ships them for its own API: more language targets (Go, Python, Rust and
+others), Terraform, and generated documentation for each. The design also leaves room for other
+input formats and for chaining one target's output into another, which is how a CLI can be built
+on top of an SDK; neither exists in the code yet.
+
+## Next
+
+- [Installation](/start/installation/): the npm package, or a build from source.
+- [Quickstart](/start/quickstart/): generate a TypeScript SDK and an MCP server.
+- [Writing plugins](/plugins/overview/): the part that makes Forge yours.

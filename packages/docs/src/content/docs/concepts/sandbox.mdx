@@ -1,0 +1,80 @@
+---
+title: Sandboxing
+description: What a WebAssembly plugin can reach while it runs, how it reads the model, and what Forge checks about the files it returns.
+sidebar:
+  order: 8
+---
+
+A WebAssembly plugin is a component that Forge runs in [Wasmtime](https://wasmtime.dev/). It is a
+good fit for running a generator you did not write: it gets the model and nothing else of yours, and
+the only thing it can do to your disk is return files, which Forge checks before writing.
+
+## What a plugin can reach
+
+| Capability                  | Available | Notes                                                                 |
+| --------------------------- | --------- | --------------------------------------------------------------------- |
+| The model                   | Yes       | Through the `forge` interface of the [WIT](/reference/wit/).          |
+| Standard error              | Yes       | Inherited, so a panic or a log line shows up in your terminal.        |
+| Standard output and input   | No        |                                                                       |
+| Files                       | No        | No directory is mounted; the plugin cannot read the document or write. |
+| Network                     | No        |                                                                       |
+| Environment variables, arguments | No   |                                                                       |
+| Clocks and random numbers   | Yes       | WASI's defaults. Do not let output depend on them.                    |
+
+A plugin's output should be a function of the model. The clock and random numbers are reachable, so
+nothing stops a plugin from writing a timestamp into a file, but that makes every run produce a
+diff. Keep generated output deterministic.
+
+In a JavaScript plugin, `console` is not defined. Throw an error to report a problem; see
+[TypeScript plugins](/plugins/typescript/#errors).
+
+## How the model is read
+
+The model is never copied into the plugin. It stays in Forge's process, and the plugin reads it a
+part at a time: a group, method, model or type is a `u32` id, and `get-group`, `get-method`,
+`get-model` or `get-type` returns the part's data, with ids for the parts inside it. A plugin that
+generates one group's files never pays for the rest of the document.
+
+An id the host never handed out traps the plugin, rather than crashing Forge.
+
+The TypeScript library hides this: `group.methods` fetches each method the first time it is read and
+keeps it until the call ends.
+
+## Instances
+
+Forge compiles the component once, then keeps a pool of instances. `generate` and each
+`generate_group` take an instance from the pool, or make one if none is free, and return it when they
+finish, so groups run in parallel on all your cores without compiling or instantiating the plugin
+again.
+
+Two consequences:
+
+- Calls that run at the same time never share memory.
+- A call can get an instance that an earlier call used, so module-level state may or may not
+  survive from one call to the next. Do not rely on it either way.
+
+An instance whose plugin traps (a Rust panic, for example) is dropped, not returned to the pool.
+
+## What Forge checks
+
+Before writing anything, `forge::write` checks every path the plugin returned: it must be relative,
+use `/`, and have no empty, `.` or `..` parts, and no two files may share it. So a plugin cannot
+write outside `--out`, on any platform:
+
+```text
+forge: "../evil.txt" is not a relative path with `/` separators
+```
+
+A plugin that returns an error, or traps, stops the run before anything is written. See
+[the pipeline](/concepts/pipeline/#4-write).
+
+## What is not limited
+
+Forge does not limit a plugin's memory, and does not time it out. A plugin that loops forever hangs
+the run. In CI, put a timeout on the step.
+
+## Native plugins
+
+All of the above is about WebAssembly. A [Rust library plugin](/plugins/rust/#use-forge-as-a-library)
+is ordinary code in your own binary, with all the access your binary has. Only its paths are checked,
+by `forge::write`.

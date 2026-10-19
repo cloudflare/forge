@@ -1,0 +1,226 @@
+---
+title: Plugin API (TypeScript)
+description: Every type and function exported by @cloudflare/forge/plugin, for writing Forge plugins in TypeScript or JavaScript.
+sidebar:
+  order: 3
+---
+
+`@cloudflare/forge/plugin` is the library [TypeScript plugins](/plugins/typescript/) are written
+with. Its types ship with the package, in `plugin/index.d.ts`. Every property is read-only, and the
+same part of the model is always the same object.
+
+## definePlugin
+
+Turns a plugin's two functions into the exports the host calls:
+
+```ts
+function definePlugin(plugin: Plugin): Exports;
+
+interface Plugin {
+  /** Called exactly once. */
+  generate?(forge: Forge): Iterable<File>;
+  /** Called exactly once for each group, in parallel with other groups. */
+  generateGroup?(group: Group): Iterable<File>;
+}
+
+interface File {
+  /** Relative to the output directory, with `/` separators. */
+  path: string;
+  /** Text, written as UTF-8, or bytes. Empty content is not written. */
+  content: string | Uint8Array;
+}
+```
+
+Export the result from the entry module, under these names:
+
+```ts
+export const { generate, generateGroup } = definePlugin({ /* ... */ });
+```
+
+Throw to fail; the error's `message` is printed.
+
+## The model
+
+What `generate` and `generateGroup` receive, and the parts reachable from it:
+
+```ts
+interface Forge {
+  readonly version: string;
+  readonly description: string;
+  readonly baseUrl: string;
+  /** Every group, depth first. Siblings are sorted by name. */
+  readonly groups: readonly Group[];
+  /** The models in no group. */
+  readonly models: readonly Model[];
+}
+
+interface Group {
+  readonly name: Name;
+  readonly description: string;
+  /** From the top level down, ending with this group's own name. */
+  readonly path: readonly Name[];
+  readonly parent: Group | undefined;
+  readonly children: readonly Group[];
+  readonly descendants: readonly Group[];
+  readonly methods: readonly Method[];
+  readonly models: readonly Model[];
+}
+
+interface Method {
+  readonly name: Name;
+  readonly group: Group;
+  /** As sent, such as `GET`. */
+  readonly httpMethod: string;
+  /** The path template, such as `/accounts/{account_id}`. */
+  readonly path: string;
+  readonly summary: string;
+  readonly description: string;
+  readonly deprecated: boolean;
+  readonly availability: Availability | undefined;
+  readonly hidden: boolean;
+  readonly confirmation: string | undefined;
+  readonly request: Type | undefined;
+  readonly headers: ObjectType | undefined;
+  readonly body: Body | undefined;
+  /** The `2XX` responses, sorted by status. */
+  readonly responses: readonly Response[];
+  /** Every other response, `default` last. */
+  readonly errors: readonly Response[];
+  readonly extensions: readonly (readonly [string, Json])[];
+  extension(name: string): Json | undefined;
+  location(field: Field): Location | undefined;
+}
+
+type Location = { readonly in: 'path' } | { readonly in: 'query'; readonly exploded: boolean };
+type Availability = 'alpha' | 'beta' | 'preview' | 'generally-available' | 'deprecated';
+
+interface Body {
+  readonly required: boolean;
+  readonly description: string;
+  readonly contents: readonly Content[];
+  readonly json: Content | undefined;
+}
+
+interface Response {
+  /** `200`, `4XX` or `default`. */
+  readonly status: string;
+  readonly description: string;
+  readonly contents: readonly Content[];
+  readonly json: Content | undefined;
+}
+
+interface Content {
+  readonly mediaType: string;
+  readonly isJson: boolean;
+  readonly description: string;
+  readonly type: Type;
+}
+
+interface Model {
+  /** Its key in `components.schemas`, or a path such as `Tree/$defs/Node`. */
+  readonly schemaName: string;
+  readonly name: Name;
+  readonly group: Group | undefined;
+  readonly description: string;
+  readonly deprecated: boolean;
+  readonly type: Type;
+  /** The schema name. */
+  toString(): string;
+}
+```
+
+## Types
+
+A type is a union on `kind`:
+
+```ts
+type Type = ScalarType | EnumType | ArrayType | ObjectType | UnionType | IntersectionType | ModelType;
+
+type ScalarType =
+  | { readonly kind: 'scalar'; readonly scalar: 'unknown' | 'null' | 'boolean' | 'string' | 'date-time' | 'date' | 'bytes' | 'binary' }
+  | { readonly kind: 'scalar'; readonly scalar: 'number'; readonly number: NumberFormat };
+
+type NumberFormat =
+  | 'int' | 'int8' | 'int16' | 'int32' | 'int64'
+  | 'uint8' | 'uint16' | 'uint32' | 'uint64'
+  | 'float' | 'double';
+
+interface EnumType {
+  readonly kind: 'enum';
+  readonly values: readonly (string | number | boolean)[];
+}
+
+interface ArrayType {
+  readonly kind: 'array';
+  readonly elem: Type;
+  readonly maxItems: number | undefined;
+}
+
+interface ObjectType {
+  readonly kind: 'object';
+  readonly fields: readonly Field[];
+  /** The type of values under other keys, or undefined if it allows none. */
+  readonly extra: Type | undefined;
+}
+
+interface Field {
+  readonly wireName: string;
+  readonly name: Name;
+  readonly required: boolean;
+  readonly description: string;
+  readonly deprecated: boolean;
+  readonly readOnly: boolean;
+  readonly sensitive: boolean;
+  readonly default: Json | undefined;
+  readonly type: Type;
+}
+
+interface UnionType {
+  readonly kind: 'union';
+  readonly members: readonly Type[];
+  readonly exclusive: boolean;
+  readonly discriminator: Discriminator | undefined;
+}
+
+interface Discriminator {
+  readonly wireName: string;
+  readonly name: Name;
+  readonly cases: readonly (readonly [string, Type])[];
+  readonly default: Model | undefined;
+}
+
+interface IntersectionType {
+  readonly kind: 'intersection';
+  readonly members: readonly Type[];
+}
+
+interface ModelType {
+  readonly kind: 'model';
+  readonly model: Model;
+}
+
+type Json = null | boolean | number | string | readonly Json[] | { readonly [key: string]: Json };
+```
+
+A JSON object's integer-like keys come first, as in any JavaScript object, so an extension's keys
+may not be in the order they are written.
+
+## Names
+
+Every name in the model is a `Name`:
+
+```ts
+interface Name {
+  readonly words: readonly string[];
+  readonly isEmpty: boolean;
+  camel(): string;   // petStore
+  pascal(): string;  // PetStore
+  snake(): string;   // pet_store
+  kebab(): string;   // pet-store
+  equals(other: Name): boolean;
+  /** The words, separated by spaces. */
+  toString(): string;
+}
+```
+
+Compare names with `equals`, not `===`: two names with the same words can be different objects.

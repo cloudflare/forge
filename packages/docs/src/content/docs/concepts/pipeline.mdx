@@ -1,0 +1,101 @@
+---
+title: The pipeline
+description: What happens between reading a document and writing files, in order, and what each step guarantees to a plugin.
+sidebar:
+  order: 1
+---
+
+Every run of Forge is the same four steps, whatever the target. Knowing them tells you what a plugin
+can rely on, and where an error comes from.
+
+```text
+openapi.json ──read──► Doc ──link──► Forge ──run──► files ──write──► --out
+                       (arenas)      (the model)    (Plugin)
+```
+
+## 1. Read
+
+The document is deserialized straight into arenas of its objects: paths, operations, parameters,
+schemas, and so on. Only what Forge uses is kept, so a large document costs little more than the
+parts that matter. Extensions on operations are kept whole, because plugins can read them.
+
+This step catches **structural** errors, the ones where a value has the wrong JSON type: a boolean
+where a string goes, an `x-forge-aliases` that is not an array, a key Forge reads written twice.
+These stop at the first one, with its line and column:
+
+```text
+forge: openapi.json: invalid type: string "yes", expected a boolean at line 1 column 98
+```
+
+## 2. Link
+
+Linking turns the arenas into the [model](/concepts/the-model/). In one pass over `paths`, it:
+
+- decides which operations are **methods**, from their group and method name, and which group each
+  belongs to, creating groups as it meets them;
+- follows every `$ref` to a parameter, body, response, path item or schema;
+- builds the **type** of every parameter, request body and response;
+- turns each schema in `components.schemas` that a method reaches into a **model**;
+- merges each method's path and query parameters, and its body, into one **request** type.
+
+Then it sorts groups and methods by name, attaches group descriptions from `x-forge-commands`, and
+places each model in the deepest group that every method using it shares.
+
+Linking catches **semantic** errors: a `$ref` to nothing, a parameter style that is not covered, two
+methods with the same name in a group. These are collected rather than thrown, so one run reports
+all of them, one per line, each prefixed with where it is:
+
+```text
+forge: openapi.json: GET /a: operationId has a group name with no letters or digits
+GET /b: query parameter "f" has style "deepObject", which is not covered: only form is
+schema "U": fields "user_id" and "userId" have equal names
+```
+
+A plugin never runs on a document with errors. If linking reports anything, Forge stops. See
+[errors](/openapi/errors/).
+
+## 3. Run
+
+The plugin is called in two phases:
+
+1. `generate` is called **once**, with the whole model.
+2. `generate_group` is called **once for each group**, in parallel, with that group.
+
+Every group is visited, including groups that only contain other groups. Nothing is guaranteed about
+the order groups run in, and calls must not share state. A WebAssembly plugin keeps a pool of
+instances: calls running at the same time get different instances, and a finished instance is reused
+by a later call, so module state set by one call may or may not be there in the next. A plugin that needs something from the whole document reads it from the model, which every
+call can reach: `group.parent`, `forge.models` and every model's `group` are all there.
+
+The files come back in a fixed order regardless: `generate`'s first, then each group's, in the
+order of `Forge::groups`, depth first with siblings sorted by name.
+
+## 4. Write
+
+`forge::write` takes the files and an output directory. Before writing anything, it checks every
+path:
+
+- it is relative, uses `/` as its separator, and has no empty, `.` or `..` parts, so it cannot
+  escape the output directory, on any platform;
+- no two files share it.
+
+It then renders every file's content, in parallel, and only once all of them have succeeded does it
+create directories and write. A plugin whose file fails to render leaves the directory untouched. The
+writes run in parallel too, so a write that fails (a full disk, say) can leave other files written.
+
+Writing is additive. It creates the directory and any subdirectories it needs, overwrites files that
+exist, **skips files with no content**, and leaves everything else in the directory alone. Forge does
+not delete stale files; to regenerate from scratch, remove the directory first.
+
+## What a plugin can rely on
+
+- The model is complete and valid: every `$ref` is resolved, every type is built, and every group
+  and method name has at least one letter or digit.
+- Groups and methods are sorted by name, and their order is stable from run to run.
+- `generate` runs before any `generate_group`, and exactly once.
+- Paths are checked for you, and an empty file is a way of saying "nothing to write here".
+
+## Next
+
+- [The model](/concepts/the-model/): what `generate` and `generate_group` receive.
+- [Sandboxing](/concepts/sandbox/): what a WebAssembly plugin can and cannot do while it runs.
