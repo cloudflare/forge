@@ -3,10 +3,10 @@ import { defineFernExtension } from 'astro-fern';
 import { renderDescription } from './description-markdown.ts';
 import {
   canonicalTerraformEndpoint,
-  generatedTerraformDocsSchema,
   indexTerraformDocs,
   renderTerraformDescriptions,
   TERRAFORM_EXTENSION_NAME,
+  terraformDocsSchema,
   terraformOperationDataSchema,
   type TerraformDeclaration,
   type TerraformOperationData,
@@ -15,12 +15,13 @@ import {
 const HTTP_METHODS = ['get', 'post', 'put', 'patch', 'delete', 'head', 'options', 'trace'] as const;
 
 /**
- * Loads the generated docs and renders their Markdown descriptions with the same sanitizing renderer
- * as the OpenAPI descriptions, once at build time, so pages only print HTML.
+ * Loads the generated docs (the root's `generate:terraform-docs` writes them) and renders their Markdown
+ * descriptions with the renderer the OpenAPI descriptions use, once at build time, so pages only
+ * print HTML.
  */
 function loadTerraformIndex(): Map<string, TerraformDeclaration[]> {
   const file = new URL('./generated/terraform-docs.json', import.meta.url);
-  const docs = generatedTerraformDocsSchema.parse(JSON.parse(readFileSync(file, 'utf8')));
+  const docs = terraformDocsSchema.parse(JSON.parse(readFileSync(file, 'utf8')));
   return indexTerraformDocs(renderTerraformDescriptions(docs, renderDescription));
 }
 
@@ -37,8 +38,9 @@ export const cloudflareTerraformExtension = defineFernExtension<
     const known = new Set<string>();
     for (const [endpointPath, pathItem] of Object.entries(document.paths ?? {})) {
       for (const method of HTTP_METHODS) {
-        if ((pathItem as Record<string, unknown> | undefined)?.[method])
+        if ((pathItem as Record<string, unknown> | undefined)?.[method]) {
           known.add(canonicalTerraformEndpoint(method, endpointPath));
+        }
       }
     }
     const missing = [...index.keys()].filter((key) => !known.has(key));

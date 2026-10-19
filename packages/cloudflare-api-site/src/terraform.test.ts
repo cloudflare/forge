@@ -4,16 +4,16 @@ import test from 'node:test';
 import type { FernPageSchema } from 'astro-fern';
 import {
   canonicalTerraformEndpoint,
-  generatedTerraformDocsSchema,
   getTerraformOperationData,
   indexTerraformDocs,
   renderTerraformDescriptions,
   TERRAFORM_EXTENSION_NAME,
   terraformDeclarationLabel,
   terraformEndpointKeys,
+  terraformDocsSchema,
   terraformRolesSummary,
-  type GeneratedTerraformDocs,
   type TerraformDeclaration,
+  type TerraformDocs,
   withTerraformTarget,
 } from './terraform.ts';
 
@@ -69,13 +69,8 @@ test('SDK endpoints match both concrete and merged scope paths', () => {
 
 test('indexTerraformDocs merges roles across endpoint variants and orders declarations', () => {
   const base = { required: [], optional: [], computed: [] };
-  const docs: GeneratedTerraformDocs = {
+  const docs: TerraformDocs = {
     format: 2,
-    source: { provider: { repository: 'https://example.com/provider', version: '1.0.0' }, sdks: [] },
-    stats: { declarations: 2, linkedDeclarations: 2, endpoints: 2, unresolvedCalls: 0 },
-    unlinked: [],
-    undocumented: [],
-    unresolvedCalls: [],
     declarations: {
       'resource:cloudflare_widget': { kind: 'resource', name: 'cloudflare_widget', ...base },
       'data-source:cloudflare_widget': { kind: 'data-source', name: 'cloudflare_widget', ...base },
@@ -105,30 +100,10 @@ test('indexTerraformDocs merges roles across endpoint variants and orders declar
   );
 });
 
-test('the generated file schema rejects links to unknown declarations', () => {
-  const result = generatedTerraformDocsSchema.safeParse({
-    format: 2,
-    source: { provider: { repository: 'https://example.com/provider', version: '1.0.0' }, sdks: [] },
-    stats: { declarations: 0, linkedDeclarations: 0, endpoints: 1, unresolvedCalls: 0 },
-    unlinked: [],
-    undocumented: [],
-    unresolvedCalls: [],
-    declarations: {},
-    endpoints: { 'get /x': [{ declaration: 'resource:missing', roles: ['read'] }] },
-  });
-  assert.equal(result.success, false);
-  assert.deepEqual(result.error?.issues[0]?.path, ['endpoints', 'get /x', 0, 'declaration']);
-});
-
 test('renderTerraformDescriptions renders every description once and keeps the Markdown', () => {
   const field = { name: 'account_id', type: 'String', description: 'Cloudflare account ID' };
-  const docs: GeneratedTerraformDocs = {
+  const docs: TerraformDocs = {
     format: 2,
-    source: { provider: { repository: 'https://example.com/provider', version: '1.0.0' }, sdks: [] },
-    stats: { declarations: 1, linkedDeclarations: 1, endpoints: 0, unresolvedCalls: 0 },
-    unlinked: [],
-    undocumented: [],
-    unresolvedCalls: [],
     declarations: {
       'resource:cloudflare_widget': {
         kind: 'resource',
@@ -153,7 +128,8 @@ test('renderTerraformDescriptions renders every description once and keeps the M
   assert.equal(widget.optional[0]?.children?.[0]?.descriptionHtml, '<p>Cloudflare account ID</p>');
   assert.equal(widget.computed[0]?.descriptionHtml, undefined);
   assert.deepEqual(rendered, ['Accepted Permissions\n\n- `Widget Write`', 'Cloudflare account ID']);
-  assert.equal(docs.declarations['resource:cloudflare_widget']?.required[0]?.descriptionHtml, undefined);
+  // The input is left as it was: rendering adds HTML to a copy.
+  assert.ok(!('descriptionHtml' in (docs.declarations['resource:cloudflare_widget']?.required[0] ?? {})));
 });
 
 test('Terraform operation data remains namespaced on the operation', () => {
@@ -178,7 +154,7 @@ test('withTerraformTarget preserves all declaration examples for agent Markdown'
 
 test('the generated index links every CRUD operation of a resource', async () => {
   const source = await readFile(new URL('./generated/terraform-docs.json', import.meta.url), 'utf8');
-  const index = indexTerraformDocs(generatedTerraformDocsSchema.parse(JSON.parse(source)));
+  const index = indexTerraformDocs(terraformDocsSchema.parse(JSON.parse(source)));
   const roles = (key: string) =>
     index.get(key)?.find(({ kind, name }) => kind === 'resource' && name === 'cloudflare_dns_record')?.roles;
   assert.deepEqual(roles('post /zones/{}/dns_records'), ['create']);

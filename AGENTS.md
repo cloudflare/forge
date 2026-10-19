@@ -7,6 +7,7 @@ API documentation site for Forge OpenAPI specs, built on Astro.
 - **`packages/astro-fern`**: Generic Astro engine for rendering Fern-based API documentation.
 - **`packages/fern-forge`**: `astro-fern` extension that validates and adapts Forge OpenAPI metadata.
 - **`packages/docs-site`**: API documentation website consuming `astro-fern` and `fern-forge`. The OpenAPI spec is fetched from the `openapi.forge.json` GitHub release asset (or a local file via `FORGE_OPENAPI_SPEC`).
+- **`packages/cloudflare-terraform-docs`**: Generator for the site's Terraform documentation data, derived from the released Cloudflare Terraform provider. Temporary: removed once Forge supports Terraform natively (see the site's README).
 
 ## Conventions
 

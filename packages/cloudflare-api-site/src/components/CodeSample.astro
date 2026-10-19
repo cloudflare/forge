@@ -11,9 +11,8 @@ import {
   type RenderedOperationResponseSchema,
   type RenderedResponseExampleSchema,
 } from 'astro-fern/content';
+import { terraformDeclarationLabel, type TerraformOperationData } from '../terraform.ts';
 import { LEGACY_API_VERSION } from '../version.ts';
-import type { TerraformOperationData } from '../terraform.ts';
-import { terraformDeclarationLabel } from '../terraform.ts';
 import CopyableCode from './CopyableCode.astro';
 
 interface Props {

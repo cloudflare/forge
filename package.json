@@ -11,7 +11,8 @@
     "typecheck": "pnpm -r run typecheck",
     "test": "pnpm -r run test",
     "test:e2e": "pnpm --filter astro-fern test:e2e",
-    "build": "pnpm -r run build"
+    "build": "pnpm -r run build",
+    "generate:terraform-docs": "pnpm --filter cloudflare-terraform-docs generate --output ../cloudflare-api-site/src/generated/terraform-docs.json"
   },
   "devDependencies": {
     "@types/node": "26.0.1",

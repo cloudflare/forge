@@ -3,10 +3,10 @@
 #
 # Security model:
 # - `generate` handles untrusted third-party sources. It has read-only permissions, no secrets and
-#   no persisted git credentials. It clones the provider and the cloudflare-go modules its go.mod
-#   requires as plain git data at release tags, and runs the offline generator. The generator
-#   doesn't download or execute anything, and it refuses symlinks and paths outside each checkout.
-#   Only the generated JSON leaves the job, as an artifact.
+#   no persisted git credentials. The generator clones the provider and the cloudflare-go modules
+#   its go.mod requires as plain git data at release tags (symlinks off), and reads them without
+#   executing anything, refusing symlinks and paths outside each checkout. Only the generated JSON
+#   leaves the job, as an artifact.
 # - `pull-request` never sees third-party sources. It commits only the generated file to a bot
 #   branch, opens or updates a PR, and merges it only once every check on it has passed. The
 #   generated file is data that the site renders as escaped text, and the recorded commit SHAs
@@ -69,42 +69,16 @@ jobs:
           echo "changed=$([ "$current" != "$target" ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
           echo "::notice::Terraform provider $current -> $target"
 
-      - name: Fetch pinned sources (data only)
-        if: steps.versions.outputs.changed == 'true'
-        env:
-          TARGET: ${{ steps.versions.outputs.target }}
-        run: |
-          set -euo pipefail
-          sources="$RUNNER_TEMP/terraform-sources"
-          mkdir -p "$sources"
-          clone() { # <repository> <tag> <directory>
-            git -c advice.detachedHead=false -c core.symlinks=false \
-              clone --quiet --depth 1 --no-tags --branch "$2" "https://github.com/cloudflare/$1" "$3"
-            echo "::notice::$1 $2 = $(git -C "$3" rev-parse HEAD)"
-          }
-          clone terraform-provider-cloudflare "v$TARGET" "$sources/provider"
-          args=(--provider-dir "$sources/provider")
-          while read -r module version; do
-            [[ "$module" =~ ^github\.com/cloudflare/cloudflare-go/v[0-9]+$ ]] || { echo "::error::Unexpected module $module"; exit 1; }
-            [[ "$version" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "::error::Unsupported version $module $version"; exit 1; }
-            clone cloudflare-go "$version" "$sources/${module##*/}"
-            args+=(--sdk-dir "$module=$sources/${module##*/}")
-          done < <(grep -E '^\s*github\.com/cloudflare/cloudflare-go/v[0-9]+ ' "$sources/provider/go.mod" | awk '{print $1, $2}')
-          printf '%s\n' "${args[@]}" > "$RUNNER_TEMP/generator-args"
-
       - uses: ./.github/actions/setup-workspace
         if: steps.versions.outputs.changed == 'true'
 
+      # Clones the provider and the cloudflare-go versions it requires (see
+      # packages/cloudflare-terraform-docs/scripts/sources.ts), then generates.
       - name: Generate
         if: steps.versions.outputs.changed == 'true'
-        run: |
-          set -euo pipefail
-          mapfile -t args < "$RUNNER_TEMP/generator-args"
-          pnpm --filter cloudflare-api-site generate:terraform-docs "${args[@]}"
-
-      - name: Test
-        if: steps.versions.outputs.changed == 'true'
-        run: pnpm --filter cloudflare-api-site test
+        env:
+          TARGET: ${{ steps.versions.outputs.target }}
+        run: pnpm generate:terraform-docs --provider-version "$TARGET"
 
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         if: steps.versions.outputs.changed == 'true'
@@ -172,7 +146,7 @@ jobs:
 
           - Provider: \`$CURRENT\` → \`$TARGET\` ([release notes](https://github.com/cloudflare/terraform-provider-cloudflare/releases/tag/v$TARGET))
           - Source commits are recorded under \`source\` in the generated file.
-          - All provider SDK calls resolved; cloudflare-api-site tests passed.
+          - All provider SDK calls resolved; generator and site tests passed.
           EOF
           )"
           number="$(gh pr list --head "$BRANCH" --base "$BASE" --state open --json number --jq '.[0].number // empty')"

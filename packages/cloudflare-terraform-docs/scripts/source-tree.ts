@@ -7,16 +7,13 @@
  * - paths must be relative and may not escape the root (`..`, absolute paths, NUL bytes);
  * - symbolic links are never followed, so a checkout cannot redirect reads to local files
  *   such as `~/.ssh/id_rsa` and leak them into the generated output;
- * - resolved real paths must stay inside the root, which also covers symlinked parent directories;
- * - files are size-capped.
+ * - resolved real paths must stay inside the root, which also covers symlinked parent directories.
  *
  * Nothing in a checkout is executed.
  */
 
 import { lstat, readdir, readFile, realpath, stat } from 'node:fs/promises';
 import path from 'node:path';
-
-const DEFAULT_MAX_BYTES = 4 * 1024 * 1024;
 
 export class SourceTree {
   readonly label: string;
@@ -35,7 +32,9 @@ export class SourceTree {
     } catch (cause) {
       throw new Error(`${label}: ${directory} does not exist`, { cause });
     }
-    if (!(await stat(root)).isDirectory()) throw new Error(`${label}: ${directory} is not a directory`);
+    if (!(await stat(root)).isDirectory()) {
+      throw new Error(`${label}: ${directory} is not a directory`);
+    }
     return new SourceTree(label, root);
   }
 
@@ -60,28 +59,34 @@ export class SourceTree {
   }
 
   /** Reads a UTF-8 file, or returns undefined when it does not exist. Symlinks are rejected. */
-  async readText(relativePath: string, maxBytes = DEFAULT_MAX_BYTES): Promise<string | undefined> {
+  async readText(relativePath: string): Promise<string | undefined> {
     const absolute = this.resolve(relativePath);
-    let info;
-    try {
-      info = await lstat(absolute);
-    } catch (error) {
-      if ((error as NodeJS.ErrnoException).code === 'ENOENT') return undefined;
+    // A missing file is the one error that means "not there"; anything else is a real failure.
+    const info = await lstat(absolute).catch((error: unknown) => {
+      if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+        return undefined;
+      }
       throw error;
+    });
+    if (!info) {
+      return undefined;
     }
-    if (info.isSymbolicLink()) throw new Error(`${this.label}: ${relativePath} is a symbolic link`);
-    if (!info.isFile()) throw new Error(`${this.label}: ${relativePath} is not a regular file`);
-    if (info.size > maxBytes) {
-      throw new Error(`${this.label}: ${relativePath} is ${info.size} bytes (limit ${maxBytes})`);
+    if (info.isSymbolicLink()) {
+      throw new Error(`${this.label}: ${relativePath} is a symbolic link`);
+    }
+    if (!info.isFile()) {
+      throw new Error(`${this.label}: ${relativePath} is not a regular file`);
     }
     await this.assertInside(absolute, relativePath);
     return readFile(absolute, 'utf8');
   }
 
   /** Reads a file that must exist. */
-  async requireText(relativePath: string, maxBytes?: number): Promise<string> {
-    const text = await this.readText(relativePath, maxBytes);
-    if (text === undefined) throw new Error(`${this.label}: missing ${relativePath}`);
+  async requireText(relativePath: string): Promise<string> {
+    const text = await this.readText(relativePath);
+    if (text === undefined) {
+      throw new Error(`${this.label}: missing ${relativePath}`);
+    }
     return text;
   }
 
@@ -92,7 +97,9 @@ export class SourceTree {
   async listFiles(relativeDirectory: string, include: (relativePath: string) => boolean): Promise<string[]> {
     const absolute = this.resolve(relativeDirectory);
     const info = await lstat(absolute).catch(() => undefined);
-    if (!info?.isDirectory()) return [];
+    if (!info?.isDirectory()) {
+      return [];
+    }
     await this.assertInside(absolute, relativeDirectory);
     // Walk explicitly instead of `readdir({ recursive: true })`: on Node 26 it follows
     // symlinked directories, which could escape the checkout. Non-recursive `readdir` entries
@@ -106,7 +113,9 @@ export class SourceTree {
           pending.push(entryPath);
         } else if (entry.isFile()) {
           const relative = path.relative(this.root, entryPath).split(path.sep).join('/');
-          if (include(relative)) files.push(relative);
+          if (include(relative)) {
+            files.push(relative);
+          }
         }
       }
     }
@@ -116,12 +125,20 @@ export class SourceTree {
   /** Commit checked out in this tree, read from `.git` without running git. */
   async gitCommit(): Promise<string | undefined> {
     const head = (await this.readText('.git/HEAD').catch(() => undefined))?.trim();
-    if (!head) return undefined;
-    if (/^[0-9a-f]{40}$/.test(head)) return head;
+    if (!head) {
+      return undefined;
+    }
+    if (/^[0-9a-f]{40}$/.test(head)) {
+      return head;
+    }
     const ref = head.match(/^ref: (refs\/[\w./-]+)$/)?.[1];
-    if (!ref) return undefined;
+    if (!ref) {
+      return undefined;
+    }
     const loose = (await this.readText(`.git/${ref}`).catch(() => undefined))?.trim();
-    if (loose && /^[0-9a-f]{40}$/.test(loose)) return loose;
+    if (loose && /^[0-9a-f]{40}$/.test(loose)) {
+      return loose;
+    }
     const packed = await this.readText('.git/packed-refs').catch(() => undefined);
     return packed?.match(new RegExp(`^([0-9a-f]{40}) ${ref.replaceAll('.', '\\.')}$`, 'm'))?.[1];
   }

@@ -4,6 +4,7 @@ import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 import { parsePackageVersion, parseSdkRequirements } from './generate-terraform-docs.ts';
+import { latestStableVersion } from './sources.ts';
 import { SourceTree } from './source-tree.ts';
 import {
   buildTerraformDocs,
@@ -302,7 +303,6 @@ test('SourceTree confines reads to the checkout and never follows symbolic links
   await mkdir(path.join(root, '.git'), { recursive: true });
   await writeFile(secret, 'TOP SECRET');
   await writeFile(path.join(root, 'examples', 'nested', 'resource.tf'), 'resource "x" "y" {}');
-  await writeFile(path.join(root, 'big.txt'), 'x'.repeat(100));
   await symlink(secret, path.join(root, 'examples', 'leak.tf'));
   await symlink(base, path.join(root, 'examples', 'escape'));
   await writeFile(path.join(root, '.git', 'HEAD'), `${'a'.repeat(40)}\n`);
@@ -314,15 +314,27 @@ test('SourceTree confines reads to the checkout and never follows symbolic links
   await assert.rejects(tree.readText('examples/escape/secret.txt'), /resolves outside the checkout/);
   await assert.rejects(tree.readText('../secret.txt'), /unsafe path/);
   await assert.rejects(tree.readText(secret), /unsafe path/);
-  await assert.rejects(tree.readText('big.txt', 10), /limit 10/);
   assert.deepEqual(await tree.listFiles('examples', () => true), ['examples/nested/resource.tf']);
   assert.equal(await tree.gitCommit(), 'a'.repeat(40));
 });
 
-test('the generator scripts stay offline and never spawn processes', async () => {
+test('only sources.ts uses the network, and it runs nothing but git', async () => {
+  const read = (file) => readFile(new URL(`./${file}`, import.meta.url), 'utf8');
+  // The CLI, the parsers and the confined reader never fetch, spawn or evaluate anything.
   for (const file of ['generate-terraform-docs.ts', 'terraform-provider.ts', 'source-tree.ts']) {
-    const source = await readFile(new URL(`./${file}`, import.meta.url), 'utf8');
+    const source = await read(file);
     assert.doesNotMatch(source, /node:(?:child_process|http|https|net|dgram|worker_threads|vm)\b/, file);
     assert.doesNotMatch(source, /\bfetch\(|\beval\(|new Function\(|\bimport\(/, file);
   }
+  const sources = await read('sources.ts');
+  assert.doesNotMatch(sources, /\beval\(|new Function\(|\bimport\(|\b(?:exec|spawn|fork)(?:Sync)?\(|shell:/);
+  assert.deepEqual(
+    [...sources.matchAll(/\bexecFileSync\(\s*'([^']+)'/g)].map(([, command]) => command),
+    ['git'],
+  );
+});
+
+test('latestStableVersion uses semver order and skips prereleases', () => {
+  assert.equal(latestStableVersion(['5.9.0', '4.52.5', '5.27.0', '5.10.1', '5.28.0-beta.1']), '5.27.0');
+  assert.equal(latestStableVersion(['6.0.0-rc.1']), undefined);
 });

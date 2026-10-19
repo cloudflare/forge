@@ -1,0 +1,17 @@
+{
+  "name": "cloudflare-terraform-docs",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "generate": "node --experimental-strip-types scripts/generate-terraform-docs.ts",
+    "test": "node --experimental-strip-types --test \"scripts/*.test.ts\" \"scripts/*.test.mjs\"",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@types/node": "25.3.5",
+    "typescript": "5.9.3"
+  }
+}

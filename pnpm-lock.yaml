@@ -264,6 +264,19 @@ importers:
         specifier: 5.9.3
         version: 5.9.3
 
+  packages/cloudflare-terraform-docs:
+    dependencies:
+      zod:
+        specifier: ^4.3.6
+        version: 4.4.3
+    devDependencies:
+      '@types/node':
+        specifier: 25.3.5
+        version: 25.3.5
+      typescript:
+        specifier: 5.9.3
+        version: 5.9.3
+
   packages/fern-forge:
     devDependencies:
       '@types/node':
