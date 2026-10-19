@@ -1,0 +1,94 @@
+---
+title: Generating in CI
+description: Regenerate an SDK on every change to the OpenAPI document, fail the build when the committed output is stale, and pin the Forge version.
+sidebar:
+  order: 1
+---
+
+Generated code is easiest to trust when CI regenerates it and checks the result. This guide sets up
+a check that fails when the committed SDK does not match the document, with GitHub Actions; the same
+steps work in any CI.
+
+## Pin the version
+
+`@cloudflare/forge` is installed from pkg.pr.new, by branch, pull request or commit. A branch moves;
+a commit does not. Pin a commit in `package.json`, so a new Forge changes your output only when you
+choose:
+
+```json title="package.json"
+{
+  "devDependencies": {
+    "@cloudflare/forge": "https://pkg.pr.new/cloudflare/forge/@cloudflare/forge@<sha>"
+  },
+  "scripts": {
+    "generate": "rm -rf sdk && forge openapi.json --target ts --out sdk"
+  }
+}
+```
+
+Remove the output first: Forge overwrites files but never deletes ones it no longer generates, so a
+removed group would otherwise leave its files behind.
+
+## Check the output
+
+Regenerate, then fail if anything changed:
+
+```yaml title=".github/workflows/sdk.yml"
+name: SDK
+on: [push, pull_request]
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 26
+      - run: npm ci
+      - run: npm run generate
+      - run: git diff --exit-code -- sdk
+      - run: npx tsc --noEmit
+```
+
+The last step type-checks the SDK with your project's `tsconfig.json`; the SDK writes none of its
+own.
+
+`git diff --exit-code` fails with the diff in the log when the document changed and the SDK was not
+regenerated. Untracked new files are not in `git diff`; add `git status --porcelain -- sdk` and fail
+on output if new groups matter to you.
+
+The `timeout-minutes` matters for plugins: Forge does not time out a WebAssembly plugin, so one that
+loops would hold the job.
+
+## Plugins in CI
+
+Build the plugin in the same job, before generating, so the check always runs the plugin as it is in
+the commit:
+
+```yaml
+      - run: npx forge-plugin build plugins/docs.ts --out plugins/docs.wasm
+      - run: rm -rf docs/api && npx forge openapi.json --target wasm://plugins/docs.wasm --out docs/api
+```
+
+A Rust plugin needs `rustup target add wasm32-wasip2` first.
+
+## Forge from source
+
+To run an unreleased Forge, build it with the `wasm` feature if you run plugins:
+
+```sh
+cargo install --git https://github.com/cloudflare/forge --features wasm
+```
+
+Or point the npm launcher at any binary with `FORGE_BINARY`:
+
+```sh
+FORGE_BINARY=/path/to/forge npx forge openapi.json --target ts --out sdk
+```
+
+## Errors fail the job
+
+Forge exits with status 1 for any error in the document or plugin, and prints every document error
+at once, so the log is a complete list of what to fix. See [errors](/openapi/errors/).

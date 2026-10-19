@@ -1,0 +1,194 @@
+---
+title: TypeScript plugins
+description: Write a Forge plugin in TypeScript or JavaScript with definePlugin, build it into a WebAssembly component, and run it with forge --target wasm://.
+sidebar:
+  order: 2
+---
+
+A TypeScript plugin is one module that exports `generate` and `generateGroup`, made by
+`definePlugin`. `forge-plugin build` bundles it with its dependencies and compiles it, with QuickJS
+inside, into a WebAssembly component that `forge` runs.
+
+## Set up
+
+Install Forge and jco, the Bytecode Alliance's JavaScript component toolchain, which `forge-plugin
+build` uses. jco is large and only plugin authors need it, so it is an optional peer dependency
+rather than a dependency:
+
+<PackageManagers
+  pkg="https://pkg.pr.new/cloudflare/forge/@cloudflare/forge@main @bytecodealliance/jco"
+  dev
+/>
+
+## A first plugin
+
+This one writes a Markdown page per group, with a table of its methods:
+
+```ts title="plugin.ts"
+import { definePlugin, type Method } from '@cloudflare/forge/plugin';
+
+function row(m: Method): string {
+  return `| \`${m.name.camel()}\` | \`${m.httpMethod} ${m.path}\` | ${m.summary} |`;
+}
+
+export const { generate, generateGroup } = definePlugin({
+  generate(forge) {
+    return [{ path: 'README.md', content: `${forge.description}\n\nVersion ${forge.version}.\n` }];
+  },
+
+  generateGroup(group) {
+    if (group.methods.length === 0) return [];
+    const lines = [
+      `# ${group.path.map((n) => n.pascal()).join(' / ')}`,
+      '',
+      '| Method | HTTP | Summary |',
+      '| --- | --- | --- |',
+      ...group.methods.map(row),
+    ];
+    const path = group.path.map((n) => n.kebab()).join('/');
+    return [{ path: `${path}.md`, content: lines.join('\n') + '\n' }];
+  },
+});
+```
+
+Build and run it:
+
+```sh
+npx forge-plugin build plugin.ts --out plugin.wasm
+npx forge openapi.json --target wasm://plugin.wasm --out docs
+```
+
+Building takes about half a second, and the component is about 1.8 MB, most of it the JavaScript
+engine. `--out` defaults to `plugin.wasm`.
+
+The exports must be called `generate` and `generateGroup`, which is why the example destructures
+them. Either function in the object passed to `definePlugin` can be left out.
+
+## The API
+
+`@cloudflare/forge/plugin` mirrors the [model](/concepts/the-model/), as plain read-only objects
+and arrays:
+
+```ts
+forge.version; forge.description; forge.baseUrl;
+forge.groups;           // every group, depth first
+forge.models;           // the top-level models
+
+group.name; group.path; group.description; group.parent; group.children;
+group.descendants; group.methods; group.models;
+
+method.name; method.group; method.httpMethod; method.path;
+method.summary; method.description;
+method.request;         // Type | undefined
+method.location(field); // { in: 'path' } | { in: 'query', exploded } | undefined
+method.headers;         // ObjectType | undefined
+method.body;            // { required, description, contents, json }
+method.responses; method.errors;
+method.deprecated; method.availability; method.hidden; method.confirmation;
+method.extension('x-my-cli'); method.extensions;
+
+model.name; model.schemaName; model.group; model.description; model.deprecated; model.type;
+```
+
+Types are a union on `kind`. A `switch` with no `default` is checked for exhaustiveness, so a plugin
+that compiles handles every type:
+
+```ts
+import type { Type } from '@cloudflare/forge/plugin';
+
+function ts(type: Type): string {
+  switch (type.kind) {
+    case 'scalar':
+      return type.scalar === 'number' ? 'number' : type.scalar === 'null' ? 'null' : 'string';
+    case 'enum':
+      return type.values.map((v) => JSON.stringify(v)).join(' | ');
+    case 'array':
+      return `${ts(type.elem)}[]`;
+    case 'object':
+      return `{ ${type.fields.map((f) => `${f.wireName}${f.required ? '' : '?'}: ${ts(f.type)}`).join('; ')} }`;
+    case 'union':
+      return type.members.map(ts).join(' | ');
+    case 'intersection':
+      return type.members.map(ts).join(' & ');
+    case 'model':
+      return type.model.name.pascal();
+  }
+}
+```
+
+A scalar's `scalar` is one of `unknown`, `null`, `boolean`, `string`, `number`, `date-time`, `date`,
+`bytes` or `binary`; a number also has `number`, its [format](/concepts/types/#numbers), such as
+`int64`. Names have `camel()`, `pascal()`, `snake()`, `kebab()`, `words` and `equals()`; see
+[names](/concepts/names/).
+
+### Reading lazily
+
+The model stays in Forge's process. Each part is fetched from the host the first time the plugin
+reads it, and kept until the call ends, so reading a part twice is free, and the same part is
+always the same object. Compare groups, methods and models with `===`, and use them as `Map` keys.
+
+A plugin that only reads `group.methods` never pays for the types of their responses.
+
+## Files
+
+A file is `{ path, content }`. The path is relative to the output directory and uses `/`. The content
+is a string, written as UTF-8, or a `Uint8Array`. A file with empty content is not written, so a
+plugin can return a file unconditionally and let it disappear when there is nothing in it.
+
+Return any iterable: an array, or a generator function.
+
+```ts
+generateGroup: function* (group) {
+  for (const method of group.methods) {
+    yield { path: `${method.name.kebab()}.md`, content: method.description };
+  }
+},
+```
+
+For TypeScript output, [the TypeScript printer](/plugins/ts-printer/) builds files that work out
+their own imports, and returns them in this shape.
+
+## Errors
+
+Throw to fail. Forge stops before writing anything, prints the error's message, and exits with
+status 1:
+
+```ts
+if (!forge.baseUrl) throw new Error('the document has no servers');
+```
+
+```text
+forge: the document has no servers
+```
+
+There is no `console` in the sandbox, so throwing is also the way to see a value while debugging:
+`throw new Error(JSON.stringify(group.path.map(String)))`.
+
+## Things to know
+
+<Aside type="caution" title="generate must be synchronous">
+`generate` and `generateGroup` must return their files, not a promise. An `async` function returns a
+`Promise`, which is not iterable as files: it currently yields no files, with no error. There is no
+I/O to await in the sandbox anyway.
+</Aside>
+
+- **No module state between calls.** Groups run in parallel in a pool of instances, and an instance
+  can be reused by a later call. Keep state in local variables, and read anything shared from the
+  model. See [sandboxing](/concepts/sandbox/#instances).
+- **QuickJS, not Node.** The engine is QuickJS: modern JavaScript, but no Node or web APIs beyond
+  the language's own. `Date`, `Math`, `JSON`, `Map` and regular expressions are there; `fs`, `fetch`,
+  `process`, `TextEncoder` and `console` are not.
+- **Dependencies are bundled.** Import npm packages that are plain JavaScript, such as a template
+  engine or a casing library, and the build bundles them in. Packages that use Node APIs will not
+  work.
+- **Do not mention `process`.** jco treats a reference to `process`, even `typeof process`, as a
+  request for Node shims. The build fails, and it also adds an import to the `forge.wit` inside
+  `node_modules/@cloudflare/forge/plugin/`, after which every build fails. Reinstall the package to
+  repair it.
+- **TypeScript is stripped, not checked.** Run `tsc --noEmit` yourself to type-check.
+
+## Next
+
+- [The TypeScript printer](/plugins/ts-printer/): for plugins that write TypeScript.
+- [Testing plugins](/plugins/testing/).
+- [Plugin API reference](/reference/plugin-api/).

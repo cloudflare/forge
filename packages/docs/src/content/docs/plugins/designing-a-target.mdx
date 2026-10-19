@@ -1,0 +1,118 @@
+---
+title: Designing a target
+description: The decisions every Forge generator makes about layout, naming, requests, types and errors, and how the built-in TypeScript and MCP targets make them.
+sidebar:
+  order: 7
+---
+
+The model takes care of OpenAPI. What is left is design: what your output should look like to the
+people who use it. This page lists the decisions every target makes, and how the two built-in
+targets make them, so you can copy or deliberately differ.
+
+## Layout: one file, or one per group?
+
+The model is a tree, so the natural layout is a directory or module per group. The TypeScript
+target writes a `client.ts`, `models.ts` and `index.ts` per group, and the root's in `generate`.
+Each group's files are written in parallel, and [model placement](/concepts/models/) means each
+group's models can import from above, never sideways.
+
+Some outputs are one artifact. The MCP target writes a single `tools.rs` listing every tool, so it
+does everything in `generate` and nothing per group. Docs sites, route tables and CLIs often want
+the same. Use `generate` for that, and read the groups from `forge.groups()`.
+
+## Naming
+
+Decide a casing for each kind of identifier, and spell [names](/concepts/names/) in it.
+
+| Thing          | TypeScript                 | MCP                                    |
+| -------------- | -------------------------- | -------------------------------------- |
+| Group          | `camelCase` property and directory | Part of the tool name          |
+| Method         | `camelCase` function       | `snake_case`, joined to the group path: `accounts_members_list` |
+| Model          | `PascalCase` type          | A `$defs` entry, by schema name         |
+| Field          | `camelCase`, mapped to the wire name by a codec | The wire name, as sent |
+
+Then decide what happens when two names collide **in your output**. Forge catches collisions within
+a group or object, but a target that flattens the tree can create new ones: the MCP target joins
+group and method names, so `a.b_c` and `a_b.c` would both be `a_b_c`. It checks for that and fails
+with both names. Your target should too.
+
+Reserved words are yours to handle. A method named `delete` is fine as a TypeScript property but
+not as a Rust function.
+
+## The request
+
+[`method.request()`](/concepts/requests-and-responses/) is a single type for everything a caller
+passes, and `location()` routes each field. Most targets take it as one argument. Decide:
+
+- **Flat or nested body?** Forge already merges an object body into the request when it can, and
+  falls back to a `body` field. The TypeScript target follows that exactly; so does the MCP target,
+  for tool arguments.
+- **Headers.** They are apart from the request. The TypeScript client sets `Authorization` from a
+  token and lets a caller pass other headers per call. The MCP server skips any method with a
+  required header, since it cannot send one yet.
+- **Read-only fields.** A model is the same in requests and responses. The MCP target leaves
+  `readOnly` fields out of tool input schemas; the TypeScript target keeps one interface for both.
+- **Non-JSON bodies.** Every media type is typed, but supporting `multipart/form-data` or raw
+  uploads is work. The MCP target skips methods whose body has no JSON content; the TypeScript target
+  types them as `unknown`.
+
+## Types
+
+Map the [seven kinds](/concepts/types/) and nine scalars. The TypeScript target's choices:
+
+| Model                       | TypeScript                |
+| --------------------------- | ------------------------- |
+| `Unknown`                   | `unknown`                 |
+| `Number(Int64)`             | `bigint`                  |
+| any other `Number`          | `number`                  |
+| `DateTime` / `Date`         | `Temporal.Instant` / `Temporal.PlainDate` |
+| `Bytes`                     | `Uint8Array`              |
+| `Binary`                    | `string`                  |
+| `Union`                     | `A \| B`                  |
+| `Intersection`              | `A & B`                   |
+| An object with no fields    | a map, `{ [key: string]: T }` |
+
+When the wire type and the language type differ, as for `bigint`, `Temporal` and `Uint8Array`, a
+target needs a codec that converts on the way in and out. The TypeScript target generates one per
+model only when it has something to convert, so `PetCodec` maps `born_at` to `bornAt` and decodes
+an instant, while a model of strings has none.
+
+The MCP target maps types back to JSON Schema instead, with models in `$defs` and referenced by
+`$ref`, so recursive models work.
+
+## Errors
+
+`method.errors()` lists the declared non-`2XX` responses. The TypeScript target throws an `ApiError`
+with the `status`, the `response`, and `details`, which is the body decoded as the error the API
+declares for that status. The MCP server returns a tool error to the client, with the status and
+the response body as text, so an agent can read what went wrong.
+
+## Safety and lifecycle metadata
+
+Forge carries metadata for agents and CLIs; use it:
+
+- `is_hidden()`: leave it out of listings. The MCP target skips hidden methods entirely.
+- `confirmation()`: the MCP target marks the tool destructive and appends the sentence to its
+  description; a CLI might prompt.
+- `is_deprecated()`: the TypeScript target writes `@deprecated` in the doc comment of deprecated
+  methods, models and fields; the MCP target adds "Deprecated." to the description.
+- `availability()`: neither built-in target uses it yet. A docs site might badge beta methods; a CLI
+  might hide alpha ones behind a flag.
+- The HTTP method: the MCP target derives `readOnlyHint`, `destructiveHint` and `idempotentHint`
+  from it, so `GET` is read-only and `DELETE` is destructive.
+
+## Your own extensions
+
+When a target needs data the model does not have, such as a CLI's table columns, add an `x-`
+extension to the operations and read it with [`method.extension()`](/concepts/groups-and-methods/#extensions-for-plugins).
+Validate it in the plugin and fail with the method's path when it is wrong; Forge does not know its
+shape.
+
+## Determinism
+
+Generated code is reviewed as diffs. Keep output stable:
+
+- Sort what the model leaves unsorted: fields, union members, a group's models. The TypeScript
+  target sorts fields by wire name and models by schema name.
+- Do not write timestamps or versions of the generator into files.
+- Write a "generated, do not edit" header. Both built-in targets do.

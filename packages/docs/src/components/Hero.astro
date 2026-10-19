@@ -1,0 +1,163 @@
+---
+/**
+ * The landing page hero.
+ *
+ * Nimbus has no splash template -- `mode: custom` gives a bare `<main>` and the page composes what
+ * it wants -- so the hero is an ordinary component used from the top of `index.mdx`.
+ *
+ * The layout is Cloudflare's own marketing pattern: an eyebrow, a large headline, one sentence of
+ * tagline, two buttons, and the figure underneath. The orange is spent on the primary button and
+ * the eyebrow's dot and nowhere else, so the call to action stays the brightest thing on screen.
+ */
+import { LinkButton } from '@/components/ui/link-button';
+
+interface Props {
+	/** The `<h1>`. */
+	title: string;
+	tagline: string;
+	/** A short label above the headline. */
+	eyebrow?: string;
+}
+
+const { title, tagline, eyebrow } = Astro.props;
+const hasFigure = Astro.slots.has('default');
+---
+
+<section class="fg-hero">
+	<div class="fg-hero-grid" aria-hidden="true"></div>
+	<div class="fg-hero-inner">
+		{
+			eyebrow && (
+				<p class="fg-hero-eyebrow">
+					<span class="fg-hero-dot" />
+					{eyebrow}
+				</p>
+			)
+		}
+		<h1 class="fg-hero-title">{title}</h1>
+		<p class="fg-hero-tagline">{tagline}</p>
+		<div class="fg-hero-actions">
+			<LinkButton href="/start/quickstart/" variant="primary" size="lg" icon class="font-semibold">
+				Get started
+			</LinkButton>
+			<LinkButton href="/plugins/overview/" variant="outline" size="lg">
+				Write a plugin
+			</LinkButton>
+			<LinkButton
+				href="https://github.com/cloudflare/forge"
+				variant="ghost"
+				size="lg"
+				target="_blank"
+				rel="noopener"
+			>
+				GitHub
+			</LinkButton>
+		</div>
+		{
+			hasFigure && (
+				<div class="fg-hero-figure">
+					<slot />
+				</div>
+			)
+		}
+	</div>
+</section>
+
+<style>
+	.fg-hero {
+		position: relative;
+		/* Clip the grid's horizontal bleed without creating a stacking context. */
+		overflow-x: clip;
+		border-bottom: 1px solid var(--nb-border);
+	}
+
+	/*
+	 * A faint engineering grid behind the copy, faded out towards the edges. It gives the band an
+	 * edge to sit on without a fill, and it is the same in both schemes because it is drawn in the
+	 * border token.
+	 */
+	.fg-hero-grid {
+		position: absolute;
+		inset: 0;
+		z-index: -1;
+		background-image:
+			linear-gradient(var(--nb-border) 1px, transparent 1px),
+			linear-gradient(90deg, var(--nb-border) 1px, transparent 1px);
+		background-size: 2.5rem 2.5rem;
+		background-position: center top;
+		mask-image: radial-gradient(70% 80% at 50% 0%, #000 0%, transparent 85%);
+	}
+
+	.fg-hero-inner {
+		margin-inline: auto;
+		width: 100%;
+		max-width: var(--fg-landing-max);
+		padding: 4.5rem 1rem 3.5rem;
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		text-align: center;
+	}
+
+	.fg-hero-eyebrow {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.5rem;
+		margin: 0 0 1.25rem;
+		padding: 0.3rem 0.75rem;
+		border: 1px solid var(--nb-border-strong);
+		border-radius: 999px;
+		background: var(--nb-card);
+		font-size: 0.8125rem;
+		font-weight: 500;
+		color: var(--nb-muted-foreground);
+	}
+
+	.fg-hero-dot {
+		width: 0.5rem;
+		height: 0.5rem;
+		border-radius: 999px;
+		background: var(--fg-orange);
+	}
+
+	.fg-hero-title {
+		margin: 0;
+		max-width: 18ch;
+		font-size: clamp(2.5rem, 6vw, 4.25rem);
+		font-weight: 700;
+		line-height: 1.04;
+		letter-spacing: -0.035em;
+		text-wrap: balance;
+		color: var(--nb-foreground);
+	}
+
+	.fg-hero-tagline {
+		margin: 1.25rem 0 0;
+		max-width: 40rem;
+		font-size: 1.1875rem;
+		line-height: 1.6;
+		text-wrap: pretty;
+		color: var(--nb-muted-foreground);
+	}
+
+	.fg-hero-actions {
+		margin-top: 2rem;
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		justify-content: center;
+		gap: 0.75rem;
+	}
+
+	.fg-hero-figure {
+		margin-top: 3.5rem;
+		width: 100%;
+		text-align: left;
+	}
+
+	@media (max-width: 40rem) {
+		.fg-hero-inner {
+			padding-top: 3rem;
+		}
+	}
+</style>

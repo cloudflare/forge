@@ -1,0 +1,245 @@
+---
+title: Rust API
+description: The public API of the forge crate at a glance (the model, types, plugins and the TypeScript printer) with pointers to the full rustdoc.
+sidebar:
+  order: 2
+---
+
+This page lists the public API of the `forge` crate. The rustdoc on each item is the complete
+reference, including every OpenAPI rule; build it with:
+
+```sh
+cargo doc --no-deps --features wasm --open
+```
+
+## Features
+
+| Feature | Default | Enables                                                              |
+| ------- | ------- | -------------------------------------------------------------------- |
+| `cli`   | yes     | The `forge` binary. Turn it off with `default-features = false` in a library. |
+| `wasm`  | no      | `forge::wasm`, which runs WebAssembly plugins with Wasmtime.         |
+
+## Reading a document
+
+`Forge` implements `serde::Deserialize`. Linking happens during deserialization; a document with
+errors fails with every error, one per line, in the message.
+
+```rust
+let forge: forge::Forge = serde_json::from_slice(&bytes)?;
+```
+
+## The model
+
+The forge and its groups, methods and models, with the enums they use:
+
+```rust
+pub struct Forge {
+    pub version: String,
+    pub description: String,
+    pub base_url: String,
+    /* private */
+}
+impl Forge {
+    pub fn groups(&self) -> impl Iterator<Item = Group<'_>>;          // depth first
+    pub fn models(&self) -> impl ExactSizeIterator<Item = Model<'_>>; // top level
+}
+
+impl<'f> Group<'f> {            // Copy, Eq, Hash
+    pub fn name(self) -> &'f Name;
+    pub fn description(self) -> &'f str;
+    pub fn path(self) -> impl ExactSizeIterator<Item = &'f Name> + DoubleEndedIterator;
+    pub fn parent(self) -> Option<Group<'f>>;
+    pub fn children(self) -> impl ExactSizeIterator<Item = Group<'f>>;
+    pub fn descendants(self) -> impl Iterator<Item = Group<'f>>;
+    pub fn methods(self) -> impl ExactSizeIterator<Item = Method<'f>>;
+    pub fn models(self) -> impl ExactSizeIterator<Item = Model<'f>>;
+}
+
+impl<'f> Method<'f> {           // Copy, Eq, Hash
+    pub fn name(self) -> &'f Name;
+    pub fn group(self) -> Group<'f>;
+    pub fn http_method(self) -> &'f HttpMethod;
+    pub fn path(self) -> &'f str;
+    pub fn summary(self) -> &'f str;
+    pub fn description(self) -> &'f str;
+    pub fn is_deprecated(self) -> bool;
+    pub fn availability(self) -> Option<Availability>;
+    pub fn is_hidden(self) -> bool;
+    pub fn confirmation(self) -> Option<&'f str>;
+    pub fn request(self) -> Option<Type<'f>>;
+    pub fn location(self, field: Field<'f>) -> Option<Location>;
+    pub fn headers(self) -> Option<Object<'f>>;
+    pub fn body(self) -> Option<Body<'f>>;
+    pub fn responses(self) -> impl ExactSizeIterator<Item = Response<'f>>;
+    pub fn errors(self) -> impl ExactSizeIterator<Item = Response<'f>>;
+    pub fn extension(self, name: &str) -> Option<&'f Json>;
+    pub fn extensions(self) -> impl ExactSizeIterator<Item = (&'f str, &'f Json)>;
+}
+
+impl<'f> Model<'f> {            // Copy, Eq, Hash, Display (the schema name)
+    pub fn schema_name(self) -> &'f str;
+    pub fn name(self) -> &'f Name;
+    pub fn group(self) -> Option<Group<'f>>;
+    pub fn description(self) -> &'f str;
+    pub fn is_deprecated(self) -> bool;
+    pub fn ty(self) -> Type<'f>;
+}
+
+pub enum HttpMethod { Get, Put, Post, Delete, Options, Head, Patch, Trace, Query, Connect, Other(String) }
+impl HttpMethod { pub fn as_str(&self) -> &str; }
+
+pub enum Availability { Alpha, Beta, Preview, GenerallyAvailable, Deprecated }
+impl Availability { pub fn as_str(self) -> &'static str; }
+
+pub enum Location { Path, Query { exploded: bool } }
+```
+
+### Bodies and responses
+
+What `Method::body`, `responses` and `errors` return:
+
+```rust
+impl<'f> Body<'f> {
+    pub fn is_required(self) -> bool;
+    pub fn description(self) -> &'f str;
+    pub fn contents(self) -> impl ExactSizeIterator<Item = Content<'f>>;
+    pub fn json(self) -> Option<Content<'f>>;
+}
+impl<'f> Response<'f> {
+    pub fn status(self) -> &'f str;            // "200", "4XX", "default"
+    pub fn description(self) -> &'f str;
+    pub fn contents(self) -> impl ExactSizeIterator<Item = Content<'f>>;
+    pub fn json(self) -> Option<Content<'f>>;
+}
+impl<'f> Content<'f> {
+    pub fn media_type(self) -> &'f str;
+    pub fn description(self) -> &'f str;
+    pub fn is_json(self) -> bool;
+    pub fn ty(self) -> Type<'f>;
+}
+```
+
+## Types
+
+`Type` and the parts each kind carries:
+
+```rust
+pub enum Type<'f> {
+    Scalar(Scalar),
+    Enum(Enum<'f>),
+    Array(Array<'f>),
+    Object(Object<'f>),
+    Union(Union<'f>),
+    Intersection(Intersection<'f>),
+    Model(Model<'f>),
+}
+
+pub enum Scalar { Unknown, Null, Boolean, String, Number(Number), DateTime, Date, Bytes, Binary }
+pub enum Number { Int, Int8, Int16, Int32, Int64, Uint8, Uint16, Uint32, Uint64, Float, Double }
+impl Number { pub fn is_integer(self) -> bool; }
+
+pub enum EnumValue<'f> { String(&'f str), Number(f64), Boolean(bool) }
+impl<'f> Enum<'f> { pub fn values(self) -> impl ExactSizeIterator<Item = EnumValue<'f>>; }
+
+impl<'f> Array<'f> {
+    pub fn elem(self) -> Type<'f>;
+    pub fn max_items(self) -> Option<u64>;
+}
+
+impl<'f> Object<'f> {
+    pub fn fields(self) -> impl ExactSizeIterator<Item = Field<'f>>;
+    pub fn extra(self) -> Option<Type<'f>>;
+}
+
+impl<'f> Field<'f> {
+    pub fn wire_name(self) -> &'f str;
+    pub fn name(self) -> &'f Name;
+    pub fn is_required(self) -> bool;
+    pub fn ty(self) -> Type<'f>;
+    pub fn description(self) -> &'f str;
+    pub fn is_deprecated(self) -> bool;
+    pub fn is_read_only(self) -> bool;
+    pub fn is_sensitive(self) -> bool;
+    pub fn default(self) -> Option<&'f Json>;
+}
+
+impl<'f> Union<'f> {
+    pub fn members(self) -> impl ExactSizeIterator<Item = Type<'f>>;
+    pub fn is_exclusive(self) -> bool;
+    pub fn discriminator(self) -> Option<Discriminator<'f>>;
+}
+
+impl<'f> Intersection<'f> {
+    pub fn members(self) -> impl ExactSizeIterator<Item = Type<'f>>;
+}
+
+impl<'f> Discriminator<'f> {
+    pub fn wire_name(self) -> &'f str;
+    pub fn name(self) -> &'f Name;
+    pub fn cases(self) -> impl ExactSizeIterator<Item = (&'f str, Type<'f>)>;
+    pub fn default(self) -> Option<Model<'f>>;
+}
+```
+
+`Json` is a JSON value as written, for extensions and defaults.
+
+## Names
+
+Every name in the model is a `Name`:
+
+```rust
+impl Name {                     // Clone, Eq, Ord, Hash, Default
+    pub fn new(s: &str) -> Name;
+    pub fn words(&self) -> &[String];
+    pub fn is_empty(&self) -> bool;
+    pub fn camel(&self) -> String;   // petStore
+    pub fn pascal(&self) -> String;  // PetStore
+    pub fn snake(&self) -> String;   // pet_store
+    pub fn kebab(&self) -> String;   // pet-store
+}
+```
+
+## Plugins
+
+The trait a plugin implements, and the functions that run it and write its files:
+
+```rust
+pub type Err = Box<dyn std::error::Error + Send + Sync + 'static>;
+
+pub trait Plugin: Sync {
+    type File: File;
+    fn generate(&self, forge: &Forge) -> Result<impl Iterator<Item = Self::File>, Err>;        // default: none
+    fn generate_group(&self, group: Group<'_>) -> Result<impl Iterator<Item = Self::File>, Err>; // default: none
+}
+
+pub trait File: Send {
+    fn path(&self) -> &str;
+    fn content(&self) -> Result<Cow<'_, [u8]>, Err>;
+}
+
+pub fn run<P: Plugin>(forge: &Forge, plugin: &P) -> Result<Vec<P::File>, Err>;
+pub fn write<F: File>(dir: impl AsRef<Path>, files: Vec<F>) -> Result<(), Err>;
+```
+
+`run` calls `generate`, then `generate_group` for every group in parallel, and returns
+`generate`'s files followed by each group's in the order of `Forge::groups`. `write` checks every
+path, renders every file in parallel, and only then writes; see [the pipeline](/concepts/pipeline/).
+
+## forge::wasm
+
+With the `wasm` feature:
+
+```rust
+pub const WIT: &str;            // the WIT package plugins are built against
+
+impl WasmPlugin {               // implements Plugin
+    pub fn from_file(path: impl AsRef<Path>) -> Result<WasmPlugin, Err>;
+    pub fn new(wasm: &[u8]) -> Result<WasmPlugin, Err>;
+}
+```
+
+## forge::ts
+
+The TypeScript printer: `Module`, `Ident`, `File` (which implements `forge::File`), `Fragment`, the
+`Print` trait, `join`, `PREAMBLE`, and the `p!` and `frag!` macros. See
+[the TypeScript printer](/plugins/ts-printer/), whose JavaScript API mirrors it.

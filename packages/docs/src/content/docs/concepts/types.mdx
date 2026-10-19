@@ -1,0 +1,158 @@
+---
+title: Types
+description: The seven kinds of type Forge builds from JSON Schema, how nulls, unions, intersections and discriminators are normalized, and what each scalar and number format means.
+sidebar:
+  order: 5
+---
+
+JSON Schema can say the same thing a dozen ways. Forge reads all of them and gives a plugin one: a
+**type** of exactly one of seven kinds. A generator that handles the seven handles every schema in
+every supported version of OpenAPI.
+
+| Kind           | From                                                                    | Has                                  |
+| -------------- | ----------------------------------------------------------------------- | ------------------------------------ |
+| `Scalar`       | A primitive `type`, or a schema that does not constrain the type.       | Which scalar.                        |
+| `Enum`         | `enum` or `const`.                                                      | The values, in order.                |
+| `Array`        | `type: array`, or `items`.                                              | The element type, `maxItems`.        |
+| `Object`       | `type: object`, `properties` or `additionalProperties`.                 | Fields, and the type of other keys.  |
+| `Union`        | `anyOf`, `oneOf`, or a list of types.                                   | Members, exclusivity, a discriminator. |
+| `Intersection` | `allOf`.                                                                | Members.                             |
+| `Model`        | A `$ref` to a schema in `components.schemas`.                           | The model.                           |
+
+In Rust, `Type` is an enum you `match`; in TypeScript it is a union you narrow with `switch
+(type.kind)`, so a `never` check turns a kind you missed into a compile error.
+
+## Scalars
+
+| Scalar     | From                                                     | Typical mapping                        |
+| ---------- | -------------------------------------------------------- | -------------------------------------- |
+| `Unknown`  | `{}`, `true`, a description only, or anything not covered. | `unknown`, `any`, `interface{}`      |
+| `Null`     | `type: null`, `const: null`.                             | `null`, `None`                         |
+| `Boolean`  | `type: boolean`.                                         | `boolean`, `bool`                      |
+| `String`   | `type: string` with no format, or one not listed here (`uuid`, `uri`, `email`). | `string`        |
+| `Number`   | `type: integer` or `number`, with its size.              | See below.                             |
+| `DateTime` | `format: date-time`.                                     | `Temporal.Instant`, `time.Time`        |
+| `Date`     | `format: date`.                                          | `Temporal.PlainDate`, `date`           |
+| `Bytes`    | `format: byte`, or `contentEncoding: base64`.            | Bytes, sent as base64 text.            |
+| `Binary`   | `format: binary`.                                        | Raw bytes, as in a file upload.        |
+
+`Bytes` and `Binary` are different on purpose. `Bytes` is a JSON string holding base64; `Binary` is
+the bytes themselves, such as a part of `multipart/form-data` or a whole `application/octet-stream`
+body.
+
+### Numbers
+
+`Number` carries the size its `format` gives, from the
+[format registry](https://spec.openapis.org/registry/format/):
+
+| Format                         | `Number`   | Notes                                       |
+| ------------------------------ | ---------- | ------------------------------------------- |
+| `integer`, no format           | `Int`      | An integer of no particular size.           |
+| `int8` `int16` `int32` `int64` | `Int8`...  | Signed.                                     |
+| `uint8` `uint16` `uint32` `uint64` | `Uint8`... | Unsigned.                               |
+| `float`                        | `Float`    | Single precision.                           |
+| `double`, or `number` with no format | `Double` | Double precision.                       |
+
+The format decides the size whatever the `type` says, so a `number` with `format: int32` is an
+`Int32`. `is_integer()` tells you whether it is anything but `Float` or `Double`. Decide what `Int`
+is in your language; it has no size because the document gave it none.
+
+## Nulls
+
+Null is never a flag. A type that allows null is a `Union` with a `Null` member, however the
+document says so: `nullable: true` in any version, `"null"` in a list of types, `const: null`, or
+`null` among an `enum`'s values. So `{ "type": ["string", "null"] }` is `String | Null`, and a
+generator writes optional-and-nullable as it likes from two separate facts: the field's
+`is_required`, and a `Null` in its type.
+
+## Enums
+
+An enum's values are strings, numbers or booleans, all different, at least one, never null. An
+`enum` that lists `null` is a union of the rest and `Null`. A `const` is an enum of one value. An
+`enum` with an object or array value is not covered, and is `Unknown`.
+
+## Arrays
+
+An array has an element type, `elem()`, which is `Unknown` without `items`, and `max_items()`, from
+`maxItems`. Tuples (`prefixItems`) are not covered yet, and are `Unknown`.
+
+## Objects and maps
+
+An object has **fields**, one per property, and **extra**: the type of values under any other key,
+or none if the object allows no others.
+
+| Schema                                         | Fields | Extra       |
+| ---------------------------------------------- | ------ | ----------- |
+| `properties`, no `additionalProperties`        | Yes    | None        |
+| `additionalProperties: { type: string }`       | Maybe  | `String`    |
+| `additionalProperties: true`, or no `properties` | Maybe | `Unknown`  |
+| `additionalProperties: false`                  | Maybe  | None        |
+
+A **map** is an object with no fields and an extra type. `patternProperties` is ignored.
+
+Each field has:
+
+| Member         | What it is                                                                    |
+| -------------- | ----------------------------------------------------------------------------- |
+| `wire_name`    | The property's name as sent.                                                  |
+| `name`         | The wire name, as a `Name`, unless a compatibility mode renames it.           |
+| `is_required`  | Whether it is in `required`.                                                  |
+| `ty`           | Its type.                                                                     |
+| `description`  | The property's, following `$ref`s, never its `title`.                         |
+| `is_deprecated`| `deprecated`.                                                                 |
+| `is_read_only` | `readOnly`: the server sets it, so a client does not send it.                 |
+| `is_sensitive` | `x-sensitive`: a password or token, to keep out of logs.                      |
+| `default`      | The schema's `default`, as written, unchecked.                                |
+
+A property whose schema is `false`, or that has `x-stainless-skip: true`, is not a field. Fields are
+in an unspecified order, except in a method's request and headers; sort them if your output needs
+an order.
+
+## Unions
+
+A union has at least two members, all different, and at most one of them an enum: Forge merges
+enums and flattens nested unions that have no discriminator of their own. A member that only
+constrains the value (one with only `required`, or `not`) is left out.
+
+`is_exclusive()` says whether a value is at most one member. It is true for `oneOf`, for a list of
+types, and for a nullable type; it is false for `anyOf`.
+
+### Discriminators
+
+A union from a schema with a `discriminator` has one. It gives the property that says which member a
+value is, and each value of it:
+
+| Member      | What it is                                                                         |
+| ----------- | ---------------------------------------------------------------------------------- |
+| `wire_name` | The property's name as sent.                                                       |
+| `name`      | Its `Name`, as the property's field has it.                                       |
+| `cases`     | Each value, and the member it means: from `mapping`, else each member's single `enum` or `const` value of the property, else its schema name. |
+| `default`   | From OpenAPI 3.2's `defaultMapping`: the model of a value that matches no case.    |
+
+## Intersections
+
+`allOf` is an intersection, normalized hard so that most of them are simple:
+
+- members that give no shape (`{}`, `true`, `{ type: object }`, a description only) are left out,
+  and a single member left is the type itself;
+- a member with only `required` makes those fields of the other members required (a model among
+  them becomes a copy of its object, so the model itself is unchanged);
+- a nested `allOf` adds its own members;
+- `properties` next to `allOf` is one more member.
+
+## Models
+
+A `$ref` to a schema in `components.schemas`, or to one in its `$defs`, is a `Model`, even when the
+schema is a primitive. A plugin decides whether to refer to it by name or write it in place with
+`model.ty()`. A `$ref` deeper into a schema, such as `#/components/schemas/A/properties/b`, is
+written in place. A schema `$ref` outside `components.schemas`, such as into `paths`, is not covered
+yet, and is an error, as is one to another document.
+
+In OpenAPI 3.0, keywords next to a `$ref` are ignored. From 3.1, descriptive ones such as
+`description` keep the model, `nullable: true` makes it `Model | Null`, and anything else makes an
+intersection of the model and the rest.
+
+## Next
+
+- [Models and placement](/concepts/models/): which file each model goes in.
+- [OpenAPI support](/openapi/support/): every keyword, and what is not covered yet.

@@ -1,0 +1,126 @@
+---
+title: Extensions
+description: Every OpenAPI extension Forge reads, where it goes, what values it takes, and what it does.
+sidebar:
+  order: 3
+---
+
+Forge needs no extensions: methods are named by `operationId`, as
+[naming methods](/openapi/naming/) explains. The extensions below add what OpenAPI has no field for,
+such as group descriptions and confirmation prompts. Any other `x-` key on an operation is passed to
+plugins, unread; any other `x-` key elsewhere is ignored.
+
+Forge also reads the extensions of other generators, so documents annotated for them work as they
+are. Those are described under **Compatibility Modes** in the sidebar.
+
+A value of the wrong JSON type, such as a string where a boolean goes, is an error, wherever it is.
+
+## On operations
+
+These go on an Operation Object, or on an alias in `x-forge-aliases`.
+
+### x-forge-hidden
+
+`true` to leave the method out of listings, such as a CLI's help, while keeping it callable. A
+boolean. A hidden operation is still a method. The MCP target makes no tool for it.
+
+### x-forge-require-confirmation
+
+A sentence to show before the method is called, because it changes or deletes something
+irreversibly:
+
+```json
+"x-forge-require-confirmation": "This deletes the zone and every record in it."
+```
+
+A string, kept as written. An empty string means the method needs confirmation, with no sentence of
+its own. The MCP target marks the tool destructive and appends the sentence to its description.
+
+### x-forge-aliases
+
+Exposes one operation as several methods. An array of objects, each an alias, named by its own
+`operationId`:
+
+```json
+"patch": {
+  "operationId": "workers.scripts.status.edit",
+  "x-forge-aliases": [
+    { "operationId": "workers.scripts.edit" },
+    { "operationId": "workers.scripts.pause", "x-forge-hidden": true }
+  ],
+  "requestBody": { "...": "..." }
+}
+```
+
+With aliases, the operation's own `operationId` makes no method. Each alias says, as an operation
+would, its `operationId`, `x-forge-hidden`, `x-forge-require-confirmation` and other extensions, and
+takes **none** of them from the operation. The HTTP method, path, parameters, body and responses are
+the operation's, shared by every alias.
+
+An empty array makes no method. An element that is not an object is ignored, and a value that is not
+an array is an error. Aliases do not nest. An alias's error names its position:
+
+```text
+POST /e: x-forge-aliases[0]: operationId has a group name with no letters or digits
+```
+
+Each alias is a method of its own group, so a model one uses is [placed](/concepts/models/) as
+though each alias were a separate operation.
+
+### Anything else
+
+Every other `x-` key on an operation, or alias, is kept for plugins, in the order written, as JSON:
+
+```json
+"x-my-cli": { "aliases": ["ls"], "columns": ["id", "name"] }
+```
+
+A plugin reads it by name:
+
+```ts
+const cli = method.extension('x-my-cli');
+```
+
+A key written twice keeps the last value, in the place of the first. Extensions on path items,
+parameters, bodies, responses and schemas are not kept.
+
+## On schemas
+
+### x-sensitive
+
+`true` on a property's schema to mark its value a secret, such as a password or token, that a client
+should mask. A boolean. It counts next to a `$ref`, in any version, and along a chain of `$ref`s.
+On a parameter, it goes on the parameter's schema, not the Parameter Object.
+
+### x-stainless-skip
+
+`true` on a property's schema to leave the property out of its object. A boolean.
+
+## At the root
+
+### x-forge-commands
+
+Descriptions for groups, which have no object of their own in OpenAPI. An object with an entry per
+top-level group, each with a `description` and nested `groups`:
+
+```json
+"x-forge-commands": {
+  "accounts": {
+    "description": "Manage accounts.",
+    "groups": {
+      "members": { "description": "People with access to an account." }
+    }
+  },
+  "dns.records": { "description": "DNS records of a zone." }
+}
+```
+
+A key with dots is a path from where it is: `dns.records` at the root, or `records` under `dns`'s
+`groups`, describe the same group. Keys match groups when they are equal as names. Two entries for
+the same group are an error; entries for groups that do not exist are ignored.
+
+## Not read
+
+Extensions common in other tools that are not listed here or under Compatibility Modes, such as
+`x-codeSamples`, `x-stainless-*` other than `x-stainless-skip`, and `x-speakeasy-*`, have no effect.
+On an operation they are passed to plugins like any other extension.

@@ -1,0 +1,152 @@
+---
+title: Fern
+description: Forge reads Fern's OpenAPI extensions, so a document annotated for Fern generates with Forge as it is. Which extensions are read, and what each one does.
+sidebar:
+  order: 1
+---
+
+Forge reads the OpenAPI extensions of [Fern](https://buildwithfern.com), another SDK generator, so a
+document already annotated for Fern needs no changes to generate with Forge. This mode is always on;
+there is nothing to enable. A document without any of these extensions loses nothing.
+
+This page is the only place the Fern extensions are described. Everywhere else, the docs describe
+Forge's own conventions: methods named by `operationId`, models by schema name, fields by wire name.
+
+## What is read
+
+| Extension                | On              | What it does                                          |
+| ------------------------ | --------------- | ----------------------------------------------------- |
+| `x-fern-sdk-group-name`  | Operation, alias | The method's group, instead of the `operationId`'s.  |
+| `x-fern-sdk-method-name` | Operation, alias | The method's name, instead of the `operationId`'s.   |
+| `x-fern-ignore`          | Operation, alias | Leave the operation out.                             |
+| `x-fern-availability`    | Operation, alias | The method's stage: `alpha`, `beta` and so on.       |
+| `x-fern-type-name`       | Schema          | The model's name, instead of the schema name.         |
+| `x-fern-property-name`   | Property schema | The field's name, instead of the wire name.           |
+| `x-fern-parameter-name`  | Parameter       | The parameter's field name, instead of its name.      |
+
+None of them are passed to plugins in `method.extensions()`, since Forge reads them itself. A value of
+the wrong JSON type, such as a number for `x-fern-ignore`, is an error, wherever it is.
+
+## Naming methods
+
+Without Fern's extensions, a method is named by its `operationId`, as `<group>.<method>`. With them:
+
+| The operation has                                         | Its method is named by            |
+| --------------------------------------------------------- | --------------------------------- |
+| Both `x-fern-sdk-group-name` and `x-fern-sdk-method-name`, non-empty | The two extensions.    |
+| Only one of them, or empty ones                           | Its `operationId`, as usual.      |
+| `x-fern-ignore: true`                                     | Nothing: it is not a method.      |
+
+### x-fern-sdk-group-name
+
+The group, as a string of names separated by dots, or an array of names, top level first:
+
+```json
+"x-fern-sdk-group-name": "accounts.members"
+```
+
+```json
+"x-fern-sdk-group-name": ["accounts", "members"]
+```
+
+A name with no letters or digits, such as the middle of `a..b`, is an error:
+
+```text
+GET /a: x-fern-sdk-group-name has a group name with no letters or digits
+```
+
+### x-fern-sdk-method-name
+
+The method's name in its group, a string:
+
+```json
+{
+  "operationId": "listAccountMembers",
+  "x-fern-sdk-group-name": "accounts.members",
+  "x-fern-sdk-method-name": "list"
+}
+```
+
+That is `accounts.members.list`, whatever the `operationId` says. When both extensions are present,
+their names are used even if they are invalid: an `x-fern-sdk-method-name` of `!!` is an error, not
+a reason to fall back to the `operationId`.
+
+### x-fern-ignore
+
+`true` leaves the operation out, however it would be named. Its schemas are not built unless another
+method uses them. On an operation with `x-forge-aliases`, it does not stop the aliases; put it on each
+alias to leave that one out.
+
+### In aliases
+
+An alias in `x-forge-aliases` takes the same keys as an operation: both naming extensions if it has
+them, otherwise its own `operationId`, plus `x-fern-ignore` and `x-fern-availability`. It never takes
+any of them from its operation.
+
+```json
+"x-forge-aliases": [
+  { "x-fern-sdk-group-name": "workers.scripts", "x-fern-sdk-method-name": "edit" },
+  { "operationId": "workers.scripts.pause", "x-forge-hidden": true }
+]
+```
+
+## x-fern-availability
+
+The stage of the API a method is in, which a plugin reads as `method.availability()`:
+
+```json
+"x-fern-availability": "beta"
+```
+
+It is one of `alpha`, `beta`, `preview`, `generally-available` and `deprecated`, exactly, in lower
+case. Anything else is an error:
+
+```text
+GET /a: x-fern-availability "Beta" is not alpha, beta, preview, generally-available or deprecated
+```
+
+It is apart from OpenAPI's own `deprecated`, and does not set it: an operation can be
+`x-fern-availability: deprecated` without `deprecated: true`, and the other way around. A method
+without it has no availability.
+
+## Renaming models, fields and parameters
+
+Forge names a model after its schema name, and a field after its wire name. These rename them, for
+the generated code only; what is sent over the wire does not change.
+
+### x-fern-type-name
+
+On a schema in `components.schemas`, the model's name:
+
+```json
+"zones_zone": { "x-fern-type-name": "Zone", "type": "object" }
+```
+
+A name with no letters or digits is ignored, and the schema name used.
+
+### x-fern-property-name
+
+On a property's schema, the field's name:
+
+```json
+"properties": { "ttl_s": { "type": "integer", "x-fern-property-name": "ttl" } }
+```
+
+A discriminator's property takes it too. It is the usual fix for two properties that would be one
+identifier, such as `user_id` and `userId`.
+
+### x-fern-parameter-name
+
+On a Parameter Object, the name of the parameter's field in the method's request:
+
+```json
+{ "name": "zone_identifier", "in": "path", "x-fern-parameter-name": "zone_id", "required": true }
+```
+
+The parameter is still sent as `zone_identifier`.
+
+## Not read
+
+Other Fern extensions have no effect: `x-fern-sdk-return-value`, `x-fern-pagination`,
+`x-fern-examples` and `x-fern-server-name`, among others. On an operation, they are passed to plugins
+like any extension Forge does not read, so a plugin can implement one.

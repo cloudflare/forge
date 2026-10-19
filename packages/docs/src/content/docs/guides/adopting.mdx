@@ -1,0 +1,82 @@
+---
+title: Adopting Forge on an existing API
+description: Take a large OpenAPI document from no methods to a complete SDK, one group at a time, without breaking the build along the way.
+sidebar:
+  order: 2
+---
+
+Large documents are rarely ready for a generator. They have operations nobody uses, schemas that
+collide, styles no SDK supports. Forge is built to be adopted gradually: operations without
+a dotted `operationId` are left out, and only the methods you name are checked.
+
+## 1. Convert and bundle
+
+Forge reads one JSON document. If yours is YAML, or split across files, bundle it into one JSON file
+first, with your usual OpenAPI tooling. Make it a build step, so the source stays as it is.
+
+## 2. Start with one group
+
+Pick a small resource and rename its operations' `operationId`s to
+[`<group>.<method>`](/openapi/naming/):
+
+```json
+"/zones": {
+  "get":  { "operationId": "zones.list" },
+  "post": { "operationId": "zones.create" }
+},
+"/zones/{zone_id}": {
+  "get":    { "operationId": "zones.get" },
+  "patch":  { "operationId": "zones.edit" },
+  "delete": { "operationId": "zones.delete" }
+}
+```
+
+The rest of the document can keep operationIds like `listZones` for now: without a dot, they make
+no method, and no error.
+
+If the document is already annotated for another generator, check Compatibility Modes in the
+sidebar first. Forge may name everything from those annotations, and you can skip this step.
+
+Generate. Forge reports problems only in these operations and the schemas they use, so the list is
+short, and every item is yours.
+
+Two conventions keep a large SDK consistent: use the same small set of verbs everywhere (`list`,
+`get`, `create`, `edit`, `update`, `delete`), and make the group path read like the resource path,
+so `/zones/{zone_id}/dns_records` is `zones.dnsRecords` or `dns.records`, but decided once.
+
+## 3. Fix what Forge reports
+
+Most first errors are one of these:
+
+- **Collisions.** Two methods with one name: rename one's `operationId`. Properties like `user_id`
+  and `userId` that become one identifier: drop one with
+  [`x-stainless-skip`](/openapi/extensions/#x-stainless-skip), or rename the property.
+- **Unsupported parameter styles.** `deepObject` and friends are not covered. Change the parameter
+  if you can; otherwise leave that operation out for now.
+- **References.** A `$ref` into `paths`, or to another file. Move the schema into
+  `components.schemas`.
+
+[Errors](/openapi/errors/) has the full list.
+
+## 4. Grow, and leave things out deliberately
+
+Rename the next group, generate, repeat. Operations that should never be in an SDK (internal,
+deprecated long ago, or broken) keep an `operationId` without a dot. Once every other operation is
+dotted, an undotted one stands out as deliberate.
+
+For operations that should be callable but not advertised, use
+[`x-forge-hidden`](/openapi/extensions/#x-forge-hidden) instead.
+
+## 5. Add the metadata that helps users
+
+Once groups are in, the extensions that make the output better are cheap to add:
+
+- Group descriptions in [`x-forge-commands`](/openapi/extensions/#x-forge-commands).
+- [`x-forge-require-confirmation`](/openapi/extensions/#x-forge-require-confirmation) on
+  operations that delete or change things irreversibly. Agents using the MCP server see it.
+- Schema names meant for people: rename `zones_zone` to `Zone` in `components.schemas`, since the
+  model is named after its schema.
+
+## 6. Check it in CI
+
+Regenerate on every change and fail on a diff: see [generating in CI](/guides/ci/).

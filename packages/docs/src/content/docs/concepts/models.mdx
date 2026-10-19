@@ -1,0 +1,89 @@
+---
+title: Models and placement
+description: Which schemas become models, which group each one is placed in, and how a plugin turns placement into files and imports.
+sidebar:
+  order: 7
+---
+
+A model is a named type an SDK declares once and refers to everywhere. Forge makes one for each
+schema a method reaches, and decides **where** it goes, so every target lays out its types the same
+way without having to work it out.
+
+## Which schemas are models
+
+A schema is a model when it is in `components.schemas` (or in the `$defs` of one) and some method
+uses it, directly or through other models. A use counts in the request, the body in any media type,
+a response or error in any media type, and a header parameter. Response headers are not read, so a
+use there does not count.
+
+Schemas that no method reaches are not models, and are never seen by a plugin. That includes schemas
+used only by operations that are not methods, which is what lets you leave part of a document out
+by leaving its operations without a dotted `operationId`.
+
+A model's identity:
+
+- `schema_name` is where it is: `Account`, or `Tree/$defs/Node` for a nested definition. It is unique,
+  so it is the safe key for a map of models.
+- `name` is what to call it: the schema name without `$defs`, so `Tree/$defs/Node` is "tree node",
+  unless a compatibility mode renames it.
+
+## Placement
+
+Each model is placed in **the deepest group shared by every method that uses it**, directly or
+through other models.
+
+| Used by methods in          | Placed in      |
+| --------------------------- | -------------- |
+| `a.b.e` only                | `a.b.e`        |
+| `a.b.c` and `a.b.d`         | `a.b`          |
+| `a` and `a.b`               | `a`            |
+| `a` and `x`                 | the top level  |
+
+`group.models()` lists the models placed directly in a group. The top-level models, used across more
+than one top-level group, are `forge.models()`. A model is in exactly one place.
+
+Uses through other models count: if `Member` uses `Role`, and `Member` is used in `accounts` and
+`users`, then `Role` is at the top level too, even if no method names it directly. That way a model
+can always import the models it uses from its own group or one above it, never from a sibling.
+
+## Turning placement into files
+
+Placement is designed to map onto files and modules. The TypeScript target, for example, makes a
+directory per group (named in camel case), writes each group's models next to its methods, and
+refers to a model elsewhere with a relative import. A `models.ts` with no models is empty, so it is
+not written:
+
+```text
+sdk/
+├── models.ts                  forge.models(): used by more than one top-level group
+├── client.ts
+├── index.ts
+├── _/                         the runtime
+└── accounts/
+    ├── client.ts              accounts' methods
+    ├── models.ts              accounts' models
+    ├── index.ts
+    └── members/
+        ├── client.ts
+        ├── models.ts          models used only under accounts.members
+        └── index.ts
+```
+
+In a plugin, that is: in `generate`, write `forge.models`; in `generate_group`, write
+`group.models`. Every model is written exactly once, and in parallel, without any coordination.
+When writing a reference to a model, `model.group` tells you which file declares it, and so what to
+import. [The TypeScript printer](/plugins/ts-printer/) does that import for you.
+
+## Names are not checked for collisions
+
+Forge reports two fields with equal names, and two methods, but **not** two models. Two schemas can
+have the same name, as `Account` and `account` do. In different groups
+that is usually fine, since each is in its own module. In one group, or both at the top level, they
+would declare the same identifier. A plugin that writes models into one namespace should either
+qualify them, or report the collision itself.
+
+## Writing a model in place
+
+A `Type::Model` is a reference. A plugin that would rather inline a model, such as one that is only
+an enum or a primitive alias, can write `model.ty()` instead. A model that refers to itself, directly
+or through others, is fine as a reference; inlining it would never end, so check for that first.
