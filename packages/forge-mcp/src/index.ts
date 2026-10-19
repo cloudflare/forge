@@ -31,4 +31,12 @@ export {
   type ToolAnnotations,
 } from './catalogue.ts';
 export { buildRequest, InvalidArguments } from './request.ts';
-export { callTool, createForgeMcpHandler, serveCatalogue, type CallContext, type ForgeMcpOptions } from './server.ts';
+export {
+  callTool,
+  catalogueTools,
+  createForgeMcpHandler,
+  serveCatalogue,
+  type CallContext,
+  type CatalogueTools,
+  type ForgeMcpOptions,
+} from './server.ts';

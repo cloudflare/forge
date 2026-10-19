@@ -34,6 +34,11 @@ export interface CatalogueTool {
   readonly inputSchema: JsonSchema & { readonly type: 'object' };
   readonly annotations: ToolAnnotations;
   readonly request: RequestRoute;
+  /**
+   * Data a plugin adds for its own server, such as the permissions a method
+   * needs. The runtime never sends it to clients.
+   */
+  readonly extensions?: { readonly [key: string]: unknown };
 }
 
 export interface ToolAnnotations {

@@ -75,9 +75,10 @@ export function serveCatalogue(
   catalogue: Catalogue,
   call: (tool: CatalogueTool, args: Record<string, unknown>) => Promise<CallToolResult>,
 ): void {
-  const { list, byName } = served(catalogue);
+  const { list, byName } = catalogueTools(catalogue);
   server.server.registerCapabilities({ tools: { listChanged: false } });
-  server.server.setRequestHandler('tools/list', () => ({ tools: list }));
+  // The SDK types the list as mutable; it only serializes it.
+  server.server.setRequestHandler('tools/list', () => ({ tools: list as Tool[] }));
   server.server.setRequestHandler('tools/call', async (request) => {
     const tool = byName.get(request.params.name);
     if (!tool) {
@@ -136,14 +137,24 @@ function errorResult(text: string): CallToolResult {
   return { content: [{ type: 'text', text }], isError: true };
 }
 
-/** The `tools/list` payload and name lookup of each catalogue, built once. */
-const servedCatalogues = new WeakMap<Catalogue, { list: Tool[]; byName: Map<string, CatalogueTool> }>();
+/** A catalogue's tools as `tools/list` sends them, and a lookup by name. */
+export interface CatalogueTools {
+  /** Each tool without its `request` and `extensions`. The same array every time. */
+  readonly list: readonly Tool[];
+  readonly byName: ReadonlyMap<string, CatalogueTool>;
+}
 
-function served(catalogue: Catalogue) {
+const servedCatalogues = new WeakMap<Catalogue, CatalogueTools>();
+
+/**
+ * A catalogue's `tools/list` payload and name lookup, built once per
+ * catalogue. For a server that lists other tools too and dispatches itself.
+ */
+export function catalogueTools(catalogue: Catalogue): CatalogueTools {
   let entry = servedCatalogues.get(catalogue);
   if (!entry) {
     entry = {
-      list: catalogue.tools.map(({ request: _request, ...tool }) => tool as Tool),
+      list: catalogue.tools.map(({ request: _request, extensions: _extensions, ...tool }) => tool as Tool),
       byName: new Map(catalogue.tools.map((tool) => [tool.name, tool])),
     };
     servedCatalogues.set(catalogue, entry);

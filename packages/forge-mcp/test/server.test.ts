@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
 import type { Catalogue } from '../src/catalogue.ts';
-import { createForgeMcpHandler } from '../src/server.ts';
+import { catalogueTools, createForgeMcpHandler } from '../src/server.ts';
 
 const catalogue: Catalogue = {
   format: 'forge-mcp/1',
@@ -135,4 +135,16 @@ test('a catalogue in an unknown format is refused', async () => {
   const h = createForgeMcpHandler({ catalogue: () => ({ ...catalogue, format: 'forge-mcp/0' }) as never });
 
   await assert.rejects(h.fetch(mcp('tools/list')), /Not a forge-mcp\/1 catalogue/);
+});
+
+test('extensions stay on the server', async () => {
+  const withExtensions: Catalogue = {
+    ...catalogue,
+    tools: catalogue.tools.map((tool) => ({ ...tool, extensions: { permissions: ['Zone Read'] } })),
+  };
+  const h = createForgeMcpHandler({ catalogue: withExtensions });
+  const body = await result(await h.fetch(mcp('tools/list')));
+
+  assert.equal('extensions' in body.result.tools[0], false);
+  assert.equal(catalogueTools(withExtensions).byName.get('zones_get')?.extensions?.permissions instanceof Array, true);
 });

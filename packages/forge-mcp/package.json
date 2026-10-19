@@ -2,13 +2,27 @@
   "name": "@cloudflare/forge-mcp",
   "version": "0.1.0",
   "description": "Generate an MCP server's tools from an OpenAPI document with forge, and serve them over Streamable HTTP.",
+  "files": [
+    "dist/*.js",
+    "dist/*.d.ts",
+    "dist/forge-mcp.wasm",
+    "README.md"
+  ],
   "type": "module",
   "exports": {
-    ".": "./src/index.ts",
-    "./plugin": "./src/plugin.ts"
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./plugin": {
+      "types": "./dist/plugin.d.ts",
+      "default": "./dist/plugin.js"
+    }
   },
   "scripts": {
+    "build": "tsc -p tsconfig.build.json",
     "build:plugin": "node -e \"require('node:fs').mkdirSync('dist',{recursive:true})\" && forge-plugin build plugin/forge-mcp.ts -o dist/forge-mcp.wasm",
+    "prepack": "pnpm build && pnpm build:plugin",
     "test": "node --experimental-strip-types --test \"test/*.test.ts\"",
     "typecheck": "node ../forge/scripts/build.mjs && tsc --noEmit",
     "example:generate": "node example/generate.mjs",

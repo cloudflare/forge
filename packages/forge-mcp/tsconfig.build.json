@@ -1,0 +1,14 @@
+{
+  // Compiles src/ into dist/ for the published package: JavaScript, and
+  // declarations, with .ts import specifiers rewritten to .js.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": false,
+    "allowImportingTsExtensions": false,
+    "rewriteRelativeImportExtensions": true,
+    "declaration": true,
+    "outDir": "dist",
+    "rootDir": "src"
+  },
+  "include": ["src"]
+}
