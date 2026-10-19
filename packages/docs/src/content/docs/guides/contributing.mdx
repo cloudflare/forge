@@ -1,0 +1,82 @@
+---
+title: Contributing
+description: Build Forge from source, run its tests, and find your way around the repository.
+sidebar:
+  order: 3
+---
+
+Forge is a Rust crate with a small npm package around it, in one repository with the docs and other
+packages.
+
+## Setup
+
+You need Rust (the toolchain is pinned in `rust-toolchain.toml`, and `rustup` installs it), Node.js
+26, pnpm, and [`just`](https://just.systems). The WebAssembly tests also need the `wasm32-wasip2`
+target:
+
+```sh
+rustup target add wasm32-wasip2
+pnpm install
+```
+
+## Everyday commands
+
+The `just` recipes are what CI runs, so a recipe that passes locally passes there:
+
+| Command                              | What it does                                                    |
+| ------------------------------------ | --------------------------------------------------------------- |
+| `cargo build --features wasm`        | Builds `target/debug/forge`, with WebAssembly plugins.          |
+| `cargo test --all-features`          | Every Rust test, including the WebAssembly ones.               |
+| `just fmt` / `just fmt-check`        | Formats, or checks formatting.                                  |
+| `just lint`                          | Clippy with all features, then with none, as library users build it. |
+| `pnpm check`                         | Formatting and lint for the JavaScript and docs.                |
+| `pnpm -r run test`                   | Every package's tests, including `@cloudflare/forge`'s.         |
+
+## Layout
+
+The parts of the repository you are most likely to change:
+
+```text
+src/
+├── lib.rs            the model: Forge, Group, Method, Model
+├── types.rs          Type and its parts
+├── method.rs         Location, Body, Response, Content
+├── name.rs           Name
+├── link.rs           OpenAPI to model: the rules
+├── link/             reading the document
+├── plugin.rs         Plugin, File, run, write
+├── plugin/wasm.rs    WebAssembly plugins, and the WIT
+├── plugin/ts.rs      the TypeScript printer, forge::ts
+└── bin/forge/        the CLI, and the ts and mcp targets
+tests/
+├── parse/            the model built from small documents, one file per area
+├── cli.rs            the command line
+└── wasm.rs, wasm/    the TypeScript target as a WebAssembly guest, checked against the native one
+packages/
+├── forge/            @cloudflare/forge: the launcher, forge-plugin, and the JS plugin library
+└── docs/             this site
+```
+
+## Where changes go
+
+- **A new OpenAPI rule.** In `src/link.rs`, with a test in `tests/parse/` that shows the document
+  and the model it builds. Document the rule on the public API item it affects, since that is where
+  plugin authors read it.
+- **A change to the model.** In the Rust API first, then the WIT in `src/plugin/wasm.rs` and the
+  host side of it, then the JavaScript library in `packages/forge/src/`, which fails to compile if it
+  drifts from the WIT. Copy the new WIT into the package with
+  `pnpm --filter @cloudflare/forge wit`; packing refuses a stale copy. `tests/wasm.rs` dumps the model natively and through WebAssembly, and they
+  must match.
+- **A target.** In `src/bin/forge/`. The TypeScript runtime that is copied into every SDK is in
+  `src/bin/forge/ts/lib/`, with its own tests.
+
+## The docs
+
+This site is `packages/docs`, built with Astro and Nimbus:
+
+```sh
+pnpm --filter forge-docs dev      # http://localhost:4321
+pnpm --filter forge-docs build
+```
+
+Every internal link is checked at build time, so a broken one fails the build.

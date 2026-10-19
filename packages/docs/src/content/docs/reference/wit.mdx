@@ -1,0 +1,87 @@
+---
+title: WIT
+description: "The WebAssembly interface every Forge plugin is a component of: the forge interface it imports, and the plugin world it exports."
+sidebar:
+  order: 5
+---
+
+WebAssembly plugins are components of the `plugin` world in the `forge:plugin` package. It imports
+the `forge` interface, which reads the model the host keeps, and exports `generate` and
+`generate-group`.
+
+Print it with `npx forge-plugin wit`, import it from `@cloudflare/forge/plugin/forge.wit`, or read
+`forge::wasm::WIT` in Rust. The meaning and order of every field are as the
+[Rust API](/reference/rust-api/) documents them; the WIT is the same model, flattened into ids and
+records.
+
+## How to read it
+
+- Every group, method, model and type is a `u32` id, valid for the run. `get-group`, `get-method`,
+  `get-model` and `get-type` return everything the part has, with ids for its parts.
+- `forge.counts()` says how many of each there are, so a plugin can size tables up front.
+- A name is its lower-case words.
+- JSON is its text, which `JSON.parse` reads back.
+- `get-location(method, object, index)` is `Method::location` for field `index` of the object type
+  `object`.
+- An id the host never gave out traps.
+
+## The functions
+
+The `forge` interface's functions, which a plugin calls to read the model:
+
+```wit
+interface forge {
+    // ... the id types and the records they return ...
+
+    info: func() -> forge-info;
+    counts: func() -> forge-counts;
+    /// Every group, depth first.
+    groups: func() -> list<group-id>;
+    /// The models at the top level, in no group.
+    models: func() -> list<model-id>;
+    get-group: func(id: group-id) -> group-info;
+    get-method: func(id: method-id) -> method-info;
+    get-model: func(id: model-id) -> model-info;
+    get-type: func(id: type-id) -> type-info;
+    /// Where method `id` sends field `index` of the object type `object`,
+    /// or none if it is not one of its parameters.
+    get-location: func(id: method-id, object: type-id, index: u32) -> option<location>;
+}
+```
+
+## The world
+
+What a plugin is: it imports `forge`, and exports the two functions the host calls:
+
+```wit
+world plugin {
+    import forge;
+    use forge.{group-id};
+
+    /// A generated file: its path relative to the output directory, using
+    /// `/` as a separator, and its content. A file with no content is not
+    /// written.
+    record file {
+        path: string,
+        content: list<u8>,
+    }
+
+    /// Generates files for the forge. Called exactly once.
+    export generate: func() -> result<list<file>, string>;
+    /// Generates files for a group. Called exactly once for each group, in
+    /// parallel with other groups, each in an instance of its own.
+    export generate-group: func(group: group-id) -> result<list<file>, string>;
+}
+```
+
+## The whole file
+
+Every record the functions return, with its doc comments, is in the full WIT. Print the copy that
+matches your `forge` with:
+
+```sh
+npx forge-plugin wit
+```
+
+It is also in the package, as `@cloudflare/forge/plugin/forge.wit`, and in the repository at
+[`packages/forge/plugin/forge.wit`](https://github.com/cloudflare/forge/blob/main/packages/forge/plugin/forge.wit).

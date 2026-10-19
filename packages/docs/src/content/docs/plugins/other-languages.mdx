@@ -1,0 +1,86 @@
+---
+title: Other languages
+description: Any language that can build a WebAssembly component of Forge's plugin world can be a Forge plugin. What the host expects, and notes on Go, Python and C.
+sidebar:
+  order: 5
+---
+
+Forge does not know what language a WebAssembly plugin was written in. It loads a component, checks
+that it is a component of the `plugin` world in `forge:plugin@0.2.0`, and calls its exports. So the
+question for any language is only: can its toolchain build that component?
+
+## What the host expects
+
+- **A component, not a core module.** The file passed to `wasm://` must be a WebAssembly component
+  (component model), such as what `wasm32-wasip2` toolchains produce.
+- **The `plugin` world.** It exports `generate` and `generate-group`, and imports the `forge`
+  interface. Get the WIT with `npx forge-plugin wit`, or from the `forge::wasm::WIT` constant.
+- **WASI preview 2, synchronously.** The host links the WASI 0.2 interfaces, so a component built by
+  a standard toolchain, which imports `wasi:cli`, `wasi:io` and friends, instantiates fine. Exports
+  are called without the async ABI; a component that requires it will not run.
+- **No other imports.** A component that imports an interface the host does not provide fails to
+  instantiate.
+
+The [sandbox](/concepts/sandbox/) is the same for every language: the model, standard error, the
+clock and random numbers, and nothing else.
+
+## The shape of every plugin
+
+Whatever the bindings generator calls things, a plugin does the same steps:
+
+1. Generate bindings for the `plugin` world from the WIT.
+2. Implement `generate() -> result<list<file>, string>` and
+   `generate-group(group: u32) -> result<list<file>, string>`.
+3. Walk the model with `groups()`, `get-group`, `get-method`, `get-model` and `get-type`.
+4. Return files: a path with `/` separators, and the content as bytes.
+5. Build a component.
+
+[The Rust example](/plugins/rust/#as-a-webassembly-component) shows all five in about 60 lines;
+it is a good template to port.
+
+## Notes by language
+
+These toolchains are not tested by Forge's own suite. They target the component model and WASI 0.2,
+which is what Forge needs, but check each against its own documentation for the current commands.
+
+### Go
+
+TinyGo can target `wasip2` directly, and the Bytecode Alliance's `wit-bindgen-go` generates Go
+bindings from a WIT world. Go's standard toolchain also has WebAssembly support, but check that the
+version you use can produce a WASI 0.2 component with exports, rather than a core module.
+
+A Go plugin will be larger than a Rust one, because it carries a runtime. It cannot use goroutines to
+parallelize inside a call, since a call is single-threaded; Forge already runs groups in parallel.
+
+### Python
+
+`componentize-py` builds a component from Python source and a WIT world, with the interpreter
+inside. Components are large, often tens of megabytes, and the first instantiation is slower than
+for compiled languages; Forge compiles the component once per run and pools instances, so that cost
+is paid once per instance, not per group.
+
+Pure-Python dependencies can be bundled; packages with native extensions generally cannot.
+
+### C and C++
+
+`wit-bindgen c` generates C bindings, and `wasi-sdk` builds for `wasm32-wasip2`. This is the
+lowest-level route, and the smallest output.
+
+### JavaScript
+
+Use [`forge-plugin build`](/plugins/typescript/), which wraps jco's `componentize` with the right WIT,
+world and options. You can run jco yourself, but pass `--backend-qjs-disable-async`: Forge calls
+exports synchronously.
+
+## Getting the WIT
+
+Every route to bindings starts from the WIT file, which `forge-plugin` prints:
+
+```sh
+npx forge-plugin wit > wit/forge.wit
+```
+
+The package also exports it as `@cloudflare/forge/plugin/forge.wit`, and Rust code can read
+`forge::wasm::WIT` with the `wasm` feature. The WIT is versioned (`0.2.0` today). A plugin imports
+the version it was built against, and a `forge` with an incompatible version fails to instantiate it,
+so rebuild plugins against the WIT of the `forge` you run.

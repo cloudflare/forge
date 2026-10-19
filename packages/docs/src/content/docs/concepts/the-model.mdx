@@ -1,0 +1,125 @@
+---
+title: The model
+description: "The language-neutral tree every plugin reads: the forge, its groups, methods and models, and the types under them."
+sidebar:
+  order: 2
+---
+
+The model is what Forge builds from a document, and the only thing a plugin sees. It is shaped like
+an SDK rather than like OpenAPI: there are no paths, parameters or schemas at the top, but groups
+of methods, and the models those methods use.
+
+```text
+Forge                     version, description, base URL
+├── Group  accounts
+│   ├── Method  get       GET /accounts/{account_id}
+│   ├── Model   Member    used by accounts.get and accounts.members.*
+│   └── Group  members
+│       ├── Method  create   POST   /accounts/{account_id}/members
+│       ├── Method  list     GET    /accounts/{account_id}/members
+│       └── Model   NewMember
+└── Group  pets
+    └── Method  replaceTags  PUT /pets/{id}
+```
+
+Every method, model, field and type below has a [type](/concepts/types/), and every name is a
+[`Name`](/concepts/names/) that you spell in your language's casing.
+
+The tables use the Rust names. The TypeScript library has the same members as properties, in camel
+case and without `is_`: `method.httpMethod`, `method.hidden`, `model.schemaName`, `field.readOnly`,
+and `type` where Rust has `ty()`.
+
+## The forge
+
+The root. It has three facts about the document, and two ways in:
+
+| In Rust                  | In TypeScript       | What it is                                                                |
+| ------------------------ | ------------------- | ------------------------------------------------------------------------- |
+| `forge.version`          | `forge.version`     | `info.version`.                                                           |
+| `forge.description`      | `forge.description` | `info.title`, `info.summary` and `info.description`, as paragraphs.       |
+| `forge.base_url`         | `forge.baseUrl`     | The URL of the first server, with its variables replaced by their defaults. |
+| `forge.groups()`         | `forge.groups`      | Every group, depth first, siblings sorted by name.                        |
+| `forge.models()`         | `forge.models`      | The models in no group: those used by more than one top-level group.      |
+
+There is no root group. The top-level groups are the ones with no parent; the root's own models are
+`forge.models()`.
+
+## Groups
+
+A group is a named collection of methods, models and subgroups. Groups come from
+each operation's `operationId`: an operation `accounts.members.list` creates the group
+`accounts` and, inside it, `members`. Groups exist only because methods are in them, but a group can
+hold nothing except other groups.
+
+| Member           | What it is                                                                     |
+| ---------------- | ------------------------------------------------------------------------------ |
+| `name`           | The group's own name.                                                          |
+| `path`           | The names from the top level down, ending with this group's.                   |
+| `description`    | From the root `x-forge-commands`, or empty.                                    |
+| `parent`         | The group this one is in, or none at the top level.                            |
+| `children`       | The groups directly inside, sorted by name.                                    |
+| `descendants`    | Every group below this one, depth first.                                       |
+| `methods`        | The methods directly inside, sorted by name.                                   |
+| `models`         | The models placed directly in this group.                                      |
+
+A group is how an SDK is laid out. The TypeScript target makes a directory per group, a CLI makes a
+command per group, and docs make a section per group. [Groups and methods](/concepts/groups-and-methods/)
+has the rules.
+
+## Methods
+
+A method is an operation an SDK exposes as a function. Each has a name that is unique within its
+group, and everything you need to call it:
+
+| Member               | What it is                                                                  |
+| -------------------- | --------------------------------------------------------------------------- |
+| `name`, `group`      | Where it is, from the `operationId`, as `<group>.<method>`, unless a compatibility mode names it. |
+| `http_method`, `path`| How it is sent: `GET` and `/accounts/{account_id}`.                         |
+| `summary`, `description` | From the operation.                                                     |
+| `request`            | The type of what a caller passes: parameters and body, merged.              |
+| `location(field)`    | Whether a field of the request is sent in the path or the query.            |
+| `headers`            | The header parameters, as an object, apart from the request.                |
+| `body`               | The request body, in each of its media types.                               |
+| `responses`          | The `2XX` responses.                                                        |
+| `errors`             | Every other response, `default` last.                                       |
+| `is_deprecated`, `availability`, `is_hidden`, `confirmation` | Lifecycle and safety metadata. |
+| `extensions`         | Every `x-` key on the operation that Forge does not read itself.            |
+
+[Requests and responses](/concepts/requests-and-responses/) explains how the request type is built.
+
+## Models
+
+A model is a named schema from `components.schemas` that a method uses, directly or through other
+models. An SDK declares each model once, as a type, and refers to it by name everywhere else.
+
+| Member        | What it is                                                                 |
+| ------------- | -------------------------------------------------------------------------- |
+| `schema_name` | Its key in `components.schemas`, such as `Account`.                        |
+| `name`        | The schema name, as a `Name`, unless a compatibility mode renames it.      |
+| `group`       | The deepest group shared by every method that uses it, or none.            |
+| `description` | `description`, or else `title`.                                            |
+| `is_deprecated` | `deprecated` on the schema.                                              |
+| `ty`          | Its type.                                                                  |
+
+Schemas that no method reaches are not models. [Models and placement](/concepts/models/) explains
+where each model goes.
+
+## Identity
+
+Every part of the model is a cheap handle. In Rust, a `Group`, `Method` or `Model` is a `Copy`
+reference into the `Forge`, and two are equal when they are the same part of the same forge. In
+TypeScript, the same part is always the same object, so you can compare with `===` and use them as
+`Map` keys.
+
+## The same model in every language
+
+Rust plugins, WebAssembly plugins and the TypeScript library all read the same model. The
+WebAssembly interface, its [WIT](/reference/wit/), carries everything the Rust API does, and the
+repository tests that: a dump of the model taken through WebAssembly must equal the dump taken
+natively, byte for byte.
+
+## Next
+
+- [Groups and methods](/concepts/groups-and-methods/)
+- [Requests and responses](/concepts/requests-and-responses/)
+- [Types](/concepts/types/)

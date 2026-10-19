@@ -1,0 +1,71 @@
+---
+title: Naming methods
+description: Forge names each method from its operationId, written as group.method, and groups methods by the dotted path before the last dot.
+sidebar:
+  order: 2
+---
+
+Every method needs a group and a name: `client.accounts.members.list()` is the method `list` in the
+group `members` inside `accounts`. Forge reads both from the operation's `operationId`, which it
+expects to be written as **`<group>.<method>`**:
+
+```json
+"/accounts/{account_id}/members": {
+  "get": {
+    "operationId": "accounts.members.list",
+    "responses": { "200": { "description": "The members." } }
+  }
+}
+```
+
+The `operationId` is split at its **last** dot. Everything before it is the group path, split at
+every dot; everything after it is the method name.
+
+| `operationId`             | Group               | Method   |
+| ------------------------- | ------------------- | -------- |
+| `pets.list`               | `pets`              | `list`   |
+| `accounts.members.list`   | `accounts.members`  | `list`   |
+| `dns.records.batch_edit`  | `dns.records`       | `batch_edit` |
+
+Forge never guesses a grouping from the path or from `tags`. The `operationId` says it.
+
+## Operations that are not methods
+
+An operation whose `operationId` has no dot, such as `listPets`, is **not a method**, and is not an
+error: Forge leaves it out, with the schemas only it uses. The same goes for an operation with no
+`operationId` at all.
+
+Forge expects every operation you want in an SDK to have a dotted `operationId`, so rename `listPets`
+to `pets.list`. Leaving the rest undotted is how you adopt Forge on a large document a group at a
+time: see [adopting Forge](/guides/adopting/).
+
+## Names, not strings
+
+Each part is a [name](/concepts/names/): words, spelled in each target's casing. So `batch_edit` is
+`batchEdit` in TypeScript and `batch_edit` in a Rust tool name, and `abuse-reports.list` and
+`abuse_reports.get` are two methods in **one** group.
+
+That also means:
+
+- A part with no letters or digits is an error: `a..b.list` has an empty group name, and `pets.` an
+  empty method name.
+- Two methods in one group with equal names are an error, even if they are spelled differently, as
+  `pets.list_all` and `pets.listAll` are.
+
+The errors name the operation:
+
+```text
+GET /a: operationId has a group name with no letters or digits
+GET /b: operationId has a method name with no letters or digits
+GET /d: method "list" is also GET /c in the same group
+```
+
+## More than one method per operation
+
+To expose one operation as several methods, give it [`x-forge-aliases`](/openapi/extensions/#x-forge-aliases),
+each with its own `operationId`.
+
+## Order
+
+Groups and methods are sorted by name at every level, so the order of `paths` does not matter, and
+the output is the same from run to run.

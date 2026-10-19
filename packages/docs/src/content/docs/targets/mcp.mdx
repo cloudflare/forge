@@ -1,0 +1,146 @@
+---
+title: MCP server
+description: What forge --target mcp generates, a Rust Model Context Protocol server with one tool per method, and how tool names, inputs, hints and errors are derived.
+sidebar:
+  order: 3
+---
+
+`--target mcp` writes a Rust crate for a [Model Context Protocol](https://modelcontextprotocol.io)
+server that exposes each method of the API as a tool, and calls the API over HTTP when an agent calls
+one. It speaks MCP over standard input and output, using [rmcp](https://crates.io/crates/rmcp), the
+official Rust SDK for MCP.
+
+```sh
+forge openapi.json --target mcp --out server
+cd server && cargo build --release
+```
+
+The binary is `target/release/mcp-server`.
+
+## What it writes
+
+Three files. Everything but `tools.rs` is the same for every document:
+
+```text
+server/
+├── Cargo.toml       package mcp-server; rmcp, reqwest, serde_json, tokio
+└── src/
+    ├── main.rs      the server: lists tools, turns calls into HTTP requests
+    └── tools.rs     the base URL, the instructions, and a table of tools
+```
+
+`Cargo.toml` declares an empty `[workspace]`, so the crate builds wherever it is generated, even
+inside another Cargo workspace.
+
+## Configuration
+
+The server reads two environment variables:
+
+| Variable       | Meaning                                                               |
+| -------------- | --------------------------------------------------------------------- |
+| `API_BASE_URL` | The URL the paths are relative to. Defaults to the document's first server. |
+| `API_TOKEN`    | When set and not empty, sent as `Authorization: Bearer <token>`.      |
+
+Register the binary with your MCP client:
+
+```json title="mcp.json"
+{
+  "mcpServers": {
+    "pet-store": {
+      "command": "/path/to/server/target/release/mcp-server",
+      "env": { "API_TOKEN": "..." }
+    }
+  }
+}
+```
+
+The server's instructions are the document's description: `info.title`, `summary` and
+`description`.
+
+## Tools
+
+Each method is a tool, named after its group path and its own name in snake case, joined with `_`:
+`pets.list` is `pets_list`, and `accounts.members.create` is `accounts_members_create`. If two
+methods would get the same tool name, generation fails and names both.
+
+| Tool field    | From                                                                      |
+| ------------- | ------------------------------------------------------------------------- |
+| `name`        | The group path and method name, as above.                                 |
+| `title`       | The operation's `summary`.                                                |
+| `description` | The summary, the description (if different), "Deprecated." if it is, and the confirmation sentence. |
+| `inputSchema` | JSON Schema of the arguments, below.                                      |
+| annotations   | `readOnlyHint`, `destructiveHint`, `idempotentHint`, and `openWorldHint: true`. |
+
+### Arguments
+
+A tool's arguments are the method's path and query parameters, named by their **wire names**, and
+its JSON body:
+
+- When the body's fields can sit next to the parameters (as in the [request type](/concepts/requests-and-responses/)),
+  they do: the input schema is the parameters' object, `allOf` the body.
+- Otherwise the body is an argument named `body`.
+
+Models are in the schema's `$defs`, referenced with `$ref`, so recursive models work. Fields marked
+`readOnly` are left out, since a client does not send them. Defaults, descriptions and `deprecated`
+are carried over.
+
+### Hints
+
+The hints come from the HTTP method, and from `x-forge-require-confirmation`:
+
+| HTTP method                       | read-only | destructive | idempotent |
+| --------------------------------- | --------- | ----------- | ---------- |
+| `GET`, `HEAD`, `OPTIONS`, `QUERY` | yes       | no          | yes        |
+| `PUT`, `DELETE`                   | no        | yes         | yes        |
+| `POST`, `PATCH`, and others       | no        | no          | no         |
+
+A method with a confirmation is always destructive, and never read-only, whatever its HTTP method.
+Its sentence is appended to the description, so an agent sees why.
+
+### Which methods have no tool
+
+A method is left out when:
+
+- it is hidden with `x-forge-hidden`;
+- its request body has content, and none of it is JSON;
+- a success response has content, and none of it is JSON or `text/*`;
+- it has a **required** header parameter, which the server cannot send yet;
+- two of its arguments would have the same name.
+
+## Calls
+
+When an agent calls a tool, the server substitutes path arguments into the path, adds query
+arguments to the query string (as repeated keys when `explode` is true, joined with commas when it
+is false), sends the rest as the JSON body, and returns the response body as text.
+
+A non-`2XX` response is a tool **error** whose text is the status and the body, so the agent sees
+what went wrong, as is a request that cannot be sent. A missing path argument is an error before any
+request is made.
+
+## Example
+
+From the [quickstart](/start/quickstart/) document, `tools.rs` has:
+
+```rust title="src/tools.rs"
+Tool {
+    name: "pets_delete",
+    title: "Delete a pet",
+    description: "Delete a pet\n\nThis deletes the pet.",
+    method: "DELETE",
+    path: "/pets/{pet_id}",
+    params: &[
+        Param { name: "pet_id", location: Location::Path },
+    ],
+    body: Body::None,
+    input_schema: r#"{"properties":{"pet_id":{"type":"string"}},"required":["pet_id"],"type":"object"}"#,
+    read_only: false,
+    destructive: true,
+    idempotent: true,
+},
+```
+
+## Building a different MCP server
+
+The MCP target is a plugin like any other. To serve over HTTP instead of stdio, write the server in
+TypeScript, or change how tools are named, write a [plugin](/plugins/overview/) that reads the same
+model; [designing a target](/plugins/designing-a-target/) shows the decisions this one makes.

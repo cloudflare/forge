@@ -1,0 +1,114 @@
+---
+title: OpenAPI support
+description: Which parts of OpenAPI 3.0, 3.1 and 3.2 and of JSON Schema Forge reads, which it ignores, and which are not covered yet.
+sidebar:
+  order: 4
+---
+
+Forge sorts every part of OpenAPI into one of three:
+
+- **Read**: it shapes the model.
+- **Ignored**: it has no effect, and is never an error.
+- **Not covered yet**: it would change what a client must send or accept, so silently ignoring it
+  would generate a wrong SDK. It is an error, naming the part, in any method that uses it.
+
+## Documents
+
+| | |
+| --- | --- |
+| Versions | 3.0, 3.1 and 3.2. Swagger 2.0 and other versions are errors. |
+| Format | JSON. The library reads any format Serde can, but the CLI reads JSON. |
+| `info` | `title`, `summary` and `description` become `forge.description`; `version` is `forge.version`. |
+| `servers` | The first server's `url`, with variables replaced by their defaults, is the base URL. A variable it does not define is an error. |
+| `paths` | Read. |
+| `components` | `schemas`, `parameters`, `requestBodies`, `responses` and `pathItems` are read. |
+| `webhooks` | Ignored. |
+| `security`, `securitySchemes` | Ignored. |
+| `tags`, `externalDocs` | Ignored. |
+| `x-forge-commands` | Read; see [extensions](/openapi/extensions/#x-forge-commands). |
+| `$ref` to another document | Not covered yet. Bundle the document first. |
+
+## Path items and operations
+
+| | |
+| --- | --- |
+| `get`, `put`, `post`, `delete`, `options`, `head`, `patch`, `trace` | Read. |
+| `query` (3.2) | Read. |
+| `additionalOperations` (3.2) | Read; a key that is the name of a fixed method, such as `GET`, is that method, and is ignored when the path item also has it. |
+| `connect` | Read. |
+| `$ref` on a path item | Read, to `components.pathItems`. |
+| `parameters` on a path item | Read; an operation's parameter replaces one with the same name and location. |
+| `summary`, `description`, `deprecated` on an operation | Read. |
+| `operationId` | Read: it names the method, as [`<group>.<method>`](/openapi/naming/). |
+| `tags` | Ignored. |
+| `callbacks` | Ignored. |
+| `security`, `servers` on an operation | Ignored. |
+
+## Parameters
+
+| | |
+| --- | --- |
+| `in: path` | Read. Always required. Style `simple` only; `label` and `matrix` are not covered. |
+| `in: query` | Read. Style `form` only, with `explode`; `spaceDelimited`, `pipeDelimited` and `deepObject` are not covered. |
+| `in: querystring` (3.2) | Read: its object's properties are query parameters. At most one, and not with `in: query` parameters. |
+| `in: header` | Read, into [`headers`](/concepts/requests-and-responses/#headers). Style `simple` only. |
+| `in: cookie` | Ignored. |
+| `schema` | Read. |
+| `content` | Not covered yet. |
+| `required`, `deprecated`, `description` | Read. |
+| `allowEmptyValue`, `allowReserved`, `example`, `examples` | Ignored. |
+
+A path placeholder with no declared parameter is a required string. A declared path parameter that is
+not in the path is left out.
+
+## Bodies and responses
+
+| | |
+| --- | --- |
+| `requestBody` | Read: `required`, `description`, and every media type in `content`. |
+| Response status codes | Read: `2XX` codes and ranges are responses, everything else, and `default`, errors. |
+| Response `content` | Read, every media type. |
+| Response `headers` | Ignored. |
+| `links` | Ignored. |
+| Media type `schema` | Read, whatever the media type. |
+| Media type `encoding`, `example`, `examples` | Ignored. |
+
+JSON media types are `application/json` and anything ending in `+json`, ignoring case and
+parameters.
+
+## Schemas
+
+| Keyword | |
+| --- | --- |
+| `type`, including a list of types | Read. |
+| `format` | Read for `date-time`, `date`, `byte`, `binary`, and the [number formats](/concepts/types/#numbers); others are strings. |
+| `contentEncoding: base64` | Read, as bytes. |
+| `nullable` | Read, in every version. |
+| `enum`, `const` | Read. An `enum` with an object or array value is unknown. |
+| `properties`, `required` | Read. |
+| `additionalProperties` | Read. |
+| `unevaluatedProperties` | Read on an `allOf`. |
+| `patternProperties` | Ignored. |
+| `items` | Read. |
+| `maxItems` | Read. |
+| `prefixItems` | Not covered yet: the type is unknown. |
+| `allOf`, `anyOf`, `oneOf` | Read, and [normalized](/concepts/types/#intersections). |
+| `not` | Ignored, as a constraint. |
+| `discriminator` | Read: `propertyName`, `mapping`, and `defaultMapping` (3.2). |
+| `$ref` | Read, to `components.schemas` and into it, including `$defs`. |
+| `$defs` | Read: each is a model. |
+| `title`, `description` | Read. |
+| `default` | Read, as written. |
+| `deprecated`, `readOnly` | Read. |
+| `writeOnly` | Ignored. |
+| `minimum`, `maximum`, `minLength`, `maxLength`, `pattern`, `minItems`, `uniqueItems` | Ignored. |
+| `example`, `examples`, `xml`, `externalDocs` | Ignored. |
+| `if`, `then`, `else`, `dependentSchemas` | Ignored. |
+
+In 3.0, keywords next to a `$ref` are ignored, as the specification says. From 3.1, they are read:
+see [types](/concepts/types/#models).
+
+## Extensions
+
+See the [extensions reference](/openapi/extensions/). Unknown extensions are ignored, except on
+operations, where they are passed to plugins.

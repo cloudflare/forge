@@ -1,0 +1,294 @@
+---
+/**
+ * The landing figure: what goes in, what Forge builds, and what plugins make of it.
+ *
+ * It is plain HTML rather than a canvas, so every label in it is real text: selectable, measured
+ * by contrast tools, and read by a screen reader in order. The connectors are the only decoration,
+ * and they animate only when the reader has not asked for reduced motion.
+ *
+ * The contents are true to the code. The model column lists what `forge::Forge` exposes, and the
+ * plugin column lists the `--target` values the `forge` command accepts.
+ */
+import Icon from '@cloudflare/nimbus-docs/components/Icon.astro';
+
+const plugins = [
+	{ target: 'ts', title: 'TypeScript SDK', note: 'client.ts, models.ts, index.ts per group' },
+	{ target: 'mcp', title: 'MCP server', note: 'a Rust crate with one tool per method' },
+	{ target: 'wasm://plugin.wasm', title: 'Your plugin', note: 'Rust, TypeScript, or any component' },
+];
+---
+
+<figure class="fg-pipe" aria-labelledby="fg-pipe-caption">
+	<figcaption id="fg-pipe-caption" class="sr-only">
+		Forge reads an OpenAPI document, builds one typed model of its groups, methods, models and
+		types, and hands that model to a plugin. Built-in plugins generate a TypeScript SDK or an MCP
+		server; a plugin compiled to WebAssembly can generate anything else.
+	</figcaption>
+
+	<div class="fg-pipe-stage">
+		<p class="fg-pipe-label"><span>01</span> Input</p>
+		<div class="fg-pipe-card">
+			<p class="fg-pipe-file"><Icon name="ph:file-code" is:inline /> openapi.json</p>
+			<pre class="fg-pipe-code"><code>"/accounts/&#123;id&#125;/members": &#123;
+  "get": &#123;
+    "operationId":
+      "accounts.members.list",
+    "summary": "List members"
+  &#125;
+&#125;</code></pre>
+		</div>
+	</div>
+
+	<div class="fg-pipe-link" aria-hidden="true"><span></span></div>
+
+	<div class="fg-pipe-stage">
+		<p class="fg-pipe-label"><span>02</span> Model</p>
+		<div class="fg-pipe-card fg-pipe-model">
+			<p class="fg-pipe-file"><Icon name="ph:tree-structure" is:inline /> forge::Forge</p>
+			<ul class="fg-pipe-tree">
+				<li><span class="fg-k">group</span> accounts</li>
+				<li class="fg-d1"><span class="fg-k">group</span> members</li>
+				<li class="fg-d2"><span class="fg-k">method</span> list <span class="fg-m">GET</span></li>
+				<li class="fg-d2"><span class="fg-k">model</span> Member</li>
+				<li class="fg-d3"><span class="fg-k">type</span> object &#123; id, email, &hellip; &#125;</li>
+			</ul>
+		</div>
+	</div>
+
+	<div class="fg-pipe-link" aria-hidden="true"><span></span></div>
+
+	<div class="fg-pipe-stage">
+		<p class="fg-pipe-label"><span>03</span> Plugins</p>
+		<ul class="fg-pipe-plugins">
+			{
+				plugins.map((plugin) => (
+					<li class="fg-pipe-card fg-pipe-plugin">
+						<code class="fg-pipe-target">--target {plugin.target}</code>
+						<span class="fg-pipe-plugin-title">{plugin.title}</span>
+						<span class="fg-pipe-plugin-note">{plugin.note}</span>
+					</li>
+				))
+			}
+		</ul>
+	</div>
+</figure>
+
+<style>
+	.fg-pipe {
+		margin: 0;
+		display: grid;
+		grid-template-columns: minmax(0, 1fr) 2.5rem minmax(0, 1fr) 2.5rem minmax(0, 1fr);
+		align-items: stretch;
+	}
+
+	.fg-pipe-stage {
+		display: flex;
+		flex-direction: column;
+		min-width: 0;
+	}
+
+	.fg-pipe-label {
+		margin: 0 0 0.6rem;
+		font-family: var(--nb-font-mono);
+		font-size: 0.75rem;
+		font-weight: 500;
+		letter-spacing: 0.04em;
+		text-transform: uppercase;
+		color: var(--nb-muted-foreground);
+	}
+
+	.fg-pipe-label span {
+		color: var(--fg-orange-text);
+		margin-right: 0.35rem;
+	}
+
+	.fg-pipe-card {
+		border: 1px solid var(--nb-border-strong);
+		border-radius: 0.625rem;
+		background: var(--nb-card);
+		box-shadow: var(--nb-shadow);
+	}
+
+	.fg-pipe-stage > .fg-pipe-card {
+		flex: 1;
+		padding: 0.875rem 1rem 1rem;
+	}
+
+	.fg-pipe-file {
+		display: flex;
+		align-items: center;
+		gap: 0.4rem;
+		margin: 0 0 0.75rem;
+		font-family: var(--nb-font-mono);
+		font-size: 0.8125rem;
+		font-weight: 600;
+		color: var(--nb-foreground);
+	}
+
+	.fg-pipe-file svg {
+		width: 1rem;
+		height: 1rem;
+		color: var(--fg-orange-text);
+	}
+
+	.fg-pipe-code {
+		margin: 0;
+		padding: 0;
+		background: none;
+		border: 0;
+		font-family: var(--nb-font-mono);
+		font-size: 0.75rem;
+		line-height: 1.6;
+		color: var(--nb-muted-foreground);
+		white-space: pre;
+		overflow-x: auto;
+	}
+
+	.fg-pipe-tree {
+		list-style: none;
+		margin: 0;
+		padding: 0;
+		display: grid;
+		gap: 0.35rem;
+		font-family: var(--nb-font-mono);
+		font-size: 0.75rem;
+		color: var(--nb-foreground);
+	}
+
+	.fg-pipe-tree li {
+		position: relative;
+		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
+	}
+
+	.fg-d1 { padding-left: 1rem; }
+	.fg-d2 { padding-left: 2rem; }
+	.fg-d3 { padding-left: 3rem; }
+
+	.fg-k {
+		display: inline-block;
+		min-width: 3.75rem;
+		color: var(--nb-muted-foreground);
+	}
+
+	.fg-m {
+		margin-left: 0.25rem;
+		padding: 0 0.3rem;
+		border-radius: 0.25rem;
+		background: var(--nb-success-muted);
+		color: var(--nb-success-foreground);
+		font-size: 0.6875rem;
+	}
+
+	.fg-pipe-plugins {
+		list-style: none;
+		margin: 0;
+		padding: 0;
+		flex: 1;
+		display: grid;
+		gap: 0.5rem;
+	}
+
+	.fg-pipe-plugin {
+		display: grid;
+		gap: 0.15rem;
+		padding: 0.6rem 0.875rem;
+	}
+
+	.fg-pipe-target {
+		font-family: var(--nb-font-mono);
+		font-size: 0.6875rem;
+		color: var(--fg-orange-text);
+	}
+
+	.fg-pipe-plugin-title {
+		font-size: 0.875rem;
+		font-weight: 600;
+		color: var(--nb-foreground);
+	}
+
+	.fg-pipe-plugin-note {
+		font-size: 0.75rem;
+		line-height: 1.4;
+		color: var(--nb-muted-foreground);
+	}
+
+	/* The connector: a hairline with a dash travelling along it, then a chevron. */
+	.fg-pipe-link {
+		position: relative;
+		align-self: center;
+		height: 2px;
+		margin-top: 1.5rem;
+		background: var(--nb-border-strong);
+	}
+
+	.fg-pipe-link span {
+		position: absolute;
+		inset: 0;
+		background: linear-gradient(90deg, transparent 0%, var(--fg-orange) 50%, transparent 100%);
+		background-size: 200% 100%;
+		opacity: 0.9;
+	}
+
+	.fg-pipe-link::after {
+		content: '';
+		position: absolute;
+		right: -1px;
+		top: 50%;
+		width: 0.5rem;
+		height: 0.5rem;
+		border-top: 2px solid var(--nb-border-strong);
+		border-right: 2px solid var(--nb-border-strong);
+		transform: translateY(-50%) rotate(45deg);
+	}
+
+	@media (prefers-reduced-motion: no-preference) {
+		.fg-pipe-link span {
+			animation: fg-flow-x 2.4s linear infinite;
+		}
+	}
+
+	@keyframes fg-flow-x {
+		from { background-position: 100% 0; }
+		to { background-position: -100% 0; }
+	}
+
+	@keyframes fg-flow-y {
+		from { background-position: 0 100%; }
+		to { background-position: 0 -100%; }
+	}
+
+	@media (max-width: 52rem) {
+		.fg-pipe {
+			grid-template-columns: minmax(0, 1fr);
+			gap: 0;
+		}
+
+		.fg-pipe-link {
+			justify-self: center;
+			width: 2px;
+			height: 2rem;
+			margin: 0.75rem 0;
+		}
+
+		.fg-pipe-link span {
+			background: linear-gradient(180deg, transparent 0%, var(--fg-orange) 50%, transparent 100%);
+			background-size: 100% 200%;
+		}
+
+		.fg-pipe-link::after {
+			right: auto;
+			left: 50%;
+			top: auto;
+			bottom: -1px;
+			transform: translateX(-50%) rotate(135deg);
+		}
+	}
+
+	@media (max-width: 52rem) and (prefers-reduced-motion: no-preference) {
+		.fg-pipe-link span {
+			animation-name: fg-flow-y;
+		}
+	}
+</style>

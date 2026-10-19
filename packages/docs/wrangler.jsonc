@@ -1,0 +1,25 @@
+{
+  "$schema": "../../node_modules/wrangler/config-schema.json",
+  "name": "forge-docs",
+  "compatibility_date": "2026-10-01",
+
+  // A static site: no `main`, so there is no Worker script and every request is
+  // served from the asset store.
+  //
+  // There is no `account_id` and no `routes` yet. Add both once the site has a
+  // home: pinning the account stops a deploy from an operator who can see several
+  // accounts from landing in the wrong one, and a custom domain should come with
+  // `"workers_dev": false` so the site has one origin. Build with `DOCS_SITE_URL`
+  // set to that origin, since canonicals, OG URLs and the sitemap are built from it.
+  "assets": {
+    "directory": "dist",
+
+    // Astro emits `about/index.html` for `/about/`, and the docs link to those
+    // directory paths throughout. `auto-trailing-slash` resolves them and
+    // redirects the non-slashed form instead of 404ing.
+    "html_handling": "auto-trailing-slash",
+
+    // A missing page renders the site's own 404, not the bare asset-store one.
+    "not_found_handling": "404-page",
+  },
+}

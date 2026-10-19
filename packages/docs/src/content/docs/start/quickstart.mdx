@@ -1,0 +1,219 @@
+---
+title: Quickstart
+description: Write a small OpenAPI document, generate a TypeScript SDK and an MCP server from it, and run a plugin of your own.
+sidebar:
+  order: 3
+---
+
+This page takes one small document through every kind of target Forge has: the built-in
+TypeScript SDK, the built-in MCP server, and a plugin you write yourself. It assumes Forge is
+[installed](/start/installation/) and on your path as `forge`, through `npx forge` or a local build.
+
+## 1. Write a document
+
+Forge reads OpenAPI 3.0, 3.1 and 3.2, as JSON. It needs two things from each operation you want in
+an SDK: the **group** it belongs to, and its **method name** within that group. Both come from the
+operation's `operationId`, written as `<group>.<method>`, such as `pets.list`; an operation whose
+`operationId` has no dot is left out.
+
+Save this as `openapi.json`:
+
+```json title="openapi.json"
+{
+  "openapi": "3.1.0",
+  "info": { "title": "Pet Store", "version": "1.0.0" },
+  "servers": [{ "url": "https://api.example.com/v1" }],
+  "paths": {
+    "/pets": {
+      "get": {
+        "operationId": "pets.list",
+        "summary": "List pets",
+        "parameters": [{ "name": "limit", "in": "query", "schema": { "type": "integer" } }],
+        "responses": {
+          "200": {
+            "description": "The pets.",
+            "content": {
+              "application/json": {
+                "schema": { "type": "array", "items": { "$ref": "#/components/schemas/Pet" } }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "pets.create",
+        "summary": "Add a pet",
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/NewPet" } } }
+        },
+        "responses": {
+          "201": {
+            "description": "The pet.",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Pet" } } }
+          }
+        }
+      }
+    },
+    "/pets/{pet_id}": {
+      "delete": {
+        "operationId": "pets.delete",
+        "x-forge-require-confirmation": "This deletes the pet.",
+        "summary": "Delete a pet",
+        "parameters": [
+          { "name": "pet_id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": { "204": { "description": "Deleted." } }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Pet": {
+        "type": "object",
+        "description": "A pet in the store.",
+        "required": ["id", "name"],
+        "properties": {
+          "id": { "type": "string", "readOnly": true },
+          "name": { "type": "string" },
+          "born_at": { "type": "string", "format": "date-time" }
+        }
+      },
+      "NewPet": {
+        "type": "object",
+        "required": ["name"],
+        "properties": { "name": { "type": "string" } }
+      }
+    }
+  }
+}
+```
+
+That is one group, `pets`, with three methods. The `delete` method also says it needs a
+confirmation, which the MCP target turns into a destructive hint.
+
+## 2. Generate a TypeScript SDK
+
+Run the `ts` target:
+
+```sh
+forge openapi.json --target ts --out sdk
+```
+
+Forge writes a directory per group, and a small runtime in `_/`:
+
+```text
+sdk/
+├── _/                 # the runtime: transport, codecs, errors
+├── client.ts          # the root client, with a property per top-level group
+├── index.ts
+└── pets/
+    ├── client.ts      # list, create and delete
+    ├── index.ts
+    └── models.ts      # Pet and NewPet
+```
+
+The models are plain TypeScript. Names come out in the casing of the language: `born_at` is
+`bornAt`, and a `date-time` is a `Temporal.Instant`:
+
+```ts title="sdk/pets/models.ts"
+/**
+ * A pet in the store.
+ */
+export interface Pet {
+  bornAt?: Temporal.Instant;
+  id: string;
+  name: string;
+}
+```
+
+Use it by creating a client and calling a method through its group:
+
+```ts title="main.ts"
+import { ApiError, createClient } from './sdk/index.js';
+
+const client = createClient({ baseUrl: 'https://api.example.com/v1', token: process.env.API_TOKEN! });
+
+const pets = await client.pets.list({ limit: 10 });
+console.log(pets[0]?.name, pets[0]?.bornAt?.toString());
+
+try {
+  await client.pets.delete({ petId: 'p2' });
+} catch (err) {
+  if (err instanceof ApiError) console.error(err.status, err.message);
+}
+```
+
+The SDK needs a runtime with `fetch` and `Temporal`, such as Node.js 26. The
+[TypeScript target](/targets/typescript/) page covers everything it generates.
+
+## 3. Generate an MCP server
+
+The `mcp` target writes a Rust crate for a [Model Context Protocol](https://modelcontextprotocol.io)
+server, with one tool per method:
+
+```sh
+forge openapi.json --target mcp --out server
+cd server
+cargo build --release
+```
+
+The server speaks MCP over standard input and output. It calls the API at the document's first
+server, or at `API_BASE_URL` if it is set, and sends `API_TOKEN` as a bearer token. Register it with
+an MCP client by its path:
+
+```json title="mcp.json"
+{
+  "mcpServers": {
+    "pet-store": {
+      "command": "/path/to/server/target/release/mcp-server",
+      "env": { "API_TOKEN": "..." }
+    }
+  }
+}
+```
+
+Its tools are `pets_list`, `pets_create` and `pets_delete`. `pets_list` is marked read-only, and
+`pets_delete` is marked destructive, with "This deletes the pet." in its description. See the
+[MCP target](/targets/mcp/).
+
+## 4. Write a plugin
+
+The two targets above are plugins. Writing your own takes one file. This one writes a Markdown
+summary of every group:
+
+```ts title="plugin.ts"
+import { definePlugin } from '@cloudflare/forge/plugin';
+
+export const { generate, generateGroup } = definePlugin({
+  generate(forge) {
+    return [{ path: 'README.md', content: `# ${forge.description}\n\nVersion ${forge.version}.\n` }];
+  },
+
+  generateGroup(group) {
+    const rows = group.methods.map((m) => `| \`${m.name.camel()}\` | \`${m.httpMethod} ${m.path}\` |`);
+    const table = ['| Method | Route |', '| --- | --- |', ...rows].join('\n');
+    return [{ path: `${group.path.map((n) => n.kebab()).join('/')}.md`, content: `${table}\n` }];
+  },
+});
+```
+
+Install the plugin tooling, build the plugin into a WebAssembly component, and run it:
+
+```sh
+npm install --save-dev @bytecodealliance/jco
+npx forge-plugin build plugin.ts --out plugin.wasm
+forge openapi.json --target wasm://plugin.wasm --out docs
+```
+
+`docs/pets.md` now has a table of the three methods. The plugin ran sandboxed: it could read the
+document's model and nothing else, and the only thing it could do was return files.
+
+## Next
+
+- [The model](/concepts/the-model/): what `group`, `method` and `type` give you.
+- [TypeScript plugins](/plugins/typescript/): the full guide, including the printer that writes
+  imports for you.
+- [Rust plugins](/plugins/rust/): native or compiled to WebAssembly.
+- [Naming methods](/openapi/naming/): how operationIds become groups and methods.
+- [Extensions](/openapi/extensions/): the optional extensions Forge reads.
