@@ -128,13 +128,7 @@ interface forge {
     }
 
     variant scalar {
-        unknown, null, boolean, %string, number(number), date-time, date, bytes, binary,
-    }
-
-    record scalar-info {
-        kind: scalar,
-        /// The original `format`, including an empty or unrecognized one.
-        format: option<string>,
+        unknown, null, boolean, %string, number(number), date-time, date, bytes, binary, uuid,
     }
 
     variant enum-value {
@@ -186,7 +180,7 @@ interface forge {
     }
 
     variant type-info {
-        scalar(scalar-info),
+        scalar(scalar),
         %enum(list<enum-value>),
         array(array-info),
         object(object-info),

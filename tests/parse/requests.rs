@@ -32,7 +32,7 @@ fn path_param_is_a_required_request_field() {
     let zone_id = field(params, "zone_id");
     assert!(zone_id.is_required());
     assert!(
-        matches!(zone_id.ty(), Type::Scalar(s) if s.kind() == Scalar::String),
+        matches!(zone_id.ty(), Type::Scalar(Scalar::String)),
         "got {:?}",
         zone_id.ty()
     );

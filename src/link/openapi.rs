@@ -352,7 +352,7 @@ pub(super) struct SchemaObject {
     /// The types the schema allows: one for a string, any number for an
     /// array, and none without `type`.
     pub(super) types: Span<SchemaType>,
-    pub(super) format: Option<Str>,
+    pub(super) format: Format,
     pub(super) content_encoding: ContentEncoding,
     pub(super) nullable: bool,
     /// The values of `enum`, or none without it. An empty `enum`, which
@@ -423,12 +423,14 @@ pub(super) enum SchemaType {
     Null,
 }
 
-/// A recognized `format` that decides a type. The original text is kept
-/// separately, including formats that do not change the classification.
-#[derive(Clone, Copy, PartialEq, Eq)]
+/// A `format` in a Schema Object that decides a type. Every other format,
+/// and no format, is `Other`.
+#[derive(Deserialize, Default, Clone, Copy, PartialEq, Eq)]
+#[serde(rename_all = "kebab-case")]
 pub(super) enum Format {
     DateTime,
     Date,
+    Uuid,
     Byte,
     Binary,
     Int8,
@@ -441,29 +443,9 @@ pub(super) enum Format {
     Uint64,
     Float,
     Double,
+    #[default]
+    #[serde(other)]
     Other,
-}
-
-impl Format {
-    pub(super) fn from_str(format: &str) -> Self {
-        match format {
-            "date-time" => Self::DateTime,
-            "date" => Self::Date,
-            "byte" => Self::Byte,
-            "binary" => Self::Binary,
-            "int8" => Self::Int8,
-            "int16" => Self::Int16,
-            "int32" => Self::Int32,
-            "int64" => Self::Int64,
-            "uint8" => Self::Uint8,
-            "uint16" => Self::Uint16,
-            "uint32" => Self::Uint32,
-            "uint64" => Self::Uint64,
-            "float" => Self::Float,
-            "double" => Self::Double,
-            _ => Self::Other,
-        }
-    }
 }
 
 /// A `contentEncoding` in a Schema Object. Every encoding but base64, and
@@ -1656,7 +1638,7 @@ impl ReadObject for SchemaObject {
             match key {
                 SchemaKey::Ref => schema.reference = map.next_value_seed(seed::<Reference>(doc))?,
                 SchemaKey::Type => schema.types = map.next_value_seed(seed::<Types>(doc))?,
-                SchemaKey::Format => schema.format = Some(map.next_value_seed(seed::<ReadStr>(doc))?),
+                SchemaKey::Format => schema.format = map.next_value()?,
                 SchemaKey::ContentEncoding => schema.content_encoding = map.next_value()?,
                 SchemaKey::Nullable => schema.nullable = map.next_value()?,
                 SchemaKey::Enum => schema.values = map.next_value_seed(seed::<Seq<Literal>>(doc))?,

@@ -16,8 +16,8 @@ use crate::{Forge, Json, Model, ModelId, Name};
 /// `const: null`, or `null` among the values of an `enum`.
 #[derive(Clone, Copy, Debug)]
 pub enum Type<'f> {
-    /// A primitive, with its original `format` annotation.
-    Scalar(ScalarType<'f>),
+    /// A type with no parts.
+    Scalar(Scalar),
     /// One of the values of an `enum`, which are all different, in the
     /// order it lists them. There is at least one, and none is null: an
     /// `enum` that lists `null` is a union of the other values and
@@ -73,7 +73,7 @@ pub enum Type<'f> {
     Model(Model<'f>),
 }
 
-/// A primitive's classification, apart from its [`ScalarType::format`].
+/// A type with no parts: a primitive, or any value.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum Scalar {
     /// Any value: from a schema that does not constrain its type, such as
@@ -82,8 +82,10 @@ pub enum Scalar {
     Unknown,
     Null,
     Boolean,
-    /// A string, with no format or one not listed here, such as `uuid`.
+    /// A string, with no format or one not listed here, such as `uri`.
     String,
+    /// A string with format `uuid`.
+    Uuid,
     /// An integer or number, of the size its format gives.
     Number(Number),
     /// A string with format `date-time`.
@@ -102,37 +104,6 @@ pub enum Scalar {
     /// Format `binary` decides the type even with `contentEncoding:
     /// base64`.
     Binary,
-}
-
-/// A primitive and the `format` written on its schema.
-///
-/// The classification keeps its existing meaning: a UUID is still
-/// [`Scalar::String`], and a date-time is still [`Scalar::DateTime`]. The
-/// annotation lets plugins apply their own format handling, including
-/// formats Forge does not recognize. Forge does not validate values.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-pub struct ScalarType<'f> {
-    kind: Scalar,
-    format: Option<&'f str>,
-}
-
-impl<'f> ScalarType<'f> {
-    /// Returns the primitive's classification.
-    pub fn kind(self) -> Scalar {
-        self.kind
-    }
-
-    /// Returns the original `format`, including an empty or unrecognized
-    /// one, or `None` if the schema has no `format`.
-    pub fn format(self) -> Option<&'f str> {
-        self.format
-    }
-}
-
-impl From<Scalar> for ScalarType<'_> {
-    fn from(kind: Scalar) -> Self {
-        Self { kind, format: None }
-    }
 }
 
 /// The size of a [`Scalar::Number`], from the `format` of an `integer` or
@@ -240,10 +211,7 @@ impl<'f> Type<'f> {
     /// Returns the type with ID `id` in `forge`.
     pub(crate) fn new(forge: &'f Forge, id: TypeId) -> Type<'f> {
         match &forge.types[id.index()] {
-            TypeData::Scalar(data) => Type::Scalar(ScalarType {
-                kind: data.kind,
-                format: data.format.map(|s| forge.strings.get(s)),
-            }),
+            TypeData::Scalar(scalar) => Type::Scalar(*scalar),
             TypeData::Enum(values) => Type::Enum(Enum {
                 forge,
                 values: forge.values.get(*values),
@@ -598,19 +566,13 @@ impl NameId {
 /// What a [`Forge`] stores for a type. The types inside it are stored
 /// separately, by ID, and its lists in the `Forge`'s arenas.
 pub(crate) enum TypeData {
-    Scalar(ScalarData),
+    Scalar(Scalar),
     Enum(Span<EnumData>),
     Array(ArrayData),
     Object(ObjectData),
     Union(UnionData),
     Intersection(Span<TypeId>),
     Model(ModelId),
-}
-
-#[derive(Clone, Copy)]
-pub(crate) struct ScalarData {
-    pub(crate) kind: Scalar,
-    pub(crate) format: Option<Str>,
 }
 
 /// What a [`Forge`] stores for an [`EnumValue`].

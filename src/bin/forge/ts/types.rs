@@ -21,7 +21,7 @@ pub(super) enum Prec {
 /// ```
 pub(super) fn typ(t: Type<'_>, prec: Prec) -> Fragment {
     match t {
-        Type::Scalar(scalar) => frag!(scalar_type(scalar.kind())),
+        Type::Scalar(scalar) => frag!(scalar_type(scalar)),
         Type::Model(m) => frag!(Ident::model(m).ty()),
         Type::Array(array) => frag!(typ(array.elem(), Prec::Array), "[]"),
         Type::Object(object) => object_type(object),
@@ -57,7 +57,7 @@ fn scalar_type(scalar: Scalar) -> &'static str {
         Scalar::Unknown => "unknown",
         Scalar::Null => "null",
         Scalar::Boolean => "boolean",
-        Scalar::String => "string",
+        Scalar::String | Scalar::Uuid => "string",
         Scalar::Number(Number::Int64) => "bigint",
         Scalar::Number(_) => "number",
         Scalar::DateTime => "Temporal.Instant",
@@ -138,7 +138,7 @@ pub(super) fn fields(object: Object<'_>) -> Vec<Field<'_>> {
 /// Returns the type of the values of a map, which is unknown when the map
 /// does not say.
 pub(super) fn elem(object: Object<'_>) -> Type<'_> {
-    object.extra().unwrap_or(Type::Scalar(Scalar::Unknown.into()))
+    object.extra().unwrap_or(Type::Scalar(Scalar::Unknown))
 }
 
 /// Reports whether `t` is an object type with a property the SDK keeps. An
@@ -171,7 +171,7 @@ pub(super) fn all_optional(t: Type<'_>) -> bool {
     fn walk<'f>(t: Type<'f>, seen: &mut HashSet<Model<'f>>) -> bool {
         match t {
             Type::Object(object) => !object.fields().any(|f| kept(f) && f.is_required()),
-            Type::Scalar(scalar) if scalar.kind() == Scalar::Unknown => true,
+            Type::Scalar(Scalar::Unknown) => true,
             Type::Model(m) => seen.insert(m) && walk(m.ty(), seen),
             Type::Intersection(intersection) => intersection.members().all(|m| walk(m, seen)),
             Type::Union(union) => union.members().any(|m| walk(m, seen)),

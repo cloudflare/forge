@@ -28,26 +28,23 @@ test('array bounds distinguish absent, zero and one through the plugin API', () 
       assert.equal(zero.maxItems, 50);
       assert.equal(one.minItems, 1);
       assert.equal(one.maxItems, 50);
-      assert.equal(one.elem.scalar, 'string');
-      assert.equal(one.elem.format, 'uuid');
+      assert.equal(one.elem.scalar, 'uuid');
       return [];
     },
   }).generate();
 });
 
-test('scalar formats preserve their spelling and the existing classifications', () => {
+test('UUIDs are a distinct scalar through the plugin API', () => {
   definePlugin({
     generate(forge) {
       assert.deepEqual(
         forge.models.slice(3).map((model) => model.type),
         [
-          { kind: 'scalar', scalar: 'string', format: undefined },
-          { kind: 'scalar', scalar: 'string', format: 'uuid' },
-          { kind: 'scalar', scalar: 'string', format: '' },
-          { kind: 'scalar', scalar: 'string', format: 'custom-ID' },
-          { kind: 'scalar', scalar: 'date-time', format: 'date-time' },
-          { kind: 'scalar', scalar: 'bytes', format: undefined },
-          { kind: 'scalar', scalar: 'number', number: 'int32', format: 'int32' },
+          { kind: 'scalar', scalar: 'string' },
+          { kind: 'scalar', scalar: 'uuid' },
+          { kind: 'scalar', scalar: 'date-time' },
+          { kind: 'scalar', scalar: 'bytes' },
+          { kind: 'scalar', scalar: 'number', number: 'int32' },
         ],
       );
       return [];

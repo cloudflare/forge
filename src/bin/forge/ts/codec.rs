@@ -52,7 +52,7 @@ pub(super) fn model_codec(f: &mut File, m: Model<'_>) {
 /// since it is built after the models it uses.
 pub(super) fn codec(t: Type<'_>, direct: bool) -> Fragment {
     match t {
-        Type::Scalar(scalar) => match scalar_codec(scalar.kind()) {
+        Type::Scalar(scalar) => match scalar_codec(scalar) {
             Some(id) => frag!(id),
             None => frag!(),
         },
@@ -189,7 +189,7 @@ fn discriminated(t: Type<'_>) -> Option<Discriminator<'_>> {
 /// at, whose codecs are needed only for what else is reached.
 pub(super) fn needs_codec<'f>(t: Type<'f>, seen: &mut HashSet<Model<'f>>) -> bool {
     match t {
-        Type::Scalar(scalar) => scalar_codec(scalar.kind()).is_some(),
+        Type::Scalar(scalar) => scalar_codec(scalar).is_some(),
         Type::Model(m) => seen.insert(m) && needs_codec(m.ty(), seen),
         Type::Array(array) => needs_codec(array.elem(), seen),
         Type::Object(object) => {
@@ -247,7 +247,7 @@ fn target_codec<'f>(m: Model<'f>, visiting: &mut HashSet<Model<'f>>) -> Ident {
 /// intersection that needs a codec.
 fn single_codec<'f>(t: Type<'f>, visiting: &mut HashSet<Model<'f>>) -> Option<Ident> {
     let members: Vec<Type<'f>> = match t {
-        Type::Scalar(scalar) => return scalar_codec(scalar.kind()),
+        Type::Scalar(scalar) => return scalar_codec(scalar),
         Type::Model(m) => {
             return needs_codec(t, &mut HashSet::new()).then(|| target_codec(m, visiting));
         }

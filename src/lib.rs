@@ -15,9 +15,7 @@ pub use name::Name;
 #[cfg(feature = "wasm")]
 pub use plugin::wasm;
 pub use plugin::{Err, File, Plugin, run, ts, write};
-pub use types::{
-    Array, Discriminator, Enum, EnumValue, Field, Intersection, Number, Object, Scalar, ScalarType, Type, Union,
-};
+pub use types::{Array, Discriminator, Enum, EnumValue, Field, Intersection, Number, Object, Scalar, Type, Union};
 
 use arena::{List, Span, Str, Strings};
 use method::{BodyData, ResponseData};

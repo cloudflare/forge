@@ -291,20 +291,12 @@ export interface Field {
 export type Type = ScalarType | EnumType | ArrayType | ObjectType | UnionType | IntersectionType | ModelType;
 
 /** A primitive, or any value (`unknown`). */
-export type ScalarType = {
-  /**
-   * The original `format`, including an empty or unrecognized one, or
-   * undefined if absent. The scalar classification is unchanged: a UUID
-   * is `string`, for example. Forge does not validate values.
-   */
-  readonly format: string | undefined;
-} & (
+export type ScalarType =
   | {
       readonly kind: 'scalar';
-      readonly scalar: 'unknown' | 'null' | 'boolean' | 'string' | 'date-time' | 'date' | 'bytes' | 'binary';
+      readonly scalar: 'unknown' | 'null' | 'boolean' | 'string' | 'date-time' | 'date' | 'bytes' | 'binary' | 'uuid';
     }
-  | { readonly kind: 'scalar'; readonly scalar: 'number'; readonly number: NumberFormat }
-);
+  | { readonly kind: 'scalar'; readonly scalar: 'number'; readonly number: NumberFormat };
 
 /** The size of a number, from its `format`. `int` and `double` have none. */
 export type NumberFormat =
@@ -969,9 +961,9 @@ function makeType(forge: ForgeImpl, id: host.TypeId): Type {
   const type = (ty: host.TypeId) => forge.type(ty);
   switch (t.tag) {
     case 'scalar':
-      return t.val.kind.tag === 'number'
-        ? { kind: 'scalar', scalar: 'number', number: t.val.kind.val, format: opt(t.val.format) }
-        : { kind: 'scalar', scalar: t.val.kind.tag, format: opt(t.val.format) };
+      return t.val.tag === 'number'
+        ? { kind: 'scalar', scalar: 'number', number: t.val.val }
+        : { kind: 'scalar', scalar: t.val.tag };
     case 'enum':
       return { kind: 'enum', values: t.val.map((value) => value.val) };
     case 'array': {

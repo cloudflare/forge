@@ -5,13 +5,11 @@ const types = [
   { tag: 'array', val: { elem: 3, minItems: null, maxItems: null } },
   { tag: 'array', val: { elem: 4, minItems: 0n, maxItems: 50n } },
   { tag: 'array', val: { elem: 4, minItems: 1n, maxItems: 50n } },
-  { tag: 'scalar', val: { kind: { tag: 'string' }, format: null } },
-  { tag: 'scalar', val: { kind: { tag: 'string' }, format: 'uuid' } },
-  { tag: 'scalar', val: { kind: { tag: 'string' }, format: '' } },
-  { tag: 'scalar', val: { kind: { tag: 'string' }, format: 'custom-ID' } },
-  { tag: 'scalar', val: { kind: { tag: 'date-time' }, format: 'date-time' } },
-  { tag: 'scalar', val: { kind: { tag: 'bytes' }, format: undefined } },
-  { tag: 'scalar', val: { kind: { tag: 'number', val: 'int32' }, format: 'int32' } },
+  { tag: 'scalar', val: { tag: 'string' } },
+  { tag: 'scalar', val: { tag: 'uuid' } },
+  { tag: 'scalar', val: { tag: 'date-time' } },
+  { tag: 'scalar', val: { tag: 'bytes' } },
+  { tag: 'scalar', val: { tag: 'number', val: 'int32' } },
 ];
 
 export function info() {

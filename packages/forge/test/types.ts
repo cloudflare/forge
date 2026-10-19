@@ -13,11 +13,11 @@ function metadata(type: Type): number | string | undefined {
     type.minItems = 0;
     return min ?? max;
   }
-  if (type.kind === 'scalar') {
-    const format: string | undefined = type.format;
-    // @ts-expect-error Metadata is read-only.
-    type.format = 'uuid';
-    return format;
+  if (type.kind === 'scalar' && type.scalar === 'uuid') {
+    const uuid: 'uuid' = type.scalar;
+    // @ts-expect-error Scalar types are read-only.
+    type.scalar = 'string';
+    return uuid;
   }
   return undefined;
 }

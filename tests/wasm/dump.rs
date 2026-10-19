@@ -161,11 +161,7 @@ fn content(o: &mut String, content: Content<'_>) {
 /// Writes `ty`, and the location in `method` of each field it has.
 fn ty(o: &mut String, depth: usize, method: Option<Method<'_>>, ty: Type<'_>) {
     match ty {
-        Type::Scalar(scalar) => line(
-            o,
-            depth,
-            format_args!("{:?} format {:?}", scalar.kind(), scalar.format()),
-        ),
+        Type::Scalar(scalar) => line(o, depth, format_args!("{scalar:?}")),
         Type::Enum(values) => line(o, depth, format_args!("enum {:?}", values.values().collect::<Vec<_>>())),
         Type::Array(array) => {
             line(

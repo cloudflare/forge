@@ -278,31 +278,29 @@ impl Forge {
             return data;
         }
         let data = match host::get_type(id) {
-            host::TypeInfo::Scalar(scalar) => TypeData::Scalar(ScalarData {
-                kind: match scalar.kind {
-                    host::Scalar::Unknown => Scalar::Unknown,
-                    host::Scalar::Null => Scalar::Null,
-                    host::Scalar::Boolean => Scalar::Boolean,
-                    host::Scalar::String => Scalar::String,
-                    host::Scalar::Number(number) => Scalar::Number(match number {
-                        host::Number::Int => Number::Int,
-                        host::Number::Int8 => Number::Int8,
-                        host::Number::Int16 => Number::Int16,
-                        host::Number::Int32 => Number::Int32,
-                        host::Number::Int64 => Number::Int64,
-                        host::Number::Uint8 => Number::Uint8,
-                        host::Number::Uint16 => Number::Uint16,
-                        host::Number::Uint32 => Number::Uint32,
-                        host::Number::Uint64 => Number::Uint64,
-                        host::Number::Float => Number::Float,
-                        host::Number::Double => Number::Double,
-                    }),
-                    host::Scalar::DateTime => Scalar::DateTime,
-                    host::Scalar::Date => Scalar::Date,
-                    host::Scalar::Bytes => Scalar::Bytes,
-                    host::Scalar::Binary => Scalar::Binary,
-                },
-                format: scalar.format,
+            host::TypeInfo::Scalar(scalar) => TypeData::Scalar(match scalar {
+                host::Scalar::Unknown => Scalar::Unknown,
+                host::Scalar::Null => Scalar::Null,
+                host::Scalar::Boolean => Scalar::Boolean,
+                host::Scalar::String => Scalar::String,
+                host::Scalar::Uuid => Scalar::Uuid,
+                host::Scalar::Number(number) => Scalar::Number(match number {
+                    host::Number::Int => Number::Int,
+                    host::Number::Int8 => Number::Int8,
+                    host::Number::Int16 => Number::Int16,
+                    host::Number::Int32 => Number::Int32,
+                    host::Number::Int64 => Number::Int64,
+                    host::Number::Uint8 => Number::Uint8,
+                    host::Number::Uint16 => Number::Uint16,
+                    host::Number::Uint32 => Number::Uint32,
+                    host::Number::Uint64 => Number::Uint64,
+                    host::Number::Float => Number::Float,
+                    host::Number::Double => Number::Double,
+                }),
+                host::Scalar::DateTime => Scalar::DateTime,
+                host::Scalar::Date => Scalar::Date,
+                host::Scalar::Bytes => Scalar::Bytes,
+                host::Scalar::Binary => Scalar::Binary,
             }),
             host::TypeInfo::Enum(values) => TypeData::Enum(
                 values
@@ -432,18 +430,13 @@ struct ModelData {
 }
 
 enum TypeData {
-    Scalar(ScalarData),
+    Scalar(Scalar),
     Enum(Vec<EnumData>),
     Array(ArrayData),
     Object(ObjectData),
     Union(UnionData),
     Intersection(Vec<u32>),
     Model(u32),
-}
-
-struct ScalarData {
-    kind: Scalar,
-    format: Option<String>,
 }
 
 enum EnumData {
@@ -816,7 +809,7 @@ impl fmt::Debug for Model<'_> {
 
 #[derive(Clone, Copy, Debug)]
 pub enum Type<'f> {
-    Scalar(ScalarType<'f>),
+    Scalar(Scalar),
     Enum(Enum<'f>),
     Array(Array<'f>),
     Object(Object<'f>),
@@ -826,33 +819,12 @@ pub enum Type<'f> {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-pub struct ScalarType<'f> {
-    kind: Scalar,
-    format: Option<&'f str>,
-}
-
-impl<'f> ScalarType<'f> {
-    pub fn kind(self) -> Scalar {
-        self.kind
-    }
-
-    pub fn format(self) -> Option<&'f str> {
-        self.format
-    }
-}
-
-impl From<Scalar> for ScalarType<'_> {
-    fn from(kind: Scalar) -> Self {
-        Self { kind, format: None }
-    }
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum Scalar {
     Unknown,
     Null,
     Boolean,
     String,
+    Uuid,
     Number(Number),
     DateTime,
     Date,
@@ -937,10 +909,7 @@ pub struct Discriminator<'f> {
 impl<'f> Type<'f> {
     fn new(forge: &'f Forge, id: u32) -> Type<'f> {
         match forge.type_data(id) {
-            TypeData::Scalar(scalar) => Type::Scalar(ScalarType {
-                kind: scalar.kind,
-                format: scalar.format.as_deref(),
-            }),
+            TypeData::Scalar(scalar) => Type::Scalar(*scalar),
             TypeData::Enum(values) => Type::Enum(Enum { values }),
             TypeData::Array(data) => Type::Array(Array { forge, data }),
             TypeData::Object(data) => Type::Object(Object { forge, id, data }),
