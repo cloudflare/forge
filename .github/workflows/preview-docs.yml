@@ -36,8 +36,8 @@ jobs:
 
       - uses: ./.github/actions/setup-workspace
 
-      # Builds with `isPreview` set, so cloudflare.config.ts leaves the
-      # production custom domain off the preview.
+      # Preview URLs come from `previewUrls` in cloudflare.config.ts, which a
+      # production deploy must apply first.
       - name: Deploy preview
         run: pnpm --filter cloudflare-api-site run deploy:preview | tee "$RUNNER_TEMP/preview.log"
         env:

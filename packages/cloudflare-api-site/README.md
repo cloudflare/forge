@@ -165,8 +165,9 @@ pnpm --filter cloudflare-api-site deploy:preview  # cf previews deploy
 The Worker is configured in `cloudflare.config.ts` and built and deployed with
 the [Cloudflare CLI](https://developers.cloudflare.com/cf/) (`cf`). `cf build`
 runs `astro build` and writes Build Output to `.cloudflare/output/v0/`.
-`cf previews deploy` builds with `isPreview` set, which leaves the production
-custom domain off the preview; the preview is named after the current branch.
+`cf previews deploy` deploys a Worker Preview named after the current branch,
+served at `<preview-name>-docs.<subdomain>.workers.dev` (`previewUrls` in
+`cloudflare.config.ts`).
 `.github/workflows/preview-docs.yml` deploys one for every same-repository pull
 request and comments its URL.
 
