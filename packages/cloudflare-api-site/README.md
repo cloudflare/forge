@@ -180,6 +180,16 @@ FORGE_OPENAPI_RELEASE='openapi@<api-schemas-commit>' pnpm --filter cloudflare-ap
 Set `FORGE_OPENAPI_SPEC` to an already-downloaded artifact to build without
 downloading it again.
 
+Astro trusts the `X-Forwarded-Host` header only for hosts listed in
+[`security.allowedDomains`](https://docs.astro.build/en/reference/configuration-reference/#securityalloweddomains)
+(`cloudflare.com` and its subdomains, over HTTPS). For an internal deployment, set
+`INTERNAL_SITE_DOMAIN` to its hostname (for example `docs.internal.example`)
+when building to add it to the list:
+
+```bash
+INTERNAL_SITE_DOMAIN='<internal-hostname>' pnpm --filter cloudflare-api-site build
+```
+
 `check` validates the Astro components. `build` verifies the Cloudflare SSR
 bundle.
 

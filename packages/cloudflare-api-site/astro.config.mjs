@@ -7,6 +7,16 @@ import astroFern from 'astro-fern';
 
 const site = 'https://docs.experiments.devprod.cloudflare.dev';
 
+const internalSiteDomain = process.env['INTERNAL_SITE_DOMAIN']?.trim();
+// `*.cloudflare.com` only one sub domain on purpose
+const allowedDomains = [
+  { protocol: 'https', hostname: '*.cloudflare.com' },
+  { protocol: 'https', hostname: '**.cloudflare.dev' },
+];
+if (internalSiteDomain) {
+  allowedDomains.push({ protocol: 'https', hostname: internalSiteDomain });
+}
+
 const nimbusConfig = defineNimbusConfig({
   site,
   title: 'Cloudflare API',
@@ -24,6 +34,7 @@ export default defineConfig({
   output: 'server',
   trailingSlash: 'always',
   adapter: cloudflare({ prerenderEnvironment: 'node' }),
+  security: { allowedDomains },
   vite: {
     plugins: [tailwindcss()],
     // astro-fern builds operation artifact URLs from `site`, and in dev the
