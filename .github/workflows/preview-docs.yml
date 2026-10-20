@@ -45,22 +45,23 @@ jobs:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CF_SEND_TELEMETRY: 'false'
 
+      # TODO: uncomment once we're out of experimental
       # The build logs to stdout too; the JSON result is the last top-level
       # object in the output.
-      - name: Comment preview URL
-        env:
-          GH_TOKEN: ${{ github.token }}
-          PR: ${{ github.event.pull_request.number }}
-          SHA: ${{ github.event.pull_request.head.sha }}
-        run: |
-          url=$(node -e '
-            const log = require("node:fs").readFileSync(process.argv[1], "utf8");
-            const start = log.lastIndexOf("\n{");
-            const result = JSON.parse(log.slice(start + 1));
-            const url = result.preview_urls?.[0] ?? result.deployment_urls?.[0];
-            if (!url) throw new Error("No preview URL in cf output");
-            console.log(url);
-          ' "$RUNNER_TEMP/preview.log")
-          body="Docs preview for ${SHA}: ${url%/}/api/"
-          echo "$body" >> "$GITHUB_STEP_SUMMARY"
-          gh pr comment "$PR" --repo "$GITHUB_REPOSITORY" --edit-last --create-if-none --body "$body"
+      # - name: Comment preview URL
+      #   env:
+      #     GH_TOKEN: ${{ github.token }}
+      #     PR: ${{ github.event.pull_request.number }}
+      #     SHA: ${{ github.event.pull_request.head.sha }}
+      #   run: |
+      #     url=$(node -e '
+      #       const log = require("node:fs").readFileSync(process.argv[1], "utf8");
+      #       const start = log.lastIndexOf("\n{");
+      #       const result = JSON.parse(log.slice(start + 1));
+      #       const url = result.preview_urls?.[0] ?? result.deployment_urls?.[0];
+      #       if (!url) throw new Error("No preview URL in cf output");
+      #       console.log(url);
+      #     ' "$RUNNER_TEMP/preview.log")
+      #     body="Docs preview for ${SHA}: ${url%/}/api/"
+      #     echo "$body" >> "$GITHUB_STEP_SUMMARY"
+      #     gh pr comment "$PR" --repo "$GITHUB_REPOSITORY" --edit-last --create-if-none --body "$body"
