@@ -1,0 +1,53 @@
+pnpm-lock.yaml
+  s_fe1cefa783649c::t_48df049a466dfc 304-315,1511-1518,5648-5656
+pnpm-workspace.yaml
+  s_fe1cefa783649c::t_85919dffc7400c 4
+src/bin/forge/main.rs
+  s_793ccda59c9326::t_759b26a60be025 5,17,26-28,41-42,50-53,56,85-88
+src/bin/forge/mcp.rs
+  s_793ccda59c9326::t_2ebd85ac9b5450 1-881
+src/bin/forge/mcp/lib/.gitignore
+  s_793ccda59c9326::t_3c18b66eeb7b55 1
+src/bin/forge/mcp/lib/package.json
+  s_793ccda59c9326::t_e970228c757551 1-25
+src/bin/forge/mcp/lib/src/server.ts
+  s_793ccda59c9326::t_2f75d6bd412989 1-153
+src/bin/forge/mcp/lib/test/fixtures.ts
+  s_793ccda59c9326::t_124f14fe1161df 1-43
+src/bin/forge/mcp/lib/test/register.ts
+  s_793ccda59c9326::t_d4e755914160d1 1-21
+src/bin/forge/mcp/lib/test/server.test.ts
+  s_793ccda59c9326::t_628d02dda0746b 1-102
+src/bin/forge/mcp/lib/test/tool.test.ts
+  s_793ccda59c9326::t_1f970937124252 1-50
+src/bin/forge/mcp/lib/tsconfig.json
+  s_793ccda59c9326::t_3fa3c5a78e68ba 1-27
+src/bin/forge/mcp/lib/tsconfig.test.json
+  s_793ccda59c9326::t_e77ccb86c80104 1-8
+src/bin/forge/mcp/schema.rs
+  s_fe1cefa783649c::t_df373b45efb0e7 1-254
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "7343465ffba1eb5534394fa9219b1c96f0518a3d",
+  "prompts": {},
+  "sessions": {
+    "s_793ccda59c9326": {
+      "agent_id": {
+        "tool": "pi",
+        "id": "01a11d88-06eb-711a-bf73-b9b34e6b2051",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Matt Carey <mcarey@cloudflare.com>"
+    },
+    "s_fe1cefa783649c": {
+      "agent_id": {
+        "tool": "pi",
+        "id": "01a13a91-70a8-75d9-987f-b2d26c7ae4fc",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Matt Carey <mcarey@cloudflare.com>"
+    }
+  }
+}
