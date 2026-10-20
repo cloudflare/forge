@@ -42,23 +42,19 @@ start, and knows nothing about the target's language or toolchain.
 
 ## The suite API
 
-One OpenAPI document, written for the cases. It has few methods, each
-covering several patterns, so a client program can call them the way a user
-of the SDK would. A new pattern goes into an existing method when it fits;
-a method is added only when no existing one can carry it, such as a new
-group. Each pattern appears at least once:
+One OpenAPI document, written for the cases, with a fixed set of 9 methods:
 
-| Pattern       | Covers                                                       |
-| ------------- | ------------------------------------------------------------ |
-| Names         | kebab, snake and camel case, acronyms, collisions            |
-| Schemas       | primitives, enums, arrays, maps, nullable, allOf/oneOf/anyOf |
-| Formats       | date-time, date, byte, int64                                 |
-| Requests      | path and query parameters, object, array and scalar bodies   |
-| Responses     | no body, several success statuses                            |
-| Errors        | declared errors, status ranges, undeclared statuses          |
-| Pagination    | cursor, page number with a total, offset                     |
-| Groups        | root methods, groups, nested groups                          |
-| SDK variables | path parameters supplied when the client is created          |
+| Method                     | Route                                                       | Covers                                                                                                                                                        |
+| -------------------------- | ----------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `health`                   | `GET /health`                                               | root method, no parameters                                                                                                                                    |
+| `projects.create`          | `POST /orgs/{org_id}/projects`                              | SDK variable (`org_id`), object body, `date-time`, `date`, `int64`, `byte`, 201                                                                               |
+| `projects.get`             | `GET /orgs/{org_id}/projects/{project_id}`                  | path parameters, declared errors (404, `4XX`), undeclared status, unknown response properties                                                                 |
+| `projects.update`          | `PATCH /orgs/{org_id}/projects/{project_id}`                | path, query (repeated and special-character names) and header parameters with an object body, body property colliding with a parameter name                   |
+| `projects.delete`          | `DELETE /orgs/{org_id}/projects/{project_id}`               | 204 response with no body                                                                                                                                     |
+| `projects.archive`         | `POST /orgs/{org_id}/projects/{project_id}/archive`         | method and subgroup with the same name                                                                                                                        |
+| `projects.archive.restore` | `POST /orgs/{org_id}/projects/{project_id}/archive/restore` | subgroup on a method                                                                                                                                          |
+| `projects.members.replace` | `PUT /orgs/{org_id}/projects/{project_id}/members`          | nested group, array body, two success statuses (200 and 201) with different bodies                                                                            |
+| `dnsRecords.getById`       | `POST /zones/{zone_id}/dns-records/{record_id}`             | kebab-case group (`dns-records`), camelCase method with acronym (`getByID`), primitives, enums, maps, `nullable`, `allOf`, `oneOf`, `anyOf`, recursive models |
 
 Every method in the suite API has at least one case.
 
@@ -73,7 +69,7 @@ the caller must get. Cases are YAML files, each a list of cases.
   call:
     group: projects
     method: create
-    request: { displayName: Demo }
+    body: { displayName: Demo }
   exchanges:
     - expect:
         method: POST
@@ -97,8 +93,10 @@ type Case = {
   call: {
     group: string; // property path from the root client, e.g. "projects.members"; "" for root
     method: string; // method name on that group
-    request?: Record<string, Value>; // the method's request argument, see below
-    iterate?: boolean; // collect every item of a paginated method
+    path?: Record<string, Value>; // path parameters, by field name
+    query?: Record<string, Value>; // query parameters, by field name
+    headers?: Record<string, Value>; // header parameters, by field name
+    body?: Value; // request body, with object keys in field names
   };
   exchanges: Exchange[]; // in order; empty when the call must fail before sending
   result: Result;
@@ -125,18 +123,22 @@ type Result =
   | { kind: 'network'; message?: string }; // no response
 ```
 
+`exchanges` is explicit because the runner does not read the OpenAPI document
+or know how a target maps `call` to HTTP: the case pins the exact wire path,
+query, headers and body the SDK must send, and the exact status and wire body
+the server returns (including error payloads, non-JSON text and disconnects
+that cannot be derived from `call`).
+
 Of a result other than `response`, only the members the case lists are
 compared.
 
-### The request argument
+### Call inputs
 
-A generated method takes one request argument holding all of its inputs:
-path, query and header parameters, and the body. For a body that is an
-object, its fields are members of the request; any other body is the
-`body` member. `request` is that argument, in forge field names, not what is
-sent: the target builds the argument from it and the generated method puts
-each member where the API description says. An SDK variable may be set in
-both: the request's value wins, and `variables` is the fallback.
+`call` splits inputs into `path`, `query`, `headers` and `body` so a target
+can pass each where its generated signature expects: one combined request
+object, positional path arguments plus a body, or separate parameter and body
+structs. An SDK variable in `variables` is set on the client; if the same
+variable also appears in `call.path`, the call's value wins.
 
 ### Query and headers
 
@@ -156,10 +158,10 @@ the same.
 
 The two sides of a case use different names:
 
-| Part                            | Names                                         |
-| ------------------------------- | --------------------------------------------- |
-| `exchanges` (server side)       | wire names, exactly as in the API description |
-| `variables`, `request`, `value` | forge field names, in camelCase               |
+| Part                         | Names                                         |
+| ---------------------------- | --------------------------------------------- |
+| `exchanges` (server side)    | wire names, exactly as in the API description |
+| `variables`, `call`, `value` | forge field names, in camelCase               |
 
 camelCase is the canonical form, not a requirement on targets. A target whose
 language uses another convention converts case names the same way its
@@ -192,7 +194,7 @@ Input, the case's client side plus where to send requests:
   "baseUrl": "http://127.0.0.1:52100/",
   "token": "conformance-token",
   "variables": { "orgId": "o1" },
-  "call": { "group": "projects", "method": "create", "request": { "displayName": "Demo" } }
+  "call": { "group": "projects", "method": "create", "body": { "displayName": "Demo" } }
 }
 ```
 
@@ -207,14 +209,12 @@ Output, with the same id and a `Result`, or `unexpected`:
 For each line the program:
 
 1. creates a client from `baseUrl`, `token` and `variables`;
-2. calls `call.method` on `call.group` with `request`, collecting every item
-   if `iterate` is set;
+2. calls `call.method` on `call.group` with the inputs in `call`;
 3. maps the return value or error to a `Result`, converting tagged values to
    and from the language's types.
 
 The program has one handler per method of the suite API, written as a user
-of the SDK would call it. Adding a case never requires changing a target;
-adding a method does, which is why the suite API keeps few.
+of the SDK would call it.
 
 `unexpected` is an error of no other kind, a bug in the SDK or the program,
 and always fails the case. Results may come in any order. The program exits
@@ -242,12 +242,9 @@ timeout. A failure shows the case's file, line and name, and a diff.
 
 ### Skipping and expecting failures
 
-A target that does not handle a pattern yet tells the runner, without
-editing the cases:
-
 ```sh
 forge-conformance --cases ./cases --client "./client" \
-  --skip "a cursor is followed until it is null" \
+  --skip "an undeclared status keeps its body as text" \
   --skip @./skip.txt \
   --expect-fail ./expected-failures.txt \
   --write-failures ./failures.txt
@@ -265,11 +262,8 @@ A case list is plain text, one case name per line. Blank lines and lines
 starting with `#` are ignored; a comment above a name gives the reason:
 
 ```
-# cursor pagination is not generated yet
-a cursor is followed until it is null
+# status ranges are not generated yet
+an error declared for a range is decoded
 ```
 
 `--write-failures` puts each case's first failure in that comment.
-
-The lists belong to whoever runs the cases, so a target outside this repo
-keeps its own.
