@@ -3,6 +3,7 @@
 //! ```text
 //! forge openapi.json --target ts --out sdk
 //! forge openapi.json --target capnweb --out server
+//! forge openapi.json --target mcp --out server
 //! forge openapi.json --target wasm://plugin.wasm --out sdk
 //! forge normalize specs/*.json
 //! ```
@@ -17,6 +18,7 @@ use forge::{Err, Forge, Plugin};
 use strum::{EnumString, VariantNames};
 
 mod capnweb;
+mod mcp;
 mod normalize;
 mod ts;
 
@@ -30,9 +32,9 @@ struct Args {
     #[arg(required = true)]
     spec: Option<PathBuf>,
     /// The language of the SDK: `ts` for TypeScript, `capnweb` for a Cap'n
-    /// Web server of the TypeScript SDK, which it imports from `#sdk`, or
-    /// `wasm://PATH` for the plugin compiled to a WebAssembly component at
-    /// PATH.
+    /// Web server of the TypeScript SDK, which it imports from `#sdk`, `mcp`
+    /// for an MCP server in TypeScript, or `wasm://PATH` for the plugin
+    /// compiled to a WebAssembly component at PATH.
     #[arg(long, value_parser = Target::parse, required = true)]
     target: Option<Target>,
     /// The directory to write the SDK to.
@@ -60,6 +62,8 @@ enum Target {
     Ts,
     /// The Cap'n Web server generator.
     Capnweb,
+    /// The MCP server generator, which generates TypeScript.
+    Mcp,
     /// A plugin compiled to a WebAssembly component, at the path.
     #[cfg(feature = "wasm")]
     #[strum(disabled)]
@@ -118,6 +122,7 @@ fn generate(spec: &Path, target: Target, out: &Path) -> Result<(), Err> {
     match target {
         Target::Ts => run_plugin(&ts::Generator, spec, out),
         Target::Capnweb => run_plugin(&capnweb::Generator, spec, out),
+        Target::Mcp => run_plugin(&mcp::Generator, spec, out),
         #[cfg(feature = "wasm")]
         Target::Wasm(path) => {
             // Compiling the plugin and reading the document are both slow,
