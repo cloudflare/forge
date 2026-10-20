@@ -1,5 +1,6 @@
 dist/
 .astro/
+.cloudflare/
 .wrangler/
 public/_astro-fern/
 

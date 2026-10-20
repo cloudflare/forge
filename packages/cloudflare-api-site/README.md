@@ -154,11 +154,21 @@ WebAssembly runtime is unavailable in the deployed Worker.
 From the repository root after `pnpm install`:
 
 ```bash
-pnpm --filter cloudflare-api-site dev
+pnpm --filter cloudflare-api-site dev             # cf dev
 pnpm --filter cloudflare-api-site check
-pnpm --filter cloudflare-api-site build
-pnpm --filter cloudflare-api-site preview
+pnpm --filter cloudflare-api-site build           # cf build
+pnpm --filter cloudflare-api-site preview         # serve the last build locally
+pnpm --filter cloudflare-api-site deploy          # cf deploy
+pnpm --filter cloudflare-api-site deploy:preview  # cf previews deploy
 ```
+
+The Worker is configured in `cloudflare.config.ts` and built and deployed with
+the [Cloudflare CLI](https://developers.cloudflare.com/cf/) (`cf`). `cf build`
+runs `astro build` and writes Build Output to `.cloudflare/output/v0/`.
+`cf previews deploy` builds with `isPreview` set, which leaves the production
+custom domain off the preview; the preview is named after the current branch.
+`.github/workflows/preview-docs.yml` deploys one for every same-repository pull
+request and comments its URL.
 
 To reproduce a release-triggered build, pin the release asset:
 
@@ -173,7 +183,7 @@ downloading it again.
 bundle.
 
 `test:visual` compares screenshots of key pages against local baselines. It
-serves the last build with `wrangler dev`, or uses `VISUAL_BASE_URL` when set.
+serves the last build with `astro preview`, or uses `VISUAL_BASE_URL` when set.
 Build the known-good revision and run it with `--update-snapshots` to record
 baselines, then build the change and run it again. Pin `FORGE_OPENAPI_RELEASE`
 for both builds; baselines and results are not committed.

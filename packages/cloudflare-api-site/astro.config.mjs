@@ -2,11 +2,13 @@
 import cloudflare from '@astrojs/cloudflare';
 import nimbus, { defineConfig as defineNimbusConfig } from '@cloudflare/nimbus-docs';
 import tailwindcss from '@tailwindcss/vite';
-import astroFern from 'astro-fern';
 import { defineConfig } from 'astro/config';
+import astroFern from 'astro-fern';
+
+const site = 'https://docs.experiments.devprod.cloudflare.dev';
 
 const nimbusConfig = defineNimbusConfig({
-  site: 'https://docs.experiments.devprod.cloudflare.dev',
+  site,
   title: 'Cloudflare API',
   description: 'API reference generated from the Cloudflare OpenAPI spec by Forge.',
   locale: 'en',
@@ -24,6 +26,10 @@ export default defineConfig({
   adapter: cloudflare({ prerenderEnvironment: 'node' }),
   vite: {
     plugins: [tailwindcss()],
+    // astro-fern builds operation artifact URLs from `site`, and in dev the
+    // Cloudflare Vite plugin forwards ASSETS fetches to this server with that
+    // host. Allow it so Vite's host check doesn't reject them with a 403.
+    server: { allowedHosts: [new URL(site).hostname] },
   },
   integrations: [
     nimbus(nimbusConfig, {

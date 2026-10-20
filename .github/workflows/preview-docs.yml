@@ -1,0 +1,66 @@
+# Deploys each pull request's docs site as a Worker Preview of the `docs`
+# Worker and comments the preview URL on the pull request. The preview is
+# named after the branch, so new pushes update the same preview.
+#
+# Pull requests from forks are skipped: they get no repository secrets.
+# CI's checks still build them.
+
+name: Preview docs
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'packages/astro-fern/**'
+      - 'packages/fern-forge/**'
+      - 'packages/cloudflare-api-site/**'
+      - 'pnpm-lock.yaml'
+      - '.github/workflows/preview-docs.yml'
+
+concurrency:
+  group: preview-docs-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  preview:
+    name: Preview docs
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      pull-requests: write
+
+    steps:
+      - uses: actions/checkout@v7.0.1
+
+      - uses: ./.github/actions/setup-workspace
+
+      # Builds with `isPreview` set, so cloudflare.config.ts leaves the
+      # production custom domain off the preview.
+      - name: Deploy preview
+        run: pnpm --filter cloudflare-api-site run deploy:preview | tee "$RUNNER_TEMP/preview.log"
+        env:
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CF_SEND_TELEMETRY: 'false'
+
+      # The build logs to stdout too; the JSON result is the last top-level
+      # object in the output.
+      - name: Comment preview URL
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+          SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          url=$(node -e '
+            const log = require("node:fs").readFileSync(process.argv[1], "utf8");
+            const start = log.lastIndexOf("\n{");
+            const result = JSON.parse(log.slice(start + 1));
+            const url = result.preview_urls?.[0] ?? result.deployment_urls?.[0];
+            if (!url) throw new Error("No preview URL in cf output");
+            console.log(url);
+          ' "$RUNNER_TEMP/preview.log")
+          body="Docs preview for ${SHA}: ${url%/}/api/"
+          echo "$body" >> "$GITHUB_STEP_SUMMARY"
+          gh pr comment "$PR" --repo "$GITHUB_REPOSITORY" --edit-last --create-if-none --body "$body"

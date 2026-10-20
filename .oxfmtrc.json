@@ -10,6 +10,7 @@
   "ignorePatterns": [
     "**/_generated/**",
     "dist",
+    ".cloudflare",
     ".wrangler",
     "Cargo.toml",
     "packages/cloudflare-api-site/src/components/ui/**/*.ts",

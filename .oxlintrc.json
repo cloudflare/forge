@@ -9,7 +9,7 @@
     "typescript/no-floating-promises": "warn",
     "typescript/no-misused-promises": "warn"
   },
-  "ignorePatterns": ["node_modules", "dist", "**/_generated/**", ".wrangler"],
+  "ignorePatterns": ["node_modules", "dist", "**/_generated/**", ".cloudflare", ".wrangler"],
   "overrides": [
     {
       "files": ["packages/astro-fern/**", "packages/cloudflare-api-site/**", "packages/fern-forge/**"],

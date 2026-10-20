@@ -4,3 +4,9 @@ packages:
 allowBuilds:
   esbuild: true
   workerd: true
+minimumReleaseAgeExclude:
+  - '@astrojs/cloudflare@15.0.0-beta.2'
+  - '@cloudflare/runtime-types@0.1.13'
+  - astro@7.4.1
+  - cf@1.0.0-beta.19
+  - miniflare@5.20261019.0-beta

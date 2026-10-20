@@ -6,5 +6,5 @@
     }
   },
   "include": [".astro/types.d.ts", "**/*"],
-  "exclude": ["dist"]
+  "exclude": ["dist", ".cloudflare/output", ".cloudflare/state"]
 }
