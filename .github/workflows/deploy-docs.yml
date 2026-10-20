@@ -34,16 +34,11 @@ jobs:
 
       - uses: ./.github/actions/setup-workspace
 
-      - name: Build
-        run: pnpm --filter cloudflare-api-site build
+      # `cf deploy` builds the site (`astro build`) and deploys it. `run` is
+      # needed because `pnpm deploy` is a built-in pnpm command.
+      - name: Build and deploy
+        run: pnpm --filter cloudflare-api-site run deploy
         env:
           FORGE_OPENAPI_RELEASE: ${{ github.event.release.tag_name || inputs.openapi_release || '' }}
-
-      # `cf build` records the mode in its Build Output; `--prebuilt` deploys
-      # that exact output and must request the same mode.
-      - name: Deploy
-        run: pnpm --dir packages/cloudflare-api-site exec cf deploy --prebuilt --mode production
-        env:
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CF_SEND_TELEMETRY: 'false'
