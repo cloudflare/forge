@@ -15,6 +15,7 @@ API documentation site for Forge OpenAPI specs, built on Astro.
 - **Formatting & Linting**: `oxfmt` and `oxlint`, configured only at the root (`.oxfmtrc.json`, `.oxlintrc.json`). `pnpm check` verifies; `pnpm format` rewrites.
 - **Type Checking**: Strict TypeScript compiler settings across all packages via `pnpm typecheck`.
 - **Tests**: Node-native test runner via `pnpm test` (or `pnpm -r run test`).
+- **RFCs**: Design proposals and specifications live in `rfcs/`.
 
 ## Commands
 
