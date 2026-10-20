@@ -7,16 +7,14 @@
 //! host's `forge` interface (see `forge::wasm::WIT`).
 //!
 //! The forge stays in the host. A part is fetched the first time the
-//! plugin reads it in a call, and kept until the call ends.
+//! plugin reads it, and kept in the instance across group calls.
 
 #![allow(dead_code)]
 
 extern crate self as forge;
 
+use std::sync::{LazyLock, OnceLock};
 use std::{fmt, iter};
-
-use elsa::FrozenMap;
-
 mod json;
 mod name;
 
@@ -84,21 +82,19 @@ impl wit::Guest for Component {
     fn generate() -> Result<Vec<wit::File>, String> {
         Ok(vec![wit::File {
             path: "dump.txt".to_owned(),
-            content: dump::dump(&Forge::fetch()).into_bytes(),
+            content: dump::dump(&FORGE).into_bytes(),
         }])
     }
 
     #[cfg(not(feature = "dump"))]
     fn generate() -> Result<Vec<wit::File>, String> {
-        let forge = Forge::fetch();
-        render(bin::ts::Generator.generate(&forge).map_err(|err| err.to_string())?)
+        render(bin::ts::Generator.generate(&FORGE).map_err(|err| err.to_string())?)
     }
 
     fn generate_group(group: u32) -> Result<Vec<wit::File>, String> {
-        let forge = Forge::fetch();
         render(
             bin::ts::Generator
-                .generate_group(forge.group(group))
+                .generate_group(FORGE.group(group))
                 .map_err(|err| err.to_string())?,
         )
     }
@@ -128,37 +124,47 @@ pub struct Forge {
     pub description: String,
     pub base_url: String,
 
-    groups: Vec<u32>,
-    top_models: Vec<u32>,
+    groups: OnceLock<Vec<u32>>,
+    top_models: OnceLock<Vec<u32>>,
 
-    group_data: FrozenMap<u32, Box<GroupData>>,
-    method_data: FrozenMap<u32, Box<MethodData>>,
-    model_data: FrozenMap<u32, Box<ModelData>>,
-    type_data: FrozenMap<u32, Box<TypeData>>,
+    group_data: Vec<OnceLock<GroupData>>,
+    method_data: Vec<OnceLock<MethodData>>,
+    model_data: Vec<OnceLock<ModelData>>,
+    type_data: Vec<OnceLock<TypeData>>,
+}
+
+static FORGE: LazyLock<Forge> = LazyLock::new(Forge::fetch);
+
+fn slots<T>(n: u32) -> Vec<OnceLock<T>> {
+    (0..n).map(|_| OnceLock::new()).collect()
 }
 
 impl Forge {
     fn fetch() -> Forge {
         let info = host::info();
+        let counts = host::counts();
         Forge {
             version: info.version,
             description: info.description,
             base_url: info.base_url,
-            groups: host::groups(),
-            top_models: host::models(),
-            group_data: FrozenMap::new(),
-            method_data: FrozenMap::new(),
-            model_data: FrozenMap::new(),
-            type_data: FrozenMap::new(),
+            groups: OnceLock::new(),
+            top_models: OnceLock::new(),
+            group_data: slots(counts.groups),
+            method_data: slots(counts.methods),
+            model_data: slots(counts.models),
+            type_data: slots(counts.types),
         }
     }
 
     pub fn groups(&self) -> impl Iterator<Item = Group<'_>> {
-        self.groups.iter().map(|&id| self.group(id))
+        self.groups.get_or_init(host::groups).iter().map(|&id| self.group(id))
     }
 
     pub fn models(&self) -> impl ExactSizeIterator<Item = Model<'_>> {
-        self.top_models.iter().map(|&id| self.model(id))
+        self.top_models
+            .get_or_init(host::models)
+            .iter()
+            .map(|&id| self.model(id))
     }
 
     fn group(&self, id: u32) -> Group<'_> {
@@ -183,31 +189,23 @@ impl Forge {
     }
 
     fn group_data(&self, id: u32) -> &GroupData {
-        if let Some(data) = self.group_data.get(&id) {
-            return data;
-        }
-        let g = host::get_group(id);
-        self.group_data.insert(
-            id,
-            Box::new(GroupData {
+        self.group_data[id as usize].get_or_init(|| {
+            let g = host::get_group(id);
+            GroupData {
                 name: Name::from_words(g.name),
                 description: g.description,
                 path: g.path,
                 children: g.children,
                 methods: g.methods,
                 models: g.models,
-            }),
-        )
+            }
+        })
     }
 
     fn method_data(&self, id: u32) -> &MethodData {
-        if let Some(data) = self.method_data.get(&id) {
-            return data;
-        }
-        let m = host::get_method(id);
-        self.method_data.insert(
-            id,
-            Box::new(MethodData {
+        self.method_data[id as usize].get_or_init(|| {
+            let m = host::get_method(id);
+            MethodData {
                 name: Name::from_words(m.name),
                 group: m.group,
                 http_method: match m.http_method {
@@ -251,33 +249,26 @@ impl Forge {
                     .into_iter()
                     .map(|(name, value)| (name, Json::parse(&value)))
                     .collect(),
-            }),
-        )
+            }
+        })
     }
 
     fn model_data(&self, id: u32) -> &ModelData {
-        if let Some(data) = self.model_data.get(&id) {
-            return data;
-        }
-        let m = host::get_model(id);
-        self.model_data.insert(
-            id,
-            Box::new(ModelData {
+        self.model_data[id as usize].get_or_init(|| {
+            let m = host::get_model(id);
+            ModelData {
                 schema_name: m.schema_name,
                 name: Name::from_words(m.name),
                 group: m.group,
                 description: m.description,
                 deprecated: m.deprecated,
                 ty: m.ty,
-            }),
-        )
+            }
+        })
     }
 
     fn type_data(&self, id: u32) -> &TypeData {
-        if let Some(data) = self.type_data.get(&id) {
-            return data;
-        }
-        let data = match host::get_type(id) {
+        self.type_data[id as usize].get_or_init(|| match host::get_type(id) {
             host::TypeInfo::Scalar(scalar) => TypeData::Scalar(match scalar {
                 host::Scalar::Unknown => Scalar::Unknown,
                 host::Scalar::Null => Scalar::Null,
@@ -347,8 +338,7 @@ impl Forge {
             }),
             host::TypeInfo::Intersection(members) => TypeData::Intersection(members),
             host::TypeInfo::Model(id) => TypeData::Model(id),
-        };
-        self.type_data.insert(id, Box::new(data))
+        })
     }
 }
 

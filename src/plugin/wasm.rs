@@ -280,7 +280,8 @@ world plugin {
     /// Generates files for the forge. Called exactly once.
     export generate: func() -> result<list<file>, string>;
     /// Generates files for a group. Called exactly once for each group, in
-    /// parallel with other groups, each in an instance of its own.
+    /// parallel with other groups. Instances are reused across groups of
+    /// the same forge.
     export generate-group: func(group: group-id) -> result<list<file>, string>;
 }
 "#
@@ -291,14 +292,42 @@ use bindings::forge::plugin::forge as wit;
 /// A plugin compiled to a WebAssembly component of the `plugin` world in
 /// [`WIT`].
 ///
-/// It compiles the component once, then keeps a pool of instances, so
-/// groups run in parallel without compiling or instantiating it again. A
-/// call takes an instance from the pool, or makes one if none is free, and
-/// returns it unless the plugin trapped.
+/// It compiles the component once, then keeps a pool of instances for the
+/// current [`Forge`], so groups run in parallel without compiling or
+/// instantiating it again, and each instance only ever reads one [`Forge`].
+/// A call takes an instance from the pool, or makes one if none is free,
+/// and returns it unless the plugin trapped.
 pub struct WasmPlugin {
     engine: Engine,
     pre: bindings::PluginPre<State>,
-    pool: Mutex<Vec<Instance>>,
+    pool: Mutex<Pool>,
+}
+
+#[derive(Default)]
+struct Pool {
+    forge: ForgeKey,
+    instances: Vec<Instance>,
+}
+
+#[derive(Clone, Copy, Default, PartialEq, Eq)]
+struct ForgeKey {
+    forge: usize,
+    groups: (usize, usize),
+    methods: (usize, usize),
+    models: (usize, usize),
+    types: (usize, usize),
+}
+
+impl ForgeKey {
+    fn of(forge: &Forge) -> Self {
+        ForgeKey {
+            forge: ptr::from_ref(forge).addr(),
+            groups: (forge.groups.as_ptr().addr(), forge.groups.len()),
+            methods: (forge.methods.as_ptr().addr(), forge.methods.len()),
+            models: (forge.models.as_ptr().addr(), forge.models.len()),
+            types: (forge.types.as_ptr().addr(), forge.types.len()),
+        }
+    }
 }
 
 /// A file a [`WasmPlugin`] generated, with its content already rendered.
@@ -331,7 +360,7 @@ impl WasmPlugin {
         Ok(WasmPlugin {
             engine,
             pre,
-            pool: Mutex::new(Vec::new()),
+            pool: Mutex::new(Pool::default()),
         })
     }
 
@@ -341,7 +370,15 @@ impl WasmPlugin {
         forge: &Forge,
         f: impl FnOnce(&bindings::Plugin, &mut Store<State>) -> wasmtime::Result<Result<Vec<bindings::File>, String>>,
     ) -> Result<std::vec::IntoIter<WasmFile>, Err> {
-        let pooled = self.pool.lock().unwrap_or_else(|err| err.into_inner()).pop();
+        let forge_key = ForgeKey::of(forge);
+        let pooled = {
+            let mut pool = self.pool.lock().unwrap_or_else(|err| err.into_inner());
+            if pool.forge != forge_key {
+                pool.forge = forge_key;
+                pool.instances.clear();
+            }
+            pool.instances.pop()
+        };
         let mut instance = match pooled {
             Some(instance) => instance,
             None => self.instantiate()?,
@@ -353,7 +390,11 @@ impl WasmPlugin {
 
         // A trap can leave the instance broken, so it is dropped instead.
         let files = result.map_err(error)?;
-        self.pool.lock().unwrap_or_else(|err| err.into_inner()).push(instance);
+        let mut pool = self.pool.lock().unwrap_or_else(|err| err.into_inner());
+        if pool.forge == forge_key {
+            pool.instances.push(instance);
+        }
+        drop(pool);
 
         let files = files?.into_iter().map(|file| WasmFile {
             path: file.path,

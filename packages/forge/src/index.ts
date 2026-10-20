@@ -18,9 +18,9 @@
  * ```
  *
  * The forge stays in forge's process. Each part is fetched the first time
- * a plugin reads it, and kept until the call ends, so reading a part again
- * is free, and the same part is always the same object: compare groups,
- * methods and models with `===`.
+ * a plugin reads it, and kept in the instance across group calls, so
+ * reading a part again is free, and the same part is always the same
+ * object: compare groups, methods and models with `===`.
  *
  * @module
  */
@@ -44,8 +44,8 @@ export interface Plugin {
   generate?(forge: Forge): Iterable<File>;
   /**
    * Generates files for a group. Called exactly once for each group, in
-   * parallel with other groups, each in an instance of its own. Nothing a
-   * call keeps in module state is seen by the calls for other groups.
+   * parallel with other groups. Instances are reused across groups of the
+   * same forge, so module state may carry over between calls.
    */
   generateGroup?(group: Group): Iterable<File>;
 }
@@ -382,12 +382,13 @@ export interface ModelType {
  * Throw to fail: forge stops and prints the error's message.
  */
 export function definePlugin(plugin: Plugin): Exports {
+  const forge = lazy(() => new ForgeImpl());
   const exports = {
     generate() {
-      return call(() => files(plugin.generate?.(new ForgeImpl()) ?? []));
+      return call(() => files(plugin.generate?.(forge()) ?? []));
     },
     generateGroup(id: host.GroupId) {
-      return call(() => files(plugin.generateGroup?.(new ForgeImpl().group(id)) ?? []));
+      return call(() => files(plugin.generateGroup?.(forge().group(id)) ?? []));
     },
   } satisfies Pick<typeof hostPlugin, 'generate' | 'generateGroup'>;
   return exports;
@@ -497,12 +498,12 @@ function lazy<T>(f: () => T): () => T {
   };
 }
 
-/** Returns what `cache` has under `id`, making it with `make` if it has nothing. */
-function cached<T>(cache: Map<number, T>, id: number, make: () => T): T {
-  let value = cache.get(id);
+/** Returns what `cache` has at index `id`, making it with `make` if it has nothing. */
+function cached<T>(cache: (T | undefined)[], id: number, make: () => T): T {
+  let value = cache[id];
   if (value === undefined) {
     value = make();
-    cache.set(id, value);
+    cache[id] = value;
   }
   return value;
 }
@@ -554,21 +555,24 @@ function upperFirst(word: string): string {
 }
 
 class ForgeImpl implements Forge {
-  readonly version: string;
-  readonly description: string;
-  readonly baseUrl: string;
-  private readonly groupCache = new Map<host.GroupId, GroupImpl>();
-  private readonly methodCache = new Map<host.MethodId, MethodImpl>();
-  private readonly modelCache = new Map<host.ModelId, ModelImpl>();
-  private readonly typeCache = new Map<host.TypeId, Type>();
+  private readonly info = lazy(() => host.info());
+  private readonly groupCache: (GroupImpl | undefined)[] = [];
+  private readonly methodCache: (MethodImpl | undefined)[] = [];
+  private readonly modelCache: (ModelImpl | undefined)[] = [];
+  private readonly typeCache: (Type | undefined)[] = [];
   private readonly allGroups = lazy(() => ids(host.groups()).map((id) => this.group(id)));
   private readonly topModels = lazy(() => ids(host.models()).map((id) => this.model(id)));
 
-  constructor() {
-    const info = host.info();
-    this.version = info.version;
-    this.description = info.description;
-    this.baseUrl = info.baseUrl;
+  get version(): string {
+    return this.info().version;
+  }
+
+  get description(): string {
+    return this.info().description;
+  }
+
+  get baseUrl(): string {
+    return this.info().baseUrl;
   }
 
   get groups(): readonly Group[] {
