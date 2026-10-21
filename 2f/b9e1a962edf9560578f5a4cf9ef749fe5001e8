@@ -1,0 +1,41 @@
+packages/cloudflare-api-site/nimbus.json
+  s_40948424877c65::t_8259f6323d7056 3,5
+packages/cloudflare-api-site/src/components/AgentDirective.astro
+  s_40948424877c65::t_55667372ed6978 3-6,15-26
+packages/cloudflare-api-site/src/components/ui/banner/Banner.astro
+  s_40948424877c65::t_5c9cca528690e1 11,39
+packages/cloudflare-api-site/src/components/ui/breadcrumbs/Breadcrumbs.astro
+  s_40948424877c65::t_86ae79f9931aab 27
+packages/cloudflare-api-site/src/components/ui/page-actions/PageActions.astro
+  s_40948424877c65::t_ad503d098522d0 28
+packages/cloudflare-api-site/src/components/ui/page-actions/page-actions.client.ts
+  s_40948424877c65::t_75780eebdfb184 32-36,38-43
+packages/cloudflare-api-site/src/components/ui/sidebar/SidebarFilter.astro
+  s_40948424877c65::t_3e54fd87b182dd 29-32
+packages/cloudflare-api-site/src/components/ui/theme-toggle/ThemeToggle.astro
+  s_40948424877c65::t_4d382d76720295 17,24-25
+packages/cloudflare-api-site/src/components/ui/theme-toggle/theme-toggle.client.ts
+  s_40948424877c65::t_3aa84cbad64a44 11,17,19-20,22-24,26-30,34
+packages/cloudflare-api-site/src/components/ui/toc/MobileTOC.astro
+  s_40948424877c65::t_f418e1af8be565 42
+packages/cloudflare-api-site/src/layouts/BaseLayout.astro
+  s_40948424877c65::t_055d2218a3b5db 24,71-72,75,94,106-110,120,136-137
+packages/cloudflare-api-site/src/pages/404.astro
+  s_40948424877c65::t_7a740a4f5dc47d 13
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "2fb9e1a962edf9560578f5a4cf9ef749fe5001e8",
+  "prompts": {},
+  "sessions": {
+    "s_40948424877c65": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "b986cd6a-02da-414a-a47a-74d0e86476b3",
+        "model": "unknown"
+      },
+      "human_author": "mohamedh <mhassan@cloudflare.com>"
+    }
+  }
+}

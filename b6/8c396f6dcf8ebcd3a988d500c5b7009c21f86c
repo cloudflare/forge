@@ -1,0 +1,31 @@
+packages/cloudflare-api-site/README.md
+  s_40948424877c65::t_67c0d7ef4fc315 42-43
+packages/cloudflare-api-site/astro.config.mjs
+  s_40948424877c65::t_46274c6a630118 5
+packages/cloudflare-api-site/package.json
+  s_40948424877c65::t_16c7b4e8301fe7 25-26
+packages/cloudflare-api-site/src/content.config.ts
+  s_40948424877c65::t_b14af3744a2e11 16,53
+packages/cloudflare-api-site/src/description-markdown.test.ts
+  s_40948424877c65::t_e71ade33aabe82 1-79
+packages/cloudflare-api-site/src/description-markdown.ts
+  s_40948424877c65::t_535a55b38b0d1f 1-48
+pnpm-lock.yaml
+  s_40948424877c65::t_15989b1e29ac0c 77-82
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "b68c396f6dcf8ebcd3a988d500c5b7009c21f86c",
+  "prompts": {},
+  "sessions": {
+    "s_40948424877c65": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "b986cd6a-02da-414a-a47a-74d0e86476b3",
+        "model": "unknown"
+      },
+      "human_author": "mohamedh <mhassan@cloudflare.com>"
+    }
+  }
+}

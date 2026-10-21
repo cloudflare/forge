@@ -1,0 +1,85 @@
+packages/astro-fern/agents/index.test.ts
+  s_ece628d1d062ee::t_4917d69bbf6d10 70,83,136,139,154-169,205-214,243-257,285,288-293,297-393,497-519
+packages/astro-fern/agents/index.ts
+  s_ece628d1d062ee::t_1bca48f1f71abe 1-11,48-87,97,104,130-197,205-210,216,221-245,248-250
+packages/astro-fern/content-collections.test.ts
+  s_ece628d1d062ee::t_d359e8cb0d887e 85-89,95-117,123-143,196-227
+packages/astro-fern/content-collections.ts
+  s_ece628d1d062ee::t_bfc329742b402c 4-11,16-19,33,53-107,109,113-114,123,127,130-131,191,194-200
+packages/astro-fern/content/build.test.ts
+  s_ece628d1d062ee::t_6731232a55e857 7-16,30-36,38,68,71-72,77-78,90-97,100-121,126-191,198,214-215,221-262,290-294,296,299-576,653-655,715-721,751-752,763,784,816-831,835,837-851
+packages/astro-fern/content/build.ts
+  s_ece628d1d062ee::t_b259cf027d9b82 7,9-26,28,32-38,40-41,77-79,87-126,154-155,165-166,172,180-181,199-200,289-297,320,335,410-413,422,426,430-432,480-483
+packages/astro-fern/content/index.ts
+  s_ece628d1d062ee::t_5371b03ee2d89d 8-27,33-34,36-39,42,50,52-56,59
+packages/astro-fern/content/model.ts
+  s_ece628d1d062ee::t_5c37d9c057bec7 6-14,25,41-68,72,76-77,81,87-90,116-117
+packages/astro-fern/content/request-body.ts
+  s_ece628d1d062ee::t_665bbdc0ab26b6 1-20
+packages/astro-fern/content/resolver.ts
+  s_ece628d1d062ee::t_6046820aa4cc83 11-21,29,40-43,55-68,71-73,78-79,87,96-97,110-112,116,132-133,146-161,165,170-171,173,177,181,313-314,378-469,471-529,531-621,623-625,627,638,646
+packages/astro-fern/content/response.ts
+  s_ece628d1d062ee::t_a44d2f2c753d86 1-61
+packages/astro-fern/content/schema.ts
+  s_ece628d1d062ee::t_c3104a8b26fc95 9-11,46-52,59-62,83,102-144,161-163,166-167,239-240,272-273
+packages/astro-fern/index.ts
+  s_ece628d1d062ee::t_d5778bb8049e88 31,44,57-58
+packages/astro-fern/integration.ts
+  s_ece628d1d062ee::t_dd870420da78e7 4,41-44
+packages/astro-fern/markdown.test.ts
+  s_ece628d1d062ee::t_fa034a440078c2 1-24
+packages/astro-fern/markdown.ts
+  s_ece628d1d062ee::t_1f192f7434564d 1-47
+packages/astro-fern/project.test.ts
+  s_ece628d1d062ee::t_22e9232acb239e 104-107,111-114,116-117,122-123
+packages/astro-fern/project.ts
+  s_ece628d1d062ee::t_294b9d7627658a 198-201
+packages/astro-fern/route-plan.ts
+  s_ece628d1d062ee::t_68d3a9ba1e88f0 7,59,78-81,305,449-452,467,469
+packages/astro-fern/server.ts
+  s_ece628d1d062ee::t_665fa9c6066785 1,84
+packages/astro-fern/snippets/index.ts
+  s_ece628d1d062ee::t_fc9e104859aabe 31-40,48-49,145-148,160-161
+packages/astro-fern/test-fixture.ts
+  s_ece628d1d062ee::t_e45b4eb5ba9d7b 7-24,35-37,58-59,74,77-85,88,129,141-191,200,203-204,207-208,232-240
+packages/docs-site/src/cloudflare.test.ts
+  s_ece628d1d062ee::t_e85f68a29702b1 2,35-58,68-96,98-99,109-124,135,137-151,171,178-257
+packages/docs-site/src/cloudflare.ts
+  s_ece628d1d062ee::t_264c551fa65eca 18,21,23,150-188,197-207,213,219-220,229-231,246-247,257-258,260,275-276,286-287,289,311
+packages/docs-site/src/components/ApiOverview.astro
+  s_ece628d1d062ee::t_5ec23f20f2490f 1-23
+packages/docs-site/src/components/CodeSample.astro
+  s_ece628d1d062ee::t_e638eba4da4f72 4-12,21,25-32,34-71,75,77-96,98-108,111-249,267-454,629-641,649-726,736-737,748-751,762,765,767-771,779,781-782,812-814
+packages/docs-site/src/components/LibraryCards.astro
+  s_ece628d1d062ee::t_6153467af5d235 155
+packages/docs-site/src/components/Operation.astro
+  s_ece628d1d062ee::t_22ca5129bf1ece 3,20-27,31-53,55,62,73-104,122-127,156-196,255,261-262,264-267
+packages/docs-site/src/components/PageTitle.astro
+  s_ece628d1d062ee::t_b262fd554db79a 18,40-44,159-164
+packages/docs-site/src/content/docs/index.mdx
+  s_ece628d1d062ee::t_bde70a2d0cff01 7,10-11
+packages/docs-site/src/operation-sections.test.ts
+  s_ece628d1d062ee::t_1078fa71c7adac 1-62
+packages/docs-site/src/operation-sections.ts
+  s_ece628d1d062ee::t_e238602392b838 5-15,31-33,100-107,110-115,119-123,172,174
+packages/docs-site/src/pages/api/[...slug].astro
+  s_ece628d1d062ee::t_d3e5a5e02c3d85 77-79,84-86,91-93,106-108,113-115
+packages/docs-site/src/styles/cloudflare.css
+  s_ece628d1d062ee::t_106923ff2d8bca 122-214,433
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "6ac058cac3ad8b51273c41594dce2d99035ff28a",
+  "prompts": {},
+  "sessions": {
+    "s_ece628d1d062ee": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_fc24c6d0dffeHcAyDF1VMmizn9",
+        "model": "gpt-5.6-terra"
+      },
+      "human_author": "ematipico <estoppa@cloudflare.com>"
+    }
+  }
+}

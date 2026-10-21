@@ -1,0 +1,23 @@
+packages/astro-fern/content-collections.ts
+  s_f55baf554e56ea::t_f307bb1c5b36a6 14-21,24-29,32,34-35,54,58,78-79,91,96,105,113-116,124,148,161-162,166,172-177,180-182,200-202,233
+packages/astro-fern/content/build.test.ts
+  s_f55baf554e56ea::t_8eac35a6eb8ad7 6,14,16,63,132,154-161,224,265,310,329-333,337,380,583,620,670,728,759,869,944,960,965,1008,1043,1073,1100,1113-1115,1118-1128,1137,1142-1166,1168,1172-1173,1176
+packages/astro-fern/test-fixture.ts
+  s_f55baf554e56ea::t_c2614f4630e69d 6,18-25,27,37,107-116,118,122-124,129,131,134-136,139-140,169-170,185,198-200,211-213,225-226,236-240,263,271
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "d8529834f3685bb5ab5a1207ae1276a8aff3ee0b",
+  "prompts": {},
+  "sessions": {
+    "s_f55baf554e56ea": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_fbd8274faffepHWyHLQ0XJWgk9",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "ematipico <estoppa@cloudflare.com>"
+    }
+  }
+}

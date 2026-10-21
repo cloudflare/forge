@@ -1,0 +1,21 @@
+packages/docs-site/wrangler.jsonc
+  s_990a456842c6a1::t_359ac64a63d29f 9-11
+packages/docs-site/src/command-reference.test.ts
+  s_990a456842c6a1::t_3f84a25bf79e2d 1-166
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "303feb1ea5ec137541ca1c91f25d2e06b58dc419",
+  "prompts": {},
+  "sessions": {
+    "s_990a456842c6a1": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_fc2603d88ffe6k7ak9t0Rg47EW",
+        "model": "gpt-5.6-terra"
+      },
+      "human_author": "ematipico <estoppa@cloudflare.com>"
+    }
+  }
+}

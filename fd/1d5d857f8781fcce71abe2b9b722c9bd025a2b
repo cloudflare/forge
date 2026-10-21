@@ -1,0 +1,21 @@
+packages/docs-site/src/api-routing.ts
+  s_f55baf554e56ea::t_317d51dd93f009 7,16-47,60-65,98-132,138-140,151-157,176-177,179,182,186,188,192-229,232-236,239,241-245,250,254-255,286,288,293-310,329-364
+packages/docs-site/src/api-server.ts
+  s_f55baf554e56ea::t_ab250b441face0 3-11,27-32
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "fd1d5d857f8781fcce71abe2b9b722c9bd025a2b",
+  "prompts": {},
+  "sessions": {
+    "s_f55baf554e56ea": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_fbd8274faffepHWyHLQ0XJWgk9",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "ematipico <estoppa@cloudflare.com>"
+    }
+  }
+}

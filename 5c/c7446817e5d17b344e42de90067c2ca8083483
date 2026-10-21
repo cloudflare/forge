@@ -1,0 +1,19 @@
+packages/docs-site/scripts/full-corpus.mjs
+  s_e7624bf6f86be1::t_f8f1a137fbda5b 1-180
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "5cc7446817e5d17b344e42de90067c2ca8083483",
+  "prompts": {},
+  "sessions": {
+    "s_e7624bf6f86be1": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_f560b4858ffeoCcCIoZ3rbtLtF",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "mohamedh <mhassan@cloudflare.com>"
+    }
+  }
+}

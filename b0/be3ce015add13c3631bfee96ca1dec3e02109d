@@ -1,0 +1,19 @@
+packages/cloudflare-api-site/README.md
+  s_d4d5b6e05a42a9::t_b927955e5001e4 51
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "b0be3ce015add13c3631bfee96ca1dec3e02109d",
+  "prompts": {},
+  "sessions": {
+    "s_d4d5b6e05a42a9": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "agent-a2a695bbda7a8f333",
+        "model": "unknown"
+      },
+      "human_author": "mohamedh <mhassan@cloudflare.com>"
+    }
+  }
+}
