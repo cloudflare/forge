@@ -34,7 +34,7 @@ elsewhere uses it the same way.
 2. The target generates a client from it, and wraps it in a **client
    program**.
 3. The **runner** reads the cases, starts the client program, sends it each
-   case, serves the HTTP exchanges the case expects, and compares the result
+   case, serves the HTTP exchange the case expects, and compares the result
    the client program reports.
 
 The runner does not generate or build anything. It is given a command to
@@ -46,7 +46,7 @@ One OpenAPI document, written for the cases, with a fixed set of 9 methods:
 
 | Method                     | Route                                                       | Covers                                                                                                                                                        |
 | -------------------------- | ----------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `health`                   | `GET /health`                                               | root method, no parameters                                                                                                                                    |
+| `health`                   | `GET /health`                                               | root method, bearer `token` header, no parameters                                                                                                             |
 | `projects.create`          | `POST /orgs/{org_id}/projects`                              | SDK variable (`org_id`), object body, `date-time`, `date`, `int64`, `byte`, 201                                                                               |
 | `projects.get`             | `GET /orgs/{org_id}/projects/{project_id}`                  | path parameters, declared errors (404, `4XX`), undeclared status, unknown response properties                                                                 |
 | `projects.update`          | `PATCH /orgs/{org_id}/projects/{project_id}`                | path, query (repeated and special-character names) and header parameters with an object body, body property colliding with a parameter name                   |
@@ -60,7 +60,7 @@ Every method in the suite API has at least one case.
 
 ## The shape of a case
 
-A case is one call, the HTTP exchanges the server must see, and the result
+A case is one call, the HTTP exchange the server must see, and the result
 the caller must get. Cases are YAML files, each a list of cases.
 
 ```yaml
@@ -70,15 +70,15 @@ the caller must get. Cases are YAML files, each a list of cases.
     group: projects
     method: create
     body: { displayName: Demo }
-  exchanges:
-    - expect:
-        method: POST
-        path: /orgs/o1/projects
-        headers: { content-type: application/json }
-        body: { display_name: Demo }
-      respond:
-        status: 201
-        body: { id: p1, display_name: Demo }
+  exchange:
+    expect:
+      method: POST
+      path: /orgs/o1/projects
+      headers: { content-type: application/json }
+      body: { display_name: Demo }
+    respond:
+      status: 201
+      body: { id: p1, display_name: Demo }
   result:
     kind: response
     value: { id: p1, displayName: Demo }
@@ -98,7 +98,7 @@ type Case = {
     headers?: Record<string, Value>; // header parameters, by field name
     body?: Value; // request body, with object keys in field names
   };
-  exchanges: Exchange[]; // in order; empty when the call must fail before sending
+  exchange: Exchange;
   result: Result;
 };
 
@@ -112,25 +112,21 @@ type Exchange = {
   };
   respond:
     | { status: number; headers?: Record<string, string | string[]>; body?: Json }
-    | { status: number; headers?: Record<string, string | string[]>; text: string }
-    | { disconnect: true };
+    | { status: number; headers?: Record<string, string | string[]>; text: string };
 };
 
 type Result =
   | { kind: 'response'; value?: Value } // the method returned; no value when the response has no body
-  | { kind: 'api'; status: number; message?: string; details?: Value } // an error response
-  | { kind: 'client'; message?: string } // refused before sending
-  | { kind: 'network'; message?: string }; // no response
+  | { kind: 'api'; status: number; message?: string; details?: Value }; // an error response
 ```
 
-`exchanges` is explicit because the runner does not read the OpenAPI document
+`exchange` is explicit because the runner does not read the OpenAPI document
 or know how a target maps `call` to HTTP: the case pins the exact wire path,
 query, headers and body the SDK must send, and the exact status and wire body
-the server returns (including error payloads, non-JSON text and disconnects
-that cannot be derived from `call`).
+the server returns (including error payloads and non-JSON text that cannot be
+derived from `call`).
 
-Of a result other than `response`, only the members the case lists are
-compared.
+Of an `api` result, only the members the case lists are compared.
 
 ### Call inputs
 
@@ -160,7 +156,7 @@ The two sides of a case use different names:
 
 | Part                         | Names                                         |
 | ---------------------------- | --------------------------------------------- |
-| `exchanges` (server side)    | wire names, exactly as in the API description |
+| `exchange` (server side)     | wire names, exactly as in the API description |
 | `variables`, `call`, `value` | forge field names, in camelCase               |
 
 camelCase is the canonical form, not a requirement on targets. A target whose
@@ -216,9 +212,9 @@ For each line the program:
 The program has one handler per method of the suite API, written as a user
 of the SDK would call it.
 
-`unexpected` is an error of no other kind, a bug in the SDK or the program,
-and always fails the case. Results may come in any order. The program exits
-when standard input closes.
+`unexpected` is an error other than an `api` error, a bug in the SDK or the
+program, and always fails the case. Results may come in any order. The program
+exits when standard input closes.
 
 ## The runner
 
@@ -228,17 +224,18 @@ forge-conformance --cases ./cases --client "node ./client.js"
 
 It plays both ends of every case:
 
-- **Server.** A request matches the next exchange when the method and
-  escaped path are equal, the query and the listed headers have the same
-  values, and the body is the same JSON value. The server responds with the
-  exchange's `respond` even on a mismatch, so the failure reports what went
-  wrong on the wire, not what followed from it.
+- **Server.** A request matches the exchange when the method and escaped path
+  are equal, the query and the listed headers have the same values, and the
+  body is the same JSON value. The server responds with the exchange's
+  `respond` even on a mismatch, so the failure reports what went wrong on the
+  wire, not what followed from it.
 - **Caller.** It sends each case to the client program and compares the
   result.
 
-A case fails when a request does not match, arrives after the last exchange,
-or never arrives; when the result differs; or when no result comes within a
-timeout. A failure shows the case's file, line and name, and a diff.
+A case fails when the request does not match the exchange, when an extra
+request arrives, or when none arrives; when the result differs; or when no
+result comes within a timeout. A failure shows the case's file, line and
+name, and a diff.
 
 ### Skipping and expecting failures
 
