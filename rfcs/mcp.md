@@ -27,7 +27,7 @@ OpenAPI JSON ──► forge --target mcp ──► Typed TS SDK (client.ts, <gr
                                            ├── Tool 1:    search({ query? })        ──► 1-level .d.ts (~300-600 tokens)
                                            └── Tool 2:    execute({ code, params? }) ──► Pre-flight validator
                                                                                            ├── Type error ──► TS2339/TS2561/TS2540/TS2741/TS2322 + 1-level .d.ts (0 HTTP calls)
-                                                                                           └── Valid      ──► Calls Forge TS Transport (or returns CallPlan in isolate)
+                                                                                           └── Valid      ──► Calls Forge TS Transport
 ```
 
 1. **Resources (`forge://sdk`)** expose the SDK group tree (`resources/list`) and a URI template (`forge://sdk/{query}`) so MCP clients can browse groups, methods, and models directly.
@@ -183,7 +183,7 @@ To keep every `search()` response and error payload bounded (~300–600 tokens) 
 
 ## Pre-flight validation diagnostics
 
-Before `execute()` or `plan()` sends an HTTP request, `validateMethodCall` checks the argument object against `MethodSchema`:
+Before `execute()` sends an HTTP request, `validateMethodCall` checks the argument object against `MethodSchema`:
 
 | Diagnostic code     | Condition                                                                                                      | Attached `.d.ts` context                                                                                |
 | ------------------- | -------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
@@ -193,13 +193,13 @@ Before `execute()` or `plan()` sends an HTTP request, `validateMethodCall` check
 | `TS2741`            | Missing required path, query, or body property                                                                 | Method `.d.ts` + offending model `.d.ts`.                                                               |
 | `TS2322` / `TS2554` | Type mismatch (scalar, enum, array bounds, object, union, intersection) or wrong argument count                | Method `.d.ts` + offending nested model `.d.ts`.                                                        |
 
-## Credential-free isolate planning (`plan()`)
+## Execution options & sandboxed runtimes
 
-For multi-tenant runtimes where untrusted agent code runs inside a credential-free isolate and a host service attaches credentials and enforces policy:
+For multi-tenant or sandboxed runtimes where agent code runs against a custom `fetch` transport (such as a Worker isolate forwarding validated requests to a host service):
 
 ```ts
-const callPlan = await mcp.plan(
-  `await client.storage.buckets.create({ name: 'media-assets', storageClass: 'InfrequentAccess' })`,
+const mcp = createMcp(
+  { token: 'session-token', baseUrl: 'https://api.example.com/v1', fetch: hostTransportFetch },
   {
     defaultParams: { orgId: 'org_auto_123' },
     unresolvedParams: { orgId: 'Select an organization first with orgs.list.' },
@@ -207,34 +207,5 @@ const callPlan = await mcp.plan(
 );
 ```
 
-`plan()` executes the snippet against `client` without making network requests and returns a `CallPlan`:
-
-```ts
-type CallPlan =
-  | {
-      readonly kind: 'request';
-      readonly method: string;
-      readonly url: string;
-      readonly route: string;
-      readonly methodPath: string;
-      readonly headers: Record<string, string>;
-      readonly body?: string | undefined;
-      readonly extensions?: Readonly<Record<string, unknown>> | undefined;
-      readonly pathParams?: Readonly<Record<string, string>> | undefined;
-    }
-  | {
-      readonly kind: 'missing_param';
-      readonly param: string;
-      readonly message: string;
-      readonly methodPath: string;
-    }
-  | {
-      readonly kind: 'invalid';
-      readonly error: string;
-      readonly issues?: readonly ValidationIssue[] | undefined;
-      readonly typeDefinition?: string | undefined;
-    };
-```
-
-- **`defaultParams` & `unresolvedParams`**: Automatically injects session default parameters (such as `orgId` or `accountId`) into methods that declare a matching required parameter when omitted by the caller, or returns `missing_param` with custom guidance when unresolved.
-- **OpenAPI `extensions` passthrough**: Preserves operation `x-*` extensions on `MethodSchema`, `CallPlan`, and `401`/`403` error results so the host can check required scopes/permissions without provider-specific hardcoding.
+- **`defaultParams` & `unresolvedParams`**: Automatically injects session default parameters (such as `orgId` or `accountId`) into methods that declare a matching required parameter when omitted by the caller, or returns a structured `missingParam` error with custom guidance before making any network request.
+- **OpenAPI `extensions` passthrough**: Preserves operation `x-*` extensions on `MethodSchema` and `401`/`403` error results so the host can inspect required scopes/permissions without provider-specific hardcoding.
