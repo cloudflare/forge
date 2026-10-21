@@ -15,6 +15,10 @@ export const tools: readonly Tool[] = [
     method: 'GET',
     path: '/stores/{store_id}/pets',
     extensions: { 'x-api-token-group': ['Pets Read'] },
+    responses: {
+      schemas: { '200': { type: 'array', items: { $ref: '#/$defs/Pet' } }, '4XX': null },
+      $defs: { Pet: { type: 'object', properties: { id: { type: 'string' } } } },
+    },
     request: (args) => ({
       path: `/stores/${pathParam(args, 'store_id')}/pets`,
       query: [

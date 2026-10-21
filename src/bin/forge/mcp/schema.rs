@@ -1,10 +1,15 @@
-//! JSON Schemas (2020-12) of the arguments of tools.
+//! JSON Schemas (2020-12) of the arguments and responses of tools.
 //!
 //! A model is a `$ref` to `#/$defs/<key>`, so recursive models terminate.
 //! Each model's schema is built once for every tool, and a tool's `$defs`
-//! has only the models its arguments reach, so each tool's schema stands
-//! alone. Read-only fields are left out, since the schemas describe what a
-//! client sends.
+//! has only the models its schemas reach, so each tool's schema stands
+//! alone.
+//!
+//! Arguments and responses are built separately, since a model differs
+//! between them: arguments describe what a client sends, so read-only fields
+//! are left out; responses describe what the API returns, so they keep them.
+//! Response schemas carry no descriptions or defaults, since they are for
+//! checking responses rather than showing to a model.
 
 use std::collections::{BTreeMap, HashMap, HashSet};
 
@@ -14,9 +19,20 @@ use serde_json::{Map, Value, json};
 /// The models a schema refers to.
 pub(super) type Refs<'f> = HashSet<Model<'f>>;
 
+/// Whether schemas describe what a client sends or what the API returns.
+#[derive(Clone, Copy, Default, PartialEq, Eq)]
+pub(super) enum Direction {
+    /// A tool's arguments.
+    #[default]
+    Input,
+    /// A method's response bodies.
+    Output,
+}
+
 /// Builds schemas, keeping each model's.
 #[derive(Default)]
 pub(super) struct Schemas<'f> {
+    direction: Direction,
     /// The key of each model in `$defs`.
     keys: HashMap<Model<'f>, String>,
     /// Every key given out, so that each is unique.
@@ -26,6 +42,14 @@ pub(super) struct Schemas<'f> {
 }
 
 impl<'f> Schemas<'f> {
+    /// Returns a builder of the schemas of response bodies.
+    pub(super) fn output() -> Schemas<'f> {
+        Schemas {
+            direction: Direction::Output,
+            ..Schemas::default()
+        }
+    }
+
     /// Returns the schema of `t`, adding the models it refers to to `refs`.
     pub(super) fn ty(&mut self, t: Type<'f>, refs: &mut Refs<'f>) -> Value {
         match t {
@@ -75,10 +99,12 @@ impl<'f> Schemas<'f> {
     }
 
     /// Returns the schema of `field`: the schema of its type, with its
-    /// description, default and deprecation.
+    /// description, default and deprecation for arguments.
     pub(super) fn field(&mut self, field: Field<'f>, refs: &mut Refs<'f>) -> Value {
         let mut schema = self.ty(field.ty(), refs);
-        if let Value::Object(map) = &mut schema {
+        if self.direction == Direction::Input
+            && let Value::Object(map) = &mut schema
+        {
             if !field.description().is_empty() {
                 map.insert("description".to_owned(), json!(field.description()));
             }
@@ -122,7 +148,9 @@ impl<'f> Schemas<'f> {
         }
         let mut refs = Refs::new();
         let mut schema = self.ty(model.ty(), &mut refs);
-        if let Value::Object(map) = &mut schema {
+        if self.direction == Direction::Input
+            && let Value::Object(map) = &mut schema
+        {
             if !model.description().is_empty() && !map.contains_key("description") {
                 map.insert("description".to_owned(), json!(model.description()));
             }
@@ -137,7 +165,8 @@ impl<'f> Schemas<'f> {
     fn object(&mut self, object: Object<'f>, refs: &mut Refs<'f>) -> Value {
         let mut properties = Map::new();
         let mut required = Vec::new();
-        for field in object.fields().filter(|f| !f.is_read_only()) {
+        let input = self.direction == Direction::Input;
+        for field in object.fields().filter(|f| !(input && f.is_read_only())) {
             properties.insert(field.wire_name().to_owned(), self.field(field, refs));
             if field.is_required() {
                 required.push(field.wire_name());
