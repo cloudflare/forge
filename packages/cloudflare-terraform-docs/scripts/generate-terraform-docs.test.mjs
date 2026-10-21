@@ -3,7 +3,7 @@ import { mkdir, mkdtemp, readFile, rm, symlink, writeFile } from 'node:fs/promis
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
-import { parsePackageVersion, parseSdkRequirements } from './generate-terraform-docs.ts';
+import { checkReportedVersion, parsePackageVersion, parseSdkRequirements } from './generate-terraform-docs.ts';
 import { latestStableVersion } from './sources.ts';
 import { SourceTree } from './source-tree.ts';
 import {
@@ -292,6 +292,26 @@ require (
     '5.27.0',
   );
   assert.throws(() => parsePackageVersion('package internal', 'provider'), /provider: internal\/version.go/);
+});
+
+test('checkReportedVersion tolerates only a patch mismatch with the tag', () => {
+  assert.equal(checkReportedVersion('provider', '5.28.1', '5.28.1'), undefined);
+  assert.equal(checkReportedVersion('sdk', 'v7.13.1', '7.13.1'), undefined);
+  assert.match(
+    checkReportedVersion('provider', '5.28.1', '5.28.0'),
+    /^provider: v5\.28\.1 checkout reports version 5\.28\.0/,
+  );
+  assert.match(checkReportedVersion('sdk', 'v7.13.1', '7.13.0'), /^sdk: v7\.13\.1 checkout reports version 7\.13\.0/);
+  assert.throws(
+    () => checkReportedVersion('provider', '5.29.0', '5.28.0'),
+    /v5\.29\.0 checkout reports version 5\.28\.0/,
+  );
+  assert.throws(() => checkReportedVersion('provider', '6.0.0', '5.28.0'), /checkout reports version/);
+  assert.throws(() => checkReportedVersion('provider', '5.28.1', '5.28.1-beta.1'), /checkout reports version/);
+  assert.throws(
+    () => checkReportedVersion('sdk', 'v7.12.1-0.20261001120000-0123456789ab', '7.12.0'),
+    /checkout reports version/,
+  );
 });
 
 test('SourceTree confines reads to the checkout and never follows symbolic links', async (t) => {

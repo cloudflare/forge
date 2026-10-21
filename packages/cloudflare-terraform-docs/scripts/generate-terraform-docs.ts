@@ -16,8 +16,8 @@ import process from 'node:process';
 import { pathToFileURL } from 'node:url';
 import { parseArgs } from 'node:util';
 import { generatedTerraformDocsSchema } from './schema.ts';
-import { cloneRelease, resolveLatestProviderVersion } from './sources.ts';
 import { SourceTree } from './source-tree.ts';
+import { cloneRelease, resolveLatestProviderVersion } from './sources.ts';
 import {
   buildTerraformDocs,
   declarationFiles,
@@ -55,6 +55,25 @@ export function parsePackageVersion(versionGo: string, label: string): string {
     throw new Error(`${label}: internal/version.go has no PackageVersion`);
   }
   return version;
+}
+
+/**
+ * Checks the version a checkout's `internal/version.go` reports against the tag it was cloned from.
+ * Release-please does not always bump that file for patch releases (provider v5.28.1 and
+ * cloudflare-go v7.13.1 both report x.y.0), so a patch-only mismatch returns a warning; any other
+ * mismatch throws.
+ */
+export function checkReportedVersion(label: string, tag: string, reported: string): string | undefined {
+  const version = tag.replace(/^v/, '');
+  if (reported === version) {
+    return undefined;
+  }
+  const minor = (value: string) => value.match(/^(\d+\.\d+)\.\d+$/)?.[1];
+  const tagMinor = minor(version);
+  if (tagMinor && tagMinor === minor(reported)) {
+    return `${label}: v${version} checkout reports version ${reported}; continuing with the tag`;
+  }
+  throw new Error(`${label}: v${version} checkout reports version ${reported}`);
 }
 
 async function collectServices(provider: SourceTree): Promise<ServiceSource[]> {
@@ -124,8 +143,9 @@ async function main() {
     await cloneRelease('terraform-provider-cloudflare', `v${version}`, path.join(cache, 'provider')),
   );
   const providerVersion = parsePackageVersion(await provider.requireText('internal/version.go'), 'provider');
-  if (providerVersion !== version) {
-    throw new Error(`provider: v${version} checkout reports version ${providerVersion}`);
+  const providerWarning = checkReportedVersion('provider', version, providerVersion);
+  if (providerWarning) {
+    console.warn(`warning: ${providerWarning}`);
   }
   const services = await collectServices(provider);
   const requirements = parseSdkRequirements(await provider.requireText('go.mod'));
@@ -144,8 +164,9 @@ async function main() {
       await cloneRelease('cloudflare-go', required, path.join(cache, path.posix.basename(module))),
     );
     const sdkVersion = parsePackageVersion(await sdk.requireText('internal/version.go'), module);
-    if (`v${sdkVersion}` !== required) {
-      throw new Error(`${module}: ${required} checkout reports version ${sdkVersion}`);
+    const sdkWarning = checkReportedVersion(module, required, sdkVersion);
+    if (sdkWarning) {
+      console.warn(`warning: ${sdkWarning}`);
     }
     const commit = await sdk.gitCommit();
     sdks.push({ module, version: required, ...(commit ? { commit } : {}) });
