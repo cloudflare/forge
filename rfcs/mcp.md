@@ -22,35 +22,16 @@ For standard MCP clients without client-side tool search, large OpenAPI descript
 ```text
 OpenAPI JSON ──► forge --target mcp ──► Typed TS SDK (client.ts, <group>/client.ts, models.ts)
                                     └──► MCP Runtime (mcp.ts, _/mcp.ts)
-                                         ├── Resources: forge://sdk, forge://sdk/{query}
-                                         ├── Tool 1:    search({ code? })          ──► 1-level .d.ts (~300–600 tokens)
-                                         └── Tool 2:    execute({ code, params? }) ──► Pre-flight validator
-                                                                                            ├── Type error ──► TS2339/TS2561/TS2540/TS2741/TS2322 + 1-level .d.ts (0 HTTP calls)
-                                                                                            └── Valid      ──► Calls Forge TS Transport
+                                         ├── Tool 1: search({ code? })          ──► 1-level .d.ts (~300–600 tokens)
+                                         └── Tool 2: execute({ code, params? }) ──► Pre-flight validator
+                                                                                    ├── Type error ──► TS2339/TS2561/TS2540/TS2741/TS2322 + 1-level .d.ts (0 HTTP calls)
+                                                                                    └── Valid      ──► Calls Forge TS Transport
 ```
 
-1. **Resources (`forge://sdk`)** expose the SDK group tree (`resources/list`) and a URI template (`forge://sdk/{query}`) so MCP clients can browse groups, methods, and models directly.
-2. **`search({ code? })`** runs read-only JavaScript against the SDK's `methods`, `groups`, `models`, and `dts("<symbol>")` helper (or resolves a symbol path / HTTP route directly) and returns a 1-level `.d.ts` TypeScript declaration.
-3. **`execute({ code, params? })`** runs JavaScript/TypeScript against the wrapped `client`. Returning an uninvoked namespace or method inspects its `.d.ts`; calling `await client.<group>.<method>(...)` validates arguments before making an HTTP request.
+1. **`search({ code? })`** runs read-only JavaScript against the SDK's `methods`, `groups`, `models`, and `dts("<symbol>")` helper (or resolves a symbol path / HTTP route directly) and returns a 1-level `.d.ts` TypeScript declaration.
+2. **`execute({ code, params? })`** runs JavaScript/TypeScript against the wrapped `client`. Returning an uninvoked namespace or method inspects its `.d.ts`; calling `await client.<group>.<method>(...)` validates arguments before making an HTTP request.
 
-## MCP protocol surface
-
-### Resources (`resources/list`, `resources/templates/list`, `resources/read`)
-
-- **`resources/list` (`mcp.resources`)**: Lists `forge://sdk` (top-level `Client` index) and `forge://sdk/<group>` for each top-level SDK group, with subgroup previews, method counts, and `mimeType: "application/typescript"`.
-- **`resources/templates/list` (`mcp.resourceTemplates`)**: Exposes `forge://sdk/{query}` (`mimeType: "application/typescript"`) for drilling into nested groups, methods, or models.
-- **`resources/read` (`mcp.readResource(uri)`)**: Reads `forge://sdk`, `forge://sdk/dns.records`, or `forge://sdk/dns/records/create` and returns its 1-level `.d.ts` declaration.
-
-```json
-{
-  "jsonrpc": "2.0",
-  "id": 1,
-  "method": "resources/read",
-  "params": { "uri": "forge://sdk/dns.records" }
-}
-```
-
-### Tools (`tools/list` & `tools/call`)
+## MCP protocol surface (`tools/list` & `tools/call`)
 
 `tools/list` (`mcp.tools`) advertises two tools:
 
