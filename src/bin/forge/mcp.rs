@@ -2,8 +2,10 @@
 //! TypeScript SDK, `@modelcontextprotocol/server`.
 //!
 //! Every group with tools gets a `tools.ts` in its directory: the tools of
-//! its methods, each with the JSON Schema of its arguments, its hints, and
-//! a `request` function that builds its API request. The root gets an
+//! its methods, each with the JSON Schema of its arguments, its hints, the
+//! JSON Schemas of its response bodies, and a `request` function that builds
+//! its API request. Response schemas are for the server, to check responses
+//! against; `tools/list` doesn't send them. The root gets an
 //! `index.ts` with every tool, a `README.md` that lists the methods without
 //! a tool and why, and the runtime library in `_/`, which serves the tools
 //! on an `McpServer` and sends their requests. `index.ts` re-exports only
@@ -38,6 +40,7 @@ impl Plugin for Generator {
     /// a time.
     fn generate(&self, forge: &Forge) -> Result<impl Iterator<Item = File>, Err> {
         let mut schemas = Schemas::default();
+        let mut outputs = Schemas::output();
         let mut names = HashSet::new();
         let mut skipped = Vec::new();
         let mut groups = Vec::new();
@@ -47,7 +50,7 @@ impl Plugin for Generator {
                 if m.is_deprecated() {
                     continue;
                 }
-                match Tool::new(m, &mut schemas) {
+                match Tool::new(m, &mut schemas, &mut outputs) {
                     Ok(tool) if names.insert(tool.name.clone()) => tools.push(tool),
                     Ok(tool) => skipped.push((m, format!("another method has the tool name {}", tool.name))),
                     Err(reason) => skipped.push((m, reason)),
@@ -59,12 +62,14 @@ impl Plugin for Generator {
             }
         }
 
-        let (schema_files, idents) = schema_files(&schemas);
+        let (input_files, idents) = schema_files(&schemas, SchemaFile::Input);
+        let (output_files, output_idents) = schema_files(&outputs, SchemaFile::Output);
         let mut files: Vec<File> = groups
             .iter()
-            .map(|(group, tools)| File::Ts(tools_file(*group, tools, &idents)))
+            .map(|(group, tools)| File::Ts(tools_file(*group, tools, &idents, &output_idents)))
             .collect();
-        files.extend(schema_files.into_iter().map(File::Ts));
+        files.extend(input_files.into_iter().map(File::Ts));
+        files.extend(output_files.into_iter().map(File::Ts));
         files.push(File::Ts(index(forge, &groups)));
         files.push(File::Text {
             path: "README.md".to_owned(),
@@ -138,6 +143,11 @@ struct Tool<'f> {
     headers: Vec<(String, String)>,
     /// The argument key and media type of the JSON body.
     body: Option<(String, String)>,
+    /// The schema of each response's JSON body, by status, or `None` for a
+    /// response without one.
+    responses: Vec<(String, Option<Value>)>,
+    /// The models in the response schemas' `$defs`, by key.
+    response_defs: BTreeMap<String, Model<'f>>,
 }
 
 /// A part of a path template.
@@ -149,7 +159,7 @@ enum Segment {
 
 impl<'f> Tool<'f> {
     /// Returns the tool of `m`, or why it has none.
-    fn new(m: Method<'f>, schemas: &mut Schemas<'f>) -> Result<Tool<'f>, String> {
+    fn new(m: Method<'f>, schemas: &mut Schemas<'f>, outputs: &mut Schemas<'f>) -> Result<Tool<'f>, String> {
         let name = tool_name(m);
         if name.len() > MAX_NAME_LENGTH {
             return Err(format!("the tool name is over {MAX_NAME_LENGTH} characters"));
@@ -221,16 +231,33 @@ impl<'f> Tool<'f> {
             }
         }
 
+        let path = segments(m.path(), &path_keys)?;
+        let mut response_refs = Refs::new();
+        let responses = m
+            .responses()
+            .chain(m.errors())
+            .map(|r| {
+                let status = if r.status().eq_ignore_ascii_case("default") {
+                    "default".to_owned()
+                } else {
+                    r.status().to_ascii_uppercase()
+                };
+                (status, r.json().map(|c| outputs.ty(c.ty(), &mut response_refs)))
+            })
+            .collect();
+
         Ok(Tool {
             method: m,
             name,
             properties: Value::Object(properties),
             required,
             defs: schemas.defs(&refs),
-            path: segments(m.path(), &path_keys)?,
+            path,
             query,
             headers,
             body,
+            responses,
+            response_defs: outputs.defs(&response_refs),
         })
     }
 
@@ -366,13 +393,27 @@ fn description(m: Method<'_>) -> String {
     paragraphs.join("\n\n")
 }
 
-/// Returns a `schemas.ts` for each directory with models: a constant with
-/// the schema of each model placed there, which every tool that uses the
-/// model shares. Also returns each model's constant.
-fn schema_files<'f>(schemas: &Schemas<'f>) -> (Vec<ts::File>, HashMap<Model<'f>, Ident>) {
+/// The schemas a file of model constants holds.
+#[derive(Clone, Copy)]
+enum SchemaFile {
+    /// Models in arguments, in `schemas.ts`.
+    Input,
+    /// Models in response bodies, in `outputs.ts`, named with `_output` so a
+    /// `tools.ts` can import both.
+    Output,
+}
+
+/// Returns a `schemas.ts`, or `outputs.ts`, for each directory with models:
+/// a constant with the schema of each model placed there, which every tool
+/// that uses the model shares. Also returns each model's constant.
+fn schema_files<'f>(schemas: &Schemas<'f>, kind: SchemaFile) -> (Vec<ts::File>, HashMap<Model<'f>, Ident>) {
+    let (file, suffix, doc) = match kind {
+        SchemaFile::Input => ("schemas.ts", "", ""),
+        SchemaFile::Output => ("outputs.ts", "_output", " in responses"),
+    };
     let mut modules: BTreeMap<String, Vec<(&str, Model<'f>, &Value)>> = BTreeMap::new();
     for (model, key, schema) in schemas.built() {
-        let module = model.group().map_or(Module::ROOT, Module::group).sub("schemas.ts");
+        let module = model.group().map_or(Module::ROOT, Module::group).sub(file);
         modules
             .entry(module.as_str().to_owned())
             .or_default()
@@ -386,7 +427,7 @@ fn schema_files<'f>(schemas: &Schemas<'f>) -> (Vec<ts::File>, HashMap<Model<'f>,
         let mut f = ts::File::new(Module::from(path));
         let mut taken = HashSet::new();
         for (key, model, schema) in models {
-            let mut name = ts_identifier(key);
+            let mut name = ts_identifier(key) + suffix;
             if RESERVED.contains(&name.as_str()) {
                 name.push('_');
             }
@@ -394,7 +435,7 @@ fn schema_files<'f>(schemas: &Schemas<'f>) -> (Vec<ts::File>, HashMap<Model<'f>,
                 name.push('$');
             }
             let ident = f.ident(name.clone());
-            f.doc(&format!("The schema of `{}`.", model.schema_name()));
+            f.doc(&format!("The schema of `{}`{doc}.", model.schema_name()));
             let json = serde_json::to_string_pretty(schema).unwrap_or_else(|_| "{}".to_owned());
             let mut lines = json.lines().peekable();
             let mut first = true;
@@ -470,7 +511,12 @@ const RESERVED: &[&str] = &[
 ];
 
 /// Returns the `tools.ts` of `group`.
-fn tools_file(group: Group<'_>, tools: &[Tool<'_>], schemas: &HashMap<Model<'_>, Ident>) -> ts::File {
+fn tools_file(
+    group: Group<'_>,
+    tools: &[Tool<'_>],
+    schemas: &HashMap<Model<'_>, Ident>,
+    outputs: &HashMap<Model<'_>, Ident>,
+) -> ts::File {
     let mut f = ts::File::new(Module::group(group).sub("tools.ts"));
     let tool = RUNTIME_TOOL.ident("Tool").ty();
     let path_param = RUNTIME_TOOL.ident("pathParam");
@@ -515,6 +561,27 @@ fn tools_file(group: Group<'_>, tools: &[Tool<'_>], schemas: &HashMap<Model<'_>,
                     .collect();
                 if !extensions.is_empty() {
                     json_property(f, "extensions", &Value::Object(extensions));
+                }
+                if !t.responses.is_empty() {
+                    p!(f, "responses: {");
+                    f.indent(|f| {
+                        let by_status: Map<String, Value> = t
+                            .responses
+                            .iter()
+                            .map(|(status, schema)| (status.clone(), schema.clone().unwrap_or(Value::Null)))
+                            .collect();
+                        json_property(f, "schemas", &Value::Object(by_status));
+                        if !t.response_defs.is_empty() {
+                            p!(f, "$defs: {");
+                            f.indent(|f| {
+                                for (key, model) in &t.response_defs {
+                                    p!(f, string(key), ": ", outputs[model].clone(), ",");
+                                }
+                            });
+                            p!(f, "},");
+                        }
+                    });
+                    p!(f, "},");
                 }
                 let args = if t.query.is_empty()
                     && t.headers.is_empty()
@@ -737,7 +804,10 @@ mod tests {
                          "schema": {"type": "array", "items": {"type": "string"}}},
                         {"name": "X-Trace", "in": "header", "schema": {"type": "string"}}
                     ],
-                    "responses": {"200": {"description": "ok"}}},
+                    "responses": {
+                        "200": {"description": "ok", "content": {"application/json": {
+                            "schema": {"type": "array", "items": {"$ref": "#/components/schemas/Pet"}}}}},
+                        "4XX": {"description": "failed"}}},
                 "post": {"x-fern-sdk-group-name": "pets", "x-fern-sdk-method-name": "create",
                     "x-forge-require-confirmation": "This adopts a pet.",
                     "parameters": [{"name": "store_id", "in": "path", "required": true, "schema": {"type": "string"}}],
@@ -781,6 +851,7 @@ mod tests {
                 "_/server.ts",
                 "_/tool.ts",
                 "index.ts",
+                "pets/outputs.ts",
                 "pets/schemas.ts",
                 "pets/tools.ts"
             ]
@@ -831,6 +902,34 @@ mod tests {
         assert!(schemas.contains("export const Pet: JsonSchema = {"), "{schemas}");
         assert!(schemas.contains(r##""$ref": "#/$defs/Pet""##), "{schemas}");
         assert!(!schemas.contains(r#""id""#), "read-only fields are left out: {schemas}");
+    }
+
+    #[test]
+    fn responses() {
+        let files = generate(PETS);
+        let tools = file(&files, "pets/tools.ts");
+        assert!(tools.contains("responses: {"), "{tools}");
+        assert!(
+            tools.contains(r#""4XX": null"#),
+            "a response without a JSON body: {tools}"
+        );
+        assert!(tools.contains(r##""$ref": "#/$defs/Pet""##), "{tools}");
+        assert!(tools.contains(r#""Pet": Pet_output,"#), "{tools}");
+        let outputs = file(&files, "pets/outputs.ts");
+        assert!(outputs.contains("export const Pet_output: JsonSchema = {"), "{outputs}");
+        assert!(
+            outputs.contains(r#""id""#),
+            "responses keep read-only fields: {outputs}"
+        );
+        assert!(
+            !outputs.contains("description"),
+            "responses have no descriptions: {outputs}"
+        );
+        let schemas = file(&files, "pets/schemas.ts");
+        assert!(
+            !schemas.contains(r#""id""#),
+            "arguments still leave read-only fields out: {schemas}"
+        );
     }
 
     #[test]
