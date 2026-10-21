@@ -22,15 +22,15 @@ For standard MCP clients without client-side tool search, large OpenAPI descript
 ```text
 OpenAPI JSON ──► forge --target mcp ──► Typed TS SDK (client.ts, <group>/client.ts, models.ts)
                                     └──► MCP Runtime (mcp.ts, _/mcp.ts)
-                                           ├── Resources: forge://sdk, forge://sdk/{query}
-                                           ├── Tool 1:    search({ query? })        ──► 1-level .d.ts (~300-600 tokens)
-                                           └── Tool 2:    execute({ code, params? }) ──► Pre-flight validator
-                                                                                           ├── Type error ──► TS2339/TS2561/TS2540/TS2741/TS2322 + 1-level .d.ts (0 HTTP calls)
-                                                                                           └── Valid      ──► Calls Forge TS Transport
+                                         ├── Resources: forge://sdk, forge://sdk/{query}
+                                         ├── Tool 1:    search({ code? })          ──► 1-level .d.ts (~300–600 tokens)
+                                         └── Tool 2:    execute({ code, params? }) ──► Pre-flight validator
+                                                                                            ├── Type error ──► TS2339/TS2561/TS2540/TS2741/TS2322 + 1-level .d.ts (0 HTTP calls)
+                                                                                            └── Valid      ──► Calls Forge TS Transport
 ```
 
 1. **Resources (`forge://sdk`)** expose the SDK group tree (`resources/list`) and a URI template (`forge://sdk/{query}`) so MCP clients can browse groups, methods, and models directly.
-2. **`search({ query? })`** inspects a 1-level `.d.ts` TypeScript declaration for any SDK group, method, or model, or searches across all SDK paths, HTTP routes, summaries, and descriptions.
+2. **`search({ code? })`** runs read-only JavaScript against the SDK's `methods`, `groups`, `models`, and `dts("<symbol>")` helper (or resolves a symbol path / HTTP route directly) and returns a 1-level `.d.ts` TypeScript declaration.
 3. **`execute({ code, params? })`** runs JavaScript/TypeScript against the wrapped `client`. Returning an uninvoked namespace or method inspects its `.d.ts`; calling `await client.<group>.<method>(...)` validates arguments before making an HTTP request.
 
 ## MCP protocol surface
@@ -38,7 +38,7 @@ OpenAPI JSON ──► forge --target mcp ──► Typed TS SDK (client.ts, <gr
 ### Resources (`resources/list`, `resources/templates/list`, `resources/read`)
 
 - **`resources/list` (`mcp.resources`)**: Lists `forge://sdk` (top-level `Client` index) and `forge://sdk/<group>` for each top-level SDK group, with subgroup previews, method counts, and `mimeType: "application/typescript"`.
-- **`resources/templates/list` (`mcp.resourceTemplates`)**: Exposes `forge://sdk/{query}` (`mimeType: "application/typescript"`) for drilling into nested groups, methods, models, or search queries.
+- **`resources/templates/list` (`mcp.resourceTemplates`)**: Exposes `forge://sdk/{query}` (`mimeType: "application/typescript"`) for drilling into nested groups, methods, or models.
 - **`resources/read` (`mcp.readResource(uri)`)**: Reads `forge://sdk`, `forge://sdk/dns.records`, or `forge://sdk/dns/records/create` and returns its 1-level `.d.ts` declaration.
 
 ```json
@@ -56,8 +56,8 @@ OpenAPI JSON ──► forge --target mcp ──► Typed TS SDK (client.ts, <gr
 
 | Tool      | Input schema                                         | Behavior                                                                                                                                                                                                                                                              |
 | --------- | ---------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `search`  | `{ query?: string }`                                 | Returns a 1-level `.d.ts` TypeScript declaration and JSDoc for an SDK group (`"dns.records"`), method (`"dns.records.create"`), model (`"dns.records.RecordSettings"`), HTTP verb + route (`"POST /zones/{zoneId}/dns_records"`), or keyword query (`"purge cache"`). |
-| `execute` | `{ code: string, params?: Record<string, unknown> }` | Evaluates a JavaScript expression or async function body against the wrapped Forge `client`. Validates arguments pre-flight before sending any HTTP request.                                                                                                          |
+| `search` | `{ code?: string }` | Evaluates read-only JavaScript against `methods` (`{ path, group, name, httpMethod, route, summary, description }`), `groups`, `models`, and `dts("<symbol>")` (or resolves an SDK group, method, model, or HTTP route directly) and returns a 1-level `.d.ts` TypeScript declaration and JSDoc. |
+| `execute` | `{ code: string, params?: Record<string, unknown> }` | Evaluates a JavaScript expression or async function body against the wrapped Forge `client`. Validates arguments pre-flight before sending any HTTP request. |
 
 #### `tools/call` -> `search`
 
@@ -70,7 +70,7 @@ Request:
   "method": "tools/call",
   "params": {
     "name": "search",
-    "arguments": { "query": "dns.records" }
+    "arguments": { "code": "dts('dns.records')" }
   }
 }
 ```
@@ -89,8 +89,7 @@ export namespace dns.records {
 }
 ```
 
-Drilling into `dns.records.create` (`{ "name": "search", "arguments": { "query": "dns.records.create" } }`):
-
+Drilling into `dns.records.create` (`{ "name": "search", "arguments": { "code": "dts('dns.records.create')" } }`):
 ```ts
 // Method: client.dns.records.create (POST /zones/{zoneId}/dns_records)
 
@@ -171,11 +170,11 @@ To keep every `search()` response and error payload bounded (~300–600 tokens) 
 
 | View            | Query example                                                             | Rendered output                                                                                                                                                                              |
 | --------------- | ------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Root index      | `search()` or `search("client")`                                          | Top-level groups on `Client` with subgroup previews and method counts.                                                                                                                       |
-| Group           | `search("dns.records")`                                                   | 1-level `dns.records.Client` interface with child groups, method signatures, and HTTP route comments.                                                                                        |
-| Method          | `search("dns.records.create")`                                            | Method JSDoc (including OpenAPI `x-*` extensions), signature, 1-level `CreateRequest` and `CreateResponse`, and nominal referenced model names.                                              |
-| Model           | `search("dns.records.RecordSettings")` or `search("RecordSettings")`      | 1-level `RecordSettings` declaration and its referenced model names.                                                                                                                         |
-| Route / keyword | `search("POST /zones/{zoneId}/dns_records")` or `search("create bucket")` | Ranked method match(es). Single match expands its 1-level method `.d.ts`; <=12 matches render grouped method signatures; >12 matches across >2 groups roll up into `SearchMatches` by group. |
+| Root index | `search()` or `search("dts()")` | Top-level groups on `Client` with subgroup previews and method counts. |
+| Group | `search("dts('dns.records')")` | 1-level `dns.records.Client` interface with child groups, method signatures, and HTTP route comments. |
+| Method | `search("dts('dns.records.create')")` | Method JSDoc (including OpenAPI `x-*` extensions), signature, 1-level `CreateRequest` and `CreateResponse`, and nominal referenced model names. |
+| Model | `search("dts('dns.records.RecordSettings')")` | 1-level `RecordSettings` declaration and its referenced model names. |
+| Code filter / HTTP route | `search("methods.filter(m => m.route.includes('/dns_records'))")` or `search("POST /zones/{zoneId}/dns_records")` | Matching method signature(s) grouped by namespace, or full 1-level `.d.ts` when a single method matches. |
 
 - **Inline primitives, nominal complex models.** Scalar, enum, and primitive-array `$ref`s are inlined directly into `CreateRequest`, while nested object/union models (`settings?: dns.records.RecordSettings`) stay nominal until inspected.
 - **Flat union request bodies.** When an operation's flat request body is a union of object models, common and branch fields are merged into a single 1-level `CreateRequest` interface (with path/query parameters and required fields listed first).
@@ -186,25 +185,26 @@ Before `execute()` sends an HTTP request, `validateMethodCall` checks the argume
 
 | Diagnostic code     | Condition                                                                                                      | Attached `.d.ts` context                                                                                |
 | ------------------- | -------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
-| `TS2339`            | Unknown group or method on `client` (e.g. `client.dns.records.add`)                                            | Scoped fuzzy suggestions (`Did you mean 'create'?`) + parent group `.d.ts` (or keyword search results). |
-| `TS2561`            | OpenAPI `snake_case` wire name passed instead of SDK `camelCase` property (e.g. `zone_id` instead of `zoneId`) | Exact `camelCase` suggestion + method `.d.ts` (and nested model `.d.ts` if nested).                     |
+| `TS2339` | Unknown group or method on `client` (e.g. `client.dns.records.add`) | Scoped fuzzy suggestions (`Did you mean 'create'?`) + parent group `.d.ts`. |
+| `TS2561` | OpenAPI `snake_case` wire name passed instead of SDK `camelCase` property (e.g. `zone_id` instead of `zoneId`) | Exact `camelCase` suggestion + method `.d.ts` (and nested model `.d.ts` if nested). |
 | `TS2540`            | Assignment to a `readonly` property in a request payload                                                       | Method `.d.ts` + offending model `.d.ts`.                                                               |
 | `TS2741`            | Missing required path, query, or body property                                                                 | Method `.d.ts` + offending model `.d.ts`.                                                               |
-| `TS2322` / `TS2554` | Type mismatch (scalar, enum, array bounds, object, union, intersection) or wrong argument count                | Method `.d.ts` + offending nested model `.d.ts`.                                                        |
+| `TS2322` / `TS2554` | Type mismatch (scalar, enum, array bounds, object, union, intersection) or wrong argument count | Method `.d.ts` + offending nested model `.d.ts`. |
 
 ## Execution options & sandboxed runtimes
 
-For multi-tenant or sandboxed runtimes where agent code runs against a custom `fetch` transport (such as a Worker isolate forwarding validated requests to a host service):
+For multi-tenant or sandboxed runtimes (such as Cloudflare Workers with Dynamic Worker isolates, `@cloudflare/codemode`, QuickJS, or Node `vm.runInNewContext`) where untrusted agent code runs in an isolated sandbox and validated requests are forwarded via a custom `fetch` transport:
 
 ```ts
 const mcp = createMcp(
   { token: 'session-token', baseUrl: 'https://api.example.com/v1', fetch: hostTransportFetch },
   {
+    evaluator: (code, globals, functionBody) => sandbox.eval(functionBody, globals),
     defaultParams: { orgId: 'org_auto_123' },
     unresolvedParams: { orgId: 'Select an organization first with orgs.list.' },
   },
 );
 ```
-
+- **`evaluator` sandbox (`CodeEvaluator | false`)**: Pluggable JavaScript evaluator for string snippets passed to `search()` and `execute()` so agent code never executes in the host isolate (`process.env`, filesystem, or raw `fetch`) and works in runtimes that disallow dynamic code generation (`new Function` / `eval`) such as Cloudflare Workers. Direct symbol paths (`"dns.records.create"`, `'dts("dns.records")'`) and HTTP routes (`"POST /zones/{zoneId}/dns_records"`) in `search()` resolve via pure static lookup without invoking `evaluator` or `new Function`. Passing `evaluator: false` disables dynamic string evaluation while keeping static `search()` lookups and callback-form `execute(async (client) => ...)` active.
 - **`defaultParams` & `unresolvedParams`**: Automatically injects session default parameters (such as `orgId` or `accountId`) into methods that declare a matching required parameter when omitted by the caller, or returns a structured `missingParam` error with custom guidance before making any network request.
 - **OpenAPI `extensions` passthrough**: Preserves operation `x-*` extensions on `MethodSchema` and `401`/`403` error results so the host can inspect required scopes/permissions without provider-specific hardcoding.
