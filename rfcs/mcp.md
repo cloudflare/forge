@@ -4,16 +4,15 @@
 
 `forge <spec> --target mcp --out <dir>` generates a Model Context Protocol (MCP) runtime (`mcp.ts` and `_/mcp.ts`) layered on top of the generated TypeScript SDK (`--target ts`).
 
-Instead of emitting one MCP tool per OpenAPI operation or requiring the model to filter raw OpenAPI JSON in JavaScript, the server exposes the generated TypeScript SDK through two MCP tools (`search` and `execute`) and browsable MCP resources (`resources/list`, `resources/templates/list`, `resources/read`).
+MCP clients fall into two categories: codemode-native clients (with built-in client-side tool search or code execution) that consume direct tool catalogues, and standard MCP clients that rely on server-side `search` and `execute` tools. This RFC focuses on the server-side `search` and `execute` runtime backed by the generated TypeScript SDK.
 
 ## Motivation
 
-Large OpenAPI descriptions (thousands of operations and models) break standard MCP tool generation in two ways:
+For standard MCP clients without client-side tool search, large OpenAPI descriptions (thousands of operations and models) hit two bottlenecks:
 
-1. **One tool per operation overflows context.** Emitting 3,000+ tool schemas produces megabytes of `tools/list` JSON, exceeding client tool limits and degrading tool selection accuracy.
+1. **Exposing every operation directly in `tools/list` overflows naive client context.** Sending 3,000+ tool schemas upfront produces megabytes of JSON.
 2. **Raw OpenAPI `search` + `execute` is brittle.** Exposing `search` and `execute` over raw `spec.paths` forces the model to write custom JavaScript filters against deeply nested OpenAPI JSON and hand-craft `fetch(path, body)` calls without static type checking. A single `snake_case` vs `camelCase` mistake or nested field error causes a live HTTP `400`/`404` round-trip.
-
-Forge already compiles OpenAPI into a hierarchical TypeScript SDK (`Group` -> `Method` -> `Model` -> `Type`). Using that SDK as both the schema representation and the execution layer solves both problems:
+   Forge already compiles OpenAPI into a hierarchical TypeScript SDK (`Group` -> `Method` -> `Model` -> `Type`). Using that SDK as both the schema representation and the execution layer solves both problems:
 
 - **Compact 1-level `.d.ts` views.** A 1-level `.d.ts` declaration is ~300–600 tokens (~10x smaller than the equivalent dereferenced JSON Schema).
 - **Pre-flight type feedback.** Validating arguments against the SDK schema before sending any HTTP request catches unknown methods, `snake_case` wire names, read-only fields, missing required parameters, and nested union/model type errors, returning compiler-style diagnostics with the relevant 1-level `.d.ts` attached in the same turn.
