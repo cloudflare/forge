@@ -28,7 +28,7 @@ OpenAPI JSON ──► forge --target mcp ──► Typed TS SDK (client.ts, <gr
                                                                            └── Valid      ──► Calls Forge TS Transport
 ```
 
-1. **`search({ code? })`** runs read-only JavaScript against the SDK's `methods`, `groups`, `models`, and `dts("<symbol>")` helper (or resolves a symbol path / HTTP route directly) and returns a 1-level `.d.ts` TypeScript declaration.
+1. **`search({ code? })`** runs read-only JavaScript against the SDK's `methods`, `groups`, `models`, and `client` (or resolves a symbol path / HTTP route directly) and returns a 1-level `.d.ts` TypeScript declaration.
 2. **`execute({ code })`** runs JavaScript/TypeScript against the wrapped `client`. Returning an uninvoked namespace or method inspects its `.d.ts`; calling `await client.<group>.<method>(...)` validates arguments before making an HTTP request.
 
 ## MCP protocol surface (`tools/list` & `tools/call`)
@@ -37,9 +37,8 @@ OpenAPI JSON ──► forge --target mcp ──► Typed TS SDK (client.ts, <gr
 
 | Tool | Input schema | Behavior |
 | --- | --- | --- |
-| `search` | `{ code?: string }` | Evaluates read-only JavaScript against `methods` (`{ path, group, name, httpMethod, route, summary, description }`), `groups`, `models`, and `dts("<symbol>")` (or resolves an SDK group, method, model, or HTTP route directly) and returns a 1-level `.d.ts` TypeScript declaration and JSDoc. |
+| `search` | `{ code?: string }` | Evaluates read-only JavaScript against `methods` (`{ path, group, name, httpMethod, route, summary, description }`), `groups`, `models`, and `client` (or resolves an SDK group, method, model, or HTTP route directly) and returns a 1-level `.d.ts` TypeScript declaration and JSDoc. |
 | `execute` | `{ code: string }` | Evaluates a JavaScript expression or async function body against the wrapped Forge `client`. Validates arguments pre-flight before sending any HTTP request. |
-
 #### `tools/call` -> `search`
 
 Request:
@@ -51,7 +50,7 @@ Request:
   "method": "tools/call",
   "params": {
     "name": "search",
-    "arguments": { "code": "dts('dns.records')" }
+    "arguments": { "code": "client.dns.records" }
   }
 }
 ```
@@ -69,8 +68,7 @@ export namespace dns.records {
   }
 }
 ```
-
-Drilling into `dns.records.create` (`{ "name": "search", "arguments": { "code": "dts('dns.records.create')" } }`):
+Drilling into `dns.records.create` (`{ "name": "search", "arguments": { "code": "client.dns.records.create" } }`):
 ```ts
 // Method: client.dns.records.create (POST /zones/{zoneId}/dns_records)
 
@@ -149,12 +147,12 @@ export interface RecordSettings {
 
 To keep every `search()` response and error payload bounded (~300–600 tokens) regardless of specification size:
 
-| View            | Query example                                                             | Rendered output                                                                                                                                                                              |
-| --------------- | ------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Root index | `search()` or `search("dts()")` | Top-level groups on `Client` with subgroup previews and method counts. |
-| Group | `search("dts('dns.records')")` | 1-level `dns.records.Client` interface with child groups, method signatures, and HTTP route comments. |
-| Method | `search("dts('dns.records.create')")` | Method JSDoc (including OpenAPI `x-*` extensions), signature, 1-level `CreateRequest` and `CreateResponse`, and nominal referenced model names. |
-| Model | `search("dts('dns.records.RecordSettings')")` | 1-level `RecordSettings` declaration and its referenced model names. |
+| View | Query example | Rendered output |
+| --- | --- | --- |
+| Root index | `search()` or `search("client")` | Top-level groups on `Client` with subgroup previews and method counts. |
+| Group | `search("client.dns.records")` | 1-level `dns.records.Client` interface with child groups, method signatures, and HTTP route comments. |
+| Method | `search("client.dns.records.create")` | Method JSDoc (including OpenAPI `x-*` extensions), signature, 1-level `CreateRequest` and `CreateResponse`, and nominal referenced model names. |
+| Model | `search("models['dns.records.RecordSettings']")` or `search("dns.records.RecordSettings")` | 1-level `RecordSettings` declaration and its referenced model names. |
 | Code filter / HTTP route | `search("methods.filter(m => m.route.includes('/dns_records'))")` or `search("POST /zones/{zoneId}/dns_records")` | Matching method signature(s) grouped by namespace, or full 1-level `.d.ts` when a single method matches. |
 
 - **Inline primitives, nominal complex models.** Scalar, enum, and primitive-array `$ref`s are inlined directly into `CreateRequest`, while nested object/union models (`settings?: dns.records.RecordSettings`) stay nominal until inspected.
@@ -183,6 +181,5 @@ const mcp = createMcp(
   },
 );
 ```
-
-- **`include?: (method: MethodSchema) => boolean`**: Filters which SDK methods are exposed in `search()`, `dts()`, and `execute()` (and prunes groups that have no remaining methods). Each `MethodSchema` includes `httpMethod`, `route`, `deprecated`, and OpenAPI `extensions` (`x-*`), so servers can scope the visible surface by HTTP verb, deprecation status, or caller permissions.
-- **`evaluator?: CodeEvaluator | false`**: Pluggable JavaScript evaluator for string snippets passed to `search()` and `execute()` so untrusted agent code runs in an isolated sandbox (such as a Cloudflare Dynamic Worker isolate, `@cloudflare/codemode`, QuickJS, or Node `vm.runInNewContext`) and works in runtimes that disallow dynamic code generation (`new Function` / `eval`). Direct symbol paths (`"dns.records.create"`, `'dts("dns.records")'`) and HTTP routes (`"POST /zones/{zoneId}/dns_records"`) in `search()` resolve via pure static lookup without invoking `evaluator` or `new Function`. Passing `evaluator: false` disables dynamic string evaluation while keeping static `search()` lookups and callback-form `execute(async (client) => ...)` active.
+- **`include?: (method: MethodSchema) => boolean`**: Filters which SDK methods are exposed in `search()` and `execute()` (and prunes groups that have no remaining methods). Each `MethodSchema` includes `httpMethod`, `route`, `deprecated`, and OpenAPI `extensions` (`x-*`), so servers can scope the visible surface by HTTP verb, deprecation status, or caller permissions.
+- **`evaluator?: CodeEvaluator | false`**: Pluggable JavaScript evaluator for string snippets passed to `search()` and `execute()` so untrusted agent code runs in an isolated sandbox (such as a Cloudflare Dynamic Worker isolate, `@cloudflare/codemode`, QuickJS, or Node `vm.runInNewContext`) and works in runtimes that disallow dynamic code generation (`new Function` / `eval`). Direct symbol paths (`"client.dns.records.create"`, `"dns.records.create"`) and HTTP routes (`"POST /zones/{zoneId}/dns_records"`) in `search()` resolve via pure static lookup without invoking `evaluator` or `new Function`. Passing `evaluator: false` disables dynamic string evaluation while keeping static `search()` lookups and callback-form `execute(async (client) => ...)` active.
