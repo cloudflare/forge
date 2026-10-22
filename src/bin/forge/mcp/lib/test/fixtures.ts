@@ -11,6 +11,11 @@ export const tools: readonly Tool[] = [
       properties: { store_id: { type: 'string' }, tag: { type: 'array' }, sort: { type: 'object' } },
       required: ['store_id'],
     },
+    outputSchema: {
+      type: 'array',
+      items: { $ref: '#/$defs/Pet' },
+      $defs: { Pet: { type: 'object', properties: { id: { type: 'string' } } } },
+    },
     annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: true },
     method: 'GET',
     path: '/stores/{store_id}/pets',

@@ -3,9 +3,11 @@
 //!
 //! Every group with tools gets a `tools.ts` in its directory: the tools of
 //! its methods, each with the JSON Schema of its arguments, its hints, the
-//! JSON Schemas of its response bodies, and a `request` function that builds
-//! its API request. Response schemas are for the server, to check responses
-//! against; `tools/list` doesn't send them. The root gets an
+//! JSON Schemas of its response bodies, its output schema, and a `request`
+//! function that builds its API request. Response schemas are for the
+//! server, to check responses against; `tools/list` doesn't send them. The
+//! output schema is the schema of a successful response's JSON body, which
+//! `listTools` sends only when asked. The root gets an
 //! `index.ts` with every tool, a `README.md` that lists the methods without
 //! a tool and why, and the runtime library in `_/`, which serves the tools
 //! on an `McpServer` and sends their requests. `index.ts` re-exports only
@@ -148,6 +150,11 @@ struct Tool<'f> {
     responses: Vec<(String, Option<Value>)>,
     /// The models in the response schemas' `$defs`, by key.
     response_defs: BTreeMap<String, Model<'f>>,
+    /// The output schema: the schema of a successful response's JSON body,
+    /// or `None` if a successful response has no JSON body.
+    output: Option<Value>,
+    /// The models in the output schema's `$defs`, by key.
+    output_defs: BTreeMap<String, Model<'f>>,
 }
 
 /// A part of a path template.
@@ -233,18 +240,30 @@ impl<'f> Tool<'f> {
 
         let path = segments(m.path(), &path_keys)?;
         let mut response_refs = Refs::new();
-        let responses = m
-            .responses()
-            .chain(m.errors())
-            .map(|r| {
-                let status = if r.status().eq_ignore_ascii_case("default") {
-                    "default".to_owned()
-                } else {
-                    r.status().to_ascii_uppercase()
-                };
-                (status, r.json().map(|c| outputs.ty(c.ty(), &mut response_refs)))
-            })
-            .collect();
+        let mut success_refs = Refs::new();
+        let mut successes = Vec::new();
+        let mut responses = Vec::new();
+        for r in m.responses().chain(m.errors()) {
+            let status = if r.status().eq_ignore_ascii_case("default") {
+                "default".to_owned()
+            } else {
+                r.status().to_ascii_uppercase()
+            };
+            let mut refs = Refs::new();
+            let schema = r.json().map(|c| outputs.ty(c.ty(), &mut refs));
+            if status.starts_with('2') {
+                successes.push(schema.clone());
+                success_refs.extend(refs.iter().copied());
+            }
+            response_refs.extend(refs);
+            responses.push((status, schema));
+        }
+        let output = output_schema(successes);
+        let output_defs = if output.is_some() {
+            outputs.defs(&success_refs)
+        } else {
+            BTreeMap::new()
+        };
 
         Ok(Tool {
             method: m,
@@ -258,6 +277,8 @@ impl<'f> Tool<'f> {
             body,
             responses,
             response_defs: outputs.defs(&response_refs),
+            output,
+            output_defs,
         })
     }
 
@@ -282,6 +303,25 @@ impl<'f> Tool<'f> {
         annotations.insert("idempotentHint".to_owned(), json!(idempotent));
         annotations.insert("openWorldHint".to_owned(), json!(true));
         Value::Object(annotations)
+    }
+}
+
+/// Returns the output schema of a method whose successful responses have
+/// the JSON body schemas `successes`: the one schema, or `anyOf` the distinct
+/// ones. `None` if there are none, or one has no JSON body, since its result
+/// would have no structured content.
+fn output_schema(successes: Vec<Option<Value>>) -> Option<Value> {
+    let mut distinct: Vec<Value> = Vec::new();
+    for schema in successes {
+        let schema = schema?;
+        if !distinct.contains(&schema) {
+            distinct.push(schema);
+        }
+    }
+    match distinct.len() {
+        0 => None,
+        1 => distinct.pop(),
+        _ => Some(json!({ "anyOf": distinct })),
     }
 }
 
@@ -552,6 +592,24 @@ fn tools_file(
                     }
                 });
                 p!(f, "},");
+                if let Some(Value::Object(output)) = &t.output {
+                    p!(f, "outputSchema: {");
+                    f.indent(|f| {
+                        for (key, value) in output {
+                            json_property(f, &string(key), value);
+                        }
+                        if !t.output_defs.is_empty() {
+                            p!(f, "$defs: {");
+                            f.indent(|f| {
+                                for (key, model) in &t.output_defs {
+                                    p!(f, string(key), ": ", outputs[model].clone(), ",");
+                                }
+                            });
+                            p!(f, "},");
+                        }
+                    });
+                    p!(f, "},");
+                }
                 json_property(f, "annotations", &t.annotations());
                 p!(f, "method: ", string(m.http_method().as_str()), ",");
                 p!(f, "path: ", string(m.path()), ",");
@@ -930,6 +988,42 @@ mod tests {
             !schemas.contains(r#""id""#),
             "arguments still leave read-only fields out: {schemas}"
         );
+    }
+
+    #[test]
+    fn output_schema() {
+        let tools = file(&generate(PETS), "pets/tools.ts");
+        let list = &tools[tools.find(r#"name: "pets_list","#).unwrap()..];
+        let list = &list[..list.find("request: ").unwrap()];
+        assert!(
+            list.contains("outputSchema: {\n      \"items\": {\n        \"$ref\": \"#/$defs/Pet\"\n      },\n      \"type\": \"array\",\n      $defs: {\n        \"Pet\": Pet_output,\n      },\n    },"),
+            "the 200 body, with its models: {list}"
+        );
+        let create = &tools[tools.find(r#"name: "pets_create","#).unwrap()..];
+        let create = &create[..create.find("request: ").unwrap()];
+        assert!(
+            !create.contains("outputSchema"),
+            "a successful response without a JSON body: {create}"
+        );
+
+        let tools = file(
+            &generate(
+                r##"{"openapi": "3.1.0", "info": {"title": "t", "version": "1"},
+                "paths": {"/a": {"post": {"x-fern-sdk-group-name": "a", "x-fern-sdk-method-name": "make",
+                    "responses": {
+                        "200": {"description": "ok", "content": {"application/json": {"schema": {"type": "string"}}}},
+                        "201": {"description": "made", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/A"}}}},
+                        "202": {"description": "same", "content": {"application/json": {"schema": {"type": "string"}}}},
+                        "4XX": {"description": "failed", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/E"}}}}}}}},
+                "components": {"schemas": {"A": {"type": "object"}, "E": {"type": "object"}}}}"##,
+            ),
+            "a/tools.ts",
+        );
+        let output = &tools[tools.find("outputSchema: {").unwrap()..tools.find("annotations: ").unwrap()];
+        assert!(output.contains(r#""anyOf": ["#), "the distinct 2xx bodies: {output}");
+        assert_eq!(output.matches(r#""type": "string""#).count(), 1, "{output}");
+        assert!(output.contains(r#""A": A_output,"#), "{output}");
+        assert!(!output.contains("E_output"), "error models are left out: {output}");
     }
 
     #[test]

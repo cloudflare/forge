@@ -48,3 +48,12 @@ test('lists the tools without their request code, once', () => {
   assert.deepEqual(Object.keys(listing[0]!).toSorted(), ['annotations', 'description', 'inputSchema', 'name', 'title']);
   assert.equal(toolsByName(tools).get('pets_create'), create);
 });
+
+test('lists the output schemas only when asked, once', () => {
+  const listing = listTools(tools, { outputSchema: true });
+  assert.equal(listing, listTools(tools, { outputSchema: true }));
+  assert.notEqual(listing, listTools(tools));
+  assert.deepEqual(listing[0]!.outputSchema, list.outputSchema);
+  assert.equal('outputSchema' in listing[1]!, false, 'a tool without one');
+  assert.equal('outputSchema' in listTools(tools)[0]!, false);
+});
