@@ -22,23 +22,23 @@ For standard MCP clients without client-side tool search, large OpenAPI descript
 ```text
 OpenAPI JSON ──► forge --target mcp ──► Typed TS SDK (client.ts, <group>/client.ts, models.ts)
                                     └──► MCP Runtime (mcp.ts, _/mcp.ts)
-                                         ├── Tool 1: search({ code? })          ──► 1-level .d.ts (~300–600 tokens)
-                                         └── Tool 2: execute({ code, params? }) ──► Pre-flight validator
-                                                                                    ├── Type error ──► TS2339/TS2561/TS2540/TS2741/TS2322 + 1-level .d.ts (0 HTTP calls)
-                                                                                    └── Valid      ──► Calls Forge TS Transport
+                                         ├── Tool 1: search({ code? }) ──► 1-level .d.ts (~300–600 tokens)
+                                         └── Tool 2: execute({ code }) ──► Pre-flight validator
+                                                                           ├── Type error ──► TS2339/TS2561/TS2540/TS2741/TS2322 + 1-level .d.ts (0 HTTP calls)
+                                                                           └── Valid      ──► Calls Forge TS Transport
 ```
 
 1. **`search({ code? })`** runs read-only JavaScript against the SDK's `methods`, `groups`, `models`, and `dts("<symbol>")` helper (or resolves a symbol path / HTTP route directly) and returns a 1-level `.d.ts` TypeScript declaration.
-2. **`execute({ code, params? })`** runs JavaScript/TypeScript against the wrapped `client`. Returning an uninvoked namespace or method inspects its `.d.ts`; calling `await client.<group>.<method>(...)` validates arguments before making an HTTP request.
+2. **`execute({ code })`** runs JavaScript/TypeScript against the wrapped `client`. Returning an uninvoked namespace or method inspects its `.d.ts`; calling `await client.<group>.<method>(...)` validates arguments before making an HTTP request.
 
 ## MCP protocol surface (`tools/list` & `tools/call`)
 
 `tools/list` (`mcp.tools`) advertises two tools:
 
-| Tool      | Input schema                                         | Behavior                                                                                                                                                                                                                                                              |
-| --------- | ---------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Tool | Input schema | Behavior |
+| --- | --- | --- |
 | `search` | `{ code?: string }` | Evaluates read-only JavaScript against `methods` (`{ path, group, name, httpMethod, route, summary, description }`), `groups`, `models`, and `dts("<symbol>")` (or resolves an SDK group, method, model, or HTTP route directly) and returns a 1-level `.d.ts` TypeScript declaration and JSDoc. |
-| `execute` | `{ code: string, params?: Record<string, unknown> }` | Evaluates a JavaScript expression or async function body against the wrapped Forge `client`. Validates arguments pre-flight before sending any HTTP request. |
+| `execute` | `{ code: string }` | Evaluates a JavaScript expression or async function body against the wrapped Forge `client`. Validates arguments pre-flight before sending any HTTP request. |
 
 #### `tools/call` -> `search`
 
@@ -172,20 +172,17 @@ Before `execute()` sends an HTTP request, `validateMethodCall` checks the argume
 | `TS2741`            | Missing required path, query, or body property                                                                 | Method `.d.ts` + offending model `.d.ts`.                                                               |
 | `TS2322` / `TS2554` | Type mismatch (scalar, enum, array bounds, object, union, intersection) or wrong argument count | Method `.d.ts` + offending nested model `.d.ts`. |
 
-## Execution options & sandboxed runtimes
-
-For multi-tenant or sandboxed runtimes (such as Cloudflare Workers with Dynamic Worker isolates, `@cloudflare/codemode`, QuickJS, or Node `vm.runInNewContext`) where untrusted agent code runs in an isolated sandbox and validated requests are forwarded via a custom `fetch` transport:
+## Runtime options (`include` & `evaluator` sandbox)
 
 ```ts
 const mcp = createMcp(
   { token: 'session-token', baseUrl: 'https://api.example.com/v1', fetch: hostTransportFetch },
   {
+    include: (method) => !method.deprecated && method.httpMethod === 'GET',
     evaluator: (code, globals, functionBody) => sandbox.eval(functionBody, globals),
-    defaultParams: { orgId: 'org_auto_123' },
-    unresolvedParams: { orgId: 'Select an organization first with orgs.list.' },
   },
 );
 ```
-- **`evaluator` sandbox (`CodeEvaluator | false`)**: Pluggable JavaScript evaluator for string snippets passed to `search()` and `execute()` so agent code never executes in the host isolate (`process.env`, filesystem, or raw `fetch`) and works in runtimes that disallow dynamic code generation (`new Function` / `eval`) such as Cloudflare Workers. Direct symbol paths (`"dns.records.create"`, `'dts("dns.records")'`) and HTTP routes (`"POST /zones/{zoneId}/dns_records"`) in `search()` resolve via pure static lookup without invoking `evaluator` or `new Function`. Passing `evaluator: false` disables dynamic string evaluation while keeping static `search()` lookups and callback-form `execute(async (client) => ...)` active.
-- **`defaultParams` & `unresolvedParams`**: Automatically injects session default parameters (such as `orgId` or `accountId`) into methods that declare a matching required parameter when omitted by the caller, or returns a structured `missingParam` error with custom guidance before making any network request.
-- **OpenAPI `extensions` passthrough**: Preserves operation `x-*` extensions on `MethodSchema` and `401`/`403` error results so the host can inspect required scopes/permissions without provider-specific hardcoding.
+
+- **`include?: (method: MethodSchema) => boolean`**: Filters which SDK methods are exposed in `search()`, `dts()`, and `execute()` (and prunes groups that have no remaining methods). Each `MethodSchema` includes `httpMethod`, `route`, `deprecated`, and OpenAPI `extensions` (`x-*`), so servers can scope the visible surface by HTTP verb, deprecation status, or caller permissions.
+- **`evaluator?: CodeEvaluator | false`**: Pluggable JavaScript evaluator for string snippets passed to `search()` and `execute()` so untrusted agent code runs in an isolated sandbox (such as a Cloudflare Dynamic Worker isolate, `@cloudflare/codemode`, QuickJS, or Node `vm.runInNewContext`) and works in runtimes that disallow dynamic code generation (`new Function` / `eval`). Direct symbol paths (`"dns.records.create"`, `'dts("dns.records")'`) and HTTP routes (`"POST /zones/{zoneId}/dns_records"`) in `search()` resolve via pure static lookup without invoking `evaluator` or `new Function`. Passing `evaluator: false` disables dynamic string evaluation while keeping static `search()` lookups and callback-form `execute(async (client) => ...)` active.
