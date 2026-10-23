@@ -209,8 +209,8 @@ importers:
         specifier: ^4.0.2
         version: 4.0.2
       '@cloudflare/nimbus-docs':
-        specifier: ^0.18.0
-        version: 0.18.0(@types/node@26.0.1)(astro@7.4.1(@types/node@26.0.1)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.22.4)(yaml@2.9.1))(esbuild@0.28.2)(jiti@2.7.0)(supports-color@10.2.2)(tsx@4.22.4)
+        specifier: ^0.19.0
+        version: 0.19.0(@types/node@26.0.1)(astro@7.4.1(@types/node@26.0.1)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.22.4)(yaml@2.9.1))(esbuild@0.28.2)(jiti@2.7.0)(supports-color@10.2.2)(tsx@4.22.4)
       '@fontsource-variable/inter':
         specifier: 5.3.0
         version: 5.3.0
@@ -268,7 +268,7 @@ importers:
     dependencies:
       zod:
         specifier: ^4.3.6
-        version: 4.4.3
+        version: 4.6.7
     devDependencies:
       '@types/node':
         specifier: 25.3.5
@@ -544,9 +544,6 @@ packages:
   '@astrojs/markdown-satteri@0.3.8':
     resolution: {integrity: sha512-n8ItpFTCmlDsVR5+rwDmehSf+jFCYLWmZiisZNGuF7xILqYhsVeBfcha4qgS2Seq3fAc9Tm58ZVrvqFQ6RQgRQ==}
 
-  '@astrojs/markdown-satteri@0.4.3':
-    resolution: {integrity: sha512-PFbEHPnwUlLvpXd7RXrrKM+j12akF4bG+DSuNuoN+3eiwjOwp4HaPi+QQdbkBV7QEYXmzyKca50OJsmGxhNIUA==}
-
   '@astrojs/markdown-satteri@0.4.4':
     resolution: {integrity: sha512-Byhe9CAiGFJrhMACKpgN/FPf4lcwapqwFQAB7E1sPELTEJINfBIpgnEYOBTXzr//fvSSNhfp/X3AqN4mUV9p+A==}
 
@@ -814,19 +811,26 @@ packages:
   '@cloudflare/config@0.27.0':
     resolution: {integrity: sha512-wNnL0z4lj5Gm2fze5qXTOvRPbUOi4jlMmwPk7ArCUakI5oVxgjfl3Rhnfd/Mmzo3g86x/ofH75yPIhsa5msqdQ==}
 
-  '@cloudflare/nimbus-docs@0.18.0':
-    resolution: {integrity: sha512-rZXLcUM3Ule0sh6pppVKtclZpmFablyegzZ9SPaXtWIA+K0RjbYWkxRGzLzjilqOkLV3w51LsWSekP5ygYckeQ==}
+  '@cloudflare/nimbus-docs@0.19.0':
+    resolution: {integrity: sha512-knD+bdFn9MtQ7SQIlZTWi3pk13wLdvMMENI6uX+2TX7kyPgr90DdqsL2UaKxg3T6O3FwYm27hkxBPSYNhWnU8w==}
     engines: {node: '>=22.12.0'}
     hasBin: true
     peerDependencies:
+      '@modelcontextprotocol/server': '>=2.3.0 <3.0.0'
       '@readme/httpsnippet': '>=10.0.0'
+      '@resvg/resvg-js': '>=2.6.2 <3.0.0'
       '@scalar/openapi-parser': '>=0.10.0 <1.0.0'
       astro: '>=7.2.6 <8.0.0'
       openapi-sampler: '>=1.5.0'
       react: '>=19.0.0'
       react-dom: '>=19.0.0'
+      satori: '>=0.26.0 <0.27.0'
     peerDependenciesMeta:
+      '@modelcontextprotocol/server':
+        optional: true
       '@readme/httpsnippet':
+        optional: true
+      '@resvg/resvg-js':
         optional: true
       '@scalar/openapi-parser':
         optional: true
@@ -835,6 +839,8 @@ packages:
       react:
         optional: true
       react-dom:
+        optional: true
+      satori:
         optional: true
 
   '@cloudflare/runtime-types@0.1.12':
@@ -4520,9 +4526,6 @@ packages:
   youch@4.1.0-beta.10:
     resolution: {integrity: sha512-rLfVLB4FgQneDr0dv1oddCVZmKjcJ6yX6mS4pU82Mq/Dt9a3cLZQ62pDBL4AUO+uVrCvtWz3ZFUL2HFAFJ/BXQ==}
 
-  zod@4.4.3:
-    resolution: {integrity: sha512-ytENFjIJFl2UwYglde2jchW2Hwm4GJFLDiSXWdTrJQBIN9Fcyp7n4DhxJEiWNAJMV1/BqWfW/kkg71UDcHJyTQ==}
-
   zod@4.6.5:
     resolution: {integrity: sha512-v5l/aFXZQeai4awLbOpSoHecE9UiMrnfx75tEXLjNonXVARxQ5mOeipTjROUchszUNCqnE+hqAMujRsRHsut2Q==}
 
@@ -4560,7 +4563,7 @@ snapshots:
 
   '@antfu/install-pkg@2.1.0':
     dependencies:
-      package-manager-detector: 1.8.0
+      package-manager-detector: 1.9.0
       tinyexec: 1.3.1
 
   '@astrojs/check@0.9.10(prettier@3.9.6)(typescript@5.9.3)':
@@ -4712,20 +4715,20 @@ snapshots:
       '@types/hast': 3.0.5
       '@types/mdast': 4.0.4
       js-yaml: 4.3.1
-      picomatch: 4.0.5
+      picomatch: 4.0.7
       retext-smartypants: 6.2.0
-      shiki: 4.4.3
-      smol-toml: 1.8.0
+      shiki: 4.5.0
+      smol-toml: 1.9.1
       unified: 11.0.5
 
   '@astrojs/internal-helpers@0.12.0':
     dependencies:
       '@types/hast': 3.0.5
       '@types/mdast': 4.0.4
-      picomatch: 4.0.5
+      picomatch: 4.0.7
       retext-smartypants: 6.2.0
-      shiki: 4.4.3
-      smol-toml: 1.8.0
+      shiki: 4.5.0
+      smol-toml: 1.9.1
       unified: 11.0.5
       yaml: 2.9.1
 
@@ -4795,13 +4798,6 @@ snapshots:
       github-slugger: 2.0.0
       satteri: 0.10.5
 
-  '@astrojs/markdown-satteri@0.4.3':
-    dependencies:
-      '@astrojs/internal-helpers': 0.12.0
-      '@astrojs/prism': 4.0.2
-      github-slugger: 2.0.0
-      satteri: 0.10.5
-
   '@astrojs/markdown-satteri@0.4.4':
     dependencies:
       '@astrojs/internal-helpers': 0.13.0
@@ -4809,10 +4805,10 @@ snapshots:
       github-slugger: 2.0.0
       satteri: 0.10.5
 
-  '@astrojs/mdx@8.0.3(@astrojs/markdown-satteri@0.4.3)(astro@7.4.1(@types/node@26.0.1)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.22.4)(yaml@2.9.1))':
+  '@astrojs/mdx@8.0.3(@astrojs/markdown-satteri@0.4.4)(astro@7.4.1(@types/node@26.0.1)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.22.4)(yaml@2.9.1))':
     dependencies:
       '@astrojs/internal-helpers': 0.12.0
-      '@astrojs/markdown-satteri': 0.4.3
+      '@astrojs/markdown-satteri': 0.4.4
       astro: 7.4.1(@types/node@26.0.1)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.22.4)(yaml@2.9.1)
       es-module-lexer: 3.0.3
 
@@ -4828,7 +4824,7 @@ snapshots:
     dependencies:
       sitemap: 9.0.1
       stream-replace-string: 2.0.0
-      zod: 4.4.3
+      zod: 4.6.7
 
   '@astrojs/telemetry@3.3.3':
     dependencies:
@@ -5069,10 +5065,10 @@ snapshots:
     dependencies:
       zod: 4.6.5
 
-  '@cloudflare/nimbus-docs@0.18.0(@types/node@26.0.1)(astro@7.4.1(@types/node@26.0.1)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.22.4)(yaml@2.9.1))(esbuild@0.28.2)(jiti@2.7.0)(supports-color@10.2.2)(tsx@4.22.4)':
+  '@cloudflare/nimbus-docs@0.19.0(@types/node@26.0.1)(astro@7.4.1(@types/node@26.0.1)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.22.4)(yaml@2.9.1))(esbuild@0.28.2)(jiti@2.7.0)(supports-color@10.2.2)(tsx@4.22.4)':
     dependencies:
-      '@astrojs/markdown-satteri': 0.4.3
-      '@astrojs/mdx': 8.0.3(@astrojs/markdown-satteri@0.4.3)(astro@7.4.1(@types/node@26.0.1)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.22.4)(yaml@2.9.1))
+      '@astrojs/markdown-satteri': 0.4.4
+      '@astrojs/mdx': 8.0.3(@astrojs/markdown-satteri@0.4.4)(astro@7.4.1(@types/node@26.0.1)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.22.4)(yaml@2.9.1))
       '@astrojs/sitemap': 3.7.2
       '@clack/prompts': 0.9.1
       '@fontsource/stix-two-math': 5.3.0
@@ -5097,7 +5093,7 @@ snapshots:
       mdast-util-mdx: 3.0.0(supports-color@10.2.2)
       mdast-util-to-markdown: 2.1.2
       mri: 1.2.0
-      picomatch: 4.0.5
+      picomatch: 4.0.7
       remark-lint-emphasis-marker: 4.0.1
       remark-lint-fenced-code-flag: 4.2.0
       remark-lint-heading-increment: 4.0.1(supports-color@10.2.2)
@@ -5108,13 +5104,13 @@ snapshots:
       remark-lint-unordered-list-marker-style: 4.0.1
       satteri: 0.10.5
       semver: 7.8.5
-      shiki: 4.4.3
+      shiki: 4.5.0
       tailwind-merge: 3.7.0
       temml: 0.14.0
       typescript: 5.9.3
       unified: 11.0.5
       vfile: 6.0.3
-      vite: 8.2.1(@types/node@26.0.1)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.22.4)(yaml@2.9.1)
+      vite: 8.3.4(@types/node@26.0.1)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.22.4)(yaml@2.9.1)
       yaml: 2.9.1
     transitivePeerDependencies:
       - '@astrojs/markdown-remark'
@@ -5702,7 +5698,7 @@ snapshots:
 
   '@napi-rs/wasm-runtime@0.2.12':
     dependencies:
-      '@emnapi/core': 1.11.2
+      '@emnapi/core': 1.11.3
       '@emnapi/runtime': 1.11.3
       '@tybys/wasm-util': 0.10.3
     optional: true
@@ -6506,7 +6502,7 @@ snapshots:
       vitefu: 1.1.3(vite@8.2.1(@types/node@25.3.5)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.22.4)(yaml@2.9.1))
       xxhash-wasm: 1.1.0
       yargs-parser: 22.0.0
-      zod: 4.4.3
+      zod: 4.6.7
     optionalDependencies:
       '@astrojs/markdown-remark': 7.2.4(supports-color@10.2.2)
       sharp: 0.35.4(@types/node@25.3.5)
@@ -8575,21 +8571,6 @@ snapshots:
       tsx: 4.22.4
       yaml: 2.9.1
 
-  vite@8.2.1(@types/node@26.0.1)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.22.4)(yaml@2.9.1):
-    dependencies:
-      lightningcss: 1.33.0
-      picomatch: 4.0.5
-      postcss: 8.5.26
-      rolldown: 1.2.5
-      tinyglobby: 0.2.17
-    optionalDependencies:
-      '@types/node': 26.0.1
-      esbuild: 0.28.2
-      fsevents: 2.3.3
-      jiti: 2.7.0
-      tsx: 4.22.4
-      yaml: 2.9.1
-
   vite@8.3.4(@types/node@26.0.1)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.22.4)(yaml@2.9.1):
     dependencies:
       lightningcss: 1.33.0
@@ -8808,8 +8789,6 @@ snapshots:
       '@speed-highlight/core': 1.2.24
       cookie: 1.1.1
       youch-core: 0.3.3
-
-  zod@4.4.3: {}
 
   zod@4.6.5: {}
 

@@ -8,7 +8,7 @@ interface MdastNode {
   children?: MdastNode[];
 }
 
-const ALLOWED_TAGS = new Set((defaultSchema.tagNames ?? []).map((name) => name.toLowerCase()));
+const DROPPED_TAGS = new Set((defaultSchema.strip ?? []).map((name) => name.toLowerCase()));
 const TAG_NAME = /^<\/?([A-Za-z][A-Za-z0-9-]*)/;
 
 function htmlRanges(node: MdastNode, ranges: [number, number][]): [number, number][] {
@@ -19,18 +19,15 @@ function htmlRanges(node: MdastNode, ranges: [number, number][]): [number, numbe
   return ranges;
 }
 
-function escapeUnknownTags(html: string): string {
+function escapeDroppedTags(html: string): string {
   return html.replace(/</g, (lt, offset: number) => {
     const name = TAG_NAME.exec(html.slice(offset))?.[1]?.toLowerCase();
-    return name !== undefined && ALLOWED_TAGS.has(name) ? lt : '&lt;';
+    return name === undefined || DROPPED_TAGS.has(name) ? '&lt;' : lt;
   });
 }
 
-/**
- * Escapes raw HTML the sanitizer would drop, such as `metadata.<key>` placeholders and comments, so
- * it shows as text. Trims like Nimbus's renderer, so both parse the same block structure.
- */
-export function keepPlaceholders(markdown: string): string {
+// Nimbus keeps unknown tags such as `metadata.<key>` as text but drops comments and `<script>`, which some descriptions use as text.
+export function keepDroppedHtml(markdown: string): string {
   const trimmed = markdown.trim();
   let tree: MdastNode;
   try {
@@ -40,9 +37,9 @@ export function keepPlaceholders(markdown: string): string {
   }
   let result = trimmed;
   for (const [start, end] of htmlRanges(tree, []).sort((a, b) => b[0] - a[0])) {
-    result = result.slice(0, start) + escapeUnknownTags(result.slice(start, end)) + result.slice(end);
+    result = result.slice(0, start) + escapeDroppedTags(result.slice(start, end)) + result.slice(end);
   }
   return result;
 }
 
-export const renderDescription = (markdown: string): string => renderMarkdown(keepPlaceholders(markdown));
+export const renderDescription = (markdown: string): string => renderMarkdown(keepDroppedHtml(markdown));
