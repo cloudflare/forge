@@ -94,8 +94,9 @@ have no `.` or `..` parts, and no two files may share one.
 
 Things to know:
 
-- **Each group runs in an instance of its own.** `generateGroup` sees
-  nothing that `generate` or another group kept in module state.
+- **Groups run in parallel across a pool of instances.** Instances are
+  reused across groups of the same forge, so module state may carry over
+  between calls.
 - **There is no Node.** Plugins have no `fs`, `process`, network or clock.
   Libraries in plain JavaScript bundle in and work.
 - **QuickJS runs the plugin.** `forge-plugin build` compiles it in, for a
