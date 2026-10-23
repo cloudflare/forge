@@ -3,25 +3,20 @@
  "source": {
   "provider": {
    "repository": "https://github.com/cloudflare/terraform-provider-cloudflare",
-   "version": "5.27.0",
-   "commit": "46e69b7239fce198d66bdfa84083367e14156aff"
+   "version": "5.28.1",
+   "commit": "9b51a582458f5c5d46d8547ed2604fcba91fb861"
   },
   "sdks": [
    {
-    "module": "github.com/cloudflare/cloudflare-go/v6",
-    "version": "v6.10.0",
-    "commit": "44e6fd4ef22cede57bd544286781530d6e7c8765"
-   },
-   {
     "module": "github.com/cloudflare/cloudflare-go/v7",
-    "version": "v7.12.0",
-    "commit": "05ca1e4fc7c7f02ffd8257ea199c985e1ec618e8"
+    "version": "v7.13.1",
+    "commit": "91580cb481bde15bf5738770243f6b7f5908c8a9"
    }
   ]
  },
  "stats": {
-  "declarations": 741,
-  "linkedDeclarations": 740,
+  "declarations": 740,
+  "linkedDeclarations": 739,
   "endpoints": 1116,
   "unresolvedCalls": 0
  },
@@ -5959,6 +5954,21 @@
        "type": "Boolean"
       },
       {
+       "name": "created_from_emdash_plugin",
+       "type": "Attributes",
+       "children": [
+        {
+         "name": "type",
+         "type": "String",
+         "description": "Available values: \"native\", \"rest\"."
+        },
+        {
+         "name": "version",
+         "type": "String"
+        }
+       ]
+      },
+      {
        "name": "worker_domain",
        "type": "String"
       }
@@ -6394,6 +6404,21 @@
       {
        "name": "created_from_aisearch_wizard",
        "type": "Boolean"
+      },
+      {
+       "name": "created_from_emdash_plugin",
+       "type": "Attributes",
+       "children": [
+        {
+         "name": "type",
+         "type": "String",
+         "description": "Available values: \"native\", \"rest\"."
+        },
+        {
+         "name": "version",
+         "type": "String"
+        }
+       ]
       },
       {
        "name": "worker_domain",
@@ -6905,6 +6930,21 @@
         {
          "name": "created_from_aisearch_wizard",
          "type": "Boolean"
+        },
+        {
+         "name": "created_from_emdash_plugin",
+         "type": "Attributes",
+         "children": [
+          {
+           "name": "type",
+           "type": "String",
+           "description": "Available values: \"native\", \"rest\"."
+          },
+          {
+           "name": "version",
+           "type": "String"
+          }
+         ]
         },
         {
          "name": "worker_domain",
@@ -7853,19 +7893,12 @@
    "kind": "resource",
    "name": "cloudflare_api_shield_discovery_operation",
    "description": "Accepted Permissions\n\n- `Account API Gateway`\n- `Domain API Gateway`",
-   "example": "resource \"cloudflare_api_shield_discovery_operation\" \"example_api_shield_discovery_operation\" {\n  zone_id = \"023e105f4ecef8ad9ca31a8372d0c353\"\n  operation_id = \"f174e90a-fafe-4643-bbbc-4a0ed4fc8415\"\n  state = \"review\"\n}",
+   "example": "resource \"cloudflare_api_shield_discovery_operation\" \"example_api_shield_discovery_operation\" {\n  zone_id = \"023e105f4ecef8ad9ca31a8372d0c353\"\n  discovery_id = \"f174e90a-fafe-4643-bbbc-4a0ed4fc8415\"\n  state = \"review\"\n}",
    "required": [
     {
-     "name": "operation_id",
+     "name": "discovery_id",
      "type": "String",
      "description": "UUID."
-    }
-   ],
-   "optional": [
-    {
-     "name": "state",
-     "type": "String",
-     "description": "Mark state of operation in API Discovery\n  * `review` - Mark operation as for review\n  * `ignored` - Mark operation as ignored\nAvailable values: \"review\", \"ignored\"."
     },
     {
      "name": "zone_id",
@@ -7873,13 +7906,14 @@
      "description": "Identifier."
     }
    ],
-   "computed": [
+   "optional": [
     {
-     "name": "id",
+     "name": "state",
      "type": "String",
-     "description": "UUID."
+     "description": "Mark state of operation in API Discovery\n  * `review` - Mark operation as for review\n  * `ignored` - Mark operation as ignored\nAvailable values: \"review\", \"ignored\"."
     }
-   ]
+   ],
+   "computed": []
   },
   "list-data-source:cloudflare_api_shield_discovery_operations": {
    "kind": "list-data-source",
@@ -21860,17 +21894,6 @@
      "description": "Identifier."
     },
     {
-     "name": "pattern",
-     "type": "String",
-     "description": "The domain pattern to trust, e.g. `example.com`."
-    }
-   ],
-   "optional": [
-    {
-     "name": "comments",
-     "type": "String"
-    },
-    {
      "name": "is_recent",
      "type": "Boolean",
      "description": "Select to prevent recently registered domains from triggering a Suspicious or Malicious disposition."
@@ -21884,6 +21907,17 @@
      "name": "is_similarity",
      "type": "Boolean",
      "description": "Select for partner or other approved domains that have similar spelling to your connected domains. Prevents listed domains from triggering a Spoof disposition."
+    },
+    {
+     "name": "pattern",
+     "type": "String",
+     "description": "The domain pattern to trust, e.g. `example.com`."
+    }
+   ],
+   "optional": [
+    {
+     "name": "comments",
+     "type": "String"
     }
    ],
    "computed": [
@@ -24568,7 +24602,7 @@
     {
      "name": "integration",
      "type": "Attributes",
-     "description": "Connects to a PlanetScale database using credentials managed by Cloudflare. The Cloudflare account must already be linked to PlanetScale in the Hyperdrive dashboard.",
+     "description": "Selects a PlanetScale database and provisions credentials managed by Cloudflare when creating a Hyperdrive configuration. The Cloudflare account must already be linked to PlanetScale in the Hyperdrive dashboard. The selection is returned as read-only metadata and cannot be changed with replace or update operations.",
      "children": [
       {
        "name": "custom_database_name",
@@ -24904,7 +24938,7 @@
       {
        "name": "integration",
        "type": "Attributes",
-       "description": "Connects to a PlanetScale database using credentials managed by Cloudflare. The Cloudflare account must already be linked to PlanetScale in the Hyperdrive dashboard.",
+       "description": "Selects a PlanetScale database and provisions credentials managed by Cloudflare when creating a Hyperdrive configuration. The Cloudflare account must already be linked to PlanetScale in the Hyperdrive dashboard. The selection is returned as read-only metadata and cannot be changed with replace or update operations.",
        "children": [
         {
          "name": "custom_database_name",
@@ -29183,7 +29217,7 @@
       {
        "name": "merge_subrequests",
        "type": "Boolean",
-       "description": "If set to true, subrequests will be merged into the parent request. Only supported for the `http_requests` dataset. Not supported for account-scoped jobs."
+       "description": "If set to true, subrequests will be merged into the parent request. Only supported for the `http_requests` dataset."
       },
       {
        "name": "output_type",
@@ -29360,7 +29394,7 @@
       {
        "name": "merge_subrequests",
        "type": "Boolean",
-       "description": "If set to true, subrequests will be merged into the parent request. Only supported for the `http_requests` dataset. Not supported for account-scoped jobs."
+       "description": "If set to true, subrequests will be merged into the parent request. Only supported for the `http_requests` dataset."
       },
       {
        "name": "output_type",
@@ -29511,7 +29545,7 @@
       {
        "name": "merge_subrequests",
        "type": "Boolean",
-       "description": "If set to true, subrequests will be merged into the parent request. Only supported for the `http_requests` dataset. Not supported for account-scoped jobs."
+       "description": "If set to true, subrequests will be merged into the parent request. Only supported for the `http_requests` dataset."
       },
       {
        "name": "output_type",
@@ -29725,7 +29759,7 @@
         {
          "name": "merge_subrequests",
          "type": "Boolean",
-         "description": "If set to true, subrequests will be merged into the parent request. Only supported for the `http_requests` dataset. Not supported for account-scoped jobs."
+         "description": "If set to true, subrequests will be merged into the parent request. Only supported for the `http_requests` dataset."
         },
         {
          "name": "output_type",
@@ -33328,6 +33362,127 @@
      ]
     }
    ],
+   "computed": [
+    {
+     "name": "id",
+     "type": "String",
+     "description": "The unique ID of the zone."
+    }
+   ]
+  },
+  "data-source:cloudflare_monetization_rules": {
+   "kind": "data-source",
+   "name": "cloudflare_monetization_rules",
+   "example": "data \"cloudflare_monetization_rules\" \"example_monetization_rules\" {\n  zone_id = \"9f1839b6152d298aca64c4e906b6d074\"\n}",
+   "required": [
+    {
+     "name": "zone_id",
+     "type": "String",
+     "description": "The unique ID of the zone."
+    }
+   ],
+   "optional": [],
+   "computed": [
+    {
+     "name": "id",
+     "type": "String",
+     "description": "The unique ID of the zone."
+    },
+    {
+     "name": "rules",
+     "type": "Attributes List",
+     "description": "The zone's payment rules, in the order they are evaluated. Empty when the zone has no payment rules.",
+     "children": [
+      {
+       "name": "address",
+       "type": "String",
+       "description": "0x-prefixed 20-byte hexadecimal Ethereum address. Mixed-case addresses must carry a valid EIP-55 checksum; all-lowercase or all-uppercase addresses are also accepted. The address must pass wallet screening whenever its rule is deployed or patched."
+      },
+      {
+       "name": "description",
+       "type": "String"
+      },
+      {
+       "name": "enabled",
+       "type": "Boolean"
+      },
+      {
+       "name": "expression",
+       "type": "String",
+       "description": "Wirefilter expression identifying the requests that require payment. Forwarded verbatim to the Rulesets API, which validates its syntax."
+      },
+      {
+       "name": "id",
+       "type": "String",
+       "description": "The server-assigned unique ID of the payment rule. Stable across full-ruleset replacements."
+      },
+      {
+       "name": "price",
+       "type": "String",
+       "description": "Price in the smallest indivisible unit of the configured payment token, encoded as a decimal string. Must be a canonical decimal integer in [1000, 100000000]: no leading zeros, and a bare JSON number is rejected. The price is required for the fixed-price schemes (\"exact\" and \"upto\") and must be at least 1000, the smallest amount the payment facilitator can settle ($0.001 for a 6-decimal token such as USDC), and at most 100000000 ($100 for a 6-decimal token). When the scheme is \"origin_controlled\" the origin server sets pricing dynamically and the rule carries no price: the field must be omitted — any provided value, including \"0\", is rejected because it would not be enforced. Responses always encode this as a string and omit it for \"origin_controlled\" rules; the pattern matches exactly the set of values the server accepts."
+      },
+      {
+       "name": "scheme",
+       "type": "String",
+       "description": "X402 payment scheme. \"exact\" requires the specified payment amount; \"upto\" permits a payment up to the specified amount. Both fixed-price schemes require the price field.\nAvailable values: \"exact\", \"upto\", \"origin_controlled\"."
+      }
+     ]
+    }
+   ]
+  },
+  "resource:cloudflare_monetization_rules": {
+   "kind": "resource",
+   "name": "cloudflare_monetization_rules",
+   "example": "resource \"cloudflare_monetization_rules\" \"example_monetization_rules\" {\n  zone_id = \"9f1839b6152d298aca64c4e906b6d074\"\n  rules = [{\n    address = \"0x1234567890abcdef1234567890abcdef12345678===\"\n    expression = \"(http.request.uri.path eq \\\"/premium\\\" and http.request.method in {\\\"GET\\\" \\\"POST\\\"})\"\n    price = \"250000\"\n    scheme = \"exact\"\n    id = \"023e105f4ecef8ad9ca31a8372d0c353\"\n    description = \"Premium API endpoint\"\n    enabled = true\n  }]\n}",
+   "importExample": "$ terraform import cloudflare_monetization_rules.example '<zone_id>'",
+   "required": [
+    {
+     "name": "rules",
+     "type": "Attributes List",
+     "description": "Full desired Payment Required ruleset. An empty array clears all payment rules. The ruleset may contain at most 40 unique wallet addresses; address comparison is case-insensitive. Every address must pass wallet screening before deployment.",
+     "children": [
+      {
+       "name": "address",
+       "type": "String",
+       "description": "0x-prefixed 20-byte hexadecimal Ethereum address. Mixed-case addresses must carry a valid EIP-55 checksum; all-lowercase or all-uppercase addresses are also accepted. The address must pass wallet screening whenever its rule is deployed or patched."
+      },
+      {
+       "name": "description",
+       "type": "String"
+      },
+      {
+       "name": "enabled",
+       "type": "Boolean"
+      },
+      {
+       "name": "expression",
+       "type": "String",
+       "description": "Wirefilter expression identifying the requests that require payment. Forwarded verbatim to the Rulesets API, which validates its syntax."
+      },
+      {
+       "name": "id",
+       "type": "String",
+       "description": "Optional on input. Include the ID of an existing payment rule to update it in place, preserving its stable identity across the full-ruleset replacement; omit it to create a new rule. An ID that does not match an existing payment rule in the zone is rejected. Rules omitted from the request are deleted."
+      },
+      {
+       "name": "price",
+       "type": "String",
+       "description": "Price in the smallest indivisible unit of the configured payment token, encoded as a decimal string. Must be a canonical decimal integer in [1000, 100000000]: no leading zeros, and a bare JSON number is rejected. The price is required for the fixed-price schemes (\"exact\" and \"upto\") and must be at least 1000, the smallest amount the payment facilitator can settle ($0.001 for a 6-decimal token such as USDC), and at most 100000000 ($100 for a 6-decimal token). When the scheme is \"origin_controlled\" the origin server sets pricing dynamically and the rule carries no price: the field must be omitted — any provided value, including \"0\", is rejected because it would not be enforced. Responses always encode this as a string and omit it for \"origin_controlled\" rules; the pattern matches exactly the set of values the server accepts."
+      },
+      {
+       "name": "scheme",
+       "type": "String",
+       "description": "X402 payment scheme. \"exact\" requires the specified payment amount; \"upto\" permits a payment up to the specified amount. Both fixed-price schemes require the price field.\nAvailable values: \"exact\", \"upto\", \"origin_controlled\"."
+      }
+     ]
+    },
+    {
+     "name": "zone_id",
+     "type": "String",
+     "description": "The unique ID of the zone."
+    }
+   ],
+   "optional": [],
    "computed": [
     {
      "name": "id",
@@ -38507,6 +38662,23 @@
      ]
     },
     {
+     "name": "build_image_auto_upgrade",
+     "type": "Attributes",
+     "description": "Present when the project is set to a retired build image major version and its builds have been moved to a newer one. `build_image_major_version` in `deployment_configs` then reports the version the builds run on.",
+     "children": [
+      {
+       "name": "from_version",
+       "type": "Number",
+       "description": "The retired build image major version the project is set to."
+      },
+      {
+       "name": "to_version",
+       "type": "Number",
+       "description": "The build image major version the project's builds run on."
+      }
+     ]
+    },
+    {
      "name": "canonical_deployment",
      "type": "Attributes",
      "description": "Most recent production deployment of the project.",
@@ -38857,7 +39029,7 @@
         {
          "name": "build_image_major_version",
          "type": "Number",
-         "description": "The major version of the build image to use for Pages Functions."
+         "description": "The major version of the build image to use for Pages Functions. Version 1 is retired and its projects are moved to version 3. Once a project's builds have been moved, this is the version the builds run on and `build_image_auto_upgrade` is set on the project."
         },
         {
          "name": "compatibility_date",
@@ -39090,7 +39262,7 @@
         {
          "name": "build_image_major_version",
          "type": "Number",
-         "description": "The major version of the build image to use for Pages Functions."
+         "description": "The major version of the build image to use for Pages Functions. Version 1 is retired and its projects are moved to version 3. Once a project's builds have been moved, this is the version the builds run on and `build_image_auto_upgrade` is set on the project."
         },
         {
          "name": "compatibility_date",
@@ -39828,7 +40000,7 @@
         {
          "name": "build_image_major_version",
          "type": "Number",
-         "description": "The major version of the build image to use for Pages Functions."
+         "description": "The major version of the build image to use for Pages Functions. Version 1 is retired and its projects are moved to version 3. Once a project's builds have been moved, a request that sets version 1 is rejected."
         },
         {
          "name": "compatibility_date",
@@ -40061,7 +40233,7 @@
         {
          "name": "build_image_major_version",
          "type": "Number",
-         "description": "The major version of the build image to use for Pages Functions."
+         "description": "The major version of the build image to use for Pages Functions. Version 1 is retired and its projects are moved to version 3. Once a project's builds have been moved, a request that sets version 1 is rejected."
         },
         {
          "name": "compatibility_date",
@@ -40341,6 +40513,23 @@
     }
    ],
    "computed": [
+    {
+     "name": "build_image_auto_upgrade",
+     "type": "Attributes",
+     "description": "Present when the project is set to a retired build image major version and its builds have been moved to a newer one. `build_image_major_version` in `deployment_configs` then reports the version the builds run on.",
+     "children": [
+      {
+       "name": "from_version",
+       "type": "Number",
+       "description": "The retired build image major version the project is set to."
+      },
+      {
+       "name": "to_version",
+       "type": "Number",
+       "description": "The build image major version the project's builds run on."
+      }
+     ]
+    },
     {
      "name": "canonical_deployment",
      "type": "Attributes",
@@ -41041,6 +41230,23 @@
        ]
       },
       {
+       "name": "build_image_auto_upgrade",
+       "type": "Attributes",
+       "description": "Present when the project is set to a retired build image major version and its builds have been moved to a newer one. `build_image_major_version` in `deployment_configs` then reports the version the builds run on.",
+       "children": [
+        {
+         "name": "from_version",
+         "type": "Number",
+         "description": "The retired build image major version the project is set to."
+        },
+        {
+         "name": "to_version",
+         "type": "Number",
+         "description": "The build image major version the project's builds run on."
+        }
+       ]
+      },
+      {
        "name": "canonical_deployment",
        "type": "Attributes",
        "description": "Most recent production deployment of the project.",
@@ -41391,7 +41597,7 @@
           {
            "name": "build_image_major_version",
            "type": "Number",
-           "description": "The major version of the build image to use for Pages Functions."
+           "description": "The major version of the build image to use for Pages Functions. Version 1 is retired and its projects are moved to version 3. Once a project's builds have been moved, this is the version the builds run on and `build_image_auto_upgrade` is set on the project."
           },
           {
            "name": "compatibility_date",
@@ -41624,7 +41830,7 @@
           {
            "name": "build_image_major_version",
            "type": "Number",
-           "description": "The major version of the build image to use for Pages Functions."
+           "description": "The major version of the build image to use for Pages Functions. Version 1 is retired and its projects are moved to version 3. Once a project's builds have been moved, this is the version the builds run on and `build_image_auto_upgrade` is set on the project."
           },
           {
            "name": "compatibility_date",
@@ -46396,247 +46602,6 @@
      "name": "modified_on",
      "type": "String",
      "description": "Last time this setting was modified."
-    }
-   ]
-  },
-  "data-source:cloudflare_registrar_domain": {
-   "kind": "data-source",
-   "name": "cloudflare_registrar_domain",
-   "example": "data \"cloudflare_registrar_domain\" \"example_registrar_domain\" {\n  account_id = \"023e105f4ecef8ad9ca31a8372d0c353\"\n  domain_name = \"example.com\"\n}",
-   "required": [
-    {
-     "name": "account_id",
-     "type": "String",
-     "description": "Identifier."
-    },
-    {
-     "name": "domain_name",
-     "type": "String",
-     "description": "Provides a fully qualified domain name (FQDN), including the extension\n(e.g., `example.com`, `mybrand.app`). The domain name uniquely identifies\na registration. Cloudflare permits only one registration per domain, making\nthe domain name a natural idempotency key for registration requests."
-    }
-   ],
-   "optional": [],
-   "computed": []
-  },
-  "resource:cloudflare_registrar_domain": {
-   "kind": "resource",
-   "name": "cloudflare_registrar_domain",
-   "example": "resource \"cloudflare_registrar_domain\" \"example_registrar_domain\" {\n  account_id = \"023e105f4ecef8ad9ca31a8372d0c353\"\n  domain_name = \"example.com\"\n  auto_renew = true\n  locked = false\n  privacy = true\n}",
-   "required": [
-    {
-     "name": "account_id",
-     "type": "String",
-     "description": "Identifier."
-    },
-    {
-     "name": "domain_name",
-     "type": "String",
-     "description": "Provides a fully qualified domain name (FQDN), including the extension\n(e.g., `example.com`, `mybrand.app`). The domain name uniquely identifies\na registration. Cloudflare permits only one registration per domain, making\nthe domain name a natural idempotency key for registration requests."
-    }
-   ],
-   "optional": [
-    {
-     "name": "auto_renew",
-     "type": "Boolean",
-     "description": "Auto-renew controls whether subscription is automatically renewed upon domain expiration."
-    },
-    {
-     "name": "locked",
-     "type": "Boolean",
-     "description": "Shows whether a registrar lock is in place for a domain."
-    },
-    {
-     "name": "privacy",
-     "type": "Boolean",
-     "description": "Privacy option controls redacting WHOIS information."
-    }
-   ],
-   "computed": []
-  },
-  "list-data-source:cloudflare_registrar_domains": {
-   "kind": "list-data-source",
-   "name": "cloudflare_registrar_domains",
-   "example": "data \"cloudflare_registrar_domains\" \"example_registrar_domains\" {\n  account_id = \"023e105f4ecef8ad9ca31a8372d0c353\"\n}",
-   "required": [
-    {
-     "name": "account_id",
-     "type": "String",
-     "description": "Identifier."
-    }
-   ],
-   "optional": [
-    {
-     "name": "max_items",
-     "type": "Number",
-     "description": "Max items to fetch, default: 1000"
-    }
-   ],
-   "computed": [
-    {
-     "name": "result",
-     "type": "Attributes List",
-     "description": "The items returned by the data source",
-     "children": [
-      {
-       "name": "available",
-       "type": "Boolean",
-       "description": "Shows if a domain is available for transferring into Cloudflare Registrar."
-      },
-      {
-       "name": "can_register",
-       "type": "Boolean",
-       "description": "Indicates eligibility to register the domain as a new domain."
-      },
-      {
-       "name": "created_at",
-       "type": "String",
-       "description": "Shows time of creation."
-      },
-      {
-       "name": "current_registrar",
-       "type": "String",
-       "description": "Shows name of current registrar."
-      },
-      {
-       "name": "expires_at",
-       "type": "String",
-       "description": "Shows when domain name registration expires."
-      },
-      {
-       "name": "id",
-       "type": "String",
-       "description": "Domain identifier."
-      },
-      {
-       "name": "locked",
-       "type": "Boolean",
-       "description": "Shows whether a registrar lock is in place for a domain."
-      },
-      {
-       "name": "registrant_contact",
-       "type": "Attributes",
-       "description": "Shows contact information for domain registrant.",
-       "children": [
-        {
-         "name": "address",
-         "type": "String",
-         "description": "Address."
-        },
-        {
-         "name": "address2",
-         "type": "String",
-         "description": "Optional address line for unit, floor, suite, etc."
-        },
-        {
-         "name": "city",
-         "type": "String",
-         "description": "City."
-        },
-        {
-         "name": "country",
-         "type": "String",
-         "description": "The country in which the user lives."
-        },
-        {
-         "name": "email",
-         "type": "String",
-         "description": "The contact email address of the user."
-        },
-        {
-         "name": "fax",
-         "type": "String",
-         "description": "Contact fax number."
-        },
-        {
-         "name": "first_name",
-         "type": "String",
-         "description": "User's first name."
-        },
-        {
-         "name": "id",
-         "type": "String",
-         "description": "Contact Identifier."
-        },
-        {
-         "name": "last_name",
-         "type": "String",
-         "description": "User's last name."
-        },
-        {
-         "name": "organization",
-         "type": "String",
-         "description": "Name of organization."
-        },
-        {
-         "name": "phone",
-         "type": "String",
-         "description": "User's telephone number."
-        },
-        {
-         "name": "state",
-         "type": "String",
-         "description": "State."
-        },
-        {
-         "name": "zip",
-         "type": "String",
-         "description": "The zipcode or postal code where the user lives."
-        }
-       ]
-      },
-      {
-       "name": "registry_statuses",
-       "type": "String",
-       "description": "A comma-separated list of registry status codes. Refer to [EPP Status Codes](https://www.icann.org/resources/pages/epp-status-codes-2014-06-16-en) for the full list."
-      },
-      {
-       "name": "supported_tld",
-       "type": "Boolean",
-       "description": "Indicates whether Cloudflare Registrar currently supports a particular TLD. Refer to [TLD Policies](https://www.cloudflare.com/tld-policies/) for a list of supported TLDs."
-      },
-      {
-       "name": "transfer_in",
-       "type": "Attributes",
-       "description": "Statuses for domain transfers into Cloudflare Registrar.",
-       "children": [
-        {
-         "name": "accept_foa",
-         "type": "String",
-         "description": "Status of the registrant authorization step.\nAvailable values: \"needed\", \"ok\"."
-        },
-        {
-         "name": "approve_transfer",
-         "type": "String",
-         "description": "Status of the registry transfer-approval step.\nAvailable values: \"needed\", \"ok\", \"pending\", \"trying\", \"rejected\", \"unknown\"."
-        },
-        {
-         "name": "can_cancel_transfer",
-         "type": "Boolean",
-         "description": "Indicates if cancellation is still possible."
-        },
-        {
-         "name": "disable_privacy",
-         "type": "String",
-         "description": "Status of the privacy-guard disabling step at the foreign registrar.\nAvailable values: \"needed\", \"ok\", \"unknown\"."
-        },
-        {
-         "name": "enter_auth_code",
-         "type": "String",
-         "description": "Status of the auth-code entry and verification step.\nAvailable values: \"needed\", \"ok\", \"pending\", \"trying\", \"rejected\"."
-        },
-        {
-         "name": "unlock_domain",
-         "type": "String",
-         "description": "Status of the domain-unlock step at the foreign registrar.\nAvailable values: \"needed\", \"ok\", \"pending\", \"trying\", \"unknown\"."
-        }
-       ]
-      },
-      {
-       "name": "updated_at",
-       "type": "String",
-       "description": "Last updated."
-      }
-     ]
     }
    ]
   },
@@ -55452,7 +55417,7 @@
     {
      "name": "filter",
      "type": "String",
-     "description": "Filter widgets by field using case-insensitive substring matching.\nFormat: `field:value`\n\nSupported fields:\n- `name` - Filter by widget name (e.g., `filter=name:login-form`)\n- `sitekey` - Filter by sitekey (e.g., `filter=sitekey:0x4AAA`)\n\nReturns 400 Bad Request if the field is unsupported or format is invalid.\nAn empty filter value returns all results."
+     "description": "Filter widgets by field. The `name` field uses case-insensitive\nsubstring matching; `sitekey` uses exact matching.\nFormat: `field:value`\n\nSupported fields:\n- `name` - Filter by widget name (e.g., `filter=name:login-form`)\n- `sitekey` - Filter by sitekey (e.g., `filter=sitekey:0x4AAA`)\n\nReturns 400 Bad Request if the field is unsupported or format is invalid.\nAn empty filter value returns all results."
     },
     {
      "name": "offlabel",
@@ -60235,6 +60200,23 @@
        "description": "Name of the Queue to bind to."
       },
       {
+       "name": "retry",
+       "type": "Attributes",
+       "description": "Retry policy for calls made to the Durable Object through this binding. Omitted or null properties use the runtime defaults. These limits are upper bounds and do not enable retries for otherwise ineligible calls.",
+       "children": [
+        {
+         "name": "max_attempts",
+         "type": "Number",
+         "description": "Maximum number of retries after the initial request, not the total number of attempts. Defaults to 4. Zero disables retries."
+        },
+        {
+         "name": "timeout_ms",
+         "type": "Number",
+         "description": "Retry timeout in milliseconds, measured from the start of the call. No retry starts after it expires, and a retry still running when it expires is cancelled. This is not a request timeout; it does not limit the initial request, which is still subject to any timeouts set by your Worker. Defaults to 10000."
+        }
+       ]
+      },
+      {
        "name": "script_name",
        "type": "String",
        "description": "The script where the Durable Object is defined, if it is external to this Worker."
@@ -60980,6 +60962,23 @@
        "name": "queue_name",
        "type": "String",
        "description": "Name of the Queue to bind to."
+      },
+      {
+       "name": "retry",
+       "type": "Attributes",
+       "description": "Retry policy for calls made to the Durable Object through this binding. Omitted or null properties use the runtime defaults. These limits are upper bounds and do not enable retries for otherwise ineligible calls.",
+       "children": [
+        {
+         "name": "max_attempts",
+         "type": "Number",
+         "description": "Maximum number of retries after the initial request, not the total number of attempts. Defaults to 4. Zero disables retries."
+        },
+        {
+         "name": "timeout_ms",
+         "type": "Number",
+         "description": "Retry timeout in milliseconds, measured from the start of the call. No retry starts after it expires, and a retry still running when it expires is cancelled. This is not a request timeout; it does not limit the initial request, which is still subject to any timeouts set by your Worker. Defaults to 10000."
+        }
+       ]
       },
       {
        "name": "script_name",
@@ -61912,6 +61911,23 @@
          "name": "queue_name",
          "type": "String",
          "description": "Name of the Queue to bind to."
+        },
+        {
+         "name": "retry",
+         "type": "Attributes",
+         "description": "Retry policy for calls made to the Durable Object through this binding. Omitted or null properties use the runtime defaults. These limits are upper bounds and do not enable retries for otherwise ineligible calls.",
+         "children": [
+          {
+           "name": "max_attempts",
+           "type": "Number",
+           "description": "Maximum number of retries after the initial request, not the total number of attempts. Defaults to 4. Zero disables retries."
+          },
+          {
+           "name": "timeout_ms",
+           "type": "Number",
+           "description": "Retry timeout in milliseconds, measured from the start of the call. No retry starts after it expires, and a retry still running when it expires is cancelled. This is not a request timeout; it does not limit the initial request, which is still subject to any timeouts set by your Worker. Defaults to 10000."
+          }
+         ]
         },
         {
          "name": "script_name",
@@ -63800,7 +63816,7 @@
     {
      "name": "expiration_ttl",
      "type": "Number",
-     "description": "Expires the key after a number of seconds. Must be at least 60."
+     "description": "Number of seconds until the key expires. Must be at least 60. Takes precedence over `expiration` when both are specified."
     },
     {
      "name": "metadata",
@@ -63862,6 +63878,11 @@
      "description": "Specify the jurisdiction to restrict the KV namespace to durably store data within. Can only be set at namespace creation time.\nAvailable values: \"eu\", \"fedramp\", \"us\"."
     },
     {
+     "name": "mode",
+     "type": "String",
+     "description": "The mode of the Workers KV namespace. Specify `instant` when creating a namespace to create a KV Instant namespace. Omit this field when creating a namespace to create a classic namespace. Currently, `instant` is the only supported explicit value.\nAvailable values: \"instant\"."
+    },
+    {
      "name": "supports_url_encoding",
      "type": "Boolean",
      "description": "True if keys written on the URL will be URL-decoded before storing. For example, if set to \"true\", a key written on the URL as \"%3F\" will be stored as \"?\"."
@@ -63877,7 +63898,7 @@
    "kind": "resource",
    "name": "cloudflare_workers_kv_namespace",
    "description": "Accepted Permissions\n\n- `Workers KV Storage Read`\n- `Workers KV Storage Write`",
-   "example": "resource \"cloudflare_workers_kv_namespace\" \"example_workers_kv_namespace\" {\n  account_id = \"023e105f4ecef8ad9ca31a8372d0c353\"\n  title = \"My Own Namespace\"\n  jurisdiction = \"eu\"\n}",
+   "example": "resource \"cloudflare_workers_kv_namespace\" \"example_workers_kv_namespace\" {\n  account_id = \"023e105f4ecef8ad9ca31a8372d0c353\"\n  title = \"My Own Namespace\"\n  jurisdiction = \"eu\"\n  mode = \"instant\"\n}",
    "importExample": "$ terraform import cloudflare_workers_kv_namespace.example '<account_id>/<namespace_id>'",
    "required": [
     {
@@ -63896,6 +63917,11 @@
      "name": "jurisdiction",
      "type": "String",
      "description": "Specify the jurisdiction to restrict the KV namespace to durably store data within. Can only be set at namespace creation time.\nAvailable values: \"eu\", \"fedramp\", \"us\"."
+    },
+    {
+     "name": "mode",
+     "type": "String",
+     "description": "The mode of the Workers KV namespace. Specify `instant` when creating a namespace to create a KV Instant namespace. Omit this field when creating a namespace to create a classic namespace. Currently, `instant` is the only supported explicit value.\nAvailable values: \"instant\"."
     }
    ],
    "computed": [
@@ -63954,6 +63980,11 @@
        "name": "jurisdiction",
        "type": "String",
        "description": "Specify the jurisdiction to restrict the KV namespace to durably store data within. Can only be set at namespace creation time.\nAvailable values: \"eu\", \"fedramp\", \"us\"."
+      },
+      {
+       "name": "mode",
+       "type": "String",
+       "description": "The mode of the Workers KV namespace. Specify `instant` when creating a namespace to create a KV Instant namespace. Omit this field when creating a namespace to create a classic namespace. Currently, `instant` is the only supported explicit value.\nAvailable values: \"instant\"."
       },
       {
        "name": "supports_url_encoding",
@@ -64412,6 +64443,23 @@
        "description": "Name of the Queue to bind to."
       },
       {
+       "name": "retry",
+       "type": "Attributes",
+       "description": "Retry policy for calls made to the Durable Object through this binding. Omitted or null properties use the runtime defaults. These limits are upper bounds and do not enable retries for otherwise ineligible calls.",
+       "children": [
+        {
+         "name": "max_attempts",
+         "type": "Number",
+         "description": "Maximum number of retries after the initial request, not the total number of attempts. Defaults to 4. Zero disables retries."
+        },
+        {
+         "name": "timeout_ms",
+         "type": "Number",
+         "description": "Retry timeout in milliseconds, measured from the start of the call. No retry starts after it expires, and a retry still running when it expires is cancelled. This is not a request timeout; it does not limit the initial request, which is still subject to any timeouts set by your Worker. Defaults to 10000."
+        }
+       ]
+      },
+      {
        "name": "script_name",
        "type": "String",
        "description": "The script where the Durable Object is defined, if it is external to this Worker."
@@ -64495,6 +64543,11 @@
        "description": "Name of the Workflow to bind to."
       }
      ]
+    },
+    {
+     "name": "bindings_inherit",
+     "type": "String",
+     "description": "When set to \"strict\", the upload will fail if any `inherit` type bindings cannot be resolved against the previous version of the Worker. Without this, unresolvable inherit bindings are silently dropped.\nAvailable values: \"strict\"."
     },
     {
      "name": "body_part",
@@ -66926,13 +66979,13 @@
     {
      "name": "auth_credentials",
      "type": "String",
-     "description": "Static credential for the upstream MCP server. For auth_type \"bearer\", either a raw token string (e.g. \"sk-abc123\"), which is wrapped server-side as `Authorization: Bearer <token>`, or a JSON-encoded object of the form `{\"headers\":{\"Header-Name\":\"value\",...}}` for custom or multiple static headers (e.g. Cloudflare Access service tokens: `{\"headers\":{\"cf-access-client-id\":\"...\",\"cf-access-client-secret\":\"...\"}}`).",
+     "description": "Credential configuration for the upstream MCP server. For auth_type \"bearer\", either a raw token string (e.g. \"sk-abc123\"), which is wrapped server-side as `Authorization: Bearer <token>`, or a JSON-encoded object of the form `{\"headers\":{\"Header-Name\":\"value\",...}}` for custom or multiple static headers (e.g. Cloudflare Access service tokens: `{\"headers\":{\"cf-access-client-id\":\"...\",\"cf-access-client-secret\":\"...\"}}`). For auth_type \"oauth\" with a pre-registered client, send a JSON-encoded object containing `auth_mode:\"manual\"`, `config.authorization_endpoint`, `config.token_endpoint`, and `registration_info.client_id`. Also provide `registration_info.redirect_uris` unless `is_shared_oauth_callback_enabled` is true. Optional fields include `config.issuer`, `config.revocation_endpoint`, `registration_info.scope`, and `registration_info.token_endpoint_auth_method`. Send the client secret in the separate `client_secret` field. Omit `auth_credentials` on update to preserve the existing configuration.",
      "sensitive": true
     },
     {
      "name": "client_secret",
      "type": "String",
-     "description": "Pre-registered OAuth client_secret. Write-only - accepted on create/update when auth_credentials.auth_mode is 'manual'. Stored AES-GCM-encrypted in server_oauth_secrets; never returned by read endpoints.",
+     "description": "Pre-registered OAuth client_secret. Write-only - accepted on create/update when auth_credentials.auth_mode is 'manual'. Required when creating a manual OAuth server or converting an existing server to manual mode. Omit it on update to preserve the existing secret; provide it to rotate the secret. Stored AES-GCM-encrypted in server_oauth_secrets; never returned by read endpoints.",
      "sensitive": true
     },
     {
@@ -69188,7 +69241,7 @@
     {
      "name": "session_duration",
      "type": "String",
-     "description": "The amount of time that tokens issued for this application will be valid. Must be in the format `300ms` or `2h45m`. Valid time units are: ns, us (or µs), ms, s, m, h. Note: unsupported for infrastructure type applications."
+     "description": "The amount of time that tokens issued for this application will be valid. Must be in the format `300ms` or `2h45m`. Valid time units are: ns, us (or µs), ms, s, m, h. For infrastructure applications, this is the maximum connection duration; connections are terminated once it elapses. Infrastructure durations must use s, m, or h and resolve to whole seconds. Defaults to `24h` for supported application types."
     },
     {
      "name": "skip_app_launcher_login_page",
@@ -69210,6 +69263,52 @@
      "type": "Attributes List",
      "children": [
       {
+       "name": "exclude",
+       "type": "Attributes",
+       "description": "Target is excluded when any selector in this rule matches.",
+       "children": [
+        {
+         "name": "tags",
+         "type": "Map of List of String",
+         "description": "Map of target tag keys to values. Values within a key are OR'd."
+        },
+        {
+         "name": "target_attributes",
+         "type": "Attributes",
+         "description": "Hostname selector map. Only the hostname key is supported.",
+         "children": [
+          {
+           "name": "hostname",
+           "type": "List of String"
+          }
+         ]
+        }
+       ]
+      },
+      {
+       "name": "include",
+       "type": "Attributes",
+       "description": "Target matches when any selector in this rule matches.",
+       "children": [
+        {
+         "name": "tags",
+         "type": "Map of List of String",
+         "description": "Map of target tag keys to values. Values within a key are OR'd."
+        },
+        {
+         "name": "target_attributes",
+         "type": "Attributes",
+         "description": "Hostname selector map. Only the hostname key is supported.",
+         "children": [
+          {
+           "name": "hostname",
+           "type": "List of String"
+          }
+         ]
+        }
+       ]
+      },
+      {
        "name": "port",
        "type": "Number",
        "description": "The port that the targets use for the chosen communication protocol. A port cannot be assigned to multiple protocols."
@@ -69220,9 +69319,32 @@
        "description": "The communication protocol your application secures.\nAvailable values: \"SSH\", \"RDP\"."
       },
       {
+       "name": "require",
+       "type": "Attributes",
+       "description": "Target matches only when every selector in this rule matches.",
+       "children": [
+        {
+         "name": "tags",
+         "type": "Map of List of String",
+         "description": "Map of target tag keys to values. Values within a key are OR'd."
+        },
+        {
+         "name": "target_attributes",
+         "type": "Attributes",
+         "description": "Hostname selector map. Only the hostname key is supported.",
+         "children": [
+          {
+           "name": "hostname",
+           "type": "List of String"
+          }
+         ]
+        }
+       ]
+      },
+      {
        "name": "target_attributes",
        "type": "Map of List of String",
-       "description": "Contains a map of target attribute keys to target attribute values."
+       "description": "Deprecated: use include.target_attributes for hostname selectors and rule tags for tag-based matching. New or changed maps may contain only hostname. The API accepts unchanged legacy maps on update, including non-hostname keys."
       }
      ]
     },
@@ -69236,7 +69358,7 @@
   "resource:cloudflare_zero_trust_access_application": {
    "kind": "resource",
    "name": "cloudflare_zero_trust_access_application",
-   "example": "resource \"cloudflare_zero_trust_access_application\" \"example_zero_trust_access_application\" {\n  domain = \"test.example.com/admin\"\n  type = \"self_hosted\"\n  zone_id = \"zone_id\"\n  allow_authenticate_via_warp = true\n  allow_iframe = true\n  allowed_idps = [\"699d98642c564d2e855e9661899b7252\"]\n  app_launcher_visible = true\n  auto_redirect_to_identity = true\n  cors_headers = {\n    allow_all_headers = true\n    allow_all_methods = true\n    allow_all_origins = true\n    allow_credentials = true\n    allowed_headers = [\"string\"]\n    allowed_methods = [\"GET\"]\n    allowed_origins = [\"https://example.com\"]\n    max_age = -1\n  }\n  custom_deny_message = \"custom_deny_message\"\n  custom_deny_url = \"custom_deny_url\"\n  custom_non_identity_deny_url = \"custom_non_identity_deny_url\"\n  custom_pages = [\"699d98642c564d2e855e9661899b7252\"]\n  destinations = [{\n    type = \"public\"\n    uri = \"test.example.com/admin\"\n  }, {\n    type = \"public\"\n    uri = \"test.anotherexample.com/staff\"\n  }, {\n    cidr = \"10.5.0.0/24\"\n    hostname = \"hostname\"\n    l4_protocol = \"tcp\"\n    port_range = \"80-90\"\n    type = \"private\"\n    vnet_id = \"vnet_id\"\n  }, {\n    cidr = \"10.5.0.3/32\"\n    hostname = \"hostname\"\n    l4_protocol = \"tcp\"\n    port_range = \"80\"\n    type = \"private\"\n    vnet_id = \"vnet_id\"\n  }, {\n    cidr = \"cidr\"\n    hostname = \"hostname\"\n    l4_protocol = \"tcp\"\n    port_range = \"port_range\"\n    type = \"private\"\n    vnet_id = \"vnet_id\"\n  }]\n  enable_binding_cookie = true\n  http_only_cookie_attribute = true\n  logo_url = \"https://www.cloudflare.com/img/logo-web-badges/cf-logo-on-white-bg.svg\"\n  name = \"Admin Site\"\n  options_preflight_bypass = true\n  path_cookie_attribute = true\n  policies = [{\n    id = \"f174e90a-fafe-4643-bbbc-4a0ed4fc8415\"\n    precedence = 0\n  }]\n  read_service_tokens_from_header = \"Authorization\"\n  same_site_cookie_attribute = \"strict\"\n  scim_config = {\n    idp_uid = \"idp_uid\"\n    remote_uri = \"remote_uri\"\n    authentication = {\n      password = \"password\"\n      scheme = \"httpbasic\"\n      user = \"user\"\n    }\n    deactivate_on_delete = true\n    enabled = true\n    mappings = [{\n      schema = \"urn:ietf:params:scim:schemas:core:2.0:User\"\n      enabled = true\n      filter = \"title pr or userType eq \\\"Intern\\\"\"\n      operations = {\n        create = true\n        delete = true\n        update = true\n      }\n      strictness = \"strict\"\n      transform_jsonata = \"$merge([$, {\\'userName\\': $substringBefore($.userName, \\'@\\') & \\'+test@\\' & $substringAfter($.userName, \\'@\\')}])\"\n    }]\n  }\n  self_hosted_domains = [\"test.example.com/admin\", \"test.anotherexample.com/staff\"]\n  service_auth_401_redirect = true\n  session_duration = \"24h\"\n  skip_interstitial = true\n  tags = [\"engineers\"]\n}",
+   "example": "resource \"cloudflare_zero_trust_access_application\" \"example_zero_trust_access_application\" {\n  domain = \"test.example.com/admin\"\n  type = \"self_hosted\"\n  zone_id = \"zone_id\"\n  allow_authenticate_via_warp = true\n  allow_iframe = true\n  allowed_idps = [\"699d98642c564d2e855e9661899b7252\"]\n  app_launcher_visible = true\n  auto_redirect_to_identity = true\n  cors_headers = {\n    allow_all_headers = true\n    allow_all_methods = true\n    allow_all_origins = true\n    allow_credentials = true\n    allowed_headers = [\"string\"]\n    allowed_methods = [\"GET\"]\n    allowed_origins = [\"https://example.com\"]\n    max_age = -1\n  }\n  custom_deny_message = \"custom_deny_message\"\n  custom_deny_url = \"custom_deny_url\"\n  custom_non_identity_deny_url = \"custom_non_identity_deny_url\"\n  custom_pages = [\"699d98642c564d2e855e9661899b7252\"]\n  destinations = [{\n    type = \"public\"\n    uri = \"test.example.com/admin\"\n  }, {\n    type = \"public\"\n    uri = \"test.anotherexample.com/staff\"\n  }, {\n    cidr = \"10.5.0.0/24\"\n    hostname = \"hostname\"\n    l4_protocol = \"tcp\"\n    port_range = \"80-90\"\n    type = \"private\"\n    vnet_id = \"vnet_id\"\n  }, {\n    cidr = \"10.5.0.3/32\"\n    hostname = \"hostname\"\n    l4_protocol = \"tcp\"\n    port_range = \"80\"\n    type = \"private\"\n    vnet_id = \"vnet_id\"\n  }, {\n    cidr = \"cidr\"\n    hostname = \"hostname\"\n    l4_protocol = \"tcp\"\n    port_range = \"port_range\"\n    type = \"private\"\n    vnet_id = \"vnet_id\"\n  }]\n  enable_binding_cookie = true\n  http_only_cookie_attribute = true\n  logo_url = \"https://www.cloudflare.com/img/logo-web-badges/cf-logo-on-white-bg.svg\"\n  name = \"Admin Site\"\n  options_preflight_bypass = true\n  path_cookie_attribute = true\n  policies = [{\n    id = \"f174e90a-fafe-4643-bbbc-4a0ed4fc8415\"\n    precedence = 0\n  }]\n  read_service_tokens_from_header = \"Authorization\"\n  same_site_cookie_attribute = \"strict\"\n  scim_config = {\n    idp_uid = \"idp_uid\"\n    remote_uri = \"remote_uri\"\n    authentication = {\n      password = \"password\"\n      scheme = \"httpbasic\"\n      user = \"user\"\n    }\n    deactivate_on_delete = true\n    enabled = true\n    mappings = [{\n      schema = \"urn:ietf:params:scim:schemas:core:2.0:User\"\n      enabled = true\n      filter = \"title pr or userType eq \\\"Intern\\\"\"\n      operations = {\n        create = true\n        delete = true\n        update = true\n      }\n      strictness = \"strict\"\n      transform_jsonata = \"$merge([$, {\\'userName\\': $substringBefore($.userName, \\'@\\') & \\'+test@\\' & $substringAfter($.userName, \\'@\\')}])\"\n    }]\n  }\n  self_hosted_domains = [\"test.example.com/admin\", \"test.anotherexample.com/staff\"]\n  service_auth_401_redirect = true\n  session_duration = \"24h\"\n  skip_interstitial = true\n  tags = [\"engineers\"]\n}\n\nresource \"cloudflare_zero_trust_access_application\" \"infrastructure_application_with_tags\" {\n  account_id = \"account_id\"\n  name       = \"Production SSH\"\n  type       = \"infrastructure\"\n\n  target_criteria = [{\n    port     = 22\n    protocol = \"SSH\"\n    include = {\n      target_attributes = {\n        hostname = [\"web-*\"]\n      }\n      tags = {\n        environment = [\"production\", \"staging\"]\n      }\n    }\n    require = {\n      tags = {\n        team = [\"engineering\"]\n      }\n    }\n    exclude = {\n      tags = {\n        environment = [\"development\"]\n      }\n    }\n  }]\n}",
    "importExample": "$ terraform import cloudflare_zero_trust_access_application.example '<{accounts|zones}/{account_id|zone_id}>/<app_id>'",
    "required": [],
    "optional": [
@@ -70971,7 +71093,7 @@
     {
      "name": "session_duration",
      "type": "String",
-     "description": "The amount of time that tokens issued for this application will be valid. Must be in the format `300ms` or `2h45m`. Valid time units are: ns, us (or µs), ms, s, m, h. Note: unsupported for infrastructure type applications."
+     "description": "The amount of time that tokens issued for this application will be valid. Must be in the format `300ms` or `2h45m`. Valid time units are: ns, us (or µs), ms, s, m, h. For infrastructure applications, this is the maximum connection duration; connections are terminated once it elapses. Infrastructure durations must use s, m, or h and resolve to whole seconds. Defaults to `24h` for supported application types."
     },
     {
      "name": "skip_app_launcher_login_page",
@@ -70991,7 +71113,54 @@
     {
      "name": "target_criteria",
      "type": "Attributes List",
+     "description": "Defines targets covered by the application. Use either the legacy top-level target_attributes format or the rule format, but not both. The rule format requires include; require and exclude are optional. Each rule must contain a non-empty target_attributes or tags selector. Hostname selectors accept 1-5000 non-empty strings. Tag maps accept 1-50 non-empty keys, each with 1-50 non-empty values.",
      "children": [
+      {
+       "name": "exclude",
+       "type": "Attributes",
+       "description": "Target is excluded when any selector in this rule matches.",
+       "children": [
+        {
+         "name": "tags",
+         "type": "Map of List of String",
+         "description": "Map of target tag keys to values. Values within a key are OR'd."
+        },
+        {
+         "name": "target_attributes",
+         "type": "Attributes",
+         "description": "Hostname selector map. Only the hostname key is supported.",
+         "children": [
+          {
+           "name": "hostname",
+           "type": "List of String"
+          }
+         ]
+        }
+       ]
+      },
+      {
+       "name": "include",
+       "type": "Attributes",
+       "description": "Target matches when any selector in this rule matches.",
+       "children": [
+        {
+         "name": "tags",
+         "type": "Map of List of String",
+         "description": "Map of target tag keys to values. Values within a key are OR'd."
+        },
+        {
+         "name": "target_attributes",
+         "type": "Attributes",
+         "description": "Hostname selector map. Only the hostname key is supported.",
+         "children": [
+          {
+           "name": "hostname",
+           "type": "List of String"
+          }
+         ]
+        }
+       ]
+      },
       {
        "name": "port",
        "type": "Number",
@@ -71003,9 +71172,32 @@
        "description": "The communication protocol your application secures.\nAvailable values: \"SSH\", \"RDP\"."
       },
       {
+       "name": "require",
+       "type": "Attributes",
+       "description": "Target matches only when every selector in this rule matches.",
+       "children": [
+        {
+         "name": "tags",
+         "type": "Map of List of String",
+         "description": "Map of target tag keys to values. Values within a key are OR'd."
+        },
+        {
+         "name": "target_attributes",
+         "type": "Attributes",
+         "description": "Hostname selector map. Only the hostname key is supported.",
+         "children": [
+          {
+           "name": "hostname",
+           "type": "List of String"
+          }
+         ]
+        }
+       ]
+      },
+      {
        "name": "target_attributes",
        "type": "Map of List of String",
-       "description": "Contains a map of target attribute keys to target attribute values."
+       "description": "Deprecated: use include.target_attributes for hostname selectors and rule tags for tag-based matching. New or changed maps may contain only hostname. The API accepts unchanged legacy maps on update, including non-hostname keys."
       }
      ]
     },
@@ -72802,7 +72994,7 @@
       {
        "name": "session_duration",
        "type": "String",
-       "description": "The amount of time that tokens issued for this application will be valid. Must be in the format `300ms` or `2h45m`. Valid time units are: ns, us (or µs), ms, s, m, h. Note: unsupported for infrastructure type applications."
+       "description": "The amount of time that tokens issued for this application will be valid. Must be in the format `300ms` or `2h45m`. Valid time units are: ns, us (or µs), ms, s, m, h. For infrastructure applications, this is the maximum connection duration; connections are terminated once it elapses. Infrastructure durations must use s, m, or h and resolve to whole seconds. Defaults to `24h` for supported application types."
       },
       {
        "name": "skip_app_launcher_login_page",
@@ -72824,6 +73016,52 @@
        "type": "Attributes List",
        "children": [
         {
+         "name": "exclude",
+         "type": "Attributes",
+         "description": "Target is excluded when any selector in this rule matches.",
+         "children": [
+          {
+           "name": "tags",
+           "type": "Map of List of String",
+           "description": "Map of target tag keys to values. Values within a key are OR'd."
+          },
+          {
+           "name": "target_attributes",
+           "type": "Attributes",
+           "description": "Hostname selector map. Only the hostname key is supported.",
+           "children": [
+            {
+             "name": "hostname",
+             "type": "List of String"
+            }
+           ]
+          }
+         ]
+        },
+        {
+         "name": "include",
+         "type": "Attributes",
+         "description": "Target matches when any selector in this rule matches.",
+         "children": [
+          {
+           "name": "tags",
+           "type": "Map of List of String",
+           "description": "Map of target tag keys to values. Values within a key are OR'd."
+          },
+          {
+           "name": "target_attributes",
+           "type": "Attributes",
+           "description": "Hostname selector map. Only the hostname key is supported.",
+           "children": [
+            {
+             "name": "hostname",
+             "type": "List of String"
+            }
+           ]
+          }
+         ]
+        },
+        {
          "name": "port",
          "type": "Number",
          "description": "The port that the targets use for the chosen communication protocol. A port cannot be assigned to multiple protocols."
@@ -72834,9 +73072,32 @@
          "description": "The communication protocol your application secures.\nAvailable values: \"SSH\", \"RDP\"."
         },
         {
+         "name": "require",
+         "type": "Attributes",
+         "description": "Target matches only when every selector in this rule matches.",
+         "children": [
+          {
+           "name": "tags",
+           "type": "Map of List of String",
+           "description": "Map of target tag keys to values. Values within a key are OR'd."
+          },
+          {
+           "name": "target_attributes",
+           "type": "Attributes",
+           "description": "Hostname selector map. Only the hostname key is supported.",
+           "children": [
+            {
+             "name": "hostname",
+             "type": "List of String"
+            }
+           ]
+          }
+         ]
+        },
+        {
          "name": "target_attributes",
          "type": "Map of List of String",
-         "description": "Contains a map of target attribute keys to target attribute values."
+         "description": "Deprecated: use include.target_attributes for hostname selectors and rule tags for tag-based matching. New or changed maps may contain only hostname. The API accepts unchanged legacy maps on update, including non-hostname keys."
         }
        ]
       },
@@ -77067,6 +77328,11 @@
        "description": "IdP Entity ID or Issuer URL"
       },
       {
+       "name": "login_page_auto_prompt",
+       "type": "Boolean",
+       "description": "When enabled, the Access login page automatically prompts the user to authenticate with a passkey."
+      },
+      {
        "name": "max_sso_url_length",
        "type": "Number",
        "description": "The maximum URL length the IdP accepts for the SSO redirect URL.\nWhen the constructed SSO URL would exceed this length, the RelayState\nis stored server-side and a short nonce is passed to the IdP instead.\nSet this if your IdP enforces a URL length limit."
@@ -77252,7 +77518,7 @@
     {
      "name": "type",
      "type": "String",
-     "description": "The type of identity provider. To determine the value for a specific provider, refer to our [developer documentation](https://developers.cloudflare.com/cloudflare-one/identity/idp-integration/).\nAvailable values: \"onetimepin\", \"azureAD\", \"saml\", \"centrify\", \"facebook\", \"github\", \"google-apps\", \"google\", \"linkedin\", \"oidc\", \"okta\", \"onelogin\", \"pingone\", \"yandex\", \"cloudflare\"."
+     "description": "The type of identity provider. To determine the value for a specific provider, refer to our [developer documentation](https://developers.cloudflare.com/cloudflare-one/identity/idp-integration/).\nAvailable values: \"onetimepin\", \"azureAD\", \"saml\", \"centrify\", \"facebook\", \"github\", \"google-apps\", \"google\", \"linkedin\", \"oidc\", \"okta\", \"onelogin\", \"pingone\", \"yandex\", \"cloudflare\", \"passkeys\"."
     }
    ]
   },
@@ -77377,6 +77643,11 @@
        "description": "IdP Entity ID or Issuer URL"
       },
       {
+       "name": "login_page_auto_prompt",
+       "type": "Boolean",
+       "description": "When enabled, the Access login page automatically prompts the user to authenticate with a passkey."
+      },
+      {
        "name": "max_sso_url_length",
        "type": "Number",
        "description": "The maximum URL length the IdP accepts for the SSO redirect URL.\nWhen the constructed SSO URL would exceed this length, the RelayState\nis stored server-side and a short nonce is passed to the IdP instead.\nSet this if your IdP enforces a URL length limit."
@@ -77455,7 +77726,7 @@
     {
      "name": "type",
      "type": "String",
-     "description": "The type of identity provider. To determine the value for a specific provider, refer to our [developer documentation](https://developers.cloudflare.com/cloudflare-one/identity/idp-integration/).\nAvailable values: \"onetimepin\", \"azureAD\", \"saml\", \"centrify\", \"facebook\", \"github\", \"google-apps\", \"google\", \"linkedin\", \"oidc\", \"okta\", \"onelogin\", \"pingone\", \"yandex\", \"cloudflare\"."
+     "description": "The type of identity provider. To determine the value for a specific provider, refer to our [developer documentation](https://developers.cloudflare.com/cloudflare-one/identity/idp-integration/).\nAvailable values: \"onetimepin\", \"azureAD\", \"saml\", \"centrify\", \"facebook\", \"github\", \"google-apps\", \"google\", \"linkedin\", \"oidc\", \"okta\", \"onelogin\", \"pingone\", \"yandex\", \"cloudflare\", \"passkeys\"."
     }
    ],
    "optional": [
@@ -77728,6 +77999,11 @@
          "description": "IdP Entity ID or Issuer URL"
         },
         {
+         "name": "login_page_auto_prompt",
+         "type": "Boolean",
+         "description": "When enabled, the Access login page automatically prompts the user to authenticate with a passkey."
+        },
+        {
          "name": "max_sso_url_length",
          "type": "Number",
          "description": "The maximum URL length the IdP accepts for the SSO redirect URL.\nWhen the constructed SSO URL would exceed this length, the RelayState\nis stored server-side and a short nonce is passed to the IdP instead.\nSet this if your IdP enforces a URL length limit."
@@ -77913,7 +78189,7 @@
       {
        "name": "type",
        "type": "String",
-       "description": "The type of identity provider. To determine the value for a specific provider, refer to our [developer documentation](https://developers.cloudflare.com/cloudflare-one/identity/idp-integration/).\nAvailable values: \"onetimepin\", \"azureAD\", \"saml\", \"centrify\", \"facebook\", \"github\", \"google-apps\", \"google\", \"linkedin\", \"oidc\", \"okta\", \"onelogin\", \"pingone\", \"yandex\", \"cloudflare\"."
+       "description": "The type of identity provider. To determine the value for a specific provider, refer to our [developer documentation](https://developers.cloudflare.com/cloudflare-one/identity/idp-integration/).\nAvailable values: \"onetimepin\", \"azureAD\", \"saml\", \"centrify\", \"facebook\", \"github\", \"google-apps\", \"google\", \"linkedin\", \"oidc\", \"okta\", \"onelogin\", \"pingone\", \"yandex\", \"cloudflare\", \"passkeys\"."
       }
      ]
     }
@@ -83274,7 +83550,7 @@
       {
        "name": "finding_type_id",
        "type": "String",
-       "description": "The finding type this policy is associated with. Immutable after creation; changing it replaces the policy."
+       "description": "The finding type this policy is associated with. Immutable after creation; attempts to change it via update are rejected."
       },
       {
        "name": "id",
@@ -83396,7 +83672,7 @@
     {
      "name": "finding_type_id",
      "type": "String",
-     "description": "The finding type this policy is associated with. Immutable after creation; changing it replaces the policy."
+     "description": "The finding type this policy is associated with. Immutable after creation; attempts to change it via update are rejected."
     },
     {
      "name": "id",
@@ -83604,7 +83880,7 @@
    "kind": "resource",
    "name": "cloudflare_zero_trust_casb_webhook",
    "description": "Accepted Permissions\n\n- `Zero Trust Read`\n- `Zero Trust Write`",
-   "example": "resource \"cloudflare_zero_trust_casb_webhook\" \"example_zero_trust_casb_webhook\" {\n  account_id = \"46148281d8a93d002ef242d8b0d5f9f6\"\n  authentication_type = \"Bearer Auth\"\n  destination_url = \"https://example.com/webhook\"\n  label = \"Send to Slack\"\n  headers = [{\n    key = \"Authorization\"\n    value = \"Bearer token123\"\n  }, {\n    key = \"X-Custom-Header\"\n    value = \"value\"\n  }]\n  signing_secret = \"my-secret-key\"\n  status = \"enabled\"\n}",
+   "example": "resource \"cloudflare_zero_trust_casb_webhook\" \"example_zero_trust_casb_webhook\" {\n  account_id = \"46148281d8a93d002ef242d8b0d5f9f6\"\n  authentication_type = \"HMAC-Signing\"\n  destination_url = \"https://example.com/webhook\"\n  label = \"Send to Slack\"\n  headers = [{\n    key = \"X-Custom-Header\"\n    value = \"value\"\n  }]\n  signing_secret = \"my-secret-key\"\n  status = \"enabled\"\n}",
    "importExample": "$ terraform import cloudflare_zero_trust_casb_webhook.example '<account_id>/<webhook_id>'",
    "required": [
     {
@@ -84029,7 +84305,7 @@
     {
      "name": "match",
      "type": "String",
-     "description": "The wirefilter expression to match devices. Available values: \"identity.email\", \"identity.groups.id\", \"identity.groups.name\", \"identity.groups.email\", \"identity.service_token_uuid\", \"identity.saml_attributes\", \"network\", \"os.name\", \"os.version\"."
+     "description": "The wirefilter expression to match devices. Available values: \"identity.email\", \"identity.groups.id\", \"identity.groups.name\", \"identity.groups.email\", \"identity.service_token_uuid\", \"identity.saml_attributes\", \"network\", \"os.name\", \"os.version\", \"device.tags\"."
     },
     {
      "name": "name",
@@ -84085,6 +84361,7 @@
     {
      "name": "target_tests",
      "type": "Attributes List",
+     "deprecated": "Deprecated.",
      "children": [
       {
        "name": "id",
@@ -84308,7 +84585,7 @@
     {
      "name": "match",
      "type": "String",
-     "description": "The wirefilter expression to match devices. Available values: \"identity.email\", \"identity.groups.id\", \"identity.groups.name\", \"identity.groups.email\", \"identity.service_token_uuid\", \"identity.saml_attributes\", \"network\", \"os.name\", \"os.version\"."
+     "description": "The wirefilter expression to match devices. Available values: \"identity.email\", \"identity.groups.id\", \"identity.groups.name\", \"identity.groups.email\", \"identity.service_token_uuid\", \"identity.saml_attributes\", \"network\", \"os.name\", \"os.version\", \"device.tags\"."
     },
     {
      "name": "precedence",
@@ -84427,6 +84704,7 @@
     {
      "name": "target_tests",
      "type": "Attributes List",
+     "deprecated": "Deprecated.",
      "children": [
       {
        "name": "id",
@@ -84724,7 +85002,7 @@
       {
        "name": "match",
        "type": "String",
-       "description": "The wirefilter expression to match devices. Available values: \"identity.email\", \"identity.groups.id\", \"identity.groups.name\", \"identity.groups.email\", \"identity.service_token_uuid\", \"identity.saml_attributes\", \"network\", \"os.name\", \"os.version\"."
+       "description": "The wirefilter expression to match devices. Available values: \"identity.email\", \"identity.groups.id\", \"identity.groups.name\", \"identity.groups.email\", \"identity.service_token_uuid\", \"identity.saml_attributes\", \"network\", \"os.name\", \"os.version\", \"device.tags\"."
       },
       {
        "name": "name",
@@ -84784,6 +85062,7 @@
       {
        "name": "target_tests",
        "type": "Attributes List",
+       "deprecated": "Deprecated.",
        "children": [
         {
          "name": "id",
@@ -88152,7 +88431,7 @@
       },
       {
        "name": "word_list",
-       "type": "String"
+       "type": "List of String"
       }
      ]
     }
@@ -88299,7 +88578,7 @@
     },
     {
      "name": "word_list",
-     "type": "String"
+     "type": "List of String"
     }
    ]
   },
@@ -88441,7 +88720,7 @@
     },
     {
      "name": "word_list",
-     "type": "String"
+     "type": "List of String"
     }
    ]
   },
@@ -88630,7 +88909,7 @@
       },
       {
        "name": "word_list",
-       "type": "String"
+       "type": "List of String"
       }
      ]
     },
@@ -88779,7 +89058,7 @@
       },
       {
        "name": "word_list",
-       "type": "String"
+       "type": "List of String"
       }
      ]
     },
@@ -90197,7 +90476,7 @@
       },
       {
        "name": "word_list",
-       "type": "String"
+       "type": "List of String"
       }
      ]
     }
@@ -90344,7 +90623,7 @@
     },
     {
      "name": "word_list",
-     "type": "String"
+     "type": "List of String"
     }
    ]
   },
@@ -90486,7 +90765,7 @@
     },
     {
      "name": "word_list",
-     "type": "String"
+     "type": "List of String"
     }
    ]
   },
@@ -90621,7 +90900,7 @@
       },
       {
        "name": "word_list",
-       "type": "String"
+       "type": "List of String"
       }
      ]
     }
@@ -90768,7 +91047,7 @@
     },
     {
      "name": "word_list",
-     "type": "String"
+     "type": "List of String"
     }
    ]
   },
@@ -90915,7 +91194,7 @@
     },
     {
      "name": "word_list",
-     "type": "String"
+     "type": "List of String"
     }
    ]
   },
@@ -91050,7 +91329,7 @@
       },
       {
        "name": "word_list",
-       "type": "String"
+       "type": "List of String"
       }
      ]
     }
@@ -91197,7 +91476,7 @@
     },
     {
      "name": "word_list",
-     "type": "String"
+     "type": "List of String"
     }
    ]
   },
@@ -91344,7 +91623,7 @@
     },
     {
      "name": "word_list",
-     "type": "String"
+     "type": "List of String"
     }
    ]
   },
@@ -91492,7 +91771,7 @@
       },
       {
        "name": "word_list",
-       "type": "String"
+       "type": "List of String"
       }
      ]
     },
@@ -92946,6 +93225,11 @@
      "description": "Provide the entire issuer field of the certificate (read-only)."
     },
     {
+     "name": "region",
+     "type": "String",
+     "description": "Indicate the read-only region the certificate authority's key material is pinned to. Omitted for certificates that were created without a region."
+    },
+    {
      "name": "type",
      "type": "String",
      "description": "Indicate the read-only certificate type, BYO-PKI (custom) or Gateway-managed.\nAvailable values: \"custom\", \"gateway_managed\"."
@@ -93029,6 +93313,11 @@
      "description": "Provide the entire issuer field of the certificate (read-only)."
     },
     {
+     "name": "region",
+     "type": "String",
+     "description": "Indicate the read-only region the certificate authority's key material is pinned to. Omitted for certificates that were created without a region."
+    },
+    {
      "name": "type",
      "type": "String",
      "description": "Indicate the read-only certificate type, BYO-PKI (custom) or Gateway-managed.\nAvailable values: \"custom\", \"gateway_managed\"."
@@ -93108,6 +93397,11 @@
        "name": "issuer_raw",
        "type": "String",
        "description": "Provide the entire issuer field of the certificate (read-only)."
+      },
+      {
+       "name": "region",
+       "type": "String",
+       "description": "Indicate the read-only region the certificate authority's key material is pinned to. Omitted for certificates that were created without a region."
       },
       {
        "name": "type",
@@ -96748,7 +97042,7 @@
     {
      "name": "auth_domain",
      "type": "String",
-     "description": "The unique subdomain assigned to your Zero Trust organization."
+     "description": "The unique subdomain assigned to your Zero Trust organization. If omitted on creation, a unique subdomain is auto-generated in the format `adjective-noun-hex4` (e.g. `frosty-moon-7a3b.cloudflareaccess.com`)."
     },
     {
      "name": "auto_redirect_to_identity",
@@ -96845,14 +97139,9 @@
      ]
     },
     {
-     "name": "mfa_required_for_all_apps",
-     "type": "Boolean",
-     "description": "Determines whether global MFA settings apply to applications by default. The organization must have MFA enabled with at least one authentication method and a session duration configured. Note: 'allowed_authenticators' cannot contain only the infrastructure SSH authenticators ('piv_key' and 'ssh_fido2_key') if the organization has any non-infrastructure applications."
-    },
-    {
-     "name": "mfa_ssh_piv_key_requirements",
+     "name": "mfa_piv_key_requirements",
      "type": "Attributes",
-     "description": "Configures SSH PIV key requirements for MFA using hardware security keys.",
+     "description": "Configures PIV key requirements for MFA using hardware security keys.",
      "children": [
       {
        "name": "pin_policy",
@@ -96862,7 +97151,7 @@
       {
        "name": "require_fips_device",
        "type": "Boolean",
-       "description": "Requires the SSH PIV key to be stored on a FIPS 140-2 Level 1 or higher validated device."
+       "description": "Requires the PIV key to be stored on a FIPS 140-2 Level 1 or higher validated device."
       },
       {
        "name": "ssh_key_size",
@@ -96882,9 +97171,14 @@
      ]
     },
     {
+     "name": "mfa_required_for_all_apps",
+     "type": "Boolean",
+     "description": "Determines whether global MFA settings apply to applications by default. The organization must have MFA enabled with at least one authentication method and a session duration configured. Note: 'allowed_authenticators' cannot contain only the infrastructure SSH authenticators ('piv_key' and 'ssh_fido2_key') if the organization has any non-infrastructure applications."
+    },
+    {
      "name": "name",
      "type": "String",
-     "description": "The name of your Zero Trust organization."
+     "description": "The name of your Zero Trust organization. When omitted on creation, defaults to the provided auth_domain; when both are omitted, defaults to the auto-generated subdomain slug (e.g. frosty-moon-7a3b)."
     },
     {
      "name": "service_token_inactivity",
@@ -96966,7 +97260,7 @@
     {
      "name": "auth_domain",
      "type": "String",
-     "description": "The unique subdomain assigned to your Zero Trust organization."
+     "description": "The unique subdomain assigned to your Zero Trust organization. If omitted on creation, a unique subdomain is auto-generated in the format `adjective-noun-hex4` (e.g. `frosty-moon-7a3b.cloudflareaccess.com`)."
     },
     {
      "name": "auto_redirect_to_identity",
@@ -97068,14 +97362,9 @@
      "description": "Indicates if this organization can enforce multi-factor authentication (MFA) requirements at the application and policy level."
     },
     {
-     "name": "mfa_required_for_all_apps",
-     "type": "Boolean",
-     "description": "Determines whether global MFA settings apply to applications by default. The organization must have MFA enabled with at least one authentication method and a session duration configured. Note: 'allowed_authenticators' cannot contain only the infrastructure SSH authenticators ('piv_key' and 'ssh_fido2_key') if the organization has any non-infrastructure applications."
-    },
-    {
-     "name": "mfa_ssh_piv_key_requirements",
+     "name": "mfa_piv_key_requirements",
      "type": "Attributes",
-     "description": "Configures SSH PIV key requirements for MFA using hardware security keys.",
+     "description": "Configures PIV key requirements for MFA using hardware security keys.",
      "children": [
       {
        "name": "pin_policy",
@@ -97085,7 +97374,7 @@
       {
        "name": "require_fips_device",
        "type": "Boolean",
-       "description": "Requires the SSH PIV key to be stored on a FIPS 140-2 Level 1 or higher validated device."
+       "description": "Requires the PIV key to be stored on a FIPS 140-2 Level 1 or higher validated device."
       },
       {
        "name": "ssh_key_size",
@@ -97105,9 +97394,14 @@
      ]
     },
     {
+     "name": "mfa_required_for_all_apps",
+     "type": "Boolean",
+     "description": "Determines whether global MFA settings apply to applications by default. The organization must have MFA enabled with at least one authentication method and a session duration configured. Note: 'allowed_authenticators' cannot contain only the infrastructure SSH authenticators ('piv_key' and 'ssh_fido2_key') if the organization has any non-infrastructure applications."
+    },
+    {
      "name": "name",
      "type": "String",
-     "description": "The name of your Zero Trust organization."
+     "description": "The name of your Zero Trust organization. When omitted on creation, defaults to the provided auth_domain; when both are omitted, defaults to the auto-generated subdomain slug (e.g. frosty-moon-7a3b)."
     },
     {
      "name": "service_token_inactivity",
@@ -97193,27 +97487,32 @@
       {
        "name": "fields",
        "type": "String",
-       "description": "Return only the listed properties on each application, as a comma-separated list.\nUse this to keep responses small when you only need part of each application — for\nexample populating a picker with `fields=id,name` instead of downloading every\nhostname and IP subnet.\n\nOmit this parameter to receive the full application object.\n\n`id` is always returned.\n\nSelectable properties: `id`, `name`, `human_id`, `version`, `hostnames`,\n`support_domains`, `ip_subnets`, `port_protocols`, `supported`, `gen_ai_score`,\n`application_confidence_score`, `created_at`, `updated_at`, `review_status`.\n\nUnknown or empty property names return `400`."
+       "description": "Return only the listed properties on each application, as a comma-separated list.\nUse this to keep responses small when you only need part of each application, for\nexample populating a picker with `fields=id,name` instead of downloading every\nhostname and IP subnet.\n\nOmit this parameter to receive the full application object, including\nwhen lookup is used.\n\n`id` is always returned.\n\nSelectable properties: `id`, `name`, `human_id`, `version`, `hostnames`,\n`support_domains`, `ip_subnets`, `port_protocols`, `supported`, `gen_ai_score`,\n`application_confidence_score`, `created_at`, `updated_at`, `review_status`.\n\nUnknown or empty property names return `400`."
       },
       {
        "name": "filter",
        "type": "String",
-       "description": "Filter applications using key:value format. Supported filter keys:\n- name: Filter by application name (e.g., name:HR)\n- id: Filter by application ID (e.g., id:498)\n- human_id: Filter by human-readable ID (e.g., human_id:HR)\n- hostname: Filter by hostname or support domain (e.g., hostname:portal.example.com)\n- source: Filter by application source name (e.g., source:cloudflare)\n- ip_subnet: Filter by IP subnet using CIDR containment — returns applications where any stored subnet contains the search value (e.g., ip_subnet:10.0.1.5/32 matches apps with 10.0.0.0/16)\n- category_id: Filter by category ID (e.g., category_id:12).\n- category_name: Filter by category name (e.g., category_name:HR).\n- supported: Filter by supported Cloudflare product (e.g., supported:ACCESS). Values: GATEWAY, ACCESS, CASB.\n- review_status: Filter by the account's Gateway review status. Values: approved, unapproved, in_review, unreviewed.\n."
+       "description": "Filter applications using `key:value` format. Supported filter keys:\n- `name`: application name (for example, `name:HR`).\n- `id`: application ID (for example, `id:498`).\n- `human_id`: human-readable ID (for example, `human_id:HR`).\n- `hostname`: hostname or support domain (for example, `hostname:portal.example.com`).\n- `source`: application source name (for example, `source:cloudflare`).\n- `ip_subnet`: CIDR containment; returns applications where a stored subnet contains the search value (for example, `ip_subnet:10.0.1.5/32` matches `10.0.0.0/16`).\n- `category_id`: category ID (for example, `category_id:12`).\n- `category_name`: category name (for example, `category_name:HR`).\n- `supported`: supported Cloudflare product. Values: `GATEWAY`, `ACCESS`, `CASB`.\n- `review_status`: account-specific Gateway review status. Values: `approved`, `unapproved`, `in_review`, `unreviewed`."
       },
       {
        "name": "limit",
        "type": "Number",
-       "description": "Limit of number of results to return (max 250)."
+       "description": "Number of results to return. Defaults to 25; values are clamped to 1–250."
+      },
+      {
+       "name": "lookup",
+       "type": "String",
+       "description": "Find complete, case-insensitive application name mentions in a phrase or\nrule sentence. Misspelled names do not match. Returns matching applications\nranked by relevance. Must be between 2 and 1000 characters. Uses the same\nfilters, fields, and pagination as listing. `search` cannot be combined\nwith lookup. Results are ranked by relevance, so `order_by` is ignored."
       },
       {
        "name": "offset",
        "type": "Number",
-       "description": "Offset of results to return."
+       "description": "Number of results to skip. Defaults to 0; negative values are clamped to 0."
       },
       {
        "name": "order_by",
        "type": "String",
-       "description": "Order results using field:direction format. Supported fields are name, id, human_id,\ncategory_id, application_type, application_confidence_score, and gen_ai_score.\nSupported directions are asc and desc. Ignored when search is provided; results are\nranked by relevance instead."
+       "description": "Order results using field:direction format. Supported fields are name, id, human_id,\ncategory_id, application_type, application_confidence_score, and gen_ai_score.\nSupported directions are asc and desc. Ignored when search is provided; results are\nranked by relevance instead. Also ignored when lookup is provided."
       },
       {
        "name": "search",
@@ -97225,7 +97524,7 @@
     {
      "name": "id",
      "type": "Number",
-     "description": "Returns the application ID."
+     "description": "Numeric identifier for the application."
     }
    ],
    "computed": [
@@ -97257,7 +97556,7 @@
     {
      "name": "category_id",
      "type": "Number",
-     "description": "Returns the category ID."
+     "description": "Numeric identifier for an application category."
     },
     {
      "name": "created_at",
@@ -97277,7 +97576,7 @@
     {
      "name": "human_id",
      "type": "String",
-     "description": "Returns the human readable ID."
+     "description": "Human-readable identifier for the application."
     },
     {
      "name": "ip_subnets",
@@ -97287,12 +97586,12 @@
     {
      "name": "name",
      "type": "String",
-     "description": "Returns the application name."
+     "description": "Application name."
     },
     {
      "name": "port_protocols",
      "type": "Set of String",
-     "description": "Port and protocol pairs matched by the application."
+     "description": "Ports matched by the application, in `protocol/port` or inclusive `protocol/start-end` format (for example, `tcp/443` or `udp/10000-20000`). TCP and UDP ports must be between 0 and 65535."
     },
     {
      "name": "support_domains",
@@ -97319,7 +97618,7 @@
   "resource:cloudflare_zero_trust_resource_library_application": {
    "kind": "resource",
    "name": "cloudflare_zero_trust_resource_library_application",
-   "example": "resource \"cloudflare_zero_trust_resource_library_application\" \"example_zero_trust_resource_library_application\" {\n  account_id = \"023e105f4ecef8ad9ca31a8372d0c353\"\n  hostnames = [\"example.com\", \"foo.com\"]\n  category_id = 12\n  human_id = \"HR\"\n  ip_subnets = [\"192.168.1.0/24\", \"2001:db8::/48\"]\n  name = \"HR\"\n  port_protocols = [\"tcp/80\", \"tcp/443\"]\n  support_domains = [\"example.com\", \"foo.com\"]\n}",
+   "example": "resource \"cloudflare_zero_trust_resource_library_application\" \"example_zero_trust_resource_library_application\" {\n  account_id = \"023e105f4ecef8ad9ca31a8372d0c353\"\n  hostnames = [\"example.com\", \"foo.com\"]\n  category_id = 12\n  human_id = \"HR\"\n  ip_subnets = [\"192.168.1.0/24\", \"2001:db8::/48\"]\n  name = \"HR\"\n  port_protocols = [\"tcp/443\", \"udp/10000-20000\"]\n  support_domains = [\"example.com\", \"foo.com\"]\n}",
    "importExample": "$ terraform import cloudflare_zero_trust_resource_library_application.example '<account_id>/<id>'",
    "required": [
     {
@@ -97331,7 +97630,7 @@
     {
      "name": "category_id",
      "type": "Number",
-     "description": "Returns the category ID."
+     "description": "Numeric identifier for an application category."
     },
     {
      "name": "hostnames",
@@ -97341,7 +97640,7 @@
     {
      "name": "human_id",
      "type": "String",
-     "description": "Returns the human readable ID."
+     "description": "Human-readable identifier for the application."
     },
     {
      "name": "ip_subnets",
@@ -97351,12 +97650,12 @@
     {
      "name": "name",
      "type": "String",
-     "description": "Returns the application name."
+     "description": "Application name."
     },
     {
      "name": "port_protocols",
      "type": "Set of String",
-     "description": "Port and protocol pairs matched by the application."
+     "description": "Ports matched by the application, in `protocol/port` or inclusive `protocol/start-end` format (for example, `tcp/443` or `udp/10000-20000`). TCP and UDP ports must be between 0 and 65535."
     },
     {
      "name": "support_domains",
@@ -97403,7 +97702,7 @@
     {
      "name": "id",
      "type": "Number",
-     "description": "Returns the application ID."
+     "description": "Numeric identifier for the application."
     },
     {
      "name": "supported",
@@ -97425,7 +97724,7 @@
   "list-data-source:cloudflare_zero_trust_resource_library_applications": {
    "kind": "list-data-source",
    "name": "cloudflare_zero_trust_resource_library_applications",
-   "example": "data \"cloudflare_zero_trust_resource_library_applications\" \"example_zero_trust_resource_library_applications\" {\n  account_id = \"023e105f4ecef8ad9ca31a8372d0c353\"\n  fields = \"fields\"\n  filter = \"filter\"\n  order_by = \"order_by\"\n  search = \"xx\"\n}",
+   "example": "data \"cloudflare_zero_trust_resource_library_applications\" \"example_zero_trust_resource_library_applications\" {\n  account_id = \"023e105f4ecef8ad9ca31a8372d0c353\"\n  fields = \"fields\"\n  filter = \"filter\"\n  lookup = \"xx\"\n  order_by = \"order_by\"\n  search = \"xx\"\n}",
    "required": [
     {
      "name": "account_id",
@@ -97436,17 +97735,22 @@
     {
      "name": "fields",
      "type": "String",
-     "description": "Return only the listed properties on each application, as a comma-separated list.\nUse this to keep responses small when you only need part of each application — for\nexample populating a picker with `fields=id,name` instead of downloading every\nhostname and IP subnet.\n\nOmit this parameter to receive the full application object.\n\n`id` is always returned.\n\nSelectable properties: `id`, `name`, `human_id`, `version`, `hostnames`,\n`support_domains`, `ip_subnets`, `port_protocols`, `supported`, `gen_ai_score`,\n`application_confidence_score`, `created_at`, `updated_at`, `review_status`.\n\nUnknown or empty property names return `400`."
+     "description": "Return only the listed properties on each application, as a comma-separated list.\nUse this to keep responses small when you only need part of each application, for\nexample populating a picker with `fields=id,name` instead of downloading every\nhostname and IP subnet.\n\nOmit this parameter to receive the full application object, including\nwhen lookup is used.\n\n`id` is always returned.\n\nSelectable properties: `id`, `name`, `human_id`, `version`, `hostnames`,\n`support_domains`, `ip_subnets`, `port_protocols`, `supported`, `gen_ai_score`,\n`application_confidence_score`, `created_at`, `updated_at`, `review_status`.\n\nUnknown or empty property names return `400`."
     },
     {
      "name": "filter",
      "type": "String",
-     "description": "Filter applications using key:value format. Supported filter keys:\n- name: Filter by application name (e.g., name:HR)\n- id: Filter by application ID (e.g., id:498)\n- human_id: Filter by human-readable ID (e.g., human_id:HR)\n- hostname: Filter by hostname or support domain (e.g., hostname:portal.example.com)\n- source: Filter by application source name (e.g., source:cloudflare)\n- ip_subnet: Filter by IP subnet using CIDR containment — returns applications where any stored subnet contains the search value (e.g., ip_subnet:10.0.1.5/32 matches apps with 10.0.0.0/16)\n- category_id: Filter by category ID (e.g., category_id:12).\n- category_name: Filter by category name (e.g., category_name:HR).\n- supported: Filter by supported Cloudflare product (e.g., supported:ACCESS). Values: GATEWAY, ACCESS, CASB.\n- review_status: Filter by the account's Gateway review status. Values: approved, unapproved, in_review, unreviewed.\n."
+     "description": "Filter applications using `key:value` format. Supported filter keys:\n- `name`: application name (for example, `name:HR`).\n- `id`: application ID (for example, `id:498`).\n- `human_id`: human-readable ID (for example, `human_id:HR`).\n- `hostname`: hostname or support domain (for example, `hostname:portal.example.com`).\n- `source`: application source name (for example, `source:cloudflare`).\n- `ip_subnet`: CIDR containment; returns applications where a stored subnet contains the search value (for example, `ip_subnet:10.0.1.5/32` matches `10.0.0.0/16`).\n- `category_id`: category ID (for example, `category_id:12`).\n- `category_name`: category name (for example, `category_name:HR`).\n- `supported`: supported Cloudflare product. Values: `GATEWAY`, `ACCESS`, `CASB`.\n- `review_status`: account-specific Gateway review status. Values: `approved`, `unapproved`, `in_review`, `unreviewed`."
     },
     {
      "name": "limit",
      "type": "Number",
-     "description": "Limit of number of results to return (max 250)."
+     "description": "Number of results to return. Defaults to 25; values are clamped to 1–250."
+    },
+    {
+     "name": "lookup",
+     "type": "String",
+     "description": "Find complete, case-insensitive application name mentions in a phrase or\nrule sentence. Misspelled names do not match. Returns matching applications\nranked by relevance. Must be between 2 and 1000 characters. Uses the same\nfilters, fields, and pagination as listing. `search` cannot be combined\nwith lookup. Results are ranked by relevance, so `order_by` is ignored."
     },
     {
      "name": "max_items",
@@ -97456,12 +97760,12 @@
     {
      "name": "offset",
      "type": "Number",
-     "description": "Offset of results to return."
+     "description": "Number of results to skip. Defaults to 0; negative values are clamped to 0."
     },
     {
      "name": "order_by",
      "type": "String",
-     "description": "Order results using field:direction format. Supported fields are name, id, human_id,\ncategory_id, application_type, application_confidence_score, and gen_ai_score.\nSupported directions are asc and desc. Ignored when search is provided; results are\nranked by relevance instead."
+     "description": "Order results using field:direction format. Supported fields are name, id, human_id,\ncategory_id, application_type, application_confidence_score, and gen_ai_score.\nSupported directions are asc and desc. Ignored when search is provided; results are\nranked by relevance instead. Also ignored when lookup is provided."
     },
     {
      "name": "search",
@@ -97503,7 +97807,7 @@
       {
        "name": "category_id",
        "type": "Number",
-       "description": "Returns the category ID."
+       "description": "Numeric identifier for an application category."
       },
       {
        "name": "created_at",
@@ -97523,12 +97827,12 @@
       {
        "name": "human_id",
        "type": "String",
-       "description": "Returns the human readable ID."
+       "description": "Human-readable identifier for the application."
       },
       {
        "name": "id",
        "type": "Number",
-       "description": "Returns the application ID."
+       "description": "Numeric identifier for the application."
       },
       {
        "name": "ip_subnets",
@@ -97538,12 +97842,12 @@
       {
        "name": "name",
        "type": "String",
-       "description": "Returns the application name."
+       "description": "Application name."
       },
       {
        "name": "port_protocols",
        "type": "Set of String",
-       "description": "Port and protocol pairs matched by the application."
+       "description": "Ports matched by the application, in `protocol/port` or inclusive `protocol/start-end` format (for example, `tcp/443` or `udp/10000-20000`). TCP and UDP ports must be between 0 and 65535."
       },
       {
        "name": "review_status",
@@ -97588,7 +97892,7 @@
     {
      "name": "limit",
      "type": "Number",
-     "description": "Limit of number of results to return."
+     "description": "Number of results to return. Defaults to 25; values are clamped to 1–250."
     },
     {
      "name": "max_items",
@@ -97598,7 +97902,7 @@
     {
      "name": "offset",
      "type": "Number",
-     "description": "Offset of results to return."
+     "description": "Number of results to skip. Defaults to 0; negative values are clamped to 0."
     }
    ],
    "computed": [
@@ -97620,7 +97924,7 @@
       {
        "name": "id",
        "type": "Number",
-       "description": "Returns the category ID."
+       "description": "Numeric identifier for an application category."
       },
       {
        "name": "name",
@@ -97643,7 +97947,7 @@
     {
      "name": "id",
      "type": "Number",
-     "description": "Returns the category ID."
+     "description": "Numeric identifier for an application category."
     }
    ],
    "optional": [],
@@ -99815,7 +100119,7 @@
     {
      "name": "ha_mode",
      "type": "String",
-     "description": "High-availability mode for the WARP Connector tunnel. `none` means HA is enabled but no provider is configured yet (newly created tunnels default to this). `disabled` means HA is explicitly turned off. `aws` uses AWS ENI move for failover. `local` uses virtual IPs (VIPs) on the local interface.\nAvailable values: \"none\", \"disabled\", \"aws\", \"local\"."
+     "description": "High-availability mode for the Mesh node. `none` means HA is enabled but no provider is configured yet (newly created nodes default to this). `disabled` means HA is explicitly turned off. `aws` uses AWS ENI move for failover. `local` uses virtual IPs (VIPs) on the local interface.\nAvailable values: \"none\", \"disabled\", \"aws\", \"local\"."
     },
     {
      "name": "updated_at",
@@ -99839,7 +100143,7 @@
     {
      "name": "ha_mode",
      "type": "String",
-     "description": "High-availability mode for the WARP Connector tunnel. `none` means HA is enabled but no provider is configured yet (newly created tunnels default to this). `disabled` means HA is explicitly turned off. `aws` uses AWS ENI move for failover. `local` uses virtual IPs (VIPs) on the local interface.\nAvailable values: \"none\", \"disabled\", \"aws\", \"local\"."
+     "description": "High-availability mode for the Mesh node. `none` means HA is enabled but no provider is configured yet (newly created nodes default to this). `disabled` means HA is explicitly turned off. `aws` uses AWS ENI move for failover. `local` uses virtual IPs (VIPs) on the local interface.\nAvailable values: \"none\", \"disabled\", \"aws\", \"local\"."
     },
     {
      "name": "tunnel_id",
@@ -104140,6 +104444,14 @@
     ]
    }
   ],
+  "delete /zones/{zone_id}/monetization/rules": [
+   {
+    "declaration": "resource:cloudflare_monetization_rules",
+    "roles": [
+     "delete"
+    ]
+   }
+  ],
   "delete /zones/{zone_id}/observability/tracing/rules": [
    {
     "declaration": "resource:cloudflare_zone_tracing_rules",
@@ -107440,28 +107752,6 @@
     ]
    }
   ],
-  "get /accounts/{account_id}/registrar/domains": [
-   {
-    "declaration": "list-data-source:cloudflare_registrar_domains",
-    "roles": [
-     "read"
-    ]
-   }
-  ],
-  "get /accounts/{account_id}/registrar/domains/{domain_name}": [
-   {
-    "declaration": "data-source:cloudflare_registrar_domain",
-    "roles": [
-     "read"
-    ]
-   },
-   {
-    "declaration": "resource:cloudflare_registrar_domain",
-    "roles": [
-     "read"
-    ]
-   }
-  ],
   "get /accounts/{account_id}/resource-library/applications": [
    {
     "declaration": "data-source:cloudflare_zero_trust_resource_library_application",
@@ -109605,6 +109895,21 @@
     ]
    }
   ],
+  "get /zones/{zone_id}/monetization/rules": [
+   {
+    "declaration": "data-source:cloudflare_monetization_rules",
+    "roles": [
+     "read"
+    ]
+   },
+   {
+    "declaration": "resource:cloudflare_monetization_rules",
+    "roles": [
+     "read",
+     "import"
+    ]
+   }
+  ],
   "get /zones/{zone_id}/observability/tracing/rules": [
    {
     "declaration": "data-source:cloudflare_zone_tracing_rules",
@@ -110732,7 +111037,7 @@
     ]
    }
   ],
-  "patch /zones/{zone_id}/api_gateway/discovery/operations/{operation_id}": [
+  "patch /zones/{zone_id}/api_gateway/discovery/operations/{discovery_id}": [
    {
     "declaration": "resource:cloudflare_api_shield_discovery_operation",
     "roles": [
@@ -113426,15 +113731,6 @@
     ]
    }
   ],
-  "put /accounts/{account_id}/registrar/domains/{domain_name}": [
-   {
-    "declaration": "resource:cloudflare_registrar_domain",
-    "roles": [
-     "create",
-     "update"
-    ]
-   }
-  ],
   "put /accounts/{account_id}/rules/lists/{list_id}": [
    {
     "declaration": "resource:cloudflare_list",
@@ -113826,6 +114122,15 @@
    {
     "declaration": "resource:cloudflare_leaked_credential_check_rule",
     "roles": [
+     "update"
+    ]
+   }
+  ],
+  "put /zones/{zone_id}/monetization/rules": [
+   {
+    "declaration": "resource:cloudflare_monetization_rules",
+    "roles": [
+     "create",
      "update"
     ]
    }
