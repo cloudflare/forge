@@ -353,3 +353,124 @@ fn availability_and_deprecation_are_apart() {
     assert!(post.is_deprecated());
     assert_eq!(post.availability(), None);
 }
+
+/// Returns a document with one operation, `GET /a`, with `fields`, which
+/// end with a comma, and no other keys that name it.
+fn named_by(fields: &str) -> String {
+    format!(
+        r#"{{
+          "openapi": "3.0.3", "info": {{"title": "t", "version": "1"}},
+          "paths": {{"/a": {{"get": {{{fields}
+            "responses": {{"204": {{"description": "ok"}}}}}}}}}}
+        }}"#
+    )
+}
+
+#[test]
+fn dotted_operation_id_is_the_group_and_method() {
+    let forge = parse(&named_by(r#""operationId": "pets.list","#));
+
+    let list = method(&forge, "pets.list");
+    assert_eq!(list.path(), "/a");
+    assert_eq!(forge.groups().count(), 1);
+}
+
+#[test]
+fn operation_id_splits_at_the_last_dot_into_a_group_path() {
+    let forge = parse(&named_by(r#""operationId": "accounts.members.list","#));
+
+    assert_eq!(method(&forge, "accounts.members.list").path(), "/a");
+    assert_eq!(group(&forge, "accounts").methods().len(), 0);
+}
+
+#[test]
+fn operation_id_names_are_names() {
+    let forge = parse(&named_by(r#""operationId": "userAccounts.listAll","#));
+
+    assert_eq!(method(&forge, "user_accounts.list_all").path(), "/a");
+}
+
+#[test]
+fn operation_id_without_a_dot_is_not_a_method() {
+    let forge = parse(&named_by(r#""operationId": "listPets","#));
+
+    assert_eq!(forge.groups().count(), 0);
+}
+
+#[test]
+fn fern_extensions_win_over_operation_id() {
+    let forge = parse(&operation_with(r#""operationId": "pets.list","#));
+
+    assert_eq!(method(&forge, "a.get").path(), "/a");
+    assert_eq!(forge.groups().count(), 1);
+}
+
+#[test]
+fn one_fern_extension_falls_back_to_operation_id() {
+    for fields in [
+        r#""x-fern-sdk-group-name": "a", "operationId": "pets.list","#,
+        r#""x-fern-sdk-method-name": "get", "operationId": "pets.list","#,
+        r#""x-fern-sdk-group-name": "", "x-fern-sdk-method-name": "get", "operationId": "pets.list","#,
+        r#""x-fern-sdk-group-name": "a", "x-fern-sdk-method-name": "", "operationId": "pets.list","#,
+    ] {
+        let forge = parse(&named_by(fields));
+
+        assert_eq!(method(&forge, "pets.list").path(), "/a", "{fields}");
+        assert_eq!(forge.groups().count(), 1, "{fields}");
+    }
+}
+
+#[test]
+fn ignored_operation_with_an_operation_id_is_not_a_method() {
+    let forge = parse(&named_by(r#""operationId": "pets.list", "x-fern-ignore": true,"#));
+
+    assert_eq!(forge.groups().count(), 0);
+}
+
+#[test]
+fn operation_id_group_name_without_letters_is_an_error_naming_the_operation() {
+    for operation_id in ["a..b.list", ".list", "!.list"] {
+        let err = parse_err(&named_by(&format!(r#""operationId": "{operation_id}","#)));
+
+        assert!(
+            err.contains("GET /a: operationId has a group name with no letters or digits"),
+            "{operation_id}: {err}"
+        );
+    }
+}
+
+#[test]
+fn operation_id_method_name_without_letters_is_an_error_naming_the_operation() {
+    for operation_id in ["pets.", "pets.-"] {
+        let err = parse_err(&named_by(&format!(r#""operationId": "{operation_id}","#)));
+
+        assert!(
+            err.contains("GET /a: operationId has a method name with no letters or digits"),
+            "{operation_id}: {err}"
+        );
+    }
+}
+
+#[test]
+fn operation_id_that_is_not_a_string_is_an_error() {
+    let err = parse_err(&named_by(r#""operationId": 1,"#));
+
+    assert!(err.contains("expected a string"), "{err}");
+}
+
+#[test]
+fn fern_and_operation_id_methods_with_equal_names_are_an_error() {
+    let err = parse_err(
+        r#"{
+          "openapi": "3.0.3", "info": {"title": "t", "version": "1"},
+          "paths": {
+            "/a": {"get": {"x-fern-sdk-group-name": "pets", "x-fern-sdk-method-name": "list",
+              "responses": {"204": {"description": "ok"}}}},
+            "/b": {"get": {"operationId": "pets.list",
+              "responses": {"204": {"description": "ok"}}}}
+          }
+        }"#,
+    );
+
+    assert!(err.contains(r#"GET /b: method "list" is also GET /a"#), "{err}");
+}

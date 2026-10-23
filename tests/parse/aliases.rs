@@ -340,3 +340,101 @@ fn model_used_by_aliases_in_one_group_is_in_that_group() {
 
     assert_eq!(model(&forge, "M").group(), Some(group(&forge, "a")));
 }
+
+#[test]
+fn alias_is_named_by_its_operation_id() {
+    let forge = parse(&aliased(
+        r#"[{"operationId": "a.pause"}, {"operationId": "b.c.resume", "x-a": 1}]"#,
+        "",
+    ));
+
+    assert_eq!(methods(&forge), ["a.pause", "b.c.resume"]);
+    let resume = method(&forge, "b.c.resume");
+    let names: Vec<&str> = resume.extensions().map(|(name, _)| name).collect();
+    assert_eq!(names, ["x-a"]);
+}
+
+#[test]
+fn alias_fern_extensions_win_over_its_operation_id() {
+    let forge = parse(&aliased(
+        r#"[{"x-fern-sdk-group-name": "a", "x-fern-sdk-method-name": "pause", "operationId": "b.resume"}]"#,
+        "",
+    ));
+
+    assert_eq!(methods(&forge), ["a.pause"]);
+}
+
+#[test]
+fn alias_with_one_fern_extension_falls_back_to_its_operation_id() {
+    let forge = parse(&aliased(
+        r#"[{"x-fern-sdk-group-name": "a", "operationId": "b.resume"}]"#,
+        "",
+    ));
+
+    assert_eq!(methods(&forge), ["b.resume"]);
+}
+
+#[test]
+fn alias_does_not_take_the_operation_id_of_the_operation() {
+    let forge = parse(&aliased(
+        r#"[{"x-fern-sdk-group-name": "a"}, {}, {"x-fern-sdk-group-name": "a", "x-fern-sdk-method-name": "pause"}]"#,
+        r#""operationId": "b.resume","#,
+    ));
+
+    assert_eq!(methods(&forge), ["a.pause"]);
+}
+
+#[test]
+fn alias_operation_id_without_a_dot_is_not_a_method() {
+    let forge = parse(&aliased(r#"[{"operationId": "pause"}]"#, ""));
+
+    assert_eq!(methods(&forge), Vec::<String>::new());
+}
+
+#[test]
+fn ignored_alias_with_an_operation_id_is_not_a_method() {
+    let forge = parse(&aliased(
+        r#"[{"operationId": "a.pause", "x-fern-ignore": true}, {"operationId": "a.resume"}]"#,
+        "",
+    ));
+
+    assert_eq!(methods(&forge), ["a.resume"]);
+}
+
+#[test]
+fn alias_operation_id_name_without_letters_is_an_error_naming_the_alias() {
+    let err = parse_err(&aliased(r#"[{"operationId": "a."}, {"operationId": "a..pause"}]"#, ""));
+
+    assert!(
+        err.contains(
+            "PATCH /a/{id}/status: x-forge-aliases[0]: operationId has a method name with no letters or digits"
+        ),
+        "{err}"
+    );
+    assert!(
+        err.contains(
+            "PATCH /a/{id}/status: x-forge-aliases[1]: operationId has a group name with no letters or digits"
+        ),
+        "{err}"
+    );
+}
+
+#[test]
+fn alias_operation_id_and_fern_alias_with_equal_names_are_an_error() {
+    let err = parse_err(&aliased(
+        r#"[{"x-fern-sdk-group-name": "a", "x-fern-sdk-method-name": "pause"}, {"operationId": "a.pause"}]"#,
+        "",
+    ));
+
+    assert!(
+        err.contains(r#"x-forge-aliases[1]: method "pause" is also PATCH"#),
+        "{err}"
+    );
+}
+
+#[test]
+fn alias_operation_id_that_is_not_a_string_is_an_error() {
+    let err = parse_err(&aliased(r#"[{"operationId": ["a", "pause"]}]"#, ""));
+
+    assert!(err.contains("expected a string"), "{err}");
+}
