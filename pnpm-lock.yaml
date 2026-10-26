@@ -209,8 +209,8 @@ importers:
         specifier: ^4.0.2
         version: 4.0.2
       '@cloudflare/nimbus-docs':
-        specifier: ^0.19.0
-        version: 0.19.0(@types/node@26.0.1)(astro@7.4.1(@types/node@26.0.1)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.22.4)(yaml@2.9.1))(esbuild@0.28.2)(jiti@2.7.0)(supports-color@10.2.2)(tsx@4.22.4)
+        specifier: ^0.19.1
+        version: 0.19.1(@types/node@26.0.1)(astro@7.4.1(@types/node@26.0.1)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.22.4)(yaml@2.9.1))(esbuild@0.28.2)(jiti@2.7.0)(supports-color@10.2.2)(tsx@4.22.4)
       '@fontsource-variable/inter':
         specifier: 5.3.0
         version: 5.3.0
@@ -783,9 +783,6 @@ packages:
     resolution: {integrity: sha512-CuNiSqg7+e1cO/GjffyMOm5Tt2jUF9CWHHnvQ/UkqvtkGfHdgwEC0wpmq7fkN3gxwpRnrAN0WzO3vREKmNolMQ==}
     engines: {node: '>=18'}
 
-  '@clack/core@0.4.1':
-    resolution: {integrity: sha512-Pxhij4UXg8KSr7rPek6Zowm+5M22rbd2g1nfojHJkxp5YkFqiZ2+YLEM/XGVIzvGOcM0nqjIFxrpDwWRZYWYjA==}
-
   '@clack/core@1.4.3':
     resolution: {integrity: sha512-/kr3UWNtdJfxZtPgDqUOmG2pvwlmcLGheex5yiZKdwbzZJxhV+HMNR9QNmyY5cGwTNV6LrR7Jtp+KjhUAP1qBQ==}
     engines: {node: '>= 20.12.0'}
@@ -793,9 +790,6 @@ packages:
   '@clack/core@1.5.1':
     resolution: {integrity: sha512-iHTrHA8MtVuLl2TfZySmcKv1qO2PoyC9Z7pfSDozEuV5vtY3/wcOPKJXlqJ5Oq2Cx5DDGQGAMVx6HZfRRoVEbQ==}
     engines: {node: '>= 20.12.0'}
-
-  '@clack/prompts@0.9.1':
-    resolution: {integrity: sha512-JIpyaboYZeWYlyP0H+OoPPxd6nqueG/CmN6ixBiNFsIDHREevjIf0n0Ohh5gr5C8pEDknzgvz+pIJ8dMhzWIeg==}
 
   '@clack/prompts@1.7.0':
     resolution: {integrity: sha512-y7/yvZ2TPAnR9+jnc00klvNNLkJiXFFrQA/hlLCcxA9a2A4zQIOimyFQ9XfwYKiGD1fb5GY8vbKIIgO8d5Tb2A==}
@@ -811,8 +805,8 @@ packages:
   '@cloudflare/config@0.27.0':
     resolution: {integrity: sha512-wNnL0z4lj5Gm2fze5qXTOvRPbUOi4jlMmwPk7ArCUakI5oVxgjfl3Rhnfd/Mmzo3g86x/ofH75yPIhsa5msqdQ==}
 
-  '@cloudflare/nimbus-docs@0.19.0':
-    resolution: {integrity: sha512-knD+bdFn9MtQ7SQIlZTWi3pk13wLdvMMENI6uX+2TX7kyPgr90DdqsL2UaKxg3T6O3FwYm27hkxBPSYNhWnU8w==}
+  '@cloudflare/nimbus-docs@0.19.1':
+    resolution: {integrity: sha512-wjuPB3By2bq4DgPwMyE7/irvGTa/ZdjlxeoW6Vnh+Rj+yt1h8p8YxSiXQbo19rdoEfP+U4v6ZHOjw88Njf2hxg==}
     engines: {node: '>=22.12.0'}
     hasBin: true
     peerDependencies:
@@ -5022,11 +5016,6 @@ snapshots:
     dependencies:
       fontkitten: 1.0.3
 
-  '@clack/core@0.4.1':
-    dependencies:
-      picocolors: 1.1.1
-      sisteransi: 1.0.5
-
   '@clack/core@1.4.3':
     dependencies:
       fast-wrap-ansi: 0.2.2
@@ -5035,12 +5024,6 @@ snapshots:
   '@clack/core@1.5.1':
     dependencies:
       fast-wrap-ansi: 0.2.2
-      sisteransi: 1.0.5
-
-  '@clack/prompts@0.9.1':
-    dependencies:
-      '@clack/core': 0.4.1
-      picocolors: 1.1.1
       sisteransi: 1.0.5
 
   '@clack/prompts@1.7.0':
@@ -5065,12 +5048,12 @@ snapshots:
     dependencies:
       zod: 4.6.5
 
-  '@cloudflare/nimbus-docs@0.19.0(@types/node@26.0.1)(astro@7.4.1(@types/node@26.0.1)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.22.4)(yaml@2.9.1))(esbuild@0.28.2)(jiti@2.7.0)(supports-color@10.2.2)(tsx@4.22.4)':
+  '@cloudflare/nimbus-docs@0.19.1(@types/node@26.0.1)(astro@7.4.1(@types/node@26.0.1)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.22.4)(yaml@2.9.1))(esbuild@0.28.2)(jiti@2.7.0)(supports-color@10.2.2)(tsx@4.22.4)':
     dependencies:
       '@astrojs/markdown-satteri': 0.4.4
       '@astrojs/mdx': 8.0.3(@astrojs/markdown-satteri@0.4.4)(astro@7.4.1(@types/node@26.0.1)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.22.4)(yaml@2.9.1))
       '@astrojs/sitemap': 3.7.2
-      '@clack/prompts': 0.9.1
+      '@clack/prompts': 1.8.1
       '@fontsource/stix-two-math': 5.3.0
       '@iconify/tools': 5.0.14
       '@iconify/types': 2.0.0

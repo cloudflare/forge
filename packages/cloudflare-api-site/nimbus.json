@@ -1,7 +1,7 @@
 {
   "$schema": "https://nimbus-docs.com/schema/nimbus.json",
   "version": "0.7.12",
-  "lastReviewedNimbusVersion": "0.19.0",
+  "lastReviewedNimbusVersion": "0.19.1",
   "templatesTag": "templates-v0.7.12",
   "variant": "empty",
   "registry": "https://nimbus-docs.com/registry",
