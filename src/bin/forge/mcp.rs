@@ -1,5 +1,7 @@
-//! The MCP server generator. It generates TypeScript for the official MCP
-//! TypeScript SDK, `@modelcontextprotocol/server`.
+//! The MCP generator. It generates the tools of an MCP server in
+//! TypeScript, as data a server lists and calls, typed for the official MCP
+//! TypeScript SDK, `@modelcontextprotocol/server`. It generates no server:
+//! each server lists and calls the tools in its own way.
 //!
 //! Every group with tools gets a `tools.ts` in its directory: the tools of
 //! its methods, each with the JSON Schema of its arguments, its hints, the
@@ -7,14 +9,11 @@
 //! function that builds its API request. Response schemas are for the
 //! server, to check responses against; `tools/list` doesn't send them. The
 //! output schema is the schema of a successful response's JSON body, which
-//! `listTools` sends only when asked. The root gets an
-//! `index.ts` with every tool, a `README.md` that lists the methods without
-//! a tool and why, and the runtime library in `_/`, which serves the tools
-//! on an `McpServer` and sends their requests. `index.ts` re-exports only
-//! the half of the runtime that doesn't import the MCP SDK, `_/tool.ts`, so
-//! a server can load the tools as a module of their own. `worker.ts` is the
-//! whole server as a Worker module, which calls the API with the caller's
-//! `Authorization` header.
+//! `listTools` sends only when asked. The root gets an `index.ts` with every
+//! tool and the runtime, a `README.md` that lists the methods without a tool
+//! and why, and the runtime itself in `_/tool.ts`: the tool type, listing
+//! tools, and building a call's request as plain data. The runtime imports
+//! nothing, so a server can load the tools anywhere.
 //!
 //! A tool is named after its groups and method, in snake_case and joined by
 //! `_`, such as `dns_records_create`. Its path, query and header parameters
@@ -76,10 +75,6 @@ impl Plugin for Generator {
         files.extend(output_files.into_iter().map(File::Ts));
         files.push(File::Ts(index(forge, &groups)));
         files.push(File::Text {
-            path: "worker.ts".to_owned(),
-            content: worker(forge),
-        });
-        files.push(File::Text {
             path: "README.md".to_owned(),
             content: readme(&groups, &skipped),
         });
@@ -119,15 +114,11 @@ impl forge::File for File {
 const RUNTIME_DIR: Module = Module::new("_");
 
 /// The module of the runtime library that the generated files import: the
-/// tool type and request helpers, which don't import the MCP SDK.
+/// tool type, listing tools, and building their requests.
 const RUNTIME_TOOL: Module = Module::new("_/tool.ts");
 
 /// The sources of the runtime library, by path in lib/src.
-const RUNTIME: [(&str, &str); 3] = [
-    ("index.ts", include_str!("mcp/lib/src/index.ts")),
-    ("server.ts", include_str!("mcp/lib/src/server.ts")),
-    ("tool.ts", include_str!("mcp/lib/src/tool.ts")),
-];
+const RUNTIME: [(&str, &str); 1] = [("tool.ts", include_str!("mcp/lib/src/tool.ts"))];
 
 /// MCP tool names are at most 128 characters.
 const MAX_NAME_LENGTH: usize = 128;
@@ -723,9 +714,6 @@ fn tools_file(
 fn index(forge: &Forge, groups: &[(Group<'_>, Vec<Tool<'_>>)]) -> ts::File {
     let mut f = ts::File::new(Module::ROOT.sub("index.ts"));
     let tool = RUNTIME_TOOL.ident("Tool").ty();
-    // Only the half of the runtime without dependencies, so that importing the
-    // tools doesn't import the MCP SDK. The other half, which serves them, is
-    // in `./_/server.js`.
     p!(f, "export * from './_/tool.js';");
     p!(f, "");
     f.doc("The API the tools call.");
@@ -753,42 +741,6 @@ fn index(forge: &Forge, groups: &[(Group<'_>, Vec<Tool<'_>>)]) -> ts::File {
     f
 }
 
-/// Returns the `worker.ts` of the root: a Worker module whose default export
-/// serves every tool over Streamable HTTP, at any path, and calls the API with
-/// the `Authorization` header of the MCP request. It refuses a request whose
-/// `Origin` is another site's, as MCP requires of servers. The server is named
-/// after the API's title.
-fn worker(forge: &Forge) -> String {
-    let title = forge.description.split("\n\n").next().unwrap_or("").trim();
-    let name = if title.is_empty() { "mcp" } else { title };
-    format!(
-        r#"{PREAMBLE}import {{ createHandler }} from './_/server.js';
-import {{ api, tools }} from './index.js';
-
-/**
- * The server as a Worker: MCP over Streamable HTTP, at any path. Each tool
- * call sends the MCP request's `Authorization` header to the API, so a client
- * authenticates with its own API credential. A request from a web page on
- * another site is refused.
- */
-export default createHandler({{
-  tools,
-  baseUrl: api.baseUrl,
-  serverInfo: {{ name: {name}, version: api.version }},
-  authorize(request) {{
-    const origin = request.headers.get('Origin');
-    if (origin !== null && origin !== new URL(request.url).origin) {{
-      return new Response('Forbidden', {{ status: 403 }});
-    }}
-    const authorization = request.headers.get('Authorization');
-    return authorization ? {{ Authorization: authorization }} : undefined;
-  }},
-}});
-"#,
-        name = string(name)
-    )
-}
-
 /// Returns the README.md of the server: how many tools it has, and each
 /// method without one and why.
 fn readme(groups: &[(Group<'_>, Vec<Tool<'_>>)], skipped: &[(Method<'_>, String)]) -> String {
@@ -796,7 +748,7 @@ fn readme(groups: &[(Group<'_>, Vec<Tool<'_>>)], skipped: &[(Method<'_>, String)
     let mut out = String::from("<!-- Code generated by forge. DO NOT EDIT. -->\n\n# MCP tools\n\n");
     let _ = writeln!(
         out,
-        "{count} tools in {} groups. `index.ts` exports them as `tools`, with the runtime in `_/tool.ts` that builds their requests. `worker.ts` serves them as a Worker, calling the API with the caller's `Authorization` header.",
+        "{count} tools in {} groups. `index.ts` exports them as `tools`, with the runtime in `_/tool.ts` that lists them and builds their requests.",
         groups.len()
     );
     if !skipped.is_empty() {
@@ -947,14 +899,11 @@ mod tests {
             paths,
             [
                 "README.md",
-                "_/index.ts",
-                "_/server.ts",
                 "_/tool.ts",
                 "index.ts",
                 "pets/outputs.ts",
                 "pets/schemas.ts",
-                "pets/tools.ts",
-                "worker.ts"
+                "pets/tools.ts"
             ]
         );
     }
@@ -969,22 +918,6 @@ mod tests {
         assert!(index.contains(r#"baseUrl: "https://api.example.com/v1","#), "{index}");
         assert!(index.contains("...petsTools,"), "{index}");
         assert!(index.contains("export * from './_/tool.js';"), "{index}");
-    }
-
-    #[test]
-    fn worker() {
-        let worker = file(&generate(PETS), "worker.ts");
-        assert!(
-            worker.contains("import { createHandler } from './_/server.js';"),
-            "{worker}"
-        );
-        assert!(worker.contains("export default createHandler({"), "{worker}");
-        assert!(
-            worker.contains(r#"serverInfo: { name: "Pets", version: api.version },"#),
-            "{worker}"
-        );
-        assert!(worker.contains("request.headers.get('Authorization')"), "{worker}");
-        assert!(worker.contains("origin !== new URL(request.url).origin"), "{worker}");
     }
 
     #[test]
