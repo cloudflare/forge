@@ -2,7 +2,13 @@
 
 `forge openapi.json --target mcp --out server` generates an MCP server in TypeScript: one tool for each API method, with the code that turns a tool call into the method's HTTP request. This document says how forge maps the API onto MCP, what it generates, and what a server built on it does. It describes the generator as it is.
 
-The server targets the official MCP TypeScript SDK, `@modelcontextprotocol/server`, and the `2026-07-28` revision of the protocol, which also serves `2025` clients.
+The server targets the official MCP TypeScript SDK, `@modelcontextprotocol/server`, and the `2026-07-28` revision of the protocol, which also serves `2025` clients. `worker.ts` is the whole server as a Worker module, so with the SDK installed it deploys as it is:
+
+```sh
+forge openapi.json --target mcp --out server
+npm install @modelcontextprotocol/server
+npx wrangler deploy server/worker.ts --name my-api-mcp --compatibility-date 2026-06-17
+```
 
 ## Contents
 
@@ -16,6 +22,7 @@ The server targets the official MCP TypeScript SDK, `@modelcontextprotocol/serve
 - [Extensions](#extensions)
 - [Response schemas](#response-schemas)
 - [Output schemas](#output-schemas)
+- [The Worker](#the-worker)
 - [The runtime](#the-runtime)
 - [What clients see](#what-clients-see)
 
@@ -23,6 +30,7 @@ The server targets the official MCP TypeScript SDK, `@modelcontextprotocol/serve
 
 ```text
 server/
+  worker.ts         the server as a Worker module
   index.ts          every tool, the API's base URL and version, and the runtime's tool half
   README.md         the number of tools, and each method without one and why
   _/                the runtime library, copied in as it is
@@ -173,6 +181,15 @@ They are for the server to check what the API returns against what the spec says
 It is often not an object: a `$ref`, an `allOf`, an array or a scalar. MCP `2026-07-28` allows that; `2025` clients expect an object.
 
 `listTools` leaves output schemas out unless called with `{ outputSchema: true }`, and `callTool` and `createHandler` never send them or `structuredContent`. A server that wants them lists them for `2026-07-28` requests and returns the parsed body as `structuredContent` itself. Until the spec's response schemas match what the API returns, an output schema can make a strict client reject a correct result, so serving them is the server's choice.
+
+## The Worker
+
+`worker.ts` default-exports `createHandler(...)` with every tool, the API's base URL, and the API's title and version as the server's name and version. It is a Worker module and needs no bindings, configuration or compatibility flags. It serves MCP at every path:
+
+- Each tool call sends the MCP request's `Authorization` header to the API, so a client connects with its own API credential, and the Worker holds none. A request without one calls the API without one.
+- A request with an `Origin` header that isn't the Worker's own origin gets `403`. MCP requires servers to check `Origin`. MCP clients don't send one, so this only stops a web page on another site from calling the Worker from its visitors' browsers.
+
+A server that needs more, such as OAuth or a credential of its own, writes its own module around `createHandler` or the pieces below.
 
 ## The runtime
 
