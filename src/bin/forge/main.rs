@@ -3,7 +3,7 @@
 //! ```text
 //! forge openapi.json --target ts --out sdk
 //! forge openapi.json --target capnweb --out server
-//! forge openapi.json --target mcp --out server
+//! forge openapi.json --target mcp --out tools
 //! forge openapi.json --target wasm://plugin.wasm --out sdk
 //! forge normalize specs/*.json
 //! ```
@@ -33,8 +33,8 @@ struct Args {
     spec: Option<PathBuf>,
     /// The language of the SDK: `ts` for TypeScript, `capnweb` for a Cap'n
     /// Web server of the TypeScript SDK, which it imports from `#sdk`, `mcp`
-    /// for an MCP server in TypeScript, or `wasm://PATH` for the plugin
-    /// compiled to a WebAssembly component at PATH.
+    /// for the tools of an MCP server in TypeScript, or `wasm://PATH` for the
+    /// plugin compiled to a WebAssembly component at PATH.
     #[arg(long, value_parser = Target::parse, required = true)]
     target: Option<Target>,
     /// The directory to write the SDK to.
@@ -62,7 +62,7 @@ enum Target {
     Ts,
     /// The Cap'n Web server generator.
     Capnweb,
-    /// The MCP server generator, which generates TypeScript.
+    /// The MCP generator, which generates the tools of an MCP server in TypeScript.
     Mcp,
     /// A plugin compiled to a WebAssembly component, at the path.
     #[cfg(feature = "wasm")]

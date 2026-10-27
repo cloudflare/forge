@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { buildRequest, InvalidArguments, listTools, toolsByName } from '../src/index.js';
+import { buildRequest, InvalidArguments, listTools, toolsByName } from '../src/tool.js';
 import { tools } from './fixtures.js';
 
 const [list, create] = tools as [(typeof tools)[0], (typeof tools)[0]];
@@ -14,21 +14,30 @@ test('builds the path, query and headers', () => {
   );
   assert.equal(request.method, 'GET');
   assert.equal(request.url, 'https://api.example.com/v1/stores/a%20b%2Fc/pets?tag=x&tag=y&sort=by%2Cname%2Cdir%2Casc');
-  assert.equal(request.headers.get('X-Trace'), '7');
-  assert.equal(request.headers.get('Accept'), 'application/json');
+  assert.deepEqual(request.headers, { accept: 'application/json', 'x-trace': '7' });
+  assert.equal('body' in request, false);
 });
 
 test('leaves out missing optional arguments', () => {
   const request = buildRequest(list, { store_id: 's', tag: null }, 'https://api.example.com');
   assert.equal(request.url, 'https://api.example.com/stores/s/pets');
-  assert.equal(request.headers.has('X-Trace'), false);
+  assert.equal('x-trace' in request.headers, false);
 });
 
-test('sends the body as JSON', async () => {
+test('sends the body as JSON', () => {
   const request = buildRequest(create, { store_id: 's', body: { name: 'Rex' } }, 'https://api.example.com');
   assert.equal(request.method, 'POST');
-  assert.equal(request.headers.get('Content-Type'), 'application/json');
-  assert.deepEqual(await request.json(), { name: 'Rex' });
+  assert.equal(request.headers['content-type'], 'application/json');
+  assert.equal(request.body, '{"name":"Rex"}');
+});
+
+test('is plain data that fetch sends as it is', async () => {
+  const request = buildRequest(create, { store_id: 's', body: { name: 'Rex' } }, 'https://api.example.com');
+  assert.deepEqual(structuredClone(request), request);
+  const sent = new Request(request.url, request);
+  assert.equal(sent.method, 'POST');
+  assert.equal(sent.headers.get('Content-Type'), 'application/json');
+  assert.deepEqual(await sent.json(), { name: 'Rex' });
 });
 
 test('refuses missing required arguments and values that are not scalars', () => {

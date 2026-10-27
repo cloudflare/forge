@@ -1,13 +1,19 @@
 # The MCP target
 
-`forge openapi.json --target mcp --out server` generates an MCP server in TypeScript: one tool for each API method, with the code that turns a tool call into the method's HTTP request. This document says how forge maps the API onto MCP, what it generates, and what a server built on it does. It describes the generator as it is.
+`forge openapi.json --target mcp --out tools` generates the tools of an MCP server in TypeScript: one tool for each API method, with the code that turns a tool call into the method's HTTP request. This document says how forge maps the API onto MCP and what it generates. It describes the generator as it is.
 
-The server targets the official MCP TypeScript SDK, `@modelcontextprotocol/server`, and the `2026-07-28` revision of the protocol, which also serves `2025` clients. `worker.ts` is the whole server as a Worker module, so with the SDK installed it deploys as it is:
+Forge generates the tools, not a server. Every server around them is different: how it authenticates, which tools, resources or prompts of its own it serves alongside, what it does with an API error. So the output is data a server lists and calls, plus the few functions every server needs to do that, typed for the official MCP TypeScript SDK, `@modelcontextprotocol/server`.
 
-```sh
-forge openapi.json --target mcp --out server
-npm install @modelcontextprotocol/server
-npx wrangler deploy server/worker.ts --name my-api-mcp --compatibility-date 2026-06-17
+```ts
+import { buildRequest, listTools, toolsByName, tools } from './tools/index.js';
+
+// tools/list
+const listing = listTools(tools);
+
+// tools/call
+const tool = toolsByName(tools).get(name);
+const request = buildRequest(tool, args, 'https://api.example.com');
+const response = await fetch(request.url, { ...request, headers: { ...request.headers, authorization } });
 ```
 
 ## Contents
@@ -22,21 +28,16 @@ npx wrangler deploy server/worker.ts --name my-api-mcp --compatibility-date 2026
 - [Extensions](#extensions)
 - [Response schemas](#response-schemas)
 - [Output schemas](#output-schemas)
-- [The Worker](#the-worker)
 - [The runtime](#the-runtime)
 - [What clients see](#what-clients-see)
 
 ## What it generates
 
 ```text
-server/
-  worker.ts         the server as a Worker module
-  index.ts          every tool, the API's base URL and version, and the runtime's tool half
+tools/
+  index.ts          every tool, the API's base URL and version, and the runtime
   README.md         the number of tools, and each method without one and why
-  _/                the runtime library, copied in as it is
-    tool.ts         the Tool type, building requests, listing tools; no imports at runtime
-    server.ts       calling tools, and createHandler, which serves them over HTTP
-    index.ts        both
+  _/tool.ts         the runtime: the Tool type, listing tools, building requests
   <group>/tools.ts  the tools of a group's methods
   <group>/schemas.ts  the schema of each model used in arguments, placed in its group
   <group>/outputs.ts  the schema of each model used in responses
@@ -60,7 +61,7 @@ Each `tools.ts` exports `tools`, an array of the group's tools sorted by name, a
 }
 ```
 
-`index.ts` re-exports only `_/tool.ts`, which imports nothing at runtime. A server can load the tools without the MCP SDK, for example in a process that only plans requests, and import `_/server.ts` where it serves them.
+The runtime imports nothing at runtime, only the SDK's types, so the tools load anywhere: in the server, or in a separate process that only lists them and plans requests.
 
 ## Which methods get a tool
 
@@ -108,7 +109,7 @@ A parameter whose snake_case name is empty takes its wire name. When two paramet
 - `headers`: each header's wire name and value.
 - `body`: the value and its media type.
 
-`buildRequest(tool, args, baseUrl)` turns that into a `Request`. It checks the required arguments are present, then:
+`buildRequest(tool, args, baseUrl)` turns that into the HTTP request, as plain data: `{ method, url, headers, body? }`, with lower-case header names and the body as a string. It crosses RPC or `postMessage` as it is, and `fetch(request.url, request)` sends it. It checks the required arguments are present, then:
 
 - serializes query parameters in OpenAPI's default `form` style (`a=1&a=2` exploded, `a=1,2` not; objects as `k=v` pairs or `name=k,v`);
 - joins an array header with `,`;
@@ -180,28 +181,17 @@ They are for the server to check what the API returns against what the spec says
 
 It is often not an object: a `$ref`, an `allOf`, an array or a scalar. MCP `2026-07-28` allows that; `2025` clients expect an object.
 
-`listTools` leaves output schemas out unless called with `{ outputSchema: true }`, and `callTool` and `createHandler` never send them or `structuredContent`. A server that wants them lists them for `2026-07-28` requests and returns the parsed body as `structuredContent` itself. Until the spec's response schemas match what the API returns, an output schema can make a strict client reject a correct result, so serving them is the server's choice.
-
-## The Worker
-
-`worker.ts` default-exports `createHandler(...)` with every tool, the API's base URL, and the API's title and version as the server's name and version. It is a Worker module and needs no bindings, configuration or compatibility flags. It serves MCP at every path:
-
-- Each tool call sends the MCP request's `Authorization` header to the API, so a client connects with its own API credential, and the Worker holds none. A request without one calls the API without one.
-- A request with an `Origin` header that isn't the Worker's own origin gets `403`. MCP requires servers to check `Origin`. MCP clients don't send one, so this only stops a web page on another site from calling the Worker from its visitors' browsers.
-
-A server that needs more, such as OAuth or a credential of its own, writes its own module around `createHandler` or the pieces below.
+`listTools` leaves output schemas out unless called with `{ outputSchema: true }`. A server that wants them lists them for `2026-07-28` requests and returns the parsed body as `structuredContent` itself. Until the spec's response schemas match what the API returns, an output schema can make a strict client reject a correct result, so serving them is the server's choice.
 
 ## The runtime
 
-`_/` is copied into every server. It is small enough to read:
+`_/tool.ts` is copied into every output. It is small enough to read:
 
-- `listTools(tools, { outputSchema })` returns the tools as `tools/list` sends them, without `request`, `method`, `path`, `extensions` and `responses`, and without `outputSchema` unless asked. The listing is built once per array of tools.
-- `toolsByName(tools)` indexes them, once per array.
-- `buildRequest(tool, args, baseUrl)` is described in [The request](#the-request).
-- `callTool(tool, args, context)` builds the request, adds the context's headers (such as `Authorization`), sends it, and returns the body as text: JSON pretty-printed, text as it is, anything else as a sentence giving its size and type. A non-2xx response is a result with `isError: true`, starting with the status, so the model reads what the API said. An `InvalidArguments` is an error result too.
-- `createHandler(options)` returns a `fetch` that serves the tools over Streamable HTTP, with a fresh stateless server for each request. Each server answers `tools/list` and `tools/call` with one handler each, rather than registering every tool, which for thousands of tools would cost more than the request. It declares `tools.listChanged: false`. `authorize(request)` returns the headers the API requests send, or a `Response` that refuses the request.
+- `listTools(tools, { outputSchema })` returns the tools as `tools/list` sends them, without `request`, `method`, `path`, `extensions` and `responses`, and without `outputSchema` unless asked. The listing is built once per array of tools, so a server can answer `tools/list` with one handler rather than registering thousands of tools on every request.
+- `toolsByName(tools)` indexes them for `tools/call`, once per array.
+- `buildRequest(tool, args, baseUrl)` is described in [The request](#the-request). It throws `InvalidArguments` for arguments the tool can't be called with, which a server returns as a tool error.
 
-Servers with their own policy, such as making a parameter optional or filling it from the session, build on `listTools`, `toolsByName` and `buildRequest` and leave the rest.
+Everything else is the server's: sending the request with its credential, turning the response into a tool result, and anything it changes about a tool, such as making a parameter optional and filling it from the session. It can change a tool by mapping over `tools` before listing them, since a tool is plain data and its `request` reads only the arguments.
 
 ## What clients see
 

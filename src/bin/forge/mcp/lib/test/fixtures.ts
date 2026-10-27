@@ -1,4 +1,4 @@
-import { pathParam, type Tool } from '../src/index.js';
+import { pathParam, type Tool } from '../src/tool.js';
 
 /** Tools as the generator writes them. */
 export const tools: readonly Tool[] = [
