@@ -1,0 +1,29 @@
+src/bin/forge/mcp/lib/src/tool.ts
+  s_a5414f34b12e5c::t_ecdf7784c2fab8 131,154-165
+src/bin/forge/mcp/lib/test/tool.test.ts
+  s_8271388ff643eb::t_9e94a00e0dfdcd 21-25
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "6de519b55a32581a7905dc358f4b256904c2d2c1",
+  "prompts": {},
+  "sessions": {
+    "s_8271388ff643eb": {
+      "agent_id": {
+        "tool": "pi",
+        "id": "01a17e9b-fd06-7103-b3db-a274b8236acf",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Matt Carey <mcarey@cloudflare.com>"
+    },
+    "s_a5414f34b12e5c": {
+      "agent_id": {
+        "tool": "pi",
+        "id": "01a17e7f-faec-72ed-aea6-f27d0ee483e2",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Matt Carey <mcarey@cloudflare.com>"
+    }
+  }
+}
