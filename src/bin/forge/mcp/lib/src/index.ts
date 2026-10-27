@@ -14,4 +14,4 @@ export {
   type ToolAnnotations,
   type ToolResponses,
 } from './tool.js';
-export { callTool, createHandler, readBody, serveTools, type CallContext, type HandlerOptions } from './server.js';
+export { callTool, createHandler, readBody, type CallContext, type HandlerOptions } from './server.js';
