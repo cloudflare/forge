@@ -27,7 +27,7 @@ server/
   README.md         the number of tools, and each method without one and why
   _/                the runtime library, copied in as it is
     tool.ts         the Tool type, building requests, listing tools; no imports at runtime
-    server.ts       serving tools on an McpServer, calling them, an HTTP handler
+    server.ts       calling tools, and createHandler, which serves them over HTTP
     index.ts        both
   <group>/tools.ts  the tools of a group's methods
   <group>/schemas.ts  the schema of each model used in arguments, placed in its group
@@ -172,7 +172,7 @@ They are for the server to check what the API returns against what the spec says
 
 It is often not an object: a `$ref`, an `allOf`, an array or a scalar. MCP `2026-07-28` allows that; `2025` clients expect an object.
 
-`listTools` leaves output schemas out unless called with `{ outputSchema: true }`, and `serveTools` and `callTool` never send them or `structuredContent`. A server that wants them lists them for `2026-07-28` requests and returns the parsed body as `structuredContent` itself. Until the spec's response schemas match what the API returns, an output schema can make a strict client reject a correct result, so serving them is the server's choice.
+`listTools` leaves output schemas out unless called with `{ outputSchema: true }`, and `callTool` and `createHandler` never send them or `structuredContent`. A server that wants them lists them for `2026-07-28` requests and returns the parsed body as `structuredContent` itself. Until the spec's response schemas match what the API returns, an output schema can make a strict client reject a correct result, so serving them is the server's choice.
 
 ## The runtime
 
@@ -181,9 +181,8 @@ It is often not an object: a `$ref`, an `allOf`, an array or a scalar. MCP `2026
 - `listTools(tools, { outputSchema })` returns the tools as `tools/list` sends them, without `request`, `method`, `path`, `extensions` and `responses`, and without `outputSchema` unless asked. The listing is built once per array of tools.
 - `toolsByName(tools)` indexes them, once per array.
 - `buildRequest(tool, args, baseUrl)` is described in [The request](#the-request).
-- `serveTools(server, tools, call, extra)` serves the tools on an `McpServer` with one `tools/list` and one `tools/call` handler, rather than registering each tool, which for thousands of tools costs more than the request. It declares `tools.listChanged: false`. `extra` lists tools the server serves itself, first.
 - `callTool(tool, args, context)` builds the request, adds the context's headers (such as `Authorization`), sends it, and returns the body as text: JSON pretty-printed, text as it is, anything else as a sentence giving its size and type. A non-2xx response is a result with `isError: true`, starting with the status, so the model reads what the API said. An `InvalidArguments` is an error result too.
-- `createHandler(options)` returns a `fetch` that serves the tools over Streamable HTTP, with a fresh stateless server for each request. `authorize(request)` returns the headers the API requests send, or a `Response` that refuses the request.
+- `createHandler(options)` returns a `fetch` that serves the tools over Streamable HTTP, with a fresh stateless server for each request. Each server answers `tools/list` and `tools/call` with one handler each, rather than registering every tool, which for thousands of tools would cost more than the request. It declares `tools.listChanged: false`. `authorize(request)` returns the headers the API requests send, or a `Response` that refuses the request.
 
 Servers with their own policy, such as making a parameter optional or filling it from the session, build on `listTools`, `toolsByName` and `buildRequest` and leave the rest.
 

@@ -25,16 +25,15 @@ export interface CallContext {
 /**
  * Serves `tools` on `server` with low-level `tools/list` and `tools/call`
  * handlers, rather than registering each tool, which for thousands of tools
- * costs more than the request. `call` makes the API request, and `extra`
- * tools the server serves itself are listed first.
+ * costs more than the request, since each request gets a fresh server.
+ * `call` makes the API request.
  */
-export function serveTools(
+function serveTools(
   server: McpServer,
   tools: readonly Tool[],
   call: (tool: Tool, args: Args) => Promise<CallToolResult>,
-  extra: readonly McpTool[] = [],
 ): void {
-  const listing = extra.length > 0 ? [...extra, ...listTools(tools)] : listTools(tools);
+  const listing = listTools(tools);
   const byName = toolsByName(tools);
   server.server.registerCapabilities({ tools: { listChanged: false } });
   // The SDK types the list as mutable; it only serializes it.
