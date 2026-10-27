@@ -1,0 +1,19 @@
+rfcs/mcp.md
+  s_8271388ff643eb::t_08f33f3462d72a 1-198
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "d921a6038a371c32e50705ba6edce6f5834d9297",
+  "prompts": {},
+  "sessions": {
+    "s_8271388ff643eb": {
+      "agent_id": {
+        "tool": "pi",
+        "id": "01a17e9b-fd06-7103-b3db-a274b8236acf",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Matt Carey <mcarey@cloudflare.com>"
+    }
+  }
+}
