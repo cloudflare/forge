@@ -18,6 +18,11 @@ test('builds the path, query and headers', () => {
   assert.equal('body' in request, false);
 });
 
+test('joins a base URL that ends with slashes', () => {
+  const request = buildRequest(list, { store_id: 's' }, 'https://api.example.com/v1///');
+  assert.equal(request.url, 'https://api.example.com/v1/stores/s/pets');
+});
+
 test('leaves out missing optional arguments', () => {
   const request = buildRequest(list, { store_id: 's', tag: null }, 'https://api.example.com');
   assert.equal(request.url, 'https://api.example.com/stores/s/pets');
