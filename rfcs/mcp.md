@@ -72,9 +72,8 @@ Every method forge reads gets a tool, except:
 | Deprecated (`deprecated: true`)                                                                                      | Left out silently.                                                                                          |
 | A required request body with no JSON media type (`multipart/form-data`, `application/octet-stream`, `text/plain`, …) | A tool's arguments are JSON. An optional non-JSON body is left off the tool, and the method still gets one. |
 | A tool name over 128 characters                                                                                      | MCP's limit.                                                                                                |
-| A tool name another method already has                                                                               | Names must be unique across the server; the first method keeps it.                                          |
+| A tool name another method already has, such as group `a.b` method `c` and group `a` method `b_c`, both `a_b_c`      | Names must be unique across the server; the first method keeps it.                                          |
 | Two arguments with the same name, even after [prefixing](#arguments)                                                 | The tool can't take both.                                                                                   |
-| A path parameter with no argument                                                                                    | The tool couldn't fill the path.                                                                            |
 
 Each of these except deprecation is listed in `README.md` with the method, path and reason, so a change to the spec that loses a tool shows in review. Operations forge itself doesn't read, such as those with `x-fern-ignore`, never reach the generator. Hidden methods (`x-forge-hidden`) get a tool.
 
@@ -87,7 +86,7 @@ A tool is named after its groups and its method, each in snake_case, joined by `
 | `dns.records`      | `create` | `dns_records_create`    |
 | `accounts.members` | `list`   | `accounts_members_list` |
 
-The name comes from `x-fern-sdk-group-name` and `x-fern-sdk-method-name`, as for every target, so it is stable while those are. Renaming a group renames its tools.
+The name comes from forge's group hierarchy and method names, as for every target, so it is stable while those are. Renaming a group renames its tools.
 
 ## Arguments
 
