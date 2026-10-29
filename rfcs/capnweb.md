@@ -4,32 +4,13 @@ This document proposes a Forge plugin that generates a [Cap'n Web](https://githu
 
 The server is a thin layer over the TypeScript SDK. It doesn't build requests, convert fields or declare types. The SDK does all of that, and the server forwards each call to it.
 
-## Dependencies
-
-It imports from `#sdk`, and the package's `package.json` maps that to the SDK with [subpath imports](https://nodejs.org/api/packages.html#subpath-imports):
-
-```json
-{
-  "dependencies": {
-    "@cloudflare/sdk": "1.2.3",
-    "capnweb": "^0.12.0"
-  },
-  "imports": {
-    "#sdk": "@cloudflare/sdk",
-    "#sdk/*": "@cloudflare/sdk/*"
-  }
-}
-```
-
-This keeps it composable with various way users might want to separate the SDK and capnweb server.
-
 ## Usage
 
-The server wraps a client of the SDK. The root `Api` is the main object of a session:
+The following code snippet shows a worker using the generated code to serve the capnweb server for the entire API:
 
-```ts title="worker running the capnweb server"
-import { createClient } from '@cloudflare/sdk';
-import { Api } from '@cloudflare/sdk-capnweb';
+```ts title="worker running the generated capnweb server"
+import { createClient } from '#sdk'; // Generate TS SDK
+import { Api } from './gen/index'; // Generated capnweb server
 import { newWorkersRpcResponse } from 'capnweb';
 
 export default {
@@ -68,6 +49,8 @@ import { Api } from '@cloudflare/sdk-capnweb/zones';
 
 newWorkersRpcResponse(request, new Api(createClient({ token })));
 ```
+
+A module's `Api` is only needed to serve part of the API. The root `Api` already serves every module with one client: each subgroup getter passes down the SDK client of its subgroup, so a caller reaches any module from the root, as in `api.zones.dns.records.list()`.
 
 ### Types
 
@@ -169,3 +152,7 @@ We can improve on this by exporting an `ApiError` type with custom instanceof lo
   ```
 
   Group accessors are idempotent, so a client could safely replay `zones` in a new batch, but Cap'n Web has no way to mark them as idempotent. How should they be marked?
+
+## Dependencies
+
+The generated server imports the SDK from `#sdk`. This allows for both cases of either splitting the SDK as a separate package or bundling it together.
