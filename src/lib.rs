@@ -226,15 +226,19 @@ impl std::fmt::Debug for Group<'_> {
 /// `x-fern-ignore` does not stop its aliases. An empty array makes no
 /// method, an element that is not an object is ignored, and a value that
 /// is not an array is an error. Aliases do not nest: an `x-forge-aliases`
-/// in an alias is ignored, as are its keys that are not extensions.
+/// in an alias is ignored, as are its keys that are neither extensions nor
+/// `operationId`.
 ///
 /// An alias says, as an operation would, the method's
-/// [`group`](Method::group), [`name`](Method::name),
+/// [`group`](Method::group) and [`name`](Method::name), with the two Fern
+/// extensions or its own `operationId`, its
 /// [`availability`](Method::availability), whether it is
 /// [hidden](Method::is_hidden), its [`confirmation`](Method::confirmation)
 /// and its [`extensions`](Method::extensions), and whether it is ignored
 /// with `x-fern-ignore`. None of these come from the operation: an alias
-/// without an extension does not have the operation's. The rest, from the
+/// without one of these keys does not have the operation's, so an alias
+/// without the Fern extensions or an `operationId` of its own makes no
+/// method, whatever the operation's `operationId`. The rest, from the
 /// HTTP method and path to the responses, is the operation's, and every
 /// alias has it. Each alias is a method of its own group, so a model one
 /// uses is placed as though each alias were a separate operation.
@@ -250,11 +254,24 @@ pub struct Method<'f> {
 impl<'f> Method<'f> {
     /// Returns the name of the method, which is unique within its group.
     ///
-    /// Corresponds to the `x-fern-sdk-method-name` extension of the
-    /// operation, or of the alias the method comes from. An operation or
-    /// alias without one, or with an empty one, is not a method, and one
-    /// with no letters or digits is an error. Two methods in a group with
-    /// equal names are an error, whether they are aliases or not.
+    /// An operation, or an alias the method comes from, is named in one of
+    /// two ways:
+    ///
+    /// 1. With both the `x-fern-sdk-group-name` and the
+    ///    `x-fern-sdk-method-name` extensions, neither empty. The name is
+    ///    the `x-fern-sdk-method-name`.
+    /// 2. Without both, with an `operationId` of the form
+    ///    `<group path>.<method name>`, split at the last dot. The name is
+    ///    the part after it: `pets.list` is the method `list` in the group
+    ///    `pets`, and `accounts.members.list` is the method `list` in the
+    ///    group `members` inside `accounts`.
+    ///
+    /// An operation or alias named in neither way, such as one whose
+    /// `operationId` has no dot, like `listPets`, is not a method, and is
+    /// not an error. A name with no letters or digits, as in the
+    /// `operationId` `pets.`, is an error. Two methods in a group with
+    /// equal names are an error, however they are named, and whether they
+    /// are aliases or not.
     pub fn name(self) -> &'f Name {
         &self.data().name
     }
@@ -262,11 +279,17 @@ impl<'f> Method<'f> {
     /// Returns the group the method is in.
     ///
     /// Corresponds to the `x-fern-sdk-group-name` extension of the
-    /// operation, or of the alias the method comes from: a string of group
-    /// names separated by dots, such as `accounts.members`, or an array
-    /// with one group name per element, top level first. An operation or
-    /// alias without one, with an empty one, or with `x-fern-ignore: true`
-    /// is not a method. A group name with no letters or digits is an error.
+    /// operation, or of the alias the method comes from, when the method
+    /// is named by the Fern extensions, as [`name`](Method::name) says: a
+    /// string of group names separated by dots, such as
+    /// `accounts.members`, or an array with one group name per element,
+    /// top level first. Otherwise it is the part of the `operationId`
+    /// before the last dot, with group names separated by dots the same
+    /// way.
+    ///
+    /// An operation or alias with `x-fern-ignore: true` is not a method,
+    /// however it is named. A group name with no letters or digits, as in
+    /// the `operationId` `a..b.list` or `.list`, is an error.
     pub fn group(self) -> Group<'f> {
         self.forge.group(self.data().group)
     }

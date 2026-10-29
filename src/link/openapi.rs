@@ -236,7 +236,7 @@ pub(super) struct Operation {
     pub(super) responses: Span<(Str, Id<Response>)>,
 }
 
-/// The extensions that make an Operation Object, or an alias of one in its
+/// The keys that make an Operation Object, or an alias of one in its
 /// `x-forge-aliases`, a method.
 #[derive(Default)]
 pub(super) struct Definition {
@@ -245,6 +245,9 @@ pub(super) struct Definition {
     /// The `x-fern-sdk-group-name`: the group path, top level first, or
     /// empty for none.
     pub(super) group_names: Span<Str>,
+    /// The `operationId`, or empty for none. It names the method when the
+    /// two Fern extensions do not.
+    pub(super) operation_id: Str,
     /// `x-fern-ignore`.
     pub(super) ignore: bool,
     /// `x-forge-hidden`.
@@ -1187,6 +1190,7 @@ keys! {
     DefinitionKey {
         MethodName = "x-fern-sdk-method-name",
         GroupNames = "x-fern-sdk-group-name",
+        OperationId = "operationId",
         Ignore = "x-fern-ignore",
         Hidden = "x-forge-hidden",
         Confirmation = "x-forge-require-confirmation",
@@ -1205,6 +1209,7 @@ impl Definition {
         match key {
             DefinitionKey::MethodName => self.method_name = map.next_value_seed(seed::<ReadStr>(doc))?,
             DefinitionKey::GroupNames => self.group_names = map.next_value_seed(seed::<GroupNames>(doc))?,
+            DefinitionKey::OperationId => self.operation_id = map.next_value_seed(seed::<ReadStr>(doc))?,
             DefinitionKey::Ignore => self.ignore = map.next_value()?,
             DefinitionKey::Hidden => self.hidden = map.next_value()?,
             DefinitionKey::Confirmation => {
@@ -1220,8 +1225,8 @@ impl Definition {
 }
 
 /// Reads an alias in `x-forge-aliases`: an object of the keys of a
-/// definition and other extensions. Its keys that are not extensions are
-/// skipped, and so is an `x-forge-aliases` in it, since aliases do not
+/// definition and other extensions. Its other keys that are not extensions
+/// are skipped, and so is an `x-forge-aliases` in it, since aliases do not
 /// nest.
 struct Alias;
 
