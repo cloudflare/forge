@@ -1,7 +1,6 @@
 ---
 import DocsLayout from "../layouts/DocsLayout.astro";
 import {
-  getDocsStaticPaths,
   getDocsPage,
   getRouteFlags,
   getBreadcrumbs,
@@ -13,11 +12,6 @@ import {
 import { components } from "../components";
 import { getApiRouter } from "../api-server.ts";
 import { getPageSidebar } from "../page-sidebar.ts";
-
-// Nimbus's `rendering: { default: "request" }` turns this route into on-demand
-// rendering; Nimbus requires canonical content routes to keep these exports.
-export const prerender = true;
-export const getStaticPaths = getDocsStaticPaths;
 
 // The overview honours the site-wide `?version=` / `?lang=` selection; reject
 // empty, duplicate, or unknown values like the API routes do.
