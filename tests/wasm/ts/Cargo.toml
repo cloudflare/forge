@@ -21,7 +21,6 @@ crate-type = ["cdylib"]
 dump = []
 
 [dependencies]
-elsa = "1"
 # Reads the JSON text the host sends for a `Json`, keeping objects in order.
 serde_json = { version = "1", features = ["preserve_order"] }
 wit-bindgen = "0.57"
