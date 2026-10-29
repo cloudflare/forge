@@ -2,6 +2,7 @@
 //!
 //! ```text
 //! forge openapi.json --target ts --out sdk
+//! forge openapi.json --target capnweb --out server
 //! forge openapi.json --target wasm://plugin.wasm --out sdk
 //! ```
 
@@ -11,8 +12,9 @@ use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
 use clap::Parser;
-use forge::{Err, Forge};
+use forge::{Err, Forge, Plugin};
 
+mod capnweb;
 mod ts;
 
 /// Generates an SDK from an OpenAPI document.
@@ -21,8 +23,10 @@ mod ts;
 struct Args {
     /// The OpenAPI JSON document, or - to read it from standard input.
     spec: PathBuf,
-    /// The language of the SDK: `ts` for TypeScript, or `wasm://PATH` for
-    /// the plugin compiled to a WebAssembly component at PATH.
+    /// The language of the SDK: `ts` for TypeScript, `capnweb` for a Cap'n
+    /// Web server of the TypeScript SDK, which it imports from `#sdk`, or
+    /// `wasm://PATH` for the plugin compiled to a WebAssembly component at
+    /// PATH.
     #[arg(long, value_parser = Target::parse)]
     target: Target,
     /// The directory to write the SDK to.
@@ -35,6 +39,8 @@ struct Args {
 enum Target {
     /// The TypeScript generator.
     Ts,
+    /// The Cap'n Web server generator.
+    Capnweb,
     /// A plugin compiled to a WebAssembly component, at the path.
     #[cfg(feature = "wasm")]
     Wasm(PathBuf),
@@ -42,11 +48,13 @@ enum Target {
 
 impl Target {
     fn parse(s: &str) -> Result<Target, String> {
-        if s == "ts" {
-            return Ok(Target::Ts);
+        match s {
+            "ts" => return Ok(Target::Ts),
+            "capnweb" => return Ok(Target::Capnweb),
+            _ => {}
         }
         let Some(path) = s.strip_prefix("wasm://") else {
-            return Err("possible values: ts, wasm://PATH".to_owned());
+            return Err("possible values: ts, capnweb, wasm://PATH".to_owned());
         };
         if path.is_empty() {
             return Err("wasm:// needs the path of a plugin, as in wasm://plugin.wasm".to_owned());
@@ -71,10 +79,8 @@ fn main() -> ExitCode {
 /// Generates the SDK that `args` ask for.
 fn run(args: Args) -> Result<(), Err> {
     match args.target {
-        Target::Ts => {
-            let forge = read(&args.spec)?;
-            forge::write(&args.out, forge::run(&forge, &ts::Generator)?)
-        }
+        Target::Ts => generate(&ts::Generator, &args.spec, &args.out),
+        Target::Capnweb => generate(&capnweb::Generator, &args.spec, &args.out),
         #[cfg(feature = "wasm")]
         Target::Wasm(path) => {
             // Compiling the plugin and reading the document are both slow,
@@ -84,6 +90,10 @@ fn run(args: Args) -> Result<(), Err> {
             forge::write(&args.out, forge::run(&forge, &plugin)?)
         }
     }
+}
+
+fn generate(plugin: &impl Plugin, spec: &Path, out: &Path) -> Result<(), Err> {
+    forge::write(out, forge::run(&read(spec)?, plugin)?)
 }
 
 /// Reads the document at `path`, or from standard input when `path` is `-`.

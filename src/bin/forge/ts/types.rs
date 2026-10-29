@@ -116,7 +116,7 @@ pub(super) fn member(field: Field<'_>) -> Fragment {
 
 /// Returns the documentation of a declaration, with `@deprecated` after it
 /// when it is deprecated.
-pub(super) fn doc(text: &str, deprecated: bool) -> String {
+pub(crate) fn doc(text: &str, deprecated: bool) -> String {
     if !deprecated {
         return text.to_owned();
     }
@@ -183,7 +183,7 @@ pub(super) fn all_optional(t: Type<'_>) -> bool {
 
 /// Prefixes `s` with `_` if it starts with a digit, so it's a valid
 /// identifier.
-pub(super) fn identifier(s: String) -> String {
+pub(crate) fn identifier(s: String) -> String {
     if s.starts_with(|c: char| c.is_ascii_digit()) {
         format!("_{s}")
     } else {
@@ -216,7 +216,7 @@ pub(super) fn is_identifier(s: &str) -> bool {
 }
 
 /// Returns a property name, quoted when it is not an identifier.
-pub(super) fn key(name: &str) -> String {
+pub(crate) fn key(name: &str) -> String {
     if is_identifier(name) {
         name.to_owned()
     } else {
@@ -224,9 +224,9 @@ pub(super) fn key(name: &str) -> String {
     }
 }
 
-/// Returns `s` as a string literal, escaped as Go's `encoding/json` does
-/// without HTML escaping.
-pub(super) fn js_string(s: &str) -> String {
+/// Returns `s` as a string literal: quotes, backslashes, control characters,
+/// U+2028 and U+2029 are escaped, and nothing else is.
+pub(crate) fn js_string(s: &str) -> String {
     let mut out = String::with_capacity(s.len() + 2);
     out.push('"');
     for c in s.chars() {
