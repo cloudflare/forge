@@ -38,19 +38,21 @@ tools/
   index.ts          every tool, the API's base URL and version, and the runtime
   README.md         the number of tools, and each method without one and why
   _/tool.ts         the runtime: the Tool type, listing tools, building requests
+  schemas.ts        the schema of each top-level model used in arguments
+  outputs.ts        the schema of each top-level model used in responses
   <group>/tools.ts  the tools of a group's methods
-  <group>/schemas.ts  the schema of each model used in arguments, placed in its group
-  <group>/outputs.ts  the schema of each model used in responses
+  <group>/schemas.ts  the schema of each model placed in the group and used in arguments
+  <group>/outputs.ts  the schema of each model placed in the group and used in responses
 ```
 
-Each `tools.ts` exports `tools`, an array of the group's tools sorted by name, and `index.ts` concatenates them. A tool is plain data plus one function:
+Each `tools.ts` exports `tools`, an array of the group's tools sorted by name, and `index.ts` concatenates them. A group's files depend only on the group, so forge generates them in parallel (`generate_group`); the root's files come from one pass that only works out which methods get a tool. A tool is plain data plus one function:
 
 ```ts
 {
   name: 'dns_records_create',
   title: 'Create DNS Record',
   description: '…',
-  inputSchema: { type: 'object', properties: { … }, required: [ … ], $defs: { … } },
+  inputSchema: { type: 'object', properties: { path: { … }, body: { … } }, required: ['path', 'body'], $defs: { … } },
   annotations: { title, readOnlyHint, destructiveHint, idempotentHint, openWorldHint },
   method: 'POST',
   path: '/zones/{zone_id}/dns_records',
@@ -72,43 +74,52 @@ Every method forge reads gets a tool, except:
 | Deprecated (`deprecated: true`)                                                                                      | Left out silently.                                                                                          |
 | A required request body with no JSON media type (`multipart/form-data`, `application/octet-stream`, `text/plain`, …) | A tool's arguments are JSON. An optional non-JSON body is left off the tool, and the method still gets one. |
 | A tool name over 128 characters                                                                                      | MCP's limit.                                                                                                |
-| A tool name another method already has, such as group `a.b` method `c` and group `a` method `b_c`, both `a_b_c`      | Names must be unique across the server; the first method keeps it.                                          |
-| Two arguments with the same name, even after [prefixing](#arguments)                                                 | The tool can't take both.                                                                                   |
+| A tool name another method of its group already has, such as `x1b` and `x_1b`, both `x1b` in camelCase               | Names must be unique across the server; the first method by name keeps it. See [Names](#names).             |
 
 Each of these except deprecation is listed in `README.md` with the method, path and reason, so a change to the spec that loses a tool shows in review. Operations forge itself doesn't read, such as those with `x-fern-ignore`, never reach the generator. Hidden methods (`x-forge-hidden`) get a tool.
 
 ## Names
 
-A tool is named after its groups and its method, each in snake_case, joined by `_`:
+A tool is named after its groups and its method, each in camelCase, joined by `_`:
 
-| Group              | Method   | Tool                    |
-| ------------------ | -------- | ----------------------- |
-| `dns.records`      | `create` | `dns_records_create`    |
-| `accounts.members` | `list`   | `accounts_members_list` |
+| Group                             | Method      | Tool                                      |
+| --------------------------------- | ----------- | ----------------------------------------- |
+| `dns.records`                     | `create`    | `dns_records_create`                      |
+| `web_assets.discovery.operations` | `bulk_edit` | `webAssets_discovery_operations_bulkEdit` |
+| `a.b`                             | `c`         | `a_b_c`                                   |
+| `a`                               | `b_c`       | `a_bC`                                    |
+
+`_` only separates names, and forge treats `_` inside a name as a word break, so the words of a name never contain it. Group `a.b` method `c` and group `a` method `b_c` would both be `a_b_c` in snake_case; in camelCase they differ. Tools of different groups never share a name, so each group's tools are generated without looking at the others. OpenAI and Anthropic only accept `[a-zA-Z0-9_-]` in tool names, which rules out `.`.
+
+Two names can still have the same camelCase spelling, since a digit belongs to the word before it: `x1b` is one word and `x_1b` two, both `x1b`. Two methods of a group like that keep the first tool by name, and `README.md` lists the other. Two sibling groups like that share a directory, which forge refuses to write. The TypeScript SDK spells names the same way and has the same limit.
 
 The name comes from forge's group hierarchy and method names, as for every target, so it is stable while those are. Renaming a group renames its tools.
 
 ## Arguments
 
-`inputSchema` is always an object. Its properties are:
+`inputSchema` is always an object, with an argument for each place a value goes:
 
-- **Path parameters**, named after the parameter in snake_case, always required.
-- **Query parameters**, likewise, required if the spec says so.
-- **Header parameters**, likewise. Read-only headers are left out.
-- **The JSON body**, as one argument named `body` that takes the body as the API does, with the body's description. If a parameter is already called `body`, it is `request_body`. It is required if the body is.
+- **`path`**: an object of the path parameters, keyed by their names on the wire. Every one is required, and so is `path`.
+- **`query`**: an object of the query parameters, likewise. Each is required if the spec says so, and `query` is required if one is.
+- **`headers`**: an object of the header parameters, likewise. Read-only headers are left out.
+- **`body`**: the JSON body, as the API takes it, with the body's description. It is required if the body is.
 
-A parameter whose snake_case name is empty takes its wire name. When two parameters in different places would share a name, the later one gets its place in front: `query_name`, `header_name`.
+A place without parameters has no argument. The arguments mirror the HTTP request, so names never clash and are what the API documents:
+
+```json
+{ "path": { "zone_id": "…" }, "query": { "page": 2 }, "body": { "name": "…" } }
+```
 
 ## The request
 
 `request(args)` returns the request relative to the API's base URL:
 
-- `path`: the template with each parameter substituted. `pathParam` percent-encodes it and throws `InvalidArguments` if it is missing or empty.
-- `query`: each parameter's wire name, value and whether it is exploded.
+- `path`: the template with each parameter substituted. `pathParam` reads it from `args.path`, percent-encodes it, and throws `InvalidArguments` if it is missing or empty.
+- `query`: each parameter's wire name, value and whether it is exploded. `param` reads it from `args.query`, and headers from `args.headers`, throwing `InvalidArguments` if the place isn't an object.
 - `headers`: each header's wire name and value.
 - `body`: the value and its media type.
 
-`buildRequest(tool, args, baseUrl)` turns that into the HTTP request, as plain data: `{ method, url, headers, body? }`, with lower-case header names and the body as a string. It crosses RPC or `postMessage` as it is, and `fetch(request.url, request)` sends it. It checks the required arguments are present, then:
+`buildRequest(tool, args, baseUrl)` turns that into the HTTP request, as plain data: `{ method, url, headers, body? }`, with lower-case header names and the body as a string. It crosses RPC or `postMessage` as it is, and `fetch(request.url, request)` sends it. It checks the required arguments are present, including required parameters such as `query.page`, then:
 
 - serializes query parameters in OpenAPI's default `form` style (`a=1&a=2` exploded, `a=1,2` not; objects as `k=v` pairs or `name=k,v`);
 - joins an array header with `,`;
@@ -137,7 +148,7 @@ Schemas are JSON Schema 2020-12, built from forge's model of the spec rather tha
 
 A nullable type in the spec is already a union with `null` in forge, so it becomes `anyOf` with `{ "type": "null" }`.
 
-Models are `$ref`s into the schema's own `$defs`, so recursive models terminate, and each tool's `$defs` holds only the models its schema reaches, so every tool's schema stands alone. A model's schema is built once, as a constant in its group's `schemas.ts` or `outputs.ts`, and every tool that uses it refers to the constant. The `$defs` key is the model's schema name with characters that a JSON Pointer or URI fragment would need escaped replaced by `_`, and a number added if two models would share one.
+Models are `$ref`s into the schema's own `$defs`, so recursive models terminate, and each tool's `$defs` holds only the models its schema reaches, so every tool's schema stands alone. A model's schema is built once, as a constant in the `schemas.ts` or `outputs.ts` of the group forge places it in, and every tool that uses it imports the constant. The constant is the model's name in PascalCase, as the TypeScript SDK names it, with `Output` after it in `outputs.ts`; two models in a group with the same name are an error, as in the SDK. The `$defs` key is the model's schema name, with each byte other than an ASCII letter, digit, `_` or `-` written as `.` and two hex digits (`Event$meta` is `Event.24meta`), so it needs no escaping in a JSON Pointer or URI fragment and no two models share one. Both depend only on the model, so a group's files never need another group's.
 
 Arguments and responses are built separately, because a model differs between them:
 

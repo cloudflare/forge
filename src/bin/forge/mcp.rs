@@ -9,28 +9,33 @@
 //! function that builds its API request. Response schemas are for the
 //! server, to check responses against; `tools/list` doesn't send them. The
 //! output schema is the schema of a successful response's JSON body, which
-//! `listTools` sends only when asked. The root gets an `index.ts` with every
-//! tool and the runtime, a `README.md` that lists the methods without a tool
-//! and why, and the runtime itself in `_/tool.ts`: the tool type, listing
-//! tools, and building a call's request as plain data. The runtime imports
-//! nothing, so a server can load the tools anywhere.
+//! `listTools` sends only when asked. A group's `schemas.ts` and
+//! `outputs.ts` hold the schemas of the models placed in it. The root gets
+//! an `index.ts` with every tool and the runtime, a `README.md` that lists
+//! the methods without a tool and why, the top-level models' schemas, and
+//! the runtime itself in `_/tool.ts`: the tool type, listing tools, and
+//! building a call's request as plain data. The runtime imports nothing, so
+//! a server can load the tools anywhere.
 //!
-//! A tool is named after its groups and method, in snake_case and joined by
-//! `_`, such as `dns_records_create`. Its path, query and header parameters
-//! are arguments named after the parameter in snake_case, and a JSON body is
-//! the argument `body`, as the API takes it.
+//! Each group's files depend only on the group, so they are generated in
+//! parallel with [`Plugin::generate_group`]. A tool is named after its
+//! groups and method, each in camelCase, joined by `_`, such as
+//! `webAssets_discovery_operations_bulkEdit`, so tools of different groups
+//! never share a name. Its arguments are objects by where they go: `path`,
+//! `query` and `headers`, each keyed by the parameters' names on the wire,
+//! and the JSON body as `body`, as the API takes it.
 
 use std::borrow::Cow;
-use std::collections::{BTreeMap, HashMap, HashSet};
+use std::collections::{HashMap, HashSet};
 use std::fmt::Write as _;
 
 use forge::ts::{self, Ident, Module, PREAMBLE, p};
-use forge::{Availability, Err, Field, Forge, Group, HttpMethod, Location, Method, Model, Plugin, Type};
+use forge::{Availability, Err, Field, Forge, Group, HttpMethod, Location, Method, Model, Name, Plugin, Type};
 use serde_json::{Map, Value, json};
 
 mod schema;
 
-use schema::{Refs, Schemas};
+use schema::{Direction, Refs, Schemas, reach};
 
 /// Generates an MCP server.
 pub struct Generator;
@@ -38,50 +43,57 @@ pub struct Generator;
 impl Plugin for Generator {
     type File = File;
 
-    /// Returns every file. Tool names must be unique across groups, so the
-    /// files of the groups are generated here too, rather than one group at
-    /// a time.
+    /// Returns the files of the root: `index.ts` with every tool,
+    /// `README.md`, the runtime, and the schemas of the top-level models.
     fn generate(&self, forge: &Forge) -> Result<impl Iterator<Item = File>, Err> {
-        let mut schemas = Schemas::default();
-        let mut outputs = Schemas::output();
-        let mut names = HashSet::new();
-        let mut skipped = Vec::new();
         let mut groups = Vec::new();
+        let mut count = 0;
+        let mut skipped = Vec::new();
         for group in forge.groups() {
-            let mut tools = Vec::new();
-            for m in group.methods() {
-                if m.is_deprecated() {
-                    continue;
-                }
-                match Tool::new(m, &mut schemas, &mut outputs) {
-                    Ok(tool) if names.insert(tool.name.clone()) => tools.push(tool),
-                    Ok(tool) => skipped.push((m, format!("another method has the tool name {}", tool.name))),
+            let before = count;
+            for (m, verdict) in verdicts(group) {
+                match verdict {
+                    Ok(_) => count += 1,
                     Err(reason) => skipped.push((m, reason)),
                 }
             }
-            if !tools.is_empty() {
-                tools.sort_by(|a, b| a.name.cmp(&b.name));
-                groups.push((group, tools));
+            if count > before {
+                groups.push(group);
             }
         }
 
-        let (input_files, idents) = schema_files(&schemas, SchemaFile::Input);
-        let (output_files, output_idents) = schema_files(&outputs, SchemaFile::Output);
-        let mut files: Vec<File> = groups
-            .iter()
-            .map(|(group, tools)| File::Ts(tools_file(*group, tools, &idents, &output_idents)))
-            .collect();
-        files.extend(input_files.into_iter().map(File::Ts));
-        files.extend(output_files.into_iter().map(File::Ts));
+        let mut files = model_files(Module::ROOT, forge.models(), forge.groups())?;
         files.push(File::Ts(index(forge, &groups)));
         files.push(File::Text {
             path: "README.md".to_owned(),
-            content: readme(&groups, &skipped),
+            content: readme(count, groups.len(), &skipped),
         });
         files.extend(RUNTIME.iter().map(|&(path, source)| File::Text {
             path: RUNTIME_DIR.sub(path).as_str().to_owned(),
             content: format!("{PREAMBLE}{source}"),
         }));
+        Ok(files.into_iter())
+    }
+
+    /// Returns the files of `group`: a `tools.ts` with the tools of its
+    /// methods, and the schemas of the models placed in it.
+    fn generate_group(&self, group: Group<'_>) -> Result<impl Iterator<Item = File>, Err> {
+        let mut tools = Vec::new();
+        for (m, verdict) in verdicts(group) {
+            if let Ok(name) = verdict {
+                tools.push(Tool::new(m, name)?);
+            }
+        }
+        tools.sort_by(|a, b| a.name.cmp(&b.name));
+        let mut files = Vec::new();
+        if !tools.is_empty() {
+            files.push(File::Ts(tools_file(group, &tools)));
+        }
+        files.extend(model_files(
+            Module::group(group),
+            group.models(),
+            std::iter::once(group).chain(group.descendants()),
+        )?);
         Ok(files.into_iter())
     }
 }
@@ -123,6 +135,91 @@ const RUNTIME: [(&str, &str); 1] = [("tool.ts", include_str!("mcp/lib/src/tool.t
 /// MCP tool names are at most 128 characters.
 const MAX_NAME_LENGTH: usize = 128;
 
+/// Returns each method of `group` that isn't deprecated, with the name of
+/// its tool, or why it has none. Deprecated methods are left out silently.
+///
+/// Forge keeps the names of a group's methods unique, but two can still
+/// have the same camelCase spelling, since a digit belongs to the word
+/// before it: `x1b` and `x_1b`. The first method by name keeps the tool
+/// name. Groups whose paths have the same spelling share a directory, which
+/// [`forge::write`] refuses.
+fn verdicts(group: Group<'_>) -> Vec<(Method<'_>, Result<String, String>)> {
+    let mut names = HashSet::new();
+    group
+        .methods()
+        .filter(|m| !m.is_deprecated())
+        .map(|m| {
+            let verdict = check(m).and_then(|name| {
+                if names.insert(name.clone()) {
+                    Ok(name)
+                } else {
+                    Err(format!("another method has the tool name {name}"))
+                }
+            });
+            (m, verdict)
+        })
+        .collect()
+}
+
+/// Returns the name of the tool of `m`, or why it can't have one, without
+/// building its schemas.
+fn check(m: Method<'_>) -> Result<String, String> {
+    let name = tool_name(m);
+    if name.len() > MAX_NAME_LENGTH {
+        return Err(format!("the tool name is over {MAX_NAME_LENGTH} characters"));
+    }
+    if let Some(b) = m.body()
+        && b.json().is_none()
+        && b.is_required()
+    {
+        let types: Vec<&str> = b.contents().map(|c| c.media_type()).collect();
+        return Err(format!("the request body is not JSON ({})", types.join(", ")));
+    }
+    segments(m.path(), &path_names(m))?;
+    Ok(name)
+}
+
+/// Returns the wire names of the path parameters of `m`.
+fn path_names(m: Method<'_>) -> Vec<&str> {
+    parameters(m.request())
+        .into_iter()
+        .filter(|&f| m.location(f) == Some(Location::Path))
+        .map(|f| f.wire_name())
+        .collect()
+}
+
+/// Returns the types of the arguments of `m`, whose models its input
+/// schema refers to.
+fn input_types(m: Method<'_>) -> Vec<Type<'_>> {
+    let mut types: Vec<Type<'_>> = parameters(m.request())
+        .into_iter()
+        .filter(|&f| m.location(f).is_some())
+        .map(|f| f.ty())
+        .collect();
+    types.extend(
+        m.headers()
+            .into_iter()
+            .flat_map(|h| h.fields())
+            .filter(|f| !f.is_read_only())
+            .map(|f| f.ty()),
+    );
+    if let Some(b) = m.body()
+        && let Some(content) = b.json()
+    {
+        types.push(content.ty());
+    }
+    types
+}
+
+/// Returns the types of the JSON bodies of the responses of `m`, whose
+/// models its response schemas refer to.
+fn output_types(m: Method<'_>) -> Vec<Type<'_>> {
+    m.responses()
+        .chain(m.errors())
+        .filter_map(|r| r.json().map(|c| c.ty()))
+        .collect()
+}
+
 /// The tool of a method.
 struct Tool<'f> {
     method: Method<'f>,
@@ -131,66 +228,88 @@ struct Tool<'f> {
     properties: Value,
     required: Vec<String>,
     /// The models in the input schema's `$defs`, by key.
-    defs: BTreeMap<String, Model<'f>>,
-    /// The path template, split into text and the keys of the arguments
-    /// that fill its parameters.
+    defs: std::collections::BTreeMap<String, Model<'f>>,
+    /// The path template, split into text and the parameters that fill it.
     path: Vec<Segment>,
-    /// Each query parameter's wire name, argument key, and whether it is
-    /// exploded.
-    query: Vec<(String, String, bool)>,
-    /// Each header parameter's wire name and argument key.
-    headers: Vec<(String, String)>,
-    /// The argument key and media type of the JSON body.
-    body: Option<(String, String)>,
+    /// Each query parameter's wire name, and whether it is exploded.
+    query: Vec<(String, bool)>,
+    /// Each header parameter's wire name.
+    headers: Vec<String>,
+    /// The media type of the JSON body.
+    body: Option<String>,
     /// The schema of each response's JSON body, by status, or `None` for a
     /// response without one.
     responses: Vec<(String, Option<Value>)>,
     /// The models in the response schemas' `$defs`, by key.
-    response_defs: BTreeMap<String, Model<'f>>,
+    response_defs: std::collections::BTreeMap<String, Model<'f>>,
     /// The output schema: the schema of a successful response's JSON body,
     /// or `None` if a successful response has no JSON body.
     output: Option<Value>,
     /// The models in the output schema's `$defs`, by key.
-    output_defs: BTreeMap<String, Model<'f>>,
+    output_defs: std::collections::BTreeMap<String, Model<'f>>,
 }
 
 /// A part of a path template.
 enum Segment {
     Text(String),
-    /// A parameter, filled by the argument with this key.
+    /// A path parameter, by wire name.
     Param(String),
 }
 
-impl<'f> Tool<'f> {
-    /// Returns the tool of `m`, or why it has none.
-    fn new(m: Method<'f>, schemas: &mut Schemas<'f>, outputs: &mut Schemas<'f>) -> Result<Tool<'f>, String> {
-        let name = tool_name(m);
-        if name.len() > MAX_NAME_LENGTH {
-            return Err(format!("the tool name is over {MAX_NAME_LENGTH} characters"));
+/// The parameters of a tool in one place, `path`, `query` or `headers`: the
+/// argument that holds them, an object keyed by their wire names.
+#[derive(Default)]
+struct Params {
+    properties: Map<String, Value>,
+    required: Vec<String>,
+}
+
+impl Params {
+    /// Adds `field`, a parameter that is required if `required`.
+    fn add<'f>(&mut self, field: Field<'f>, required: bool, refs: &mut Refs<'f>) {
+        let key = field.wire_name().to_owned();
+        self.properties.insert(key.clone(), Schemas::INPUT.field(field, refs));
+        if required {
+            self.required.push(key);
         }
+    }
+
+    /// Adds the argument `key` holding the parameters to `properties`, and
+    /// to `required` if one of them is. A place without parameters has no
+    /// argument.
+    fn insert_into(self, key: &str, properties: &mut Map<String, Value>, required: &mut Vec<String>) {
+        if self.properties.is_empty() {
+            return;
+        }
+        let mut schema = Map::new();
+        schema.insert("type".to_owned(), json!("object"));
+        schema.insert("properties".to_owned(), Value::Object(self.properties));
+        if !self.required.is_empty() {
+            schema.insert("required".to_owned(), json!(self.required));
+            required.push(key.to_owned());
+        }
+        properties.insert(key.to_owned(), Value::Object(schema));
+    }
+}
+
+impl<'f> Tool<'f> {
+    /// Returns the tool of `m` named `name`. [`check`] has accepted `m`.
+    fn new(m: Method<'f>, name: String) -> Result<Tool<'f>, String> {
         let mut refs = Refs::new();
-        let mut properties = Map::new();
-        let mut required = Vec::new();
-        let mut keys = Keys::default();
-        let mut path_keys = Vec::new();
+        let mut path_params = Params::default();
+        let mut query_params = Params::default();
+        let mut header_params = Params::default();
         let mut query = Vec::new();
         let mut headers = Vec::new();
 
         for field in parameters(m.request()) {
-            let Some(location) = m.location(field) else {
-                continue;
-            };
-            let key = match location {
-                Location::Path => keys.add(field, "path")?,
-                Location::Query { .. } => keys.add(field, "query")?,
-            };
-            properties.insert(key.clone(), schemas.field(field, &mut refs));
-            if field.is_required() || location == Location::Path {
-                required.push(key.clone());
-            }
-            match location {
-                Location::Path => path_keys.push((field.wire_name().to_owned(), key)),
-                Location::Query { exploded } => query.push((field.wire_name().to_owned(), key, exploded)),
+            match m.location(field) {
+                Some(Location::Path) => path_params.add(field, true, &mut refs),
+                Some(Location::Query { exploded }) => {
+                    query_params.add(field, field.is_required(), &mut refs);
+                    query.push((field.wire_name().to_owned(), exploded));
+                }
+                None => {}
             }
         }
         for field in m
@@ -199,43 +318,34 @@ impl<'f> Tool<'f> {
             .flat_map(|h| h.fields())
             .filter(|f| !f.is_read_only())
         {
-            let key = keys.add(field, "header")?;
-            properties.insert(key.clone(), schemas.field(field, &mut refs));
-            if field.is_required() {
-                required.push(key.clone());
-            }
-            headers.push((field.wire_name().to_owned(), key));
+            header_params.add(field, field.is_required(), &mut refs);
+            headers.push(field.wire_name().to_owned());
         }
+
+        let mut properties = Map::new();
+        let mut required = Vec::new();
+        path_params.insert_into("path", &mut properties, &mut required);
+        query_params.insert_into("query", &mut properties, &mut required);
+        header_params.insert_into("headers", &mut properties, &mut required);
 
         let mut body = None;
-        if let Some(b) = m.body() {
-            if let Some(content) = b.json() {
-                let key = if keys.taken.contains("body") {
-                    "request_body"
-                } else {
-                    "body"
-                };
-                if !keys.taken.insert(key.to_owned()) {
-                    return Err(format!("two arguments are both named {key}"));
-                }
-                let mut schema = schemas.ty(content.ty(), &mut refs);
-                if let Value::Object(map) = &mut schema
-                    && !b.description().is_empty()
-                {
-                    map.insert("description".to_owned(), json!(b.description()));
-                }
-                properties.insert(key.to_owned(), schema);
-                if b.is_required() {
-                    required.push(key.to_owned());
-                }
-                body = Some((key.to_owned(), content.media_type().to_owned()));
-            } else if b.is_required() {
-                let types: Vec<&str> = b.contents().map(|c| c.media_type()).collect();
-                return Err(format!("the request body is not JSON ({})", types.join(", ")));
+        if let Some(b) = m.body()
+            && let Some(content) = b.json()
+        {
+            let mut schema = Schemas::INPUT.ty(content.ty(), &mut refs);
+            if let Value::Object(map) = &mut schema
+                && !b.description().is_empty()
+            {
+                map.insert("description".to_owned(), json!(b.description()));
             }
+            properties.insert("body".to_owned(), schema);
+            if b.is_required() {
+                required.push("body".to_owned());
+            }
+            body = Some(content.media_type().to_owned());
         }
 
-        let path = segments(m.path(), &path_keys)?;
+        let path = segments(m.path(), &path_names(m))?;
         let mut response_refs = Refs::new();
         let mut success_refs = Refs::new();
         let mut successes = Vec::new();
@@ -247,7 +357,7 @@ impl<'f> Tool<'f> {
                 r.status().to_ascii_uppercase()
             };
             let mut refs = Refs::new();
-            let schema = r.json().map(|c| outputs.ty(c.ty(), &mut refs));
+            let schema = r.json().map(|c| Schemas::OUTPUT.ty(c.ty(), &mut refs));
             if status.starts_with('2') {
                 successes.push(schema.clone());
                 success_refs.extend(refs.iter().copied());
@@ -257,9 +367,9 @@ impl<'f> Tool<'f> {
         }
         let output = output_schema(successes);
         let output_defs = if output.is_some() {
-            outputs.defs(&success_refs)
+            Schemas::OUTPUT.defs(&success_refs)
         } else {
-            BTreeMap::new()
+            std::collections::BTreeMap::new()
         };
 
         Ok(Tool {
@@ -267,13 +377,13 @@ impl<'f> Tool<'f> {
             name,
             properties: Value::Object(properties),
             required,
-            defs: schemas.defs(&refs),
+            defs: Schemas::INPUT.defs(&refs),
             path,
             query,
             headers,
             body,
             responses,
-            response_defs: outputs.defs(&response_refs),
+            response_defs: Schemas::OUTPUT.defs(&response_refs),
             output,
             output_defs,
         })
@@ -322,33 +432,6 @@ fn output_schema(successes: Vec<Option<Value>>) -> Option<Value> {
     }
 }
 
-/// The keys of a tool's arguments.
-#[derive(Default)]
-struct Keys {
-    taken: HashSet<String>,
-}
-
-impl Keys {
-    /// Returns the key of `field`, a parameter in `location`: its name in
-    /// snake_case, or its wire name if that has no words. If another
-    /// argument has it, the location goes in front, as in `query_name`.
-    fn add(&mut self, field: Field<'_>, location: &str) -> Result<String, String> {
-        let snake = field.name().snake();
-        let mut key = if snake.is_empty() {
-            field.wire_name().to_owned()
-        } else {
-            snake
-        };
-        if self.taken.contains(&key) {
-            key = format!("{location}_{key}");
-        }
-        if !self.taken.insert(key.clone()) {
-            return Err(format!("two arguments are both named {key}"));
-        }
-        Ok(key)
-    }
-}
-
 /// Returns the fields of a method's request: an object of parameters, or an
 /// intersection of the parameters and the body.
 fn parameters(request: Option<Type<'_>>) -> Vec<Field<'_>> {
@@ -362,9 +445,9 @@ fn parameters(request: Option<Type<'_>>) -> Vec<Field<'_>> {
     }
 }
 
-/// Returns `template` split into text and the keys of the arguments that
-/// fill its parameters, given each path parameter's wire name and key.
-fn segments(template: &str, keys: &[(String, String)]) -> Result<Vec<Segment>, String> {
+/// Returns `template` split into text and the path parameters that fill
+/// it, given their wire names.
+fn segments(template: &str, names: &[&str]) -> Result<Vec<Segment>, String> {
     let mut segments = Vec::new();
     let mut rest = template;
     while let Some(start) = rest.find('{') {
@@ -372,13 +455,13 @@ fn segments(template: &str, keys: &[(String, String)]) -> Result<Vec<Segment>, S
             break;
         };
         let wire = &rest[start + 1..start + len];
-        let Some((_, key)) = keys.iter().find(|(name, _)| name == wire) else {
+        if !names.contains(&wire) {
             return Err(format!("the path parameter {wire} has no argument"));
-        };
+        }
         if start > 0 {
             segments.push(Segment::Text(rest[..start].to_owned()));
         }
-        segments.push(Segment::Param(key.clone()));
+        segments.push(Segment::Param(wire.to_owned()));
         rest = &rest[start + len + 1..];
     }
     if !rest.is_empty() {
@@ -388,11 +471,13 @@ fn segments(template: &str, keys: &[(String, String)]) -> Result<Vec<Segment>, S
 }
 
 /// Returns the name of the tool of `m`: the names of its groups and its
-/// own, in snake_case, joined by `_`, such as `accounts_members_list`.
+/// own, in camelCase, joined by `_`, such as `accounts_members_list` or
+/// `webAssets_discovery_operations_bulkEdit`. `_` only ever separates
+/// names, so tools of different groups can't share a name.
 fn tool_name(m: Method<'_>) -> String {
-    let mut words: Vec<String> = m.group().path().map(|name| name.snake()).collect();
-    words.push(m.name().snake());
-    words.join("_")
+    let mut names: Vec<String> = m.group().path().map(Name::camel).collect();
+    names.push(m.name().camel());
+    names.join("_")
 }
 
 /// Returns the description of the tool of `m`: its description, or its
@@ -435,129 +520,138 @@ fn description(m: Method<'_>) -> String {
 enum SchemaFile {
     /// Models in arguments, in `schemas.ts`.
     Input,
-    /// Models in response bodies, in `outputs.ts`, named with `_output` so a
+    /// Models in response bodies, in `outputs.ts`, named with `Output` so a
     /// `tools.ts` can import both.
     Output,
 }
 
-/// Returns a `schemas.ts`, or `outputs.ts`, for each directory with models:
-/// a constant with the schema of each model placed there, which every tool
-/// that uses the model shares. Also returns each model's constant.
-fn schema_files<'f>(schemas: &Schemas<'f>, kind: SchemaFile) -> (Vec<ts::File>, HashMap<Model<'f>, Ident>) {
-    let (file, suffix, doc) = match kind {
-        SchemaFile::Input => ("schemas.ts", "", ""),
-        SchemaFile::Output => ("outputs.ts", "_output", " in responses"),
-    };
-    let mut modules: BTreeMap<String, Vec<(&str, Model<'f>, &Value)>> = BTreeMap::new();
-    for (model, key, schema) in schemas.built() {
-        let module = model.group().map_or(Module::ROOT, Module::group).sub(file);
-        modules
-            .entry(module.as_str().to_owned())
-            .or_default()
-            .push((key, model, schema));
-    }
-    let schema_type = RUNTIME_TOOL.ident("JsonSchema").ty();
-    let mut idents = HashMap::new();
-    let mut files = Vec::new();
-    for (path, mut models) in modules {
-        models.sort_by_key(|&(key, ..)| key);
-        let mut f = ts::File::new(Module::from(path));
-        let mut taken = HashSet::new();
-        for (key, model, schema) in models {
-            let mut name = ts_identifier(key) + suffix;
-            if RESERVED.contains(&name.as_str()) {
-                name.push('_');
-            }
-            while !taken.insert(name.clone()) {
-                name.push('$');
-            }
-            let ident = f.ident(name.clone());
-            f.doc(&format!("The schema of `{}`{doc}.", model.schema_name()));
-            let json = serde_json::to_string_pretty(schema).unwrap_or_else(|_| "{}".to_owned());
-            let mut lines = json.lines().peekable();
-            let mut first = true;
-            while let Some(line) = lines.next() {
-                let prefix: Vec<&dyn ts::Print> = if first {
-                    vec![&"export const ", &ident, &": ", &schema_type, &" = "]
-                } else {
-                    Vec::new()
-                };
-                let suffix = if lines.peek().is_none() { ";" } else { "" };
-                let mut parts = prefix;
-                parts.push(&line);
-                parts.push(&suffix);
-                f.line(&parts);
-                first = false;
-            }
-            p!(f, "");
-            idents.insert(model, ident);
+impl SchemaFile {
+    fn file(self) -> &'static str {
+        match self {
+            SchemaFile::Input => "schemas.ts",
+            SchemaFile::Output => "outputs.ts",
         }
-        files.push(f);
     }
-    (files, idents)
+
+    fn schemas(self) -> Schemas {
+        match self {
+            SchemaFile::Input => Schemas::INPUT,
+            SchemaFile::Output => Schemas::OUTPUT,
+        }
+    }
 }
 
-/// Words that can't name a constant.
-const RESERVED: &[&str] = &[
-    "break",
-    "case",
-    "catch",
-    "class",
-    "const",
-    "continue",
-    "debugger",
-    "default",
-    "delete",
-    "do",
-    "else",
-    "enum",
-    "export",
-    "extends",
-    "false",
-    "finally",
-    "for",
-    "function",
-    "if",
-    "import",
-    "in",
-    "instanceof",
-    "new",
-    "null",
-    "return",
-    "super",
-    "switch",
-    "this",
-    "throw",
-    "true",
-    "try",
-    "typeof",
-    "var",
-    "void",
-    "while",
-    "with",
-    "yield",
-    "let",
-    "static",
-    "implements",
-    "interface",
-    "package",
-    "private",
-    "protected",
-    "public",
-    "await",
-];
+/// Returns the constant with the schema of `model` in a file of `kind`:
+/// the model's name in PascalCase, as the TypeScript SDK names it, with
+/// `Output` after it in `outputs.ts`, declared in its group's directory, or
+/// the root's for a top-level model. Forge places each model, so any file
+/// can name its constant.
+fn model_ident(model: Model<'_>, kind: SchemaFile) -> Ident {
+    let name = Ident::model(model).name;
+    let name = match kind {
+        SchemaFile::Input => name.into_owned(),
+        SchemaFile::Output => format!("{name}Output"),
+    };
+    let dir = model.group().map_or(Module::ROOT, Module::group);
+    dir.sub(kind.file()).ident(name)
+}
+
+/// Returns the `schemas.ts` and `outputs.ts` of `dir`: a constant with the
+/// schema of each model of `placed`, the models placed there, that a tool
+/// of `groups` uses in its arguments or its responses. `groups` are the
+/// groups whose methods can use the models: the group of `dir` and those
+/// below it.
+fn model_files<'f>(
+    dir: Module,
+    placed: impl Iterator<Item = Model<'f>>,
+    groups: impl Iterator<Item = Group<'f>>,
+) -> Result<Vec<File>, Err> {
+    let placed: HashSet<Model<'f>> = placed.collect();
+    if placed.is_empty() {
+        return Ok(Vec::new());
+    }
+    let mut inputs = Refs::new();
+    let mut outputs = Refs::new();
+    for group in groups {
+        for (m, verdict) in verdicts(group) {
+            if verdict.is_err() {
+                continue;
+            }
+            for t in input_types(m) {
+                reach(t, Direction::Input, &mut inputs);
+            }
+            for t in output_types(m) {
+                reach(t, Direction::Output, &mut outputs);
+            }
+        }
+    }
+    let mut files = Vec::new();
+    for (kind, reached) in [(SchemaFile::Input, inputs), (SchemaFile::Output, outputs)] {
+        let mut models: Vec<Model<'f>> = reached.into_iter().filter(|m| placed.contains(m)).collect();
+        if models.is_empty() {
+            continue;
+        }
+        models.sort_by_cached_key(|&m| schema::key(m));
+        files.push(File::Ts(schema_file(dir.sub(kind.file()), &models, kind)?));
+    }
+    Ok(files)
+}
+
+/// Returns the file `module` with the constant of each of `models`, which
+/// are placed in its directory. Two models in a group with the same name
+/// are an error, as in the TypeScript SDK, as is a model whose name has no
+/// letters or digits.
+fn schema_file(module: Module, models: &[Model<'_>], kind: SchemaFile) -> Result<ts::File, Err> {
+    let mut f = ts::File::new(module);
+    let schema_type = RUNTIME_TOOL.ident("JsonSchema").ty();
+    let doc = match kind {
+        SchemaFile::Input => "",
+        SchemaFile::Output => " in responses",
+    };
+    let mut names: HashMap<String, Model<'_>> = HashMap::new();
+    for &model in models {
+        let name = model_ident(model, kind).name.into_owned();
+        if model.name().is_empty() {
+            return Err(format!("schema {:?}: the name has no letters or digits", model.schema_name()).into());
+        }
+        if let Some(other) = names.insert(name.clone(), model) {
+            return Err(format!(
+                "schemas {:?} and {:?} have the same name {name:?}",
+                other.schema_name(),
+                model.schema_name()
+            )
+            .into());
+        }
+        let ident = f.ident(name);
+        f.doc(&format!("The schema of `{}`{doc}.", model.schema_name()));
+        let json = serde_json::to_string_pretty(&kind.schemas().model(model)).unwrap_or_else(|_| "{}".to_owned());
+        let mut lines = json.lines().peekable();
+        let mut first = true;
+        while let Some(line) = lines.next() {
+            let prefix: Vec<&dyn ts::Print> = if first {
+                vec![&"export const ", &ident, &": ", &schema_type, &" = "]
+            } else {
+                Vec::new()
+            };
+            let suffix = if lines.peek().is_none() { ";" } else { "" };
+            let mut parts = prefix;
+            parts.push(&line);
+            parts.push(&suffix);
+            f.line(&parts);
+            first = false;
+        }
+        p!(f, "");
+    }
+    Ok(f)
+}
 
 /// Returns the `tools.ts` of `group`.
-fn tools_file(
-    group: Group<'_>,
-    tools: &[Tool<'_>],
-    schemas: &HashMap<Model<'_>, Ident>,
-    outputs: &HashMap<Model<'_>, Ident>,
-) -> ts::File {
+fn tools_file(group: Group<'_>, tools: &[Tool<'_>]) -> ts::File {
     let mut f = ts::File::new(Module::group(group).sub("tools.ts"));
     let tool = RUNTIME_TOOL.ident("Tool").ty();
     let path_param = RUNTIME_TOOL.ident("pathParam");
-    let dotted: Vec<String> = group.path().map(|name| name.snake()).collect();
+    let param = RUNTIME_TOOL.ident("param");
+    let dotted: Vec<String> = group.path().map(Name::camel).collect();
     f.doc(&format!("The tools of `{}`.", dotted.join(".")));
     p!(f, "export const tools: readonly ", tool, "[] = [");
     f.indent(|f| {
@@ -582,7 +676,7 @@ fn tools_file(
                         p!(f, "$defs: {");
                         f.indent(|f| {
                             for (key, model) in &t.defs {
-                                p!(f, string(key), ": ", schemas[model].clone(), ",");
+                                p!(f, string(key), ": ", model_ident(*model, SchemaFile::Input), ",");
                             }
                         });
                         p!(f, "},");
@@ -599,7 +693,7 @@ fn tools_file(
                             p!(f, "$defs: {");
                             f.indent(|f| {
                                 for (key, model) in &t.output_defs {
-                                    p!(f, string(key), ": ", outputs[model].clone(), ",");
+                                    p!(f, string(key), ": ", model_ident(*model, SchemaFile::Output), ",");
                                 }
                             });
                             p!(f, "},");
@@ -630,7 +724,7 @@ fn tools_file(
                             p!(f, "$defs: {");
                             f.indent(|f| {
                                 for (key, model) in &t.response_defs {
-                                    p!(f, string(key), ": ", outputs[model].clone(), ",");
+                                    p!(f, string(key), ": ", model_ident(*model, SchemaFile::Output), ",");
                                 }
                             });
                             p!(f, "},");
@@ -653,10 +747,10 @@ fn tools_file(
                     for segment in &t.path {
                         match segment {
                             Segment::Text(text) => parts.push(Box::new(template_text(text))),
-                            Segment::Param(key) => {
+                            Segment::Param(wire) => {
                                 parts.push(Box::new("${".to_owned()));
                                 parts.push(Box::new(path_param.clone()));
-                                parts.push(Box::new(format!("(args, {})}}", string(key))));
+                                parts.push(Box::new(format!("(args, {})}}", string(wire))));
                             }
                         }
                     }
@@ -666,14 +760,16 @@ fn tools_file(
                     if !t.query.is_empty() {
                         p!(f, "query: [");
                         f.indent(|f| {
-                            for (wire, key, explode) in &t.query {
+                            for (wire, explode) in &t.query {
                                 p!(
                                     f,
                                     "[",
                                     string(wire),
-                                    ", args[",
-                                    string(key),
-                                    "], ",
+                                    ", ",
+                                    param.clone(),
+                                    "(args, \"query\", ",
+                                    string(wire),
+                                    "), ",
                                     explode.to_string(),
                                     "],"
                                 );
@@ -684,18 +780,25 @@ fn tools_file(
                     if !t.headers.is_empty() {
                         p!(f, "headers: [");
                         f.indent(|f| {
-                            for (wire, key) in &t.headers {
-                                p!(f, "[", string(wire), ", args[", string(key), "]],");
+                            for wire in &t.headers {
+                                p!(
+                                    f,
+                                    "[",
+                                    string(wire),
+                                    ", ",
+                                    param.clone(),
+                                    "(args, \"headers\", ",
+                                    string(wire),
+                                    ")],"
+                                );
                             }
                         });
                         p!(f, "],");
                     }
-                    if let Some((key, media_type)) = &t.body {
+                    if let Some(media_type) = &t.body {
                         p!(
                             f,
-                            "body: { value: args[",
-                            string(key),
-                            "], mediaType: ",
+                            "body: { value: args[\"body\"], mediaType: ",
                             string(media_type),
                             " },"
                         );
@@ -710,8 +813,9 @@ fn tools_file(
     f
 }
 
-/// Returns the `index.ts` of the root: the API, and every tool.
-fn index(forge: &Forge, groups: &[(Group<'_>, Vec<Tool<'_>>)]) -> ts::File {
+/// Returns the `index.ts` of the root: the API, and every tool of `groups`,
+/// the groups with tools.
+fn index(forge: &Forge, groups: &[Group<'_>]) -> ts::File {
     let mut f = ts::File::new(Module::ROOT.sub("index.ts"));
     let tool = RUNTIME_TOOL.ident("Tool").ty();
     p!(f, "export * from './_/tool.js';");
@@ -728,7 +832,7 @@ fn index(forge: &Forge, groups: &[(Group<'_>, Vec<Tool<'_>>)]) -> ts::File {
     f.doc("Every tool, by group and then by name.");
     p!(f, "export const tools: readonly ", tool, "[] = [");
     f.indent(|f| {
-        for (group, _) in groups {
+        for group in groups {
             let alias: Vec<String> = group.path().map(|name| name.camel()).collect();
             let ident = Module::group(*group)
                 .sub("tools.ts")
@@ -741,15 +845,13 @@ fn index(forge: &Forge, groups: &[(Group<'_>, Vec<Tool<'_>>)]) -> ts::File {
     f
 }
 
-/// Returns the README.md of the server: how many tools it has, and each
-/// method without one and why.
-fn readme(groups: &[(Group<'_>, Vec<Tool<'_>>)], skipped: &[(Method<'_>, String)]) -> String {
-    let count: usize = groups.iter().map(|(_, tools)| tools.len()).sum();
+/// Returns the README.md of the server: how many tools it has, in how many
+/// groups, and each method without one and why.
+fn readme(count: usize, groups: usize, skipped: &[(Method<'_>, String)]) -> String {
     let mut out = String::from("<!-- Code generated by forge. DO NOT EDIT. -->\n\n# MCP tools\n\n");
     let _ = writeln!(
         out,
-        "{count} tools in {} groups. `index.ts` exports them as `tools`, with the runtime in `_/tool.ts` that lists them and builds their requests.",
-        groups.len()
+        "{count} tools in {groups} groups. `index.ts` exports them as `tools`, with the runtime in `_/tool.ts` that lists them and builds their requests."
     );
     if !skipped.is_empty() {
         let _ = writeln!(
@@ -815,16 +917,16 @@ fn ts_identifier(s: &str) -> String {
 
 #[cfg(test)]
 mod tests {
-    use forge::{File as _, Forge, Plugin};
+    use forge::{File as _, Forge};
 
     use super::Generator;
 
     /// Returns the files the generator makes from `spec`, by path.
     fn generate(spec: &str) -> Vec<(String, String)> {
         let forge: Forge = serde_json::from_str(spec).unwrap();
-        let mut files: Vec<(String, String)> = Generator
-            .generate(&forge)
+        let mut files: Vec<(String, String)> = forge::run(&forge, &Generator)
             .unwrap()
+            .into_iter()
             .map(|f| {
                 let content = String::from_utf8(f.content().unwrap().into_owned()).unwrap();
                 (f.path().to_owned(), content)
@@ -929,8 +1031,25 @@ mod tests {
             tools.contains(r#"path: `/stores/${pathParam(args, "store_id")}/pets`,"#),
             "{tools}"
         );
-        assert!(tools.contains(r#"["tag", args["tag"], false],"#), "{tools}");
-        assert!(tools.contains(r#"["X-Trace", args["x_trace"]],"#), "{tools}");
+        assert!(
+            tools.contains(r#"["tag", param(args, "query", "tag"), false],"#),
+            "{tools}"
+        );
+        assert!(
+            tools.contains(r#"["X-Trace", param(args, "headers", "X-Trace")],"#),
+            "{tools}"
+        );
+        let list = &tools[tools.find(r#"name: "pets_list","#).unwrap()..];
+        let input = &list[list.find("inputSchema: {").unwrap()..list.find("outputSchema").unwrap()];
+        for place in [r#""path": {"#, r#""query": {"#, r#""headers": {"#] {
+            assert!(input.contains(place), "parameters by where they go: {input}");
+        }
+        assert!(input.contains(r#""store_id": {"#), "keyed by wire name: {input}");
+        assert!(input.contains(r#""X-Trace": {"#), "keyed by wire name: {input}");
+        assert!(
+            input.contains("required: [\n        \"path\"\n      ],"),
+            "only the path is required: {input}"
+        );
         assert!(tools.contains(r#""x-api-token-group": ["#), "{tools}");
         assert!(tools.contains(r#""readOnlyHint": true"#), "{tools}");
     }
@@ -964,9 +1083,9 @@ mod tests {
             "a response without a JSON body: {tools}"
         );
         assert!(tools.contains(r##""$ref": "#/$defs/Pet""##), "{tools}");
-        assert!(tools.contains(r#""Pet": Pet_output,"#), "{tools}");
+        assert!(tools.contains(r#""Pet": PetOutput,"#), "{tools}");
         let outputs = file(&files, "pets/outputs.ts");
-        assert!(outputs.contains("export const Pet_output: JsonSchema = {"), "{outputs}");
+        assert!(outputs.contains("export const PetOutput: JsonSchema = {"), "{outputs}");
         assert!(
             outputs.contains(r#""id""#),
             "responses keep read-only fields: {outputs}"
@@ -988,7 +1107,7 @@ mod tests {
         let list = &tools[tools.find(r#"name: "pets_list","#).unwrap()..];
         let list = &list[..list.find("request: ").unwrap()];
         assert!(
-            list.contains("outputSchema: {\n      \"items\": {\n        \"$ref\": \"#/$defs/Pet\"\n      },\n      \"type\": \"array\",\n      $defs: {\n        \"Pet\": Pet_output,\n      },\n    },"),
+            list.contains("outputSchema: {\n      \"items\": {\n        \"$ref\": \"#/$defs/Pet\"\n      },\n      \"type\": \"array\",\n      $defs: {\n        \"Pet\": PetOutput,\n      },\n    },"),
             "the 200 body, with its models: {list}"
         );
         let create = &tools[tools.find(r#"name: "pets_create","#).unwrap()..];
@@ -1014,8 +1133,8 @@ mod tests {
         let output = &tools[tools.find("outputSchema: {").unwrap()..tools.find("annotations: ").unwrap()];
         assert!(output.contains(r#""anyOf": ["#), "the distinct 2xx bodies: {output}");
         assert_eq!(output.matches(r#""type": "string""#).count(), 1, "{output}");
-        assert!(output.contains(r#""A": A_output,"#), "{output}");
-        assert!(!output.contains("E_output"), "error models are left out: {output}");
+        assert!(output.contains(r#""A": AOutput,"#), "{output}");
+        assert!(!output.contains("EOutput"), "error models are left out: {output}");
     }
 
     #[test]
@@ -1036,18 +1155,83 @@ mod tests {
     }
 
     #[test]
-    fn duplicate_names() {
+    fn names() {
         let files = generate(
             r#"{"openapi": "3.1.0", "info": {"title": "t", "version": "1"},
                 "paths": {
                     "/a": {"get": {"x-fern-sdk-group-name": "a.b", "x-fern-sdk-method-name": "c",
                         "responses": {"200": {"description": "ok"}}}},
                     "/b": {"get": {"x-fern-sdk-group-name": "a", "x-fern-sdk-method-name": "b_c",
+                        "responses": {"200": {"description": "ok"}}}},
+                    "/c": {"get": {"x-fern-sdk-group-name": "web_assets.discovery", "x-fern-sdk-method-name": "bulk_edit",
                         "responses": {"200": {"description": "ok"}}}}
                 }}"#,
         );
+        assert!(file(&files, "a/b/tools.ts").contains(r#"name: "a_b_c","#));
+        assert!(file(&files, "a/tools.ts").contains(r#"name: "a_bC","#));
+        assert!(file(&files, "webAssets/discovery/tools.ts").contains(r#"name: "webAssets_discovery_bulkEdit","#));
+        assert!(!file(&files, "README.md").contains("Methods without a tool"));
+    }
+
+    /// Two names of methods in a group can have the same camelCase
+    /// spelling, since a digit belongs to the word before it.
+    #[test]
+    fn same_spelling() {
+        let files = generate(
+            r#"{"openapi": "3.1.0", "info": {"title": "t", "version": "1"},
+                "paths": {
+                    "/a": {"get": {"x-fern-sdk-group-name": "a", "x-fern-sdk-method-name": "x1b",
+                        "responses": {"200": {"description": "ok"}}}},
+                    "/b": {"get": {"x-fern-sdk-group-name": "a", "x-fern-sdk-method-name": "x_1b",
+                        "responses": {"200": {"description": "ok"}}}}
+                }}"#,
+        );
+        let tools = file(&files, "a/tools.ts");
+        assert_eq!(tools.matches(r#"name: "a_x1b","#).count(), 1, "{tools}");
         let readme = file(&files, "README.md");
-        assert!(readme.contains("another method has the tool name a_b_c"), "{readme}");
+        assert!(readme.contains("1 tools in 1 groups."), "{readme}");
+        assert!(readme.contains("another method has the tool name a_x1b"), "{readme}");
+    }
+
+    /// A model is a constant in the group it's placed in, which tools of
+    /// other groups import, and its key depends only on its schema name.
+    #[test]
+    fn models_across_groups() {
+        let files = generate(
+            r##"{"openapi": "3.1.0", "info": {"title": "t", "version": "1"},
+                "paths": {
+                    "/a": {"get": {"x-fern-sdk-group-name": "a.x", "x-fern-sdk-method-name": "get",
+                        "responses": {"200": {"description": "ok", "content": {"application/json": {
+                            "schema": {"$ref": "#/components/schemas/Shared$1"}}}}}}},
+                    "/b": {"post": {"x-fern-sdk-group-name": "a.y", "x-fern-sdk-method-name": "make",
+                        "requestBody": {"required": true, "content": {"application/json": {
+                            "schema": {"$ref": "#/components/schemas/Shared$1"}}}},
+                        "responses": {"200": {"description": "ok"}}}},
+                    "/c": {"get": {"x-fern-sdk-group-name": "b", "x-fern-sdk-method-name": "get",
+                        "responses": {"200": {"description": "ok", "content": {"application/json": {
+                            "schema": {"$ref": "#/components/schemas/Top"}}}}}}}
+                },
+                "components": {"schemas": {
+                    "Shared$1": {"type": "object", "properties": {"top": {"$ref": "#/components/schemas/Top"}}},
+                    "Top": {"type": "string"}}}}"##,
+        );
+        let paths: Vec<&str> = files.iter().map(|(path, _)| path.as_str()).collect();
+        assert!(
+            paths.contains(&"a/schemas.ts") && paths.contains(&"a/outputs.ts"),
+            "{paths:?}"
+        );
+        assert!(
+            paths.contains(&"outputs.ts") && paths.contains(&"schemas.ts"),
+            "{paths:?}"
+        );
+        assert!(!paths.contains(&"a/x/schemas.ts"), "only models a tool uses: {paths:?}");
+        let x = file(&files, "a/x/tools.ts");
+        assert!(x.contains(r#""Shared.241": Shared1Output,"#), "{x}");
+        assert!(x.contains(r#""Top": TopOutput,"#), "{x}");
+        assert!(x.contains(r#"from "../outputs.js""#), "{x}");
+        assert!(x.contains(r#"from "../../outputs.js""#), "{x}");
+        let shared = file(&files, "a/outputs.ts");
+        assert!(shared.contains(r##""$ref": "#/$defs/Top""##), "{shared}");
     }
 
     /// Every source of the runtime library is embedded.
