@@ -21,7 +21,7 @@ fn body_has_its_required_and_description() {
     let forge = parse(
         r#"{
           "openapi": "3.0.3", "info": {"title": "t", "version": "1"},
-          "paths": {"/a": {"post": {"x-fern-sdk-group-name": "a", "x-fern-sdk-method-name": "create",
+          "paths": {"/a": {"post": {"x-forge-group-name": "a", "x-forge-method-name": "create",
             "requestBody": {"required": true, "description": "The pet.",
               "content": {"application/json": {"schema": {"type": "string"}}}},
             "responses": {"204": {"description": "ok"}}}}}
@@ -38,7 +38,7 @@ fn body_is_optional_by_default() {
     let forge = parse(
         r#"{
           "openapi": "3.0.3", "info": {"title": "t", "version": "1"},
-          "paths": {"/a": {"post": {"x-fern-sdk-group-name": "a", "x-fern-sdk-method-name": "create",
+          "paths": {"/a": {"post": {"x-forge-group-name": "a", "x-forge-method-name": "create",
             "requestBody": {"content": {"application/json": {"schema": {"type": "string"}}}},
             "responses": {"204": {"description": "ok"}}}}}
         }"#,
@@ -52,7 +52,7 @@ fn contents_are_sorted_by_media_type() {
     let forge = parse(
         r#"{
           "openapi": "3.0.3", "info": {"title": "t", "version": "1"},
-          "paths": {"/a": {"post": {"x-fern-sdk-group-name": "a", "x-fern-sdk-method-name": "create",
+          "paths": {"/a": {"post": {"x-forge-group-name": "a", "x-forge-method-name": "create",
             "requestBody": {"content": {
               "text/plain": {"schema": {"type": "string"}},
               "multipart/form-data": {"schema": {"type": "object"}},
@@ -73,7 +73,7 @@ fn json_is_application_json_before_other_json_types() {
     let forge = parse(
         r#"{
           "openapi": "3.0.3", "info": {"title": "t", "version": "1"},
-          "paths": {"/a": {"post": {"x-fern-sdk-group-name": "a", "x-fern-sdk-method-name": "create",
+          "paths": {"/a": {"post": {"x-forge-group-name": "a", "x-forge-method-name": "create",
             "requestBody": {"content": {
               "application/geo+json": {"schema": {"type": "object"}},
               "application/json": {"schema": {"type": "string"}}
@@ -90,7 +90,7 @@ fn json_is_otherwise_the_first_json_type() {
     let forge = parse(
         r#"{
           "openapi": "3.0.3", "info": {"title": "t", "version": "1"},
-          "paths": {"/a": {"patch": {"x-fern-sdk-group-name": "a", "x-fern-sdk-method-name": "create",
+          "paths": {"/a": {"patch": {"x-forge-group-name": "a", "x-forge-method-name": "create",
             "requestBody": {"content": {
               "multipart/form-data": {"schema": {"type": "object"}},
               "application/scim+json": {"schema": {"type": "object"}},
@@ -111,7 +111,7 @@ fn json_ignores_case_and_parameters() {
     let forge = parse(
         r#"{
           "openapi": "3.0.3", "info": {"title": "t", "version": "1"},
-          "paths": {"/a": {"post": {"x-fern-sdk-group-name": "a", "x-fern-sdk-method-name": "create",
+          "paths": {"/a": {"post": {"x-forge-group-name": "a", "x-forge-method-name": "create",
             "requestBody": {"content": {"Application/JSON; charset=utf-8": {"schema": {"type": "string"}}}},
             "responses": {"204": {"description": "ok"}}}}}
         }"#,
@@ -127,7 +127,7 @@ fn multipart_content_is_typed() {
     let forge = parse(
         r#"{
           "openapi": "3.0.3", "info": {"title": "t", "version": "1"},
-          "paths": {"/a": {"post": {"x-fern-sdk-group-name": "a", "x-fern-sdk-method-name": "create",
+          "paths": {"/a": {"post": {"x-forge-group-name": "a", "x-forge-method-name": "create",
             "requestBody": {"content": {"multipart/form-data": {"schema": {
               "type": "object", "required": ["file"], "properties": {
                 "file": {"type": "string", "format": "binary"},
@@ -151,7 +151,7 @@ fn octet_stream_content_of_a_binary_string_is_binary() {
     let forge = parse(
         r#"{
           "openapi": "3.0.3", "info": {"title": "t", "version": "1"},
-          "paths": {"/a": {"post": {"x-fern-sdk-group-name": "a", "x-fern-sdk-method-name": "create",
+          "paths": {"/a": {"post": {"x-forge-group-name": "a", "x-forge-method-name": "create",
             "requestBody": {"content": {"application/octet-stream": {"schema": {
               "type": "string", "format": "binary"
             }}}},
@@ -169,7 +169,7 @@ fn json_ignores_content_that_is_not_json() {
     let forge = parse(
         r#"{
           "openapi": "3.0.3", "info": {"title": "t", "version": "1"},
-          "paths": {"/a": {"post": {"x-fern-sdk-group-name": "a", "x-fern-sdk-method-name": "create",
+          "paths": {"/a": {"post": {"x-forge-group-name": "a", "x-forge-method-name": "create",
             "requestBody": {"content": {
               "multipart/form-data": {"schema": {"type": "object", "properties": {"name": {"type": "string"}}}},
               "text/plain": {"schema": {"type": "string"}}
@@ -189,7 +189,7 @@ fn content_that_is_not_json_without_a_schema_is_unknown() {
     let forge = parse(
         r#"{
           "openapi": "3.0.3", "info": {"title": "t", "version": "1"},
-          "paths": {"/a": {"post": {"x-fern-sdk-group-name": "a", "x-fern-sdk-method-name": "create",
+          "paths": {"/a": {"post": {"x-forge-group-name": "a", "x-forge-method-name": "create",
             "requestBody": {"content": {"application/octet-stream": {}}},
             "responses": {"204": {"description": "ok"}}}}}
         }"#,
@@ -204,7 +204,7 @@ fn content_without_a_schema_is_unknown() {
     let forge = parse(
         r#"{
           "openapi": "3.0.3", "info": {"title": "t", "version": "1"},
-          "paths": {"/a": {"post": {"x-fern-sdk-group-name": "a", "x-fern-sdk-method-name": "create",
+          "paths": {"/a": {"post": {"x-forge-group-name": "a", "x-forge-method-name": "create",
             "requestBody": {"content": {"application/json": {}}},
             "responses": {"204": {"description": "ok"}}}}}
         }"#,
@@ -219,7 +219,7 @@ fn body_ref_is_followed() {
     let forge = parse(
         r##"{
           "openapi": "3.0.3", "info": {"title": "t", "version": "1"},
-          "paths": {"/a": {"post": {"x-fern-sdk-group-name": "a", "x-fern-sdk-method-name": "create",
+          "paths": {"/a": {"post": {"x-forge-group-name": "a", "x-forge-method-name": "create",
             "requestBody": {"$ref": "#/components/requestBodies/Pet"},
             "responses": {"204": {"description": "ok"}}}}},
           "components": {"requestBodies": {
@@ -239,7 +239,7 @@ fn with_body_schema(version: &str, schema: &str, schemas: &str) -> String {
     format!(
         r#"{{
           "openapi": "{version}", "info": {{"title": "t", "version": "1"}},
-          "paths": {{"/a": {{"post": {{"x-fern-sdk-group-name": "a", "x-fern-sdk-method-name": "create",
+          "paths": {{"/a": {{"post": {{"x-forge-group-name": "a", "x-forge-method-name": "create",
             "requestBody": {{"content": {{"application/json": {{"schema": {schema}}}}}}},
             "responses": {{"204": {{"description": "ok"}}}}}}}}}},
           "components": {{"schemas": {schemas}}}
@@ -301,7 +301,7 @@ fn response_content_has_its_schema_description() {
     let forge = parse(
         r#"{
           "openapi": "3.0.3", "info": {"title": "t", "version": "1"},
-          "paths": {"/a": {"get": {"x-fern-sdk-group-name": "a", "x-fern-sdk-method-name": "get",
+          "paths": {"/a": {"get": {"x-forge-group-name": "a", "x-forge-method-name": "get",
             "responses": {"200": {"description": "ok", "content": {"application/json": {
               "schema": {"type": "string", "description": "The name."}}}}}}}}
         }"#,

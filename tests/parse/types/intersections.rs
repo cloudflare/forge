@@ -49,7 +49,7 @@ fn true_member_is_dropped() {
     let forge = parse(
         r##"{
           "openapi": "3.1.0", "info": {"title": "t", "version": "1"},
-          "paths": {"/a": {"get": {"x-fern-sdk-group-name": "a", "x-fern-sdk-method-name": "get",
+          "paths": {"/a": {"get": {"x-forge-group-name": "a", "x-forge-method-name": "get",
             "responses": {"200": {"description": "ok", "content": {"application/json": {"schema": {
               "allOf": [{"$ref": "#/components/schemas/A"}, true, {"$ref": "#/components/schemas/B"}]
             }}}}}}}},
@@ -141,7 +141,7 @@ fn unevaluated_properties_is_an_object_member() {
     let forge = parse(
         r##"{
           "openapi": "3.1.0", "info": {"title": "t", "version": "1"},
-          "paths": {"/a": {"get": {"x-fern-sdk-group-name": "a", "x-fern-sdk-method-name": "get",
+          "paths": {"/a": {"get": {"x-forge-group-name": "a", "x-forge-method-name": "get",
             "responses": {"200": {"description": "ok", "content": {"application/json": {"schema": {
               "allOf": [{"$ref": "#/components/schemas/A"}],
               "unevaluatedProperties": {"type": "string"}

@@ -65,7 +65,7 @@ fn annotations_next_to_a_ref_keep_the_model_in_3_1() {
     let forge = parse(
         r##"{
           "openapi": "3.1.0", "info": {"title": "t", "version": "1"},
-          "paths": {"/a": {"get": {"x-fern-sdk-group-name": "a", "x-fern-sdk-method-name": "get",
+          "paths": {"/a": {"get": {"x-forge-group-name": "a", "x-forge-method-name": "get",
             "responses": {"200": {"description": "ok", "content": {"application/json": {"schema": {
               "$ref": "#/components/schemas/Zone", "description": "The zone.", "deprecated": true
             }}}}}}}},
@@ -81,7 +81,7 @@ fn shape_next_to_a_ref_is_intersected_in_3_1() {
     let forge = parse(
         r##"{
           "openapi": "3.1.0", "info": {"title": "t", "version": "1"},
-          "paths": {"/a": {"get": {"x-fern-sdk-group-name": "a", "x-fern-sdk-method-name": "get",
+          "paths": {"/a": {"get": {"x-forge-group-name": "a", "x-forge-method-name": "get",
             "responses": {"200": {"description": "ok", "content": {"application/json": {"schema": {
               "$ref": "#/components/schemas/Zone", "properties": {"extra": {"type": "string"}}
             }}}}}}}},
@@ -97,7 +97,7 @@ fn nullable_next_to_a_ref_is_a_union_with_null_in_3_1() {
     let forge = parse(
         r##"{
           "openapi": "3.1.0", "info": {"title": "t", "version": "1"},
-          "paths": {"/a": {"get": {"x-fern-sdk-group-name": "a", "x-fern-sdk-method-name": "get",
+          "paths": {"/a": {"get": {"x-forge-group-name": "a", "x-forge-method-name": "get",
             "responses": {"200": {"description": "ok", "content": {"application/json": {"schema": {
               "$ref": "#/components/schemas/Zone", "nullable": true
             }}}}}}}},
@@ -153,7 +153,7 @@ fn description_next_to_a_property_ref_is_its_own_in_3_1() {
     let forge = parse(
         r##"{
           "openapi": "3.1.0", "info": {"title": "t", "version": "1"},
-          "paths": {"/a": {"get": {"x-fern-sdk-group-name": "a", "x-fern-sdk-method-name": "get",
+          "paths": {"/a": {"get": {"x-forge-group-name": "a", "x-forge-method-name": "get",
             "responses": {"200": {"description": "ok", "content": {"application/json": {"schema": {
               "type": "object", "properties": {"home": {"$ref": "#/components/schemas/Zone", "description": "The home zone."}}
             }}}}}}}},
@@ -324,7 +324,7 @@ fn read_only_next_to_a_property_ref_counts_in_3_1() {
     let forge = parse(
         r##"{
           "openapi": "3.1.0", "info": {"title": "t", "version": "1"},
-          "paths": {"/a": {"get": {"x-fern-sdk-group-name": "a", "x-fern-sdk-method-name": "get",
+          "paths": {"/a": {"get": {"x-forge-group-name": "a", "x-forge-method-name": "get",
             "responses": {"200": {"description": "ok", "content": {"application/json": {"schema": {
               "type": "object", "properties": {"id": {"$ref": "#/components/schemas/Id", "readOnly": true}}
             }}}}}}}},
@@ -350,7 +350,7 @@ fn read_only_false_next_to_a_ref_does_not_undo_its_schemas_in_3_1() {
     let forge = parse(
         r##"{
           "openapi": "3.1.0", "info": {"title": "t", "version": "1"},
-          "paths": {"/a": {"get": {"x-fern-sdk-group-name": "a", "x-fern-sdk-method-name": "get",
+          "paths": {"/a": {"get": {"x-forge-group-name": "a", "x-forge-method-name": "get",
             "responses": {"200": {"description": "ok", "content": {"application/json": {"schema": {
               "type": "object", "properties": {"id": {"$ref": "#/components/schemas/Id", "readOnly": false}}
             }}}}}}}},
@@ -365,7 +365,7 @@ fn read_only_false_next_to_a_ref_does_not_undo_its_schemas_in_3_1() {
 fn property_that_is_a_ref_is_sensitive_when_its_schema_is() {
     let forge = parse(&responding_with_schemas(
         r##"{"type": "object", "properties": {"token": {"$ref": "#/components/schemas/Token"}}}"##,
-        r##"{"Token": {"$ref": "#/components/schemas/Secret"}, "Secret": {"type": "string", "x-sensitive": true}}"##,
+        r##"{"Token": {"$ref": "#/components/schemas/Secret"}, "Secret": {"type": "string", "x-forge-sensitive": true}}"##,
     ));
 
     assert!(field(object(response_type(&forge, "a.get")), "token").is_sensitive());
@@ -374,7 +374,7 @@ fn property_that_is_a_ref_is_sensitive_when_its_schema_is() {
 #[test]
 fn sensitive_next_to_a_property_ref_counts_in_3_0() {
     let forge = parse(&responding_with_schemas(
-        r##"{"type": "object", "properties": {"token": {"$ref": "#/components/schemas/Token", "x-sensitive": true}}}"##,
+        r##"{"type": "object", "properties": {"token": {"$ref": "#/components/schemas/Token", "x-forge-sensitive": true}}}"##,
         r#"{"Token": {"type": "string"}}"#,
     ));
 
@@ -386,9 +386,9 @@ fn sensitive_next_to_a_property_ref_counts_in_3_1() {
     let forge = parse(
         r##"{
           "openapi": "3.1.0", "info": {"title": "t", "version": "1"},
-          "paths": {"/a": {"get": {"x-fern-sdk-group-name": "a", "x-fern-sdk-method-name": "get",
+          "paths": {"/a": {"get": {"x-forge-group-name": "a", "x-forge-method-name": "get",
             "responses": {"200": {"description": "ok", "content": {"application/json": {"schema": {
-              "type": "object", "properties": {"token": {"$ref": "#/components/schemas/Token", "x-sensitive": true}}
+              "type": "object", "properties": {"token": {"$ref": "#/components/schemas/Token", "x-forge-sensitive": true}}
             }}}}}}}},
           "components": {"schemas": {"Token": {"type": "string"}}}
         }"##,
@@ -424,7 +424,7 @@ fn property_default_is_the_first_along_a_chain_of_refs_in_3_1() {
     let forge = parse(
         r##"{
           "openapi": "3.1.0", "info": {"title": "t", "version": "1"},
-          "paths": {"/a": {"get": {"x-fern-sdk-group-name": "a", "x-fern-sdk-method-name": "get",
+          "paths": {"/a": {"get": {"x-forge-group-name": "a", "x-forge-method-name": "get",
             "responses": {"200": {"description": "ok", "content": {"application/json": {"schema": {
               "type": "object", "properties": {"size": {"$ref": "#/components/schemas/Size"}}
             }}}}}}}},
@@ -454,7 +454,7 @@ fn default_next_to_a_property_ref_is_its_own_in_3_1() {
     let forge = parse(
         r##"{
           "openapi": "3.1.0", "info": {"title": "t", "version": "1"},
-          "paths": {"/a": {"get": {"x-fern-sdk-group-name": "a", "x-fern-sdk-method-name": "get",
+          "paths": {"/a": {"get": {"x-forge-group-name": "a", "x-forge-method-name": "get",
             "responses": {"200": {"description": "ok", "content": {"application/json": {"schema": {
               "type": "object", "properties": {
                 "size": {"$ref": "#/components/schemas/Size", "default": 5},

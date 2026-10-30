@@ -9,7 +9,7 @@ fn operation_with(fields: &str) -> String {
         r#"{{
           "openapi": "3.0.3", "info": {{"title": "t", "version": "1"}},
           "paths": {{"/a": {{"get": {{{fields}
-            "x-fern-sdk-group-name": "a", "x-fern-sdk-method-name": "get",
+            "x-forge-group-name": "a", "x-forge-method-name": "get",
             "responses": {{"204": {{"description": "ok"}}}}}}}}}}
         }}"#
     )
@@ -21,14 +21,14 @@ fn each_operation_field_is_its_http_method() {
         r#"{
           "openapi": "3.0.3", "info": {"title": "t", "version": "1"},
           "paths": {"/a": {
-            "get": {"x-fern-sdk-group-name": "a", "x-fern-sdk-method-name": "get", "responses": {"204": {"description": "ok"}}},
-            "put": {"x-fern-sdk-group-name": "a", "x-fern-sdk-method-name": "put", "responses": {"204": {"description": "ok"}}},
-            "post": {"x-fern-sdk-group-name": "a", "x-fern-sdk-method-name": "post", "responses": {"204": {"description": "ok"}}},
-            "delete": {"x-fern-sdk-group-name": "a", "x-fern-sdk-method-name": "delete", "responses": {"204": {"description": "ok"}}},
-            "options": {"x-fern-sdk-group-name": "a", "x-fern-sdk-method-name": "options", "responses": {"204": {"description": "ok"}}},
-            "head": {"x-fern-sdk-group-name": "a", "x-fern-sdk-method-name": "head", "responses": {"204": {"description": "ok"}}},
-            "patch": {"x-fern-sdk-group-name": "a", "x-fern-sdk-method-name": "patch", "responses": {"204": {"description": "ok"}}},
-            "trace": {"x-fern-sdk-group-name": "a", "x-fern-sdk-method-name": "trace", "responses": {"204": {"description": "ok"}}}
+            "get": {"x-forge-group-name": "a", "x-forge-method-name": "get", "responses": {"204": {"description": "ok"}}},
+            "put": {"x-forge-group-name": "a", "x-forge-method-name": "put", "responses": {"204": {"description": "ok"}}},
+            "post": {"x-forge-group-name": "a", "x-forge-method-name": "post", "responses": {"204": {"description": "ok"}}},
+            "delete": {"x-forge-group-name": "a", "x-forge-method-name": "delete", "responses": {"204": {"description": "ok"}}},
+            "options": {"x-forge-group-name": "a", "x-forge-method-name": "options", "responses": {"204": {"description": "ok"}}},
+            "head": {"x-forge-group-name": "a", "x-forge-method-name": "head", "responses": {"204": {"description": "ok"}}},
+            "patch": {"x-forge-group-name": "a", "x-forge-method-name": "patch", "responses": {"204": {"description": "ok"}}},
+            "trace": {"x-forge-group-name": "a", "x-forge-method-name": "trace", "responses": {"204": {"description": "ok"}}}
           }}
         }"#,
     );
@@ -54,7 +54,7 @@ fn query_operation_is_query() {
     let forge = parse(
         r#"{
           "openapi": "3.2.0", "info": {"title": "t", "version": "1"},
-          "paths": {"/a": {"query": {"x-fern-sdk-group-name": "a", "x-fern-sdk-method-name": "search",
+          "paths": {"/a": {"query": {"x-forge-group-name": "a", "x-forge-method-name": "search",
             "responses": {"204": {"description": "ok"}}}}}
         }"#,
     );
@@ -68,7 +68,7 @@ fn additional_operation_is_its_method_as_written() {
         r#"{
           "openapi": "3.2.0", "info": {"title": "t", "version": "1"},
           "paths": {"/a": {"additionalOperations": {
-            "COPY": {"x-fern-sdk-group-name": "a", "x-fern-sdk-method-name": "copy",
+            "COPY": {"x-forge-group-name": "a", "x-forge-method-name": "copy",
               "responses": {"204": {"description": "ok"}}}
           }}}
         }"#,
@@ -86,7 +86,7 @@ fn additional_operation_with_the_method_of_a_field_is_that_variant() {
         r#"{
           "openapi": "3.2.0", "info": {"title": "t", "version": "1"},
           "paths": {"/a": {"additionalOperations": {
-            "GET": {"x-fern-sdk-group-name": "a", "x-fern-sdk-method-name": "get",
+            "GET": {"x-forge-group-name": "a", "x-forge-method-name": "get",
               "responses": {"204": {"description": "ok"}}}
           }}}
         }"#,
@@ -101,7 +101,7 @@ fn additional_operation_methods_are_case_sensitive() {
         r#"{
           "openapi": "3.2.0", "info": {"title": "t", "version": "1"},
           "paths": {"/a": {"additionalOperations": {
-            "get": {"x-fern-sdk-group-name": "a", "x-fern-sdk-method-name": "get",
+            "get": {"x-forge-group-name": "a", "x-forge-method-name": "get",
               "responses": {"204": {"description": "ok"}}}
           }}}
         }"#,
@@ -118,7 +118,7 @@ fn method_has_the_summary_description_and_deprecation_of_its_operation() {
     let forge = parse(
         r#"{
           "openapi": "3.0.3", "info": {"title": "t", "version": "1"},
-          "paths": {"/a": {"get": {"x-fern-sdk-group-name": "a", "x-fern-sdk-method-name": "get",
+          "paths": {"/a": {"get": {"x-forge-group-name": "a", "x-forge-method-name": "get",
             "summary": "Get an a.", "description": "Gets an a.", "deprecated": true,
             "responses": {"204": {"description": "ok"}}}}}
         }"#,
@@ -135,7 +135,7 @@ fn method_without_docs_is_empty_and_not_deprecated() {
     let forge = parse(
         r#"{
           "openapi": "3.0.3", "info": {"title": "t", "version": "1"},
-          "paths": {"/a": {"get": {"x-fern-sdk-group-name": "a", "x-fern-sdk-method-name": "get",
+          "paths": {"/a": {"get": {"x-forge-group-name": "a", "x-forge-method-name": "get",
             "responses": {"204": {"description": "ok"}}}}}
         }"#,
     );
@@ -153,7 +153,7 @@ fn path_item_ref_is_followed() {
           "openapi": "3.1.0", "info": {"title": "t", "version": "1"},
           "paths": {"/a": {"$ref": "#/components/pathItems/A"}},
           "components": {"pathItems": {
-            "A": {"get": {"x-fern-sdk-group-name": "a", "x-fern-sdk-method-name": "get",
+            "A": {"get": {"x-forge-group-name": "a", "x-forge-method-name": "get",
               "responses": {"204": {"description": "ok"}}}}
           }}
         }"##,
@@ -168,11 +168,11 @@ fn extensions_in_paths_and_path_items_are_not_operations() {
         r#"{
           "openapi": "3.0.3", "info": {"title": "t", "version": "1"},
           "paths": {
-            "x-paths-extension": {"get": {"x-fern-sdk-group-name": "x", "x-fern-sdk-method-name": "get",
+            "x-paths-extension": {"get": {"x-forge-group-name": "x", "x-forge-method-name": "get",
               "responses": {"204": {"description": "ok"}}}},
             "/a": {
               "x-forge-commands": {"a": {"description": "A."}},
-              "get": {"x-fern-sdk-group-name": "a", "x-fern-sdk-method-name": "get",
+              "get": {"x-forge-group-name": "a", "x-forge-method-name": "get",
                 "responses": {"204": {"description": "ok"}}}
             }
           }
@@ -189,9 +189,9 @@ fn additional_operation_with_the_method_of_a_present_field_is_skipped() {
         r#"{
           "openapi": "3.2.0", "info": {"title": "t", "version": "1"},
           "paths": {"/a": {
-            "get": {"x-fern-sdk-group-name": "a", "x-fern-sdk-method-name": "get",
+            "get": {"x-forge-group-name": "a", "x-forge-method-name": "get",
               "responses": {"204": {"description": "ok"}}},
-            "additionalOperations": {"GET": {"x-fern-sdk-group-name": "a", "x-fern-sdk-method-name": "shadowed",
+            "additionalOperations": {"GET": {"x-forge-group-name": "a", "x-forge-method-name": "shadowed",
               "responses": {"204": {"description": "ok"}}}}
           }}
         }"#,
@@ -206,7 +206,7 @@ fn webhooks_are_not_methods() {
     let forge = parse(
         r#"{
           "openapi": "3.1.0", "info": {"title": "t", "version": "1"},
-          "webhooks": {"newPet": {"post": {"x-fern-sdk-group-name": "pets", "x-fern-sdk-method-name": "created",
+          "webhooks": {"newPet": {"post": {"x-forge-group-name": "pets", "x-forge-method-name": "created",
             "responses": {"204": {"description": "ok"}}}}}
         }"#,
     );
@@ -219,9 +219,9 @@ fn callbacks_are_not_methods() {
     let forge = parse(
         r#"{
           "openapi": "3.0.3", "info": {"title": "t", "version": "1"},
-          "paths": {"/subscribe": {"post": {"x-fern-sdk-group-name": "a", "x-fern-sdk-method-name": "subscribe",
+          "paths": {"/subscribe": {"post": {"x-forge-group-name": "a", "x-forge-method-name": "subscribe",
             "callbacks": {"event": {"{$request.query.url}": {"post": {
-              "x-fern-sdk-group-name": "a", "x-fern-sdk-method-name": "event",
+              "x-forge-group-name": "a", "x-forge-method-name": "event",
               "responses": {"204": {"description": "ok"}}
             }}}},
             "responses": {"204": {"description": "ok"}}}}}
@@ -297,7 +297,7 @@ fn each_availability_is_its_variant() {
         ("generally-available", Availability::GenerallyAvailable),
         ("deprecated", Availability::Deprecated),
     ] {
-        let forge = parse(&operation_with(&format!(r#""x-fern-availability": "{written}","#)));
+        let forge = parse(&operation_with(&format!(r#""x-forge-availability": "{written}","#)));
 
         assert_eq!(method(&forge, "a.get").availability(), Some(want), "{written}");
         assert_eq!(want.as_str(), written);
@@ -306,21 +306,21 @@ fn each_availability_is_its_variant() {
 
 #[test]
 fn unknown_availability_is_an_error_naming_the_operation() {
-    let err = parse_err(&operation_with(r#""x-fern-availability": "stable","#));
+    let err = parse_err(&operation_with(r#""x-forge-availability": "stable","#));
 
-    assert!(err.contains(r#"GET /a: x-fern-availability "stable" is not"#), "{err}");
+    assert!(err.contains(r#"GET /a: x-forge-availability "stable" is not"#), "{err}");
 }
 
 #[test]
 fn availability_is_case_sensitive() {
-    let err = parse_err(&operation_with(r#""x-fern-availability": "Beta","#));
+    let err = parse_err(&operation_with(r#""x-forge-availability": "Beta","#));
 
-    assert!(err.contains(r#"GET /a: x-fern-availability "Beta" is not"#), "{err}");
+    assert!(err.contains(r#"GET /a: x-forge-availability "Beta" is not"#), "{err}");
 }
 
 #[test]
 fn availability_that_is_not_a_string_is_an_error() {
-    let err = parse_err(&operation_with(r#""x-fern-availability": 1,"#));
+    let err = parse_err(&operation_with(r#""x-forge-availability": 1,"#));
 
     assert!(err.contains("expected a string"), "{err}");
 }
@@ -331,13 +331,13 @@ fn availability_and_deprecation_are_apart() {
         r#"{
           "openapi": "3.0.3", "info": {"title": "t", "version": "1"},
           "paths": {"/a": {
-            "get": {"x-fern-sdk-group-name": "a", "x-fern-sdk-method-name": "get",
-              "deprecated": true, "x-fern-availability": "generally-available",
+            "get": {"x-forge-group-name": "a", "x-forge-method-name": "get",
+              "deprecated": true, "x-forge-availability": "generally-available",
               "responses": {"204": {"description": "ok"}}},
-            "put": {"x-fern-sdk-group-name": "a", "x-fern-sdk-method-name": "put",
-              "x-fern-availability": "deprecated",
+            "put": {"x-forge-group-name": "a", "x-forge-method-name": "put",
+              "x-forge-availability": "deprecated",
               "responses": {"204": {"description": "ok"}}},
-            "post": {"x-fern-sdk-group-name": "a", "x-fern-sdk-method-name": "post",
+            "post": {"x-forge-group-name": "a", "x-forge-method-name": "post",
               "deprecated": true, "responses": {"204": {"description": "ok"}}}
           }}
         }"#,
@@ -352,4 +352,17 @@ fn availability_and_deprecation_are_apart() {
     let post = method(&forge, "a.post");
     assert!(post.is_deprecated());
     assert_eq!(post.availability(), None);
+}
+
+#[test]
+fn x_forge_method_without_name_is_not_a_method_name() {
+    let forge = parse(
+        r#"{
+          "openapi": "3.0.3", "info": {"title": "t", "version": "1"},
+          "paths": {"/a": {"get": {"x-forge-group-name": ["a"], "x-forge-method": "get",
+            "responses": {"204": {"description": "ok"}}}}}
+        }"#,
+    );
+
+    assert_eq!(forge.groups().count(), 0);
 }

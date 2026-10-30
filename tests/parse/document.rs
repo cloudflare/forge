@@ -103,7 +103,7 @@ fn every_version_of_3_0_3_1_and_3_2_is_read() {
         let forge = parse(&format!(
             r#"{{
               "openapi": "{version}", "info": {{"title": "t", "version": "1"}},
-              "paths": {{"/a": {{"get": {{"x-fern-sdk-group-name": "a", "x-fern-sdk-method-name": "get",
+              "paths": {{"/a": {{"get": {{"x-forge-group-name": "a", "x-forge-method-name": "get",
                 "responses": {{"204": {{"description": "ok"}}}}}}}}}}
             }}"#
         ));
@@ -118,7 +118,7 @@ fn errors_are_reported_together() {
         r#"{
           "openapi": "3.0.3", "info": {"title": "t", "version": "1"},
           "servers": [{"url": "https://{region}.example.com"}],
-          "paths": {"/a": {"get": {"x-fern-sdk-group-name": "a..b", "x-fern-sdk-method-name": "get",
+          "paths": {"/a": {"get": {"x-forge-group-name": ["a", "", "b"], "x-forge-method-name": "get",
             "responses": {"204": {"description": "ok"}}}}}
         }"#,
     );

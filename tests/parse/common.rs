@@ -19,7 +19,7 @@ pub fn responding_with(schema: &str) -> String {
     format!(
         r#"{{
           "openapi": "3.0.3", "info": {{"title": "t", "version": "1"}},
-          "paths": {{"/a": {{"get": {{"x-fern-sdk-group-name": "a", "x-fern-sdk-method-name": "get",
+          "paths": {{"/a": {{"get": {{"x-forge-group-name": "a", "x-forge-method-name": "get",
             "responses": {{"200": {{"description": "ok", "content": {{"application/json": {{"schema": {schema}}}}}}}}}}}}}}}
         }}"#
     )
@@ -31,7 +31,7 @@ pub fn responding_with_schemas(schema: &str, schemas: &str) -> String {
     format!(
         r#"{{
           "openapi": "3.0.3", "info": {{"title": "t", "version": "1"}},
-          "paths": {{"/a": {{"get": {{"x-fern-sdk-group-name": "a", "x-fern-sdk-method-name": "get",
+          "paths": {{"/a": {{"get": {{"x-forge-group-name": "a", "x-forge-method-name": "get",
             "responses": {{"200": {{"description": "ok", "content": {{"application/json": {{"schema": {schema}}}}}}}}}}}}}}},
           "components": {{"schemas": {schemas}}}
         }}"#

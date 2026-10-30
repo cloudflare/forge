@@ -293,7 +293,7 @@ impl<'f> Object<'f> {
     /// except in a [`Method::request`](crate::Method::request) and in
     /// [`Method::headers`](crate::Method::headers).
     ///
-    /// A property marked `x-stainless-skip: true`, or whose schema is
+    /// A property marked `x-forge-skip: true`, or whose schema is
     /// `false`, has no field. A name in `required` that is not a property is
     /// ignored. Two fields with equal names are an error.
     pub fn fields(self) -> impl ExactSizeIterator<Item = Field<'f>> {
@@ -330,7 +330,7 @@ impl<'f> Field<'f> {
 
     /// Returns the name of the field.
     ///
-    /// Corresponds to the `x-fern-property-name` extension of the
+    /// Corresponds to the `x-forge-property-name` extension of the
     /// property, or its wire name if it has none.
     pub fn name(self) -> &'f Name {
         &self.forge.names[self.data.name.index()]
@@ -411,17 +411,19 @@ impl<'f> Field<'f> {
     /// Reports whether the field holds a secret, such as a password or a
     /// token, which a client should mask when it shows it.
     ///
-    /// Corresponds to the `x-sensitive: true` extension on the property's
-    /// schema, or on any schema along its chain of `$ref`s. Unlike
-    /// `readOnly`, an `x-sensitive` next to a `$ref` counts in every
+    /// Corresponds to the `x-forge-sensitive: true` extension on the property's
+    /// schema, or on any schema along its chain of `$ref`s. `x-sensitive`, which
+    /// other systems write for the same thing, is not read: `forge normalize`
+    /// rewrites it. Unlike
+    /// `readOnly`, an `x-forge-sensitive` next to a `$ref` counts in every
     /// version of OpenAPI, since tools commonly honour extensions there. A
     /// value that is not a boolean is an error, as it is for a schema's
-    /// `x-stainless-skip` and an operation's `x-forge-hidden`.
+    /// `x-forge-skip` and an operation's `x-forge-hidden`.
     ///
     /// A field for a parameter, whether in the request or in
     /// [`Method::headers`](crate::Method::headers), is sensitive when the
-    /// parameter's schema is, in the same way: `x-sensitive` next to its
-    /// `$ref` or along its chain. An `x-sensitive` on the Parameter Object
+    /// parameter's schema is, in the same way: `x-forge-sensitive` next to its
+    /// `$ref` or along its chain. An `x-forge-sensitive` on the Parameter Object
     /// itself, rather than its schema, is ignored. The `body` field of a
     /// request, and a path template placeholder that no parameter
     /// declares, are never sensitive.
@@ -509,7 +511,7 @@ impl<'f> Discriminator<'f> {
     }
 
     /// Returns the name of the property's field: the
-    /// `x-fern-property-name` of the property in the members, or else its
+    /// `x-forge-property-name` of the property in the members, or else its
     /// wire name.
     pub fn name(self) -> &'f Name {
         &self.data.name

@@ -144,7 +144,7 @@ export interface Method {
    * way around.
    */
   readonly deprecated: boolean;
-  /** The stage of the API the method is in, from `x-fern-availability`, or undefined if it doesn't say. */
+  /** The stage of the API the method is in, from `x-forge-availability`, or undefined if it doesn't say. */
   readonly availability: Availability | undefined;
   /**
    * Whether to leave the method out of listings of methods, such as a CLI's
@@ -197,7 +197,7 @@ export interface Method {
  */
 export type Location = { readonly in: 'path' } | { readonly in: 'query'; readonly exploded: boolean };
 
-/** The stage of the API a method is in, as `x-fern-availability` writes it. */
+/** The stage of the API a method is in, as `x-forge-availability` writes it. */
 export type Availability = 'alpha' | 'beta' | 'preview' | 'generally-available' | 'deprecated';
 
 /**
@@ -267,7 +267,7 @@ export interface Field {
    * though the same model's field appears in responses: `readOnly`.
    */
   readonly readOnly: boolean;
-  /** Whether the value is a secret, such as a password or a token, to keep out of logs: `x-sensitive`. */
+  /** Whether the value is a secret, such as a password or a token, to keep out of logs: `x-forge-sensitive`. */
   readonly sensitive: boolean;
   /** The `default` of the property's schema, or undefined if it has none. */
   readonly default: Json | undefined;

@@ -36,9 +36,9 @@ fn required_names_without_a_property_are_ignored() {
 }
 
 #[test]
-fn field_is_named_by_x_fern_property_name() {
+fn field_is_named_by_x_forge_property_name() {
     let forge = parse(&responding_with(
-        r#"{"type": "object", "properties": {"owner": {"type": "string", "x-fern-property-name": "person"}}}"#,
+        r#"{"type": "object", "properties": {"owner": {"type": "string", "x-forge-property-name": "person"}}}"#,
     ));
 
     let owner = field(object(response_type(&forge, "a.get")), "owner");
@@ -78,7 +78,7 @@ fn field_is_read_only_when_its_property_is() {
 #[test]
 fn field_is_neither_read_only_nor_sensitive_by_default() {
     let forge = parse(&responding_with(
-        r#"{"type": "object", "properties": {"name": {"type": "string"}, "shown": {"type": "string", "readOnly": false, "x-sensitive": false}}}"#,
+        r#"{"type": "object", "properties": {"name": {"type": "string"}, "shown": {"type": "string", "readOnly": false, "x-forge-sensitive": false}}}"#,
     ));
 
     let object = object(response_type(&forge, "a.get"));
@@ -100,7 +100,7 @@ fn read_only_that_is_not_a_boolean_is_an_error() {
 #[test]
 fn field_is_sensitive_when_its_property_is() {
     let forge = parse(&responding_with(
-        r#"{"type": "object", "properties": {"password": {"type": "string", "x-sensitive": true}}}"#,
+        r#"{"type": "object", "properties": {"password": {"type": "string", "x-forge-sensitive": true}}}"#,
     ));
 
     assert!(field(object(response_type(&forge, "a.get")), "password").is_sensitive());
@@ -109,7 +109,7 @@ fn field_is_sensitive_when_its_property_is() {
 #[test]
 fn sensitive_that_is_not_a_boolean_is_an_error() {
     let err = parse_err(&responding_with(
-        r#"{"type": "object", "properties": {"password": {"type": "string", "x-sensitive": "true"}}}"#,
+        r#"{"type": "object", "properties": {"password": {"type": "string", "x-forge-sensitive": "true"}}}"#,
     ));
 
     assert!(err.contains("expected a boolean"), "{err}");
@@ -195,7 +195,7 @@ fn pattern_properties_are_ignored() {
     let forge = parse(
         r#"{
           "openapi": "3.1.0", "info": {"title": "t", "version": "1"},
-          "paths": {"/a": {"get": {"x-fern-sdk-group-name": "a", "x-fern-sdk-method-name": "get",
+          "paths": {"/a": {"get": {"x-forge-group-name": "a", "x-forge-method-name": "get",
             "responses": {"200": {"description": "ok", "content": {"application/json": {"schema": {
               "type": "object", "properties": {"id": {"type": "string"}}, "patternProperties": {"^x-": {"type": "string"}}
             }}}}}}}}
@@ -212,7 +212,7 @@ fn false_property_is_no_field() {
     let forge = parse(
         r#"{
           "openapi": "3.1.0", "info": {"title": "t", "version": "1"},
-          "paths": {"/a": {"get": {"x-fern-sdk-group-name": "a", "x-fern-sdk-method-name": "get",
+          "paths": {"/a": {"get": {"x-forge-group-name": "a", "x-forge-method-name": "get",
             "responses": {"200": {"description": "ok", "content": {"application/json": {"schema": {
               "type": "object", "properties": {"id": {"type": "string"}, "gone": false}
             }}}}}}}}
@@ -223,9 +223,9 @@ fn false_property_is_no_field() {
 }
 
 #[test]
-fn property_skipped_by_x_stainless_skip_is_no_field() {
+fn property_skipped_by_x_forge_skip_is_no_field() {
     let forge = parse(&responding_with(
-        r#"{"type": "object", "properties": {"id": {"type": "string"}, "old_id": {"type": "string", "x-stainless-skip": true}}}"#,
+        r#"{"type": "object", "properties": {"id": {"type": "string"}, "old_id": {"type": "string", "x-forge-skip": true}}}"#,
     ));
 
     assert_eq!(field_names(object(response_type(&forge, "a.get"))), ["id"]);
@@ -296,4 +296,36 @@ fn default_is_not_checked_against_the_schema() {
 
     let limit = field(object(response_type(&forge, "a.get")), "limit");
     assert_eq!(limit.default(), Some(&Json::String("ten".into())));
+}
+
+#[test]
+fn x_sensitive_is_not_read() {
+    // `forge normalize` rewrites it, to `x-forge-sensitive`, which is.
+    let forge = parse(&responding_with(
+        r#"{"type": "object", "properties": {"password": {"type": "string", "x-sensitive": true}}}"#,
+    ));
+
+    assert!(!field(object(response_type(&forge, "a.get")), "password").is_sensitive());
+}
+
+#[test]
+fn vendor_name_and_skip_extensions_are_not_read() {
+    let forge = parse(&responding_with(
+        r#"{"type": "object", "properties": {"wire_name": {
+          "type": "string", "x-fern-property-name": "renamed", "x-stainless-skip": true
+        }}}"#,
+    ));
+
+    let object = object(response_type(&forge, "a.get"));
+    assert_eq!(field_names(object), ["wire_name"]);
+    assert_eq!(field(object, "wire_name").name(), &Name::new("wire_name"));
+}
+
+#[test]
+fn sensitive_written_twice_is_an_error_naming_it() {
+    let err = parse_err(&responding_with(
+        r#"{"type": "object", "properties": {"password": {"type": "string", "x-forge-sensitive": true, "x-forge-sensitive": true}}}"#,
+    ));
+
+    assert!(err.contains("duplicate field `x-forge-sensitive`"), "{err}");
 }
