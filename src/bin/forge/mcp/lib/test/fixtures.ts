@@ -1,4 +1,4 @@
-import { pathParam, type Tool } from '../src/tool.js';
+import { param, pathParam, type Tool } from '../src/tool.js';
 
 /** Tools as the generator writes them. */
 export const tools: readonly Tool[] = [
@@ -8,8 +8,12 @@ export const tools: readonly Tool[] = [
     description: 'Lists the pets of a store.',
     inputSchema: {
       type: 'object',
-      properties: { store_id: { type: 'string' }, tag: { type: 'array' }, sort: { type: 'object' } },
-      required: ['store_id'],
+      properties: {
+        path: { type: 'object', properties: { store_id: { type: 'string' } }, required: ['store_id'] },
+        query: { type: 'object', properties: { tag: { type: 'array' }, sort: { type: 'object' } } },
+        headers: { type: 'object', properties: { 'X-Trace': { type: 'string' } } },
+      },
+      required: ['path'],
     },
     outputSchema: {
       type: 'array',
@@ -27,10 +31,10 @@ export const tools: readonly Tool[] = [
     request: (args) => ({
       path: `/stores/${pathParam(args, 'store_id')}/pets`,
       query: [
-        ['tag', args['tag'], true],
-        ['sort', args['sort'], false],
+        ['tag', param(args, 'query', 'tag'), true],
+        ['sort', param(args, 'query', 'sort'), false],
       ],
-      headers: [['X-Trace', args['x_trace']]],
+      headers: [['X-Trace', param(args, 'headers', 'X-Trace')]],
     }),
   },
   {
@@ -38,14 +42,19 @@ export const tools: readonly Tool[] = [
     description: 'Adds a pet.',
     inputSchema: {
       type: 'object',
-      properties: { store_id: { type: 'string' }, body: {} },
-      required: ['store_id', 'body'],
+      properties: {
+        path: { type: 'object', properties: { store_id: { type: 'string' } }, required: ['store_id'] },
+        query: { type: 'object', properties: { dry_run: { type: 'boolean' } }, required: ['dry_run'] },
+        body: {},
+      },
+      required: ['path', 'query', 'body'],
     },
     annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: true },
     method: 'POST',
     path: '/stores/{store_id}/pets',
     request: (args) => ({
       path: `/stores/${pathParam(args, 'store_id')}/pets`,
+      query: [['dry_run', param(args, 'query', 'dry_run'), true]],
       body: { value: args['body'], mediaType: 'application/json' },
     }),
   },
