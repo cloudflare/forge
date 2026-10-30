@@ -1,0 +1,35 @@
+packages/cloudflare-api-site/package.json
+  s_8de24bfbbf1a12::t_127cc7b4c94721 10-11,30
+pnpm-lock.yaml
+  s_8de24bfbbf1a12::t_3a5d3d0d7ed8d4 87-89
+packages/cloudflare-api-site/e2e/.gitignore
+  s_40948424877c65::t_185529cb952c43 1-2
+packages/cloudflare-api-site/e2e/visual.e2e.ts
+  s_40948424877c65::t_6ed9999b1b68dd 1-40
+packages/cloudflare-api-site/playwright.config.ts
+  s_40948424877c65::t_b52e6ee931a394 1-18
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "ed2c412712975ea67d6e4645951d6931d2a0006b",
+  "prompts": {},
+  "sessions": {
+    "s_40948424877c65": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "b986cd6a-02da-414a-a47a-74d0e86476b3",
+        "model": "unknown"
+      },
+      "human_author": "mohamedh <mhassan@cloudflare.com>"
+    },
+    "s_8de24bfbbf1a12": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_ed002f112ffe0fJ63F6NN7wr71",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "mohamedh <mhassan@cloudflare.com>"
+    }
+  }
+}

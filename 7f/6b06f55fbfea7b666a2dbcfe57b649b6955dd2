@@ -1,0 +1,25 @@
+packages/astro-fern/README.md
+  s_40948424877c65::t_db20a2e6729376 798-800,814-817
+packages/astro-fern/content-collections.test.ts
+  s_40948424877c65::t_8d934551f0f571 286-306,472,479,485-487
+packages/astro-fern/content-collections.ts
+  s_40948424877c65::t_cf41b796054e3d 196-197,207-208,211,216,221,292-297
+packages/astro-fern/project.ts
+  s_40948424877c65::t_cb7268e570bf96 87-91
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "7f6b06f55fbfea7b666a2dbcfe57b649b6955dd2",
+  "prompts": {},
+  "sessions": {
+    "s_40948424877c65": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "b986cd6a-02da-414a-a47a-74d0e86476b3",
+        "model": "unknown"
+      },
+      "human_author": "mohamedh <mhassan@cloudflare.com>"
+    }
+  }
+}

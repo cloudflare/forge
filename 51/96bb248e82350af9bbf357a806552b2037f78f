@@ -1,0 +1,95 @@
+packages/astro-fern/README.md
+  s_5cc4d7609e4ea0::t_0e14917a8eb9ce 233-246,250-260,468,471-477,575-577,588-590,600-601,629-632,781-785
+packages/astro-fern/agents/index.test.ts
+  s_5cc4d7609e4ea0::t_0bed4b1b86e703 815,826,829
+packages/astro-fern/agents/index.ts
+  s_5cc4d7609e4ea0::t_555036dbddc439 31-32,357,496
+packages/astro-fern/components/SnapshotSwitcher.astro
+  s_5cc4d7609e4ea0::t_35fe8fc6fba0d4 15,35
+packages/astro-fern/content-collections.ts
+  s_5cc4d7609e4ea0::t_325ea86959e6e1 155
+packages/astro-fern/content/build.test.ts
+  s_5cc4d7609e4ea0::t_a933bab39989d7 13,21,1293,1305,1321-1540
+packages/astro-fern/content/build.ts
+  s_5cc4d7609e4ea0::t_2de8f03885a866 12,15-21,86,89,91-95,97,124,162-173,198,227,247,249,253,256,266-296,412-429,444-445,450-451,495-514,564,581-670,676-708,722-727,744-745
+packages/astro-fern/content/index.ts
+  s_5cc4d7609e4ea0::t_f8ccf80905a4b4 4
+packages/astro-fern/content/model.ts
+  s_5cc4d7609e4ea0::t_af40510ad21193 84-85
+packages/astro-fern/content/schema.ts
+  s_5cc4d7609e4ea0::t_d5b5a67a585c19 220-235,243-244,296,328,372,508
+packages/astro-fern/e2e/snapshots.e2e.ts
+  s_5cc4d7609e4ea0::t_a337908d337fc6 53
+packages/astro-fern/extensions.ts
+  s_5cc4d7609e4ea0::t_00e37bd9222a7c 23-24
+packages/astro-fern/index.ts
+  s_5cc4d7609e4ea0::t_09a2b2cb6a8689 24
+packages/astro-fern/project.test.ts
+  s_5cc4d7609e4ea0::t_dd47d629fd8ee8 9,191-237
+packages/astro-fern/project.ts
+  s_5cc4d7609e4ea0::t_bfd5081f480f55 5,74-75,80-81,95,192-193,288,299-301,304-308,321,328-332,337,345,358
+packages/astro-fern/route-context.test.ts
+  s_5cc4d7609e4ea0::t_fbd1d6537a04af 151
+packages/astro-fern/route-context.ts
+  s_5cc4d7609e4ea0::t_e494c0a475a00c 98,101
+packages/astro-fern/route-plan.ts
+  s_5cc4d7609e4ea0::t_c4e3e27e07b8c9 6,27-28,66,68-69,278-279,284,315,334,341,344,392,400,428,440,489
+packages/astro-fern/server-runtime.ts
+  s_5cc4d7609e4ea0::t_52a32f1c023f17 116-117,197,244-246
+packages/docs-site/README.md
+  s_5cc4d7609e4ea0::t_ef5abcde3c7bbc 31-34,38,58-60,69,71-86,92-95
+packages/docs-site/src/api-routing.test.ts
+  s_5cc4d7609e4ea0::t_ba1454d6639899 50,117,383-385,409-574
+packages/docs-site/src/api-routing.ts
+  s_5cc4d7609e4ea0::t_866e46702e0418 29-37,44-45,58-67,93-98,135-148,154,165-202,232-233,235,252,254-257,259-260,262,265-274,276,278-283,297,336,340-343,348-368,370-371,373-375,377,422-423,462-467,476,480-498,505,511,513,535-552,566-576,583-586,595,601
+packages/docs-site/src/api-server.ts
+  s_5cc4d7609e4ea0::t_2bc514f5fc330b 16,25
+packages/docs-site/src/cloudflare.test.ts
+  s_5cc4d7609e4ea0::t_d2a08b56dc75a8 5-6,10,106-146
+packages/docs-site/src/cloudflare.ts
+  s_5cc4d7609e4ea0::t_88f647ef80ba19 15,116-124
+packages/docs-site/src/command-reference/routing.ts
+  s_5cc4d7609e4ea0::t_c7bed4c146f39b 41,46-48
+packages/docs-site/src/command-routing.test.ts
+  s_5cc4d7609e4ea0::t_38e89f2e3acefb 48-51
+packages/docs-site/src/components/ApiIndex.astro
+  s_5cc4d7609e4ea0::t_a84cf059e8b240 3-8,11,16-38,48-106,127,227-230
+packages/docs-site/src/components/PageTitle.astro
+  s_5cc4d7609e4ea0::t_3b5b62e3eeca0f 14-16,26
+packages/docs-site/src/components/VersionSelect.astro
+  s_5cc4d7609e4ea0::t_e7f3890b829560 15
+packages/docs-site/src/content.config.ts
+  s_5cc4d7609e4ea0::t_3dbad69feef3bd 11,56
+packages/docs-site/src/pages/[product]/[...slug].astro
+  s_5cc4d7609e4ea0::t_e21fd9960340ce 19-26,48-50,54
+packages/docs-site/src/sidebar.test.ts
+  s_5cc4d7609e4ea0::t_7d23b02499c7ae 23,86-165,179
+packages/docs-site/src/sidebar.ts
+  s_5cc4d7609e4ea0::t_a59877fe811d4a 2,12-25,41,47-48,59-64,69-74,82-131
+packages/fern-forge/README.md
+  s_5cc4d7609e4ea0::t_d2cc4cddc466f6 60-63,79-81,89-90,96-101,133-134,136-141,150,152-153,169-173,244
+packages/fern-forge/extension.ts
+  s_5cc4d7609e4ea0::t_c30a56c882c39e 11-13,17-20,30-31
+packages/fern-forge/index.test.ts
+  s_5cc4d7609e4ea0::t_08405b440aa419 119-246,309-328
+packages/fern-forge/parser.ts
+  s_5cc4d7609e4ea0::t_9fe5680f499bae 54-61
+packages/fern-forge/schemas/operation.ts
+  s_5cc4d7609e4ea0::t_9171c5d1678eb3 50-60
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "5196bb248e82350af9bbf357a806552b2037f78f",
+  "prompts": {},
+  "sessions": {
+    "s_5cc4d7609e4ea0": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_f7f0031d6ffetA1nn8Hm78xm6N",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "ematipico <estoppa@cloudflare.com>"
+    }
+  }
+}

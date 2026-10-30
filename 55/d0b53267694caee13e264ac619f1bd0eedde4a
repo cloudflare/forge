@@ -1,0 +1,19 @@
+packages/docs-site/astro.config.mjs
+  s_a1d110897c1092::t_211320c44e9b20 26,46
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "55d0b53267694caee13e264ac619f1bd0eedde4a",
+  "prompts": {},
+  "sessions": {
+    "s_a1d110897c1092": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_f93b9710dffePWMxFalFAjqt8Y",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "ematipico <estoppa@cloudflare.com>"
+    }
+  }
+}

@@ -1,0 +1,31 @@
+packages/cloudflare-api-site/src/pages/[product]/[...slug].astro
+  s_40948424877c65::t_3bb982bde9478f 2,73
+packages/cloudflare-api-site/astro.config.mjs
+  s_40948424877c65::t_0c1bb74275a822 27
+packages/cloudflare-api-site/README.md
+  s_d4d5b6e05a42a9::t_b927955e5001e4 51
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "7c22f2195f16ea0746ac83dba79dd3e693479534",
+  "prompts": {},
+  "sessions": {
+    "s_40948424877c65": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "b986cd6a-02da-414a-a47a-74d0e86476b3",
+        "model": "unknown"
+      },
+      "human_author": "mohamedh <mhassan@cloudflare.com>"
+    },
+    "s_d4d5b6e05a42a9": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "agent-a2a695bbda7a8f333",
+        "model": "unknown"
+      },
+      "human_author": "mohamedh <mhassan@cloudflare.com>"
+    }
+  }
+}

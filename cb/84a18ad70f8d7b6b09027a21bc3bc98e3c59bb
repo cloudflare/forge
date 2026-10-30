@@ -1,0 +1,19 @@
+packages/astro-fern/content/resolver.ts
+  s_f55baf554e56ea::t_850785afcbd889 19,32,34-39,66,126-154,159-172,265-292,294,299-300,304-306,308-310,313,315-317,320-330,332-347,359,369-374,377,390-394,402,407-408,411-415,418-422,427-428,439-445,460-468,473-490,506,563-613,633,647-648,660,680,694,702-705,710-714,720-721,726,733-842,868,874,884,899,905-912,931,933,941-947
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "cb84a18ad70f8d7b6b09027a21bc3bc98e3c59bb",
+  "prompts": {},
+  "sessions": {
+    "s_f55baf554e56ea": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_fbd8274faffepHWyHLQ0XJWgk9",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "ematipico <estoppa@cloudflare.com>"
+    }
+  }
+}

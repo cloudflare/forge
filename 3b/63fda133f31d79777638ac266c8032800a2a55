@@ -1,0 +1,165 @@
+packages/docs-site-nimbus/fixtures/openapi.json
+  s_d18e443a07e0b0::t_a476759be4b372 1-1636
+packages/docs-site-nimbus/nimbus.json
+  s_b563d41a6291e7::t_68c8c1756344ca 1-204
+packages/docs-site-nimbus/scripts/compare-static-output.mjs
+  s_e7624bf6f86be1::t_1d41f1c3edeec6 1-69
+packages/docs-site-nimbus/scripts/extract-openapi.mjs
+  s_e7624bf6f86be1::t_76e47b6b66e10d 1-156
+packages/docs-site-nimbus/scripts/language-selection.test.mjs
+  s_b563d41a6291e7::t_8942e91b40cf89 1-71
+packages/docs-site-nimbus/scripts/prepared-api-page.test.mjs
+  s_b563d41a6291e7::t_7dbff24d29afd2 1-259
+packages/docs-site-nimbus/src/components/ui/api-code-rail/code-rail.css
+  s_e7624bf6f86be1::t_c8d05c3e2f8915 1-263
+packages/docs-site-nimbus/src/components/ui/api-code-rail/index.ts
+  s_e7624bf6f86be1::t_e39155a5572bd6 1
+packages/docs-site-nimbus/src/components/ui/api-code-rail/language-selection.ts
+  s_b563d41a6291e7::t_16149d4a5ff7cf 1-64
+packages/docs-site-nimbus/src/components/ui/api-code-rail/language-state.client.ts
+  s_b563d41a6291e7::t_f1d40fd797279b 1-76
+packages/docs-site-nimbus/src/components/ui/api-field-row/ApiFieldRow.astro
+  s_e7624bf6f86be1::t_32ee1a612ffbf8 1-113
+packages/docs-site-nimbus/src/components/ui/api-field-row/ApiUnionExplorer.astro
+  s_e7624bf6f86be1::t_964903fcdc5a50 1-72
+packages/docs-site-nimbus/src/components/ui/api-field-row/api-field-row.client.ts
+  s_e7624bf6f86be1::t_ee921e41ddae7b 1-12
+packages/docs-site-nimbus/src/components/ui/api-field-row/field-list.css
+  s_e7624bf6f86be1::t_a878e81f9cbc50 1-334
+packages/docs-site-nimbus/src/components/ui/api-field-row/index.ts
+  s_e7624bf6f86be1::t_22575d23d58148 1-6
+packages/docs-site-nimbus/src/components/ui/api-field-row/type-display.ts
+  s_e7624bf6f86be1::t_8587dbcb488cfd 1-124
+packages/docs-site-nimbus/src/components/ui/api-layout/ApiEndpointCard.astro
+  s_e7624bf6f86be1::t_096762aad049f3 1-102
+packages/docs-site-nimbus/src/components/ui/api-layout/auth.ts
+  s_e7624bf6f86be1::t_90071b90702bd1 1-75
+packages/docs-site-nimbus/src/components/ui/api-layout/index.ts
+  s_e7624bf6f86be1::t_ac19d236147896 1-2
+packages/docs-site-nimbus/src/components/ui/api-layout/request-examples.client.ts
+  s_b563d41a6291e7::t_a83a3a68946111 1-12
+packages/docs-site-nimbus/src/components/ui/api-sidebar/index.ts
+  s_e7624bf6f86be1::t_9ce9fc849c76ba 1-3
+packages/docs-site-nimbus/src/components/ui/api-sidebar/method.ts
+  s_e7624bf6f86be1::t_68b74bbd46b11a 1-19
+packages/docs-site-nimbus/src/components/ui/badge/Badge.astro
+  s_e7624bf6f86be1::t_68ec00df384718 1-43
+packages/docs-site-nimbus/src/components/ui/badge/index.ts
+  s_e7624bf6f86be1::t_139ce88a529858 1
+packages/docs-site-nimbus/src/components/ui/banner/Banner.astro
+  s_e7624bf6f86be1::t_8405a1f0986d75 1-83
+packages/docs-site-nimbus/src/components/ui/banner/banner.client.ts
+  s_e7624bf6f86be1::t_1e46de517a7d9b 1-49
+packages/docs-site-nimbus/src/components/ui/banner/index.ts
+  s_e7624bf6f86be1::t_faced378a19380 1
+packages/docs-site-nimbus/src/components/ui/breadcrumbs/Breadcrumbs.astro
+  s_e7624bf6f86be1::t_b2149f50b5230b 1-93
+packages/docs-site-nimbus/src/components/ui/breadcrumbs/index.ts
+  s_e7624bf6f86be1::t_3ddb057d2fcbfa 1
+packages/docs-site-nimbus/src/components/ui/collapsible/Collapsible.astro
+  s_e7624bf6f86be1::t_391508a6bd2e48 1-25
+packages/docs-site-nimbus/src/components/ui/collapsible/CollapsibleContent.astro
+  s_e7624bf6f86be1::t_1f2864cf7f04f3 1-29
+packages/docs-site-nimbus/src/components/ui/collapsible/CollapsibleTrigger.astro
+  s_e7624bf6f86be1::t_e68e3a77ebe047 1-21
+packages/docs-site-nimbus/src/components/ui/collapsible/collapsible.client.ts
+  s_e7624bf6f86be1::t_33272301d69fb5 1-22
+packages/docs-site-nimbus/src/components/ui/collapsible/index.ts
+  s_e7624bf6f86be1::t_576bd516caa220 1-3
+packages/docs-site-nimbus/src/components/ui/layer-card/LayerCard.astro
+  s_e7624bf6f86be1::t_f17861d63d3762 1-23
+packages/docs-site-nimbus/src/components/ui/layer-card/LayerCardContent.astro
+  s_e7624bf6f86be1::t_242d97c0e5b70c 1-16
+packages/docs-site-nimbus/src/components/ui/layer-card/LayerCardHeader.astro
+  s_e7624bf6f86be1::t_f7962913db3fb4 1-16
+packages/docs-site-nimbus/src/components/ui/layer-card/index.ts
+  s_e7624bf6f86be1::t_b6abe2093811f0 1-3
+packages/docs-site-nimbus/src/components/ui/page-actions/PageActions.astro
+  s_e7624bf6f86be1::t_4f4b0f7e1e3585 1-69
+packages/docs-site-nimbus/src/components/ui/page-actions/index.ts
+  s_e7624bf6f86be1::t_3788a39ded8fb5 1
+packages/docs-site-nimbus/src/components/ui/popover/Popover.astro
+  s_e7624bf6f86be1::t_8cbd7e933381bd 1-33
+packages/docs-site-nimbus/src/components/ui/popover/PopoverContent.astro
+  s_e7624bf6f86be1::t_0a9904afb3c02a 1-44
+packages/docs-site-nimbus/src/components/ui/popover/PopoverTrigger.astro
+  s_e7624bf6f86be1::t_e489b6d8cc3b09 1-21
+packages/docs-site-nimbus/src/components/ui/popover/index.ts
+  s_e7624bf6f86be1::t_8544c52c31ff9d 1-3
+packages/docs-site-nimbus/src/components/ui/popover/popover.client.ts
+  s_e7624bf6f86be1::t_bb1d22446b0455 1-84
+packages/docs-site-nimbus/src/components/ui/sidebar/Sidebar.astro
+  s_e7624bf6f86be1::t_c36d07fa792420 1-65
+packages/docs-site-nimbus/src/components/ui/sidebar/SidebarFilter.astro
+  s_e7624bf6f86be1::t_bbf8cc6a36a23f 1-28
+packages/docs-site-nimbus/src/components/ui/sidebar/SidebarGroup.astro
+  s_e7624bf6f86be1::t_233e1f4c866bfc 1-93
+packages/docs-site-nimbus/src/components/ui/sidebar/SidebarGroupHeader.astro
+  s_e7624bf6f86be1::t_2ea8d105db2894 1-114
+packages/docs-site-nimbus/src/components/ui/sidebar/SidebarLink.astro
+  s_e7624bf6f86be1::t_4ca365225785f1 1-44
+packages/docs-site-nimbus/src/components/ui/sidebar/index.ts
+  s_e7624bf6f86be1::t_b255f0f9d28645 1-5
+packages/docs-site-nimbus/src/components/ui/sidebar/sidebar.client.ts
+  s_e7624bf6f86be1::t_81350337b48113 1-203
+packages/docs-site-nimbus/src/components/ui/theme-toggle/ThemeToggle.astro
+  s_e7624bf6f86be1::t_873f2fd931e711 1-32
+packages/docs-site-nimbus/src/components/ui/theme-toggle/index.ts
+  s_e7624bf6f86be1::t_a71849d142aa54 1
+packages/docs-site-nimbus/src/components/ui/theme-toggle/theme-toggle.client.ts
+  s_e7624bf6f86be1::t_f0bdce836084c7 1-31
+packages/docs-site-nimbus/src/components/ui/version-switcher/README.md
+  s_e7624bf6f86be1::t_f775ec657a884a 1-85
+packages/docs-site-nimbus/src/components/ui/version-switcher/VersionSwitcher.astro
+  s_e7624bf6f86be1::t_6c73997e64e628 1-253
+packages/docs-site-nimbus/src/components/ui/version-switcher/index.ts
+  s_e7624bf6f86be1::t_b4a24475a7d688 1
+packages/docs-site-nimbus/src/layouts/BaseLayout.astro
+  s_91c8d2ab1d77d8::t_ce14df7483017b 1-78
+packages/docs-site-nimbus/src/lib/cn.ts
+  s_e7624bf6f86be1::t_4e9581dc097e07 1-7
+packages/docs-site-nimbus/wrangler.jsonc
+  s_e7624bf6f86be1::t_28674c9f5a3b57 1-10
+pnpm-lock.yaml
+  s_d18e443a07e0b0::t_d692fb91b322f0 40,138,144,153,171-240,248,280-282,362-364,383-385,396-406,411-413,600-602,607-609,618-641,659,665,671,677,683,689,695,701,707,713,726-728,1248-1259,1552-1557,1565-1567,1581-1583,1870-1873,1967-1986,2014-2017,2032-2121,2140-2142,2180-2183,2228-2235,2260-2262,2318-2325,2394-2397,2404-2406,2422-2425,2492-2495,2502-2505,2517-2524,2528-2531,2606-2612,2626-2628,2644-2646,2652-2654,2663-2673,2678-2681,2685-2691,2695-2702,2736-2738,2786-2788,2812-2815,2820-2833,2842-2844,2858-2861,2870-2879,2886-2891,2898-2903,2910-2915,2922-2927,2934-2939,2946-2951,2958-2963,2970-2975,2982-2987,2994-2999,3006-3009,3037-3040,3225-3232,3272-3275,3297-3299,3360-3367,3428-3434,3496-3519,3594-3601,3606-3623,3659-3662,3667-3669,3685-3703,3719-3722,3745-3748,3791-3793,4064-4068,4105-4108,4160-4164,4176,4180-4181,4183,4268-4278,4333-4340,4346,4362-4368,4373-4378,4385,4388,4394-4395,4487,4552-4556,4562-4567,4577-4636,4649,4654,4698-4701,5009-5030,5245-5254,5259-5263,5313-5314,5472-5477,5525-5551,5588-5592,5604-5671,5693-5694,5733-5734,5795-5798,5823-5824,5839,5841,5845,5895-5896,5937,5987-5988,6029-6119,6136-6145,6192-6197,6210-6217,6232-6233,6286-6291,6299-6303,6310-6313,6316-6319,6483-6496,6505-6506,6519-6520,6524-6525,6530-6549,6554-6555,6558-6561,6574-6579,6663-6668,6787-6788,6806-6807,6810-6817,6824-6827,6836-6837,6842-6846,6850-6852,6856-6858,6862-6864,6868-6870,6874-6876,6880-6882,6886-6888,6892-6894,6898-6900,6904-6906,6910-6925,6964-6965,7457-7460,7487-7488,7515-7520,7617-7620,7663-7669,7777-7855,8085-8090,8102-8129,8165-8170,8175-8178,8199-8216,8231-8232,8253-8256,8285-8291,8384,8395,8399,8410,8414,8416,8418,8420,8530-8533,8574-8575
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "3b63fda133f31d79777638ac266c8032800a2a55",
+  "prompts": {},
+  "sessions": {
+    "s_91c8d2ab1d77d8": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_f1e198162ffeegYrC3FPV5O2c5",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "mohamedh <mhassan@cloudflare.com>"
+    },
+    "s_b563d41a6291e7": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_f1711e354ffe0jMEl0JIQ6bVh5",
+        "model": "claude-fable-5-1"
+      },
+      "human_author": "mohamedh <mhassan@cloudflare.com>"
+    },
+    "s_d18e443a07e0b0": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_f1fb41c10ffenDfJkVNWGXb5g4",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "mohamedh <mhassan@cloudflare.com>"
+    },
+    "s_e7624bf6f86be1": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_f560b4858ffeoCcCIoZ3rbtLtF",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "mohamedh <mhassan@cloudflare.com>"
+    }
+  }
+}
