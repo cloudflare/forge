@@ -8,9 +8,10 @@ edition = "2024"
 
 [dependencies]
 clap = { version = "4.6.7", features = ["derive"], optional = true }
+memchr = { version = "2.8.3", optional = true }
 rayon = "1.12.0"
 serde = { version = "1.0.229", features = ["derive"] }
-serde_json = { version = "1.0.151", optional = true }
+serde_json = { version = "1.0.151", features = ["preserve_order"], optional = true }
 wasmtime = { version = "49.0.2", default-features = false, features = ["runtime", "cranelift", "component-model", "parallel-compilation", "std"], optional = true }
 wasmtime-wasi = { version = "49.0.2", default-features = false, features = ["p2"], optional = true }
 
@@ -26,7 +27,7 @@ harness = false
 default = ["cli"]
 # The `forge` command. Library users can turn it off with
 # `default-features = false`.
-cli = ["dep:clap", "dep:serde_json"]
+cli = ["dep:clap", "dep:memchr", "dep:serde_json"]
 # `forge::wasm`, which runs plugins compiled to WebAssembly components.
 wasm = ["dep:wasmtime", "dep:wasmtime-wasi"]
 

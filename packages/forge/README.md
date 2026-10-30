@@ -16,6 +16,77 @@ npx @cloudflare/forge openapi.json --target ts --out sdk
 Pass `-` instead of a path to read the document from standard input. Run
 `forge --help` for every option.
 
+## Normalizing a document
+
+`forge normalize` rewrites metadata extensions from other tools into Forge's
+`x-forge-*` vocabulary. This command does not change which extensions Forge
+reads; adopting the native vocabulary in the parser is a separate change.
+
+```sh
+# Print the document with its keys rewritten. Nothing is changed.
+npx forge normalize openapi.json
+
+# Rewrite the files in place.
+npx forge normalize --write specs/*.json
+
+# Rewrite only Fern compatibility keys. --from may be repeated.
+npx forge normalize --write --from fern specs/*.json
+
+# Keep the old keys beside the native ones, for what still reads them.
+npx forge normalize --write --leave-old-extensions openapi.json
+
+# Write nothing, and fail if anything would be rewritten: for a check in CI.
+npx forge normalize --check specs/*.json
+
+# Read from standard input and write to standard output.
+cat openapi.json | npx forge normalize -
+```
+
+Without `--write` it changes nothing and prints one document to standard
+output, so several files need `--write` or `--check`. A file with nothing to
+rewrite is left as it is, a link is followed and stays a link, and a read-only
+file is left as it is, with an error. `-v` says how many times each key was
+rewritten. Documents have to be JSON: YAML is not supported yet.
+
+By default every compatibility source is normalized. Use `--from cloudflare`,
+`--from deprecated`, `--from fern`, or `--from stainless` to select only that
+source; repeat `--from` to select more than one. For example,
+`--from fern --from cloudflare` leaves Stainless extensions untouched.
+`deprecated` is the migration path for old Forge keys after they are renamed;
+it currently has no keys.
+
+What is rewritten:
+
+- A group path written as an array becomes the names joined by dots
+  (`["a", "b"]` becomes `"a.b"`), unless a name has a dot in it.
+- A skip for only some targets, written as a list, has no native form, since
+  `x-forge-skip` is for every target: it is left as it is. A skip that is plainly
+  true or false is rewritten.
+- Native keys always win: when a document says the same thing twice, the native
+  key is kept.
+
+<details>
+<summary>Known limitations</summary>
+
+`forge normalize` reads a document as JSON and writes it again, so a file that
+has a key to rewrite is not a minimal edit. The order of its keys is kept.
+
+- **A key written twice** keeps only its last copy, with no error or warning.
+- **Numbers** that do not fit in 64 bits are rounded (`100000000000000000001`
+  becomes `1e+20`), a decimal of more than about 17 digits is shortened, and
+  `1E5`, `0.10` and `-0` are written `100000.0`, `0.1` and `-0.0`.
+- **Formatting** is the writer's: the indentation of the first indented line is
+  used for the whole file, arrays and objects on one line are written on
+  several, blank lines, spaces at the end of a line and anything before the
+  first `{` are dropped, `\r\n` becomes `\n`, and escapes such as `\u00e9` and
+  `\/` are written as the characters.
+- **Errors**: JSON with comments, a byte order mark, and a document nested
+  deeper than 128 levels are not read.
+- **Memory**: a document is held in memory at about 6.5 times its size, one file
+  at a time.
+
+</details>
+
 ## Plugins
 
 A plugin generates an SDK, or anything else, from the document: forge parses
