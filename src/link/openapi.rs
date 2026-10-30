@@ -240,19 +240,19 @@ pub(super) struct Operation {
 /// `x-forge-aliases`, a method.
 #[derive(Default)]
 pub(super) struct Definition {
-    /// The `x-fern-sdk-method-name`, or empty for none.
+    /// The `x-forge-method-name`, or empty for none.
     pub(super) method_name: Str,
-    /// The `x-fern-sdk-group-name`: the group path, top level first, or
+    /// The `x-forge-group-name`: the group path, top level first, or
     /// empty for none.
     pub(super) group_names: Span<Str>,
-    /// `x-fern-ignore`.
-    pub(super) ignore: bool,
+    /// `x-forge-skip`.
+    pub(super) skip: bool,
     /// `x-forge-hidden`.
     pub(super) hidden: bool,
     /// The `x-forge-require-confirmation`, or `None` for none. An empty
     /// one is `Some`.
     pub(super) confirmation: Option<Str>,
-    /// The `x-fern-availability` as written, or `None` for none. It is
+    /// The `x-forge-availability` as written, or `None` for none. It is
     /// checked as the method is built, so that an error can name the
     /// operation.
     pub(super) availability: Option<Str>,
@@ -280,7 +280,7 @@ pub(super) struct Parameter {
     /// The schema of each media type of a parameter described by
     /// `content` rather than `schema`, in the order they are written.
     pub(super) content: Span<(Str, Schema)>,
-    /// The `x-fern-parameter-name`, or empty for none.
+    /// The `x-forge-parameter-name`, or empty for none.
     pub(super) field_name: Str,
 }
 
@@ -396,17 +396,17 @@ pub(super) struct SchemaObject {
     /// `readOnly`: the value appears in responses, and a client should not
     /// send it.
     pub(super) read_only: bool,
-    /// Whether the schema is marked `x-sensitive: true`: the value is a
+    /// Whether the schema is marked `x-forge-sensitive: true`: the value is a
     /// secret, such as a password or a token.
     pub(super) sensitive: bool,
-    /// The `x-fern-type-name`: the name of the model, for a schema in
+    /// The `x-forge-model-name`: the name of the model, for a schema in
     /// `components.schemas`, or empty for none.
     pub(super) model_name: Str,
-    /// The `x-fern-property-name`: the name of the field, for a property's
+    /// The `x-forge-property-name`: the name of the field, for a property's
     /// schema, or empty for none.
     pub(super) field_name: Str,
-    /// Whether a property's schema is marked `x-stainless-skip: true`. A
-    /// list of the targets to skip it for is ignored.
+    /// Whether a property's schema is marked `x-forge-skip: true`: it makes no
+    /// field.
     pub(super) skip: bool,
 }
 
@@ -851,7 +851,7 @@ impl Read for Types {
     }
 }
 
-/// Reads an `x-fern-sdk-group-name`: a string split on dots, or an array of
+/// Reads an `x-forge-group-name`: a string split on dots, or an array of
 /// strings that are not split. The empty string is no group.
 struct GroupNames;
 
@@ -1185,12 +1185,12 @@ impl ReadObject for PathItem {
 keys! {
     /// The keys of a [`Definition`], in an Operation Object or an alias.
     DefinitionKey {
-        MethodName = "x-fern-sdk-method-name",
-        GroupNames = "x-fern-sdk-group-name",
-        Ignore = "x-fern-ignore",
+        MethodName = "x-forge-method-name",
+        GroupNames = "x-forge-group-name",
+        Skip = "x-forge-skip",
         Hidden = "x-forge-hidden",
         Confirmation = "x-forge-require-confirmation",
-        Availability = "x-fern-availability",
+        Availability = "x-forge-availability",
     }
 }
 
@@ -1205,7 +1205,7 @@ impl Definition {
         match key {
             DefinitionKey::MethodName => self.method_name = map.next_value_seed(seed::<ReadStr>(doc))?,
             DefinitionKey::GroupNames => self.group_names = map.next_value_seed(seed::<GroupNames>(doc))?,
-            DefinitionKey::Ignore => self.ignore = map.next_value()?,
+            DefinitionKey::Skip => self.skip = map.next_value()?,
             DefinitionKey::Hidden => self.hidden = map.next_value()?,
             DefinitionKey::Confirmation => {
                 self.confirmation = Some(map.next_value_seed(seed::<ReadStr>(doc))?);
@@ -1489,7 +1489,7 @@ keys! {
         Explode = "explode",
         Schema = "schema",
         Content = "content",
-        FieldName = "x-fern-parameter-name",
+        FieldName = "x-forge-parameter-name",
     }
 }
 
@@ -1619,10 +1619,10 @@ keys! {
         Default = "default",
         Deprecated = "deprecated",
         ReadOnly = "readOnly",
-        Sensitive = "x-sensitive",
-        ModelName = "x-fern-type-name",
-        FieldName = "x-fern-property-name",
-        Skip = "x-stainless-skip",
+        Sensitive = "x-forge-sensitive",
+        ModelName = "x-forge-model-name",
+        FieldName = "x-forge-property-name",
+        Skip = "x-forge-skip",
     }
 }
 
@@ -1679,7 +1679,7 @@ impl ReadObject for SchemaObject {
                 SchemaKey::Sensitive => schema.sensitive = map.next_value()?,
                 SchemaKey::ModelName => schema.model_name = map.next_value_seed(seed::<ReadStr>(doc))?,
                 SchemaKey::FieldName => schema.field_name = map.next_value_seed(seed::<ReadStr>(doc))?,
-                SchemaKey::Skip => schema.skip = map.next_value::<StainlessSkip>()?.0,
+                SchemaKey::Skip => schema.skip = map.next_value()?,
                 SchemaKey::Other => skip(&mut map)?,
             }
         }
@@ -1780,35 +1780,6 @@ impl<'de> Deserialize<'de> for Count {
         }
 
         deserializer.deserialize_any(CountVisitor)
-    }
-}
-
-/// An `x-stainless-skip`: `true` or `false`, or a list of the targets to
-/// skip for, which is not `true`.
-struct StainlessSkip(bool);
-
-impl<'de> Deserialize<'de> for StainlessSkip {
-    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<StainlessSkip, D::Error> {
-        struct SkipVisitor;
-
-        impl<'de> Visitor<'de> for SkipVisitor {
-            type Value = StainlessSkip;
-
-            fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-                f.write_str("a boolean or an array of targets")
-            }
-
-            fn visit_bool<E: de::Error>(self, v: bool) -> Result<StainlessSkip, E> {
-                Ok(StainlessSkip(v))
-            }
-
-            fn visit_seq<A: SeqAccess<'de>>(self, mut seq: A) -> Result<StainlessSkip, A::Error> {
-                while let Some(IgnoredAny) = seq.next_element()? {}
-                Ok(StainlessSkip(false))
-            }
-        }
-
-        deserializer.deserialize_any(SkipVisitor)
     }
 }
 

@@ -370,11 +370,11 @@ fn models() {
         r##"{
           "openapi": "3.0.3", "info": {"title": "t", "version": "1"},
           "paths": {
-            "/a": {"get": {"x-fern-sdk-group-name": ["pet-store", "list_all"], "x-fern-sdk-method-name": "get",
+            "/a": {"get": {"x-forge-group-name": ["pet-store", "list_all"], "x-forge-method-name": "get",
               "responses": {"200": {"description": "ok", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/pet_owner"}}}}}}},
-            "/b": {"get": {"x-fern-sdk-group-name": "pet-store", "x-fern-sdk-method-name": "get",
+            "/b": {"get": {"x-forge-group-name": ["pet-store"], "x-forge-method-name": "get",
               "responses": {"200": {"description": "ok", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/2fa"}}}}}}},
-            "/c": {"get": {"x-fern-sdk-group-name": "other", "x-fern-sdk-method-name": "get",
+            "/c": {"get": {"x-forge-group-name": ["other"], "x-forge-method-name": "get",
               "responses": {"200": {"description": "ok", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/2fa"}}}}}}}
           },
           "components": {"schemas": {"pet_owner": {"type": "string"}, "2fa": {"type": "string"}}}
