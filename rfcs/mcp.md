@@ -200,6 +200,7 @@ It is often not an object: a `$ref`, an `allOf`, an array or a scalar. MCP `2026
 - `listTools(tools, { outputSchema })` returns the tools as `tools/list` sends them, without `request`, `method`, `path`, `extensions` and `responses`, and without `outputSchema` unless asked. The listing is built once per array of tools, so a server can answer `tools/list` with one handler rather than registering thousands of tools on every request.
 - `toolsByName(tools)` indexes them for `tools/call`, once per array.
 - `buildRequest(tool, args, baseUrl)` is described in [The request](#the-request). It throws `InvalidArguments` for arguments the tool can't be called with, which a server returns as a tool error.
+- `param(args, place, name)` reads a parameter from the `path`, `query` or `headers` argument, for a server that inspects or fills in arguments before building the request. The generated `request` functions use it, and `pathParam` for the path.
 
 Everything else is the server's: sending the request with its credential, turning the response into a tool result, and anything it changes about a tool, such as making a parameter optional and filling it from the session. It can change a tool by mapping over `tools` before listing them, since a tool is plain data and its `request` reads only the arguments.
 
