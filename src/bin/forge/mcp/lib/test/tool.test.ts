@@ -81,6 +81,14 @@ test('refuses an argument the tool does not take, saying where a parameter goes'
   });
 });
 
+test('refuses a misspelled parameter inside a place, listing what it takes', () => {
+  assert.throws(() => buildRequest(list, { path: { store_id: 's' }, query: { tagz: ['x'] } }, 'https://x'), {
+    name: 'InvalidArguments',
+    message:
+      'Unknown arguments for pets_list: query.tagz is not an argument; query takes tag, sort. It takes path, query, headers.',
+  });
+});
+
 test('refuses a place that is not an object', () => {
   assert.throws(() => buildRequest(list, { path: 's' }, 'https://x'), {
     name: 'InvalidArguments',
