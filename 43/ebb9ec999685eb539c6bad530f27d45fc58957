@@ -1,0 +1,29 @@
+rfcs/mcp.md
+  s_eeead1a6e64357::t_aa00be71cfa866 72-76,103-104,119,126
+src/bin/forge/mcp.rs
+  s_eeead1a6e64357::t_07cfd90e0e49ae 268-269,307,309,321-325,1122-1123,1131-1134,1236-1239,1274-1277,1279-1282,1291-1299
+src/bin/forge/mcp/lib/src/tool.ts
+  s_eeead1a6e64357::t_d3fa006a6a322e 127-133,172-174,243-244,257-262,270-271,284-299,302,313-331
+src/bin/forge/mcp/lib/test/fixtures.ts
+  s_eeead1a6e64357::t_a261fdc3de2c93 14,37
+src/bin/forge/mcp/lib/test/tool.test.ts
+  s_eeead1a6e64357::t_a7e17b0d28a590 4,15,117-207
+src/bin/forge/mcp/schema.rs
+  s_eeead1a6e64357::t_262da3b0ce161f 52,254-275
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "43ebb9ec999685eb539c6bad530f27d45fc58957",
+  "prompts": {},
+  "sessions": {
+    "s_eeead1a6e64357": {
+      "agent_id": {
+        "tool": "pi",
+        "id": "01a18cd0-9c1d-70f5-8fa2-e9d0bf679e39",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Matt Carey <mcarey@cloudflare.com>"
+    }
+  }
+}
