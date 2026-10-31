@@ -87,6 +87,7 @@ impl Schemas {
                 let members: Vec<Value> = intersection.members().map(|m| self.ty(m, refs)).collect();
                 json!({ "allOf": members })
             }
+            Type::Model(model) if is_scalar(model.ty()) => self.model(model),
             Type::Model(model) => {
                 refs.insert(model);
                 json!({ "$ref": format!("#/$defs/{}", key(model)) })
@@ -101,8 +102,9 @@ impl Schemas {
         if self.direction == Direction::Input
             && let Value::Object(map) = &mut schema
         {
-            if !field.description().is_empty() {
-                map.insert("description".to_owned(), json!(field.description()));
+            let description = field.description().trim();
+            if !description.is_empty() {
+                map.insert("description".to_owned(), json!(description));
             }
             if let Some(default) = field.default() {
                 map.insert("default".to_owned(), value(default));
@@ -121,8 +123,9 @@ impl Schemas {
         if self.direction == Direction::Input
             && let Value::Object(map) = &mut schema
         {
-            if !model.description().is_empty() && !map.contains_key("description") {
-                map.insert("description".to_owned(), json!(model.description()));
+            let description = model.description().trim();
+            if !description.is_empty() && !map.contains_key("description") {
+                map.insert("description".to_owned(), json!(description));
             }
             if model.is_deprecated() {
                 map.insert("deprecated".to_owned(), json!(true));
@@ -190,11 +193,33 @@ pub(super) fn reach<'f>(t: Type<'f>, direction: Direction, out: &mut Refs<'f>) {
         }
         Type::Union(union) => union.members().for_each(|m| reach(m, direction, out)),
         Type::Intersection(intersection) => intersection.members().for_each(|m| reach(m, direction, out)),
+        Type::Model(model) if is_scalar(model.ty()) => {}
         Type::Model(model) => {
             if out.insert(model) {
                 reach(model.ty(), direction, out);
             }
         }
+    }
+}
+
+/// Reports whether `t` is a scalar or an enum, or a union or intersection of
+/// them or of models that are, such as a nullable string or `allOf` an
+/// identifier and `string`. A model of one is written inline where it is used
+/// rather than as a `$ref`: its schema is about as small as the reference, and
+/// it saves an entry in the `$defs` of every tool that uses it.
+pub(super) fn is_scalar(t: Type<'_>) -> bool {
+    scalar_within(t, 8)
+}
+
+/// [`is_scalar`], looking through at most `depth` models, so a model that
+/// refers to itself ends the search.
+fn scalar_within(t: Type<'_>, depth: u8) -> bool {
+    match t {
+        Type::Scalar(_) | Type::Enum(_) => true,
+        Type::Union(union) => union.members().all(|m| scalar_within(m, depth)),
+        Type::Intersection(intersection) => intersection.members().all(|m| scalar_within(m, depth)),
+        Type::Model(model) => depth > 0 && scalar_within(model.ty(), depth - 1),
+        Type::Array(_) | Type::Object(_) => false,
     }
 }
 

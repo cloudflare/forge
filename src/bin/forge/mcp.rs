@@ -284,6 +284,7 @@ impl Params {
         let mut schema = Map::new();
         schema.insert("type".to_owned(), json!("object"));
         schema.insert("properties".to_owned(), Value::Object(self.properties));
+        schema.insert("additionalProperties".to_owned(), json!(false));
         if !self.required.is_empty() {
             schema.insert("required".to_owned(), json!(self.required));
             required.push(key.to_owned());
@@ -334,9 +335,9 @@ impl<'f> Tool<'f> {
         {
             let mut schema = Schemas::INPUT.ty(content.ty(), &mut refs);
             if let Value::Object(map) = &mut schema
-                && !b.description().is_empty()
+                && !b.description().trim().is_empty()
             {
-                map.insert("description".to_owned(), json!(b.description()));
+                map.insert("description".to_owned(), json!(b.description().trim()));
             }
             properties.insert("body".to_owned(), schema);
             if b.is_required() {
@@ -486,13 +487,13 @@ fn tool_name(m: Method<'_>) -> String {
 fn description(m: Method<'_>) -> String {
     let description = m.description().trim();
     let summary = m.summary().trim();
-    let mut paragraphs = vec![if !description.is_empty() {
-        description.to_owned()
+    let endpoint = format!("{} {}", m.http_method().as_str(), m.path());
+    let mut paragraphs = Vec::new();
+    if !description.is_empty() {
+        paragraphs.push(description.to_owned());
     } else if !summary.is_empty() {
-        summary.to_owned()
-    } else {
-        format!("{} {}", m.http_method().as_str(), m.path())
-    }];
+        paragraphs.push(summary.to_owned());
+    }
     let stage = match m.availability() {
         Some(Availability::Alpha) => Some("alpha"),
         Some(Availability::Beta) => Some("beta"),
@@ -512,6 +513,7 @@ fn description(m: Method<'_>) -> String {
         }
         paragraphs.push(text);
     }
+    paragraphs.push(endpoint);
     paragraphs.join("\n\n")
 }
 
@@ -720,6 +722,7 @@ fn tools_file(group: Group<'_>, tools: &[Tool<'_>]) -> ts::File {
                     if !t.required.is_empty() {
                         json_property(f, "required", &json!(t.required));
                     }
+                    p!(f, "additionalProperties: false,");
                     if !t.defs.is_empty() {
                         p!(f, "$defs: {");
                         f.indent(|f| {
@@ -1261,7 +1264,7 @@ mod tests {
                 },
                 "components": {"schemas": {
                     "Shared$1": {"type": "object", "properties": {"top": {"$ref": "#/components/schemas/Top"}}},
-                    "Top": {"type": "string"}}}}"##,
+                    "Top": {"type": "object", "properties": {"n": {"type": "integer"}}}}}}"##,
         );
         let paths: Vec<&str> = files.iter().map(|(path, _)| path.as_str()).collect();
         assert!(
@@ -1296,8 +1299,8 @@ mod tests {
                             "y": {"$ref": "#/components/schemas/logs_list"},
                             "z": {"$ref": "#/components/schemas/2fa"}}}}}},
                     "responses": {"200": {"description": "ok"}}}}},
-                "components": {"schemas": {"logs-list": {"type": "string"}, "logs_list": {"type": "integer"},
-                    "2fa": {"type": "boolean"}}}}"##,
+                "components": {"schemas": {"logs-list": {"type": "object"}, "logs_list": {"type": "object", "required": ["a"]},
+                    "2fa": {"type": "array"}}}}"##,
         );
         let schemas = file(&files, "a/schemas.ts");
         assert!(schemas.contains("export const logs$$list: JsonSchema = {"), "{schemas}");
@@ -1306,6 +1309,51 @@ mod tests {
         let tools = file(&files, "a/tools.ts");
         assert!(tools.contains(r#""logs-list": logs$$list,"#), "{tools}");
         assert!(tools.contains(r#""logs_list": logs_list,"#), "{tools}");
+    }
+
+    /// A model that is only a scalar or an enum is written where it is
+    /// used, not as a `$ref`; descriptions are trimmed; arguments can't have
+    /// properties the tool doesn't take; and the description ends with the
+    /// method and path.
+    #[test]
+    fn compact_input_schemas() {
+        let files = generate(
+            r##"{"openapi": "3.1.0", "info": {"title": "t", "version": "1"},
+                "paths": {"/zones/{zone_id}": {"get": {"x-fern-sdk-group-name": "zones", "x-fern-sdk-method-name": "get",
+                    "description": "Gets a zone.\n",
+                    "parameters": [
+                        {"name": "zone_id", "in": "path", "required": true, "description": "The zone.\n",
+                         "schema": {"$ref": "#/components/schemas/identifier"}},
+                        {"name": "kind", "in": "query", "schema": {"$ref": "#/components/schemas/kind"}}],
+                    "responses": {"200": {"description": "ok"}}}}},
+                "components": {"schemas": {
+                    "identifier": {"type": "string", "description": "Identifier."},
+                    "kind": {"type": "string", "enum": ["full", "partial"]}}}}"##,
+        );
+        let tools = file(&files, "zones/tools.ts");
+        assert!(!tools.contains("$defs"), "scalar models are inline: {tools}");
+        assert!(
+            !files.iter().any(|(path, _)| path.ends_with("schemas.ts")),
+            "no constants for them"
+        );
+        assert!(
+            tools.contains(r#""description": "The zone.","#),
+            "trimmed, the field's own: {tools}"
+        );
+        assert!(tools.contains(r#""enum": ["#), "{tools}");
+        assert_eq!(
+            tools.matches(r#""additionalProperties": false"#).count(),
+            2,
+            "path and query: {tools}"
+        );
+        assert!(
+            tools.contains("additionalProperties: false,"),
+            "and the arguments: {tools}"
+        );
+        assert!(
+            tools.contains(r#"description: "Gets a zone.\n\nGET /zones/{zone_id}","#),
+            "{tools}"
+        );
     }
 
     /// Every source of the runtime library is embedded.

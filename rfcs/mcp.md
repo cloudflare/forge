@@ -104,7 +104,7 @@ The name comes from forge's group hierarchy and method names, as for every targe
 - **`headers`**: an object of the header parameters, likewise. Read-only headers are left out.
 - **`body`**: the JSON body, as the API takes it, with the body's description. It is required if the body is.
 
-A place without parameters has no argument. The arguments mirror the HTTP request, so names never clash and are what the API documents:
+A place without parameters has no argument. `inputSchema` and each place set `additionalProperties: false`, so a client that validates arguments refuses a misspelled parameter, or one in the wrong place, before calling. The arguments mirror the HTTP request, so names never clash and are what the API documents:
 
 ```json
 { "path": { "zone_id": "…" }, "query": { "page": 2 }, "body": { "name": "…" } }
@@ -119,7 +119,7 @@ A place without parameters has no argument. The arguments mirror the HTTP reques
 - `headers`: each header's wire name and value.
 - `body`: the value and its media type.
 
-`buildRequest(tool, args, baseUrl)` turns that into the HTTP request, as plain data: `{ method, url, headers, body? }`, with lower-case header names and the body as a string. It crosses RPC or `postMessage` as it is, and `fetch(request.url, request)` sends it. It checks the required arguments are present, including required parameters such as `query.page`, then:
+`buildRequest(tool, args, baseUrl)` turns that into the HTTP request, as plain data: `{ method, url, headers, body? }`, with lower-case header names and the body as a string. It crosses RPC or `postMessage` as it is, and `fetch(request.url, request)` sends it. It checks that every argument is one the tool takes, naming the place a parameter goes when it was passed in the wrong one (`per_page goes in query`), and that the required arguments are present, including required parameters such as `query.page`, then:
 
 - serializes query parameters in OpenAPI's default `form` style (`a=1&a=2` exploded, `a=1,2` not; objects as `k=v` pairs or `name=k,v`);
 - joins an array header with `,`;
@@ -148,7 +148,7 @@ Schemas are JSON Schema 2020-12, built from forge's model of the spec rather tha
 
 A nullable type in the spec is already a union with `null` in forge, so it becomes `anyOf` with `{ "type": "null" }`.
 
-Models are `$ref`s into the schema's own `$defs`, so recursive models terminate, and each tool's `$defs` holds only the models its schema reaches, so every tool's schema stands alone. A model's schema is built once, as a constant in the `schemas.ts` or `outputs.ts` of the group forge places it in, and every tool that uses it imports the constant. The `$defs` key is the model's schema name, with each byte other than an ASCII letter, digit, `_` or `-` written as `.` and two hex digits (`Event$meta` is `Event.24meta`), so it needs no escaping in a JSON Pointer or URI fragment and no two models share one. The constant is named after the model's `$defs` key, with `-` written as `$$`, each `.XX` escape as `$XX`, and `$_` in front of a leading digit or a reserved word. Keys are unique, so constants are too, even for two models whose names have the same words, such as `logs-list` and `logs_list`; the names appear only in generated code. Both depend only on the model, so a group's files never need another group's.
+A model that is only a scalar or an enum, or a union or intersection of them, such as an identifier that is a string, is written where it is used: its schema is about as small as the reference. Every other model is a `$ref` into the schema's own `$defs`, so recursive models terminate, and each tool's `$defs` holds only the models its schema reaches, so every tool's schema stands alone. A model's schema is built once, as a constant in the `schemas.ts` or `outputs.ts` of the group forge places it in, and every tool that uses it imports the constant. The `$defs` key is the model's schema name, with each byte other than an ASCII letter, digit, `_` or `-` written as `.` and two hex digits (`Event$meta` is `Event.24meta`), so it needs no escaping in a JSON Pointer or URI fragment and no two models share one. The constant is named after the model's `$defs` key, with `-` written as `$$`, each `.XX` escape as `$XX`, and `$_` in front of a leading digit or a reserved word. Keys are unique, so constants are too, even for two models whose names have the same words, such as `logs-list` and `logs_list`; the names appear only in generated code. Both depend only on the model, so a group's files never need another group's.
 
 Arguments and responses are built separately, because a model differs between them:
 
@@ -159,10 +159,13 @@ Arguments and responses are built separately, because a model differs between th
 
 ## Description and annotations
 
-`title` is the method's summary. `description` is the method's description, or its summary, or `METHOD /path`, followed by:
+`title` is the method's summary. `description` is the method's description, or its summary, followed by:
 
 - `This method is alpha.` (or `beta`, `in preview`, `deprecated`) when `x-fern-availability` says so;
-- `Confirm with the user before calling this tool.` and the sentence from `x-forge-require-confirmation`, when the method has one.
+- `Confirm with the user before calling this tool.` and the sentence from `x-forge-require-confirmation`, when the method has one;
+- the method and path, `METHOD /path`, so a model can match the tool to the API's documentation.
+
+Descriptions are trimmed, here and in schemas.
 
 The annotations come from the HTTP method:
 
