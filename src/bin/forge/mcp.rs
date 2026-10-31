@@ -26,7 +26,7 @@
 //! and the JSON body as `body`, as the API takes it.
 
 use std::borrow::Cow;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 use std::fmt::Write as _;
 
 use forge::ts::{self, Ident, Module, PREAMBLE, p};
@@ -62,7 +62,7 @@ impl Plugin for Generator {
             }
         }
 
-        let mut files = model_files(Module::ROOT, forge.models(), forge.groups())?;
+        let mut files = model_files(Module::ROOT, forge.models(), forge.groups());
         files.push(File::Ts(index(forge, &groups)));
         files.push(File::Text {
             path: "README.md".to_owned(),
@@ -93,7 +93,7 @@ impl Plugin for Generator {
             Module::group(group),
             group.models(),
             std::iter::once(group).chain(group.descendants()),
-        )?);
+        ));
         Ok(files.into_iter())
     }
 }
@@ -541,19 +541,32 @@ impl SchemaFile {
     }
 }
 
-/// Returns the constant with the schema of `model` in a file of `kind`:
-/// the model's name in PascalCase, as the TypeScript SDK names it, with
-/// `Output` after it in `outputs.ts`, declared in its group's directory, or
-/// the root's for a top-level model. Forge places each model, so any file
-/// can name its constant.
+/// Returns the constant with the schema of `model` in a file of `kind`,
+/// declared in its group's directory, or the root's for a top-level model.
+/// Forge places each model, so any file can name its constant.
 fn model_ident(model: Model<'_>, kind: SchemaFile) -> Ident {
-    let name = Ident::model(model).name;
-    let name = match kind {
-        SchemaFile::Input => name.into_owned(),
-        SchemaFile::Output => format!("{name}Output"),
-    };
     let dir = model.group().map_or(Module::ROOT, Module::group);
-    dir.sub(kind.file()).ident(name)
+    dir.sub(kind.file()).ident(constant_name(&schema::key(model)))
+}
+
+/// Returns the name of the constant of the model whose `$defs` key is `key`:
+/// the key with `-` written as `$$` and each `.XX` escape as `$XX`, and `$_`
+/// in front if it starts with a digit or is a reserved word. Keys are unique
+/// and the encoding is reversible, so names are too, without looking at any
+/// other model; they appear only in generated code.
+fn constant_name(key: &str) -> String {
+    let mut name = String::with_capacity(key.len());
+    for c in key.chars() {
+        match c {
+            '-' => name.push_str("$$"),
+            '.' => name.push('$'),
+            c => name.push(c),
+        }
+    }
+    if name.is_empty() || name.starts_with(|c: char| c.is_ascii_digit()) || RESERVED.contains(&name.as_str()) {
+        name.insert_str(0, "$_");
+    }
+    name
 }
 
 /// Returns the `schemas.ts` and `outputs.ts` of `dir`: a constant with the
@@ -565,10 +578,10 @@ fn model_files<'f>(
     dir: Module,
     placed: impl Iterator<Item = Model<'f>>,
     groups: impl Iterator<Item = Group<'f>>,
-) -> Result<Vec<File>, Err> {
+) -> Vec<File> {
     let placed: HashSet<Model<'f>> = placed.collect();
     if placed.is_empty() {
-        return Ok(Vec::new());
+        return Vec::new();
     }
     let mut inputs = Refs::new();
     let mut outputs = Refs::new();
@@ -592,37 +605,22 @@ fn model_files<'f>(
             continue;
         }
         models.sort_by_cached_key(|&m| schema::key(m));
-        files.push(File::Ts(schema_file(dir.sub(kind.file()), &models, kind)?));
+        files.push(File::Ts(schema_file(dir.sub(kind.file()), &models, kind)));
     }
-    Ok(files)
+    files
 }
 
 /// Returns the file `module` with the constant of each of `models`, which
-/// are placed in its directory. Two models in a group with the same name
-/// are an error, as in the TypeScript SDK, as is a model whose name has no
-/// letters or digits.
-fn schema_file(module: Module, models: &[Model<'_>], kind: SchemaFile) -> Result<ts::File, Err> {
+/// are placed in its directory.
+fn schema_file(module: Module, models: &[Model<'_>], kind: SchemaFile) -> ts::File {
     let mut f = ts::File::new(module);
     let schema_type = RUNTIME_TOOL.ident("JsonSchema").ty();
     let doc = match kind {
         SchemaFile::Input => "",
         SchemaFile::Output => " in responses",
     };
-    let mut names: HashMap<String, Model<'_>> = HashMap::new();
     for &model in models {
-        let name = model_ident(model, kind).name.into_owned();
-        if model.name().is_empty() {
-            return Err(format!("schema {:?}: the name has no letters or digits", model.schema_name()).into());
-        }
-        if let Some(other) = names.insert(name.clone(), model) {
-            return Err(format!(
-                "schemas {:?} and {:?} have the same name {name:?}",
-                other.schema_name(),
-                model.schema_name()
-            )
-            .into());
-        }
-        let ident = f.ident(name);
+        let ident = f.ident(model_ident(model, kind).name);
         f.doc(&format!("The schema of `{}`{doc}.", model.schema_name()));
         let json = serde_json::to_string_pretty(&kind.schemas().model(model)).unwrap_or_else(|_| "{}".to_owned());
         let mut lines = json.lines().peekable();
@@ -642,8 +640,58 @@ fn schema_file(module: Module, models: &[Model<'_>], kind: SchemaFile) -> Result
         }
         p!(f, "");
     }
-    Ok(f)
+    f
 }
+
+/// Words that can't name a constant.
+const RESERVED: &[&str] = &[
+    "break",
+    "case",
+    "catch",
+    "class",
+    "const",
+    "continue",
+    "debugger",
+    "default",
+    "delete",
+    "do",
+    "else",
+    "enum",
+    "export",
+    "extends",
+    "false",
+    "finally",
+    "for",
+    "function",
+    "if",
+    "import",
+    "in",
+    "instanceof",
+    "new",
+    "null",
+    "return",
+    "super",
+    "switch",
+    "this",
+    "throw",
+    "true",
+    "try",
+    "typeof",
+    "var",
+    "void",
+    "while",
+    "with",
+    "yield",
+    "let",
+    "static",
+    "implements",
+    "interface",
+    "package",
+    "private",
+    "protected",
+    "public",
+    "await",
+];
 
 /// Returns the `tools.ts` of `group`.
 fn tools_file(group: Group<'_>, tools: &[Tool<'_>]) -> ts::File {
@@ -1083,9 +1131,9 @@ mod tests {
             "a response without a JSON body: {tools}"
         );
         assert!(tools.contains(r##""$ref": "#/$defs/Pet""##), "{tools}");
-        assert!(tools.contains(r#""Pet": PetOutput,"#), "{tools}");
+        assert!(tools.contains(r#""Pet": Pet,"#), "{tools}");
         let outputs = file(&files, "pets/outputs.ts");
-        assert!(outputs.contains("export const PetOutput: JsonSchema = {"), "{outputs}");
+        assert!(outputs.contains("export const Pet: JsonSchema = {"), "{outputs}");
         assert!(
             outputs.contains(r#""id""#),
             "responses keep read-only fields: {outputs}"
@@ -1107,7 +1155,7 @@ mod tests {
         let list = &tools[tools.find(r#"name: "pets_list","#).unwrap()..];
         let list = &list[..list.find("request: ").unwrap()];
         assert!(
-            list.contains("outputSchema: {\n      \"items\": {\n        \"$ref\": \"#/$defs/Pet\"\n      },\n      \"type\": \"array\",\n      $defs: {\n        \"Pet\": PetOutput,\n      },\n    },"),
+            list.contains("outputSchema: {\n      \"items\": {\n        \"$ref\": \"#/$defs/Pet\"\n      },\n      \"type\": \"array\",\n      $defs: {\n        \"Pet\": Pet,\n      },\n    },"),
             "the 200 body, with its models: {list}"
         );
         let create = &tools[tools.find(r#"name: "pets_create","#).unwrap()..];
@@ -1133,8 +1181,8 @@ mod tests {
         let output = &tools[tools.find("outputSchema: {").unwrap()..tools.find("annotations: ").unwrap()];
         assert!(output.contains(r#""anyOf": ["#), "the distinct 2xx bodies: {output}");
         assert_eq!(output.matches(r#""type": "string""#).count(), 1, "{output}");
-        assert!(output.contains(r#""A": AOutput,"#), "{output}");
-        assert!(!output.contains("EOutput"), "error models are left out: {output}");
+        assert!(output.contains(r#""A": A,"#), "{output}");
+        assert!(!output.contains(r#""E":"#), "error models are left out: {output}");
     }
 
     #[test]
@@ -1226,12 +1274,38 @@ mod tests {
         );
         assert!(!paths.contains(&"a/x/schemas.ts"), "only models a tool uses: {paths:?}");
         let x = file(&files, "a/x/tools.ts");
-        assert!(x.contains(r#""Shared.241": Shared1Output,"#), "{x}");
-        assert!(x.contains(r#""Top": TopOutput,"#), "{x}");
+        assert!(x.contains(r#""Shared.241": Shared$241,"#), "{x}");
+        assert!(x.contains(r#""Top": Top,"#), "{x}");
         assert!(x.contains(r#"from "../outputs.js""#), "{x}");
         assert!(x.contains(r#"from "../../outputs.js""#), "{x}");
         let shared = file(&files, "a/outputs.ts");
         assert!(shared.contains(r##""$ref": "#/$defs/Top""##), "{shared}");
+    }
+
+    /// Two models whose names have the same words, such as the schemas
+    /// `logs-list` and `logs_list`, still get a constant each: constants are
+    /// named after the `$defs` key, which is unique.
+    #[test]
+    fn models_with_the_same_name() {
+        let files = generate(
+            r##"{"openapi": "3.1.0", "info": {"title": "t", "version": "1"},
+                "paths": {"/a": {"post": {"x-fern-sdk-group-name": "a", "x-fern-sdk-method-name": "make",
+                    "requestBody": {"required": true, "content": {"application/json": {"schema": {
+                        "type": "object", "properties": {
+                            "x": {"$ref": "#/components/schemas/logs-list"},
+                            "y": {"$ref": "#/components/schemas/logs_list"},
+                            "z": {"$ref": "#/components/schemas/2fa"}}}}}},
+                    "responses": {"200": {"description": "ok"}}}}},
+                "components": {"schemas": {"logs-list": {"type": "string"}, "logs_list": {"type": "integer"},
+                    "2fa": {"type": "boolean"}}}}"##,
+        );
+        let schemas = file(&files, "a/schemas.ts");
+        assert!(schemas.contains("export const logs$$list: JsonSchema = {"), "{schemas}");
+        assert!(schemas.contains("export const logs_list: JsonSchema = {"), "{schemas}");
+        assert!(schemas.contains("export const $_2fa: JsonSchema = {"), "{schemas}");
+        let tools = file(&files, "a/tools.ts");
+        assert!(tools.contains(r#""logs-list": logs$$list,"#), "{tools}");
+        assert!(tools.contains(r#""logs_list": logs_list,"#), "{tools}");
     }
 
     /// Every source of the runtime library is embedded.
