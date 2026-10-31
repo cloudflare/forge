@@ -72,6 +72,15 @@ test('refuses missing required arguments and values that are not scalars', () =>
   });
 });
 
+test('refuses an argument the tool does not take, saying where a parameter goes', () => {
+  assert.throws(() => buildRequest(list, { store_id: 's', tag: ['x'], verbose: true }, 'https://x'), {
+    name: 'InvalidArguments',
+    message:
+      'Unknown arguments for pets_list: store_id goes in path: { "path": { "store_id": … } }; ' +
+      'tag goes in query: { "query": { "tag": … } }; verbose is not an argument. It takes path, query, headers.',
+  });
+});
+
 test('refuses a place that is not an object', () => {
   assert.throws(() => buildRequest(list, { path: 's' }, 'https://x'), {
     name: 'InvalidArguments',
