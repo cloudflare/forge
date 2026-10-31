@@ -164,6 +164,21 @@ function checkUnknownArguments(tool: Tool, args: Args): void {
 }
 
 /**
+ * Throws {@link InvalidArguments} if `tool` can't be called with `args`: an
+ * argument it doesn't take, or a required one left out. {@link buildRequest}
+ * calls it; a server that fills in arguments, such as an account from the
+ * session, can call it first, so a misplaced argument isn't mistaken for a
+ * missing one.
+ */
+export function checkArguments(tool: Tool, args: Args): void {
+  checkUnknownArguments(tool, args);
+  const missing = missingArguments(tool, args);
+  if (missing.length > 0) {
+    throw new InvalidArguments(`Missing required arguments: ${missing.join(', ')}`);
+  }
+}
+
+/**
  * Returns the required arguments of `tool` that `args` leaves out: a
  * top-level argument such as `body`, or a parameter such as `query.page` in
  * a place `args` has.
@@ -191,11 +206,7 @@ function missingArguments(tool: Tool, args: Args): string[] {
  * Throws {@link InvalidArguments}.
  */
 export function buildRequest(tool: Tool, args: Args, baseUrl: string): HttpRequest {
-  checkUnknownArguments(tool, args);
-  const missing = missingArguments(tool, args);
-  if (missing.length > 0) {
-    throw new InvalidArguments(`Missing required arguments: ${missing.join(', ')}`);
-  }
+  checkArguments(tool, args);
   const api = tool.request(args);
   const url = new URL(withoutTrailingSlashes(baseUrl) + api.path);
   for (const [name, value, explode] of api.query ?? []) {
