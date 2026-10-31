@@ -119,7 +119,7 @@ A place without parameters has no argument. `inputSchema` and each place set `ad
 - `headers`: each header's wire name and value.
 - `body`: the value and its media type.
 
-`buildRequest(tool, args, baseUrl)` turns that into the HTTP request, as plain data: `{ method, url, headers, body? }`, with lower-case header names and the body as a string. It crosses RPC or `postMessage` as it is, and `fetch(request.url, request)` sends it. It checks that every argument is one the tool takes, naming the place a parameter goes when it was passed in the wrong one (`per_page goes in query`), and that the required arguments are present, including required parameters such as `query.page`, then:
+`buildRequest(tool, args, baseUrl)` turns that into the HTTP request, as plain data: `{ method, url, headers, body? }`, with lower-case header names and the body as a string. It crosses RPC or `postMessage` as it is, and `fetch(request.url, request)` sends it. It checks that every argument is one the tool takes, at the top level and inside `path`, `query` and `headers`, naming the place a parameter goes when it was passed in the wrong one (`per_page goes in query`) and what a place takes when a name is misspelled, and that the required arguments are present, including required parameters such as `query.page`, then:
 
 - serializes query parameters in OpenAPI's default `form` style (`a=1&a=2` exploded, `a=1,2` not; objects as `k=v` pairs or `name=k,v`);
 - joins an array header with `,`;
