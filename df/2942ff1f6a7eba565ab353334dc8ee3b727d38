@@ -1,0 +1,21 @@
+rfcs/mcp.md
+  s_eeead1a6e64357::t_8b52068095614a 151
+src/bin/forge/mcp.rs
+  s_eeead1a6e64357::t_804ca307b89d0d 29,65,96,544-546,549-569,581,584,608,610,614-615,623,643,646-695,1134,1136,1158,1184-1185,1277-1278,1285-1310
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "df2942ff1f6a7eba565ab353334dc8ee3b727d38",
+  "prompts": {},
+  "sessions": {
+    "s_eeead1a6e64357": {
+      "agent_id": {
+        "tool": "pi",
+        "id": "01a18cd0-9c1d-70f5-8fa2-e9d0bf679e39",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Matt Carey <mcarey@cloudflare.com>"
+    }
+  }
+}
