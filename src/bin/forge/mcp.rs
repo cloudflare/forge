@@ -30,7 +30,7 @@ use std::collections::HashSet;
 use std::fmt::Write as _;
 
 use forge::ts::{self, Ident, Module, PREAMBLE, p};
-use forge::{Availability, Err, Field, Forge, Group, HttpMethod, Location, Method, Model, Name, Plugin, Type};
+use forge::{Availability, Content, Err, Field, Forge, Group, HttpMethod, Location, Method, Model, Name, Plugin, Type};
 use serde_json::{Map, Value, json};
 
 mod schema;
@@ -168,13 +168,6 @@ fn check(m: Method<'_>) -> Result<String, String> {
     if name.len() > MAX_NAME_LENGTH {
         return Err(format!("the tool name is over {MAX_NAME_LENGTH} characters"));
     }
-    if let Some(b) = m.body()
-        && b.json().is_none()
-        && b.is_required()
-    {
-        let types: Vec<&str> = b.contents().map(|c| c.media_type()).collect();
-        return Err(format!("the request body is not JSON ({})", types.join(", ")));
-    }
     segments(m.path(), &path_names(m))?;
     Ok(name)
 }
@@ -203,11 +196,7 @@ fn input_types(m: Method<'_>) -> Vec<Type<'_>> {
             .filter(|f| !f.is_read_only())
             .map(|f| f.ty()),
     );
-    if let Some(b) = m.body()
-        && let Some(content) = b.json()
-    {
-        types.push(content.ty());
-    }
+    types.extend(m.body().into_iter().flat_map(|b| b.contents()).map(|c| c.ty()));
     types
 }
 
@@ -235,8 +224,8 @@ struct Tool<'f> {
     query: Vec<(String, bool)>,
     /// Each header parameter's wire name.
     headers: Vec<String>,
-    /// The media type of the JSON body.
-    body: Option<String>,
+    /// The media types the body can be sent in.
+    body: Option<Vec<String>>,
     /// The schema of each response's JSON body, by status, or `None` for a
     /// response without one.
     responses: Vec<(String, Option<Value>)>,
@@ -265,9 +254,8 @@ struct Params {
 }
 
 impl Params {
-    /// Adds `field`, a parameter that is required if `required`.
-    fn add<'f>(&mut self, field: Field<'f>, required: bool, refs: &mut Refs<'f>) {
-        let key = field.wire_name().to_owned();
+    /// Adds `field`, a parameter named `key` that is required if `required`.
+    fn add<'f>(&mut self, key: String, field: Field<'f>, required: bool, refs: &mut Refs<'f>) {
         self.properties.insert(key.clone(), Schemas::INPUT.field(field, refs));
         if required {
             self.required.push(key);
@@ -305,9 +293,9 @@ impl<'f> Tool<'f> {
 
         for field in parameters(m.request()) {
             match m.location(field) {
-                Some(Location::Path) => path_params.add(field, true, &mut refs),
+                Some(Location::Path) => path_params.add(field.wire_name().to_owned(), field, true, &mut refs),
                 Some(Location::Query { exploded }) => {
-                    query_params.add(field, field.is_required(), &mut refs);
+                    query_params.add(field.wire_name().to_owned(), field, field.is_required(), &mut refs);
                     query.push((field.wire_name().to_owned(), exploded));
                 }
                 None => {}
@@ -319,8 +307,23 @@ impl<'f> Tool<'f> {
             .flat_map(|h| h.fields())
             .filter(|f| !f.is_read_only())
         {
-            header_params.add(field, field.is_required(), &mut refs);
-            headers.push(field.wire_name().to_owned());
+            // Header names are case-insensitive; lower case is how HTTP/2
+            // and `fetch` write them.
+            let name = field.wire_name().to_ascii_lowercase();
+            header_params.add(name.clone(), field, field.is_required(), &mut refs);
+            headers.push(name);
+        }
+
+        // A body in more than one media type is in the one the
+        // `content-type` header names, or else the one its value fits.
+        let contents: Vec<Content<'_>> = m.body().into_iter().flat_map(|b| b.contents()).collect();
+        if contents.len() > 1 && !headers.iter().any(|h| h == "content-type") {
+            let types: Vec<&str> = contents.iter().map(|c| c.media_type()).collect();
+            header_params.properties.insert(
+                "content-type".to_owned(),
+                json!({ "type": "string", "enum": types, "description": "The media type of `body`. Without it, a string is sent as the first text type, and an object as JSON if the API takes JSON, else as multipart/form-data." }),
+            );
+            headers.push("content-type".to_owned());
         }
 
         let mut properties = Map::new();
@@ -331,9 +334,18 @@ impl<'f> Tool<'f> {
 
         let mut body = None;
         if let Some(b) = m.body()
-            && let Some(content) = b.json()
+            && !contents.is_empty()
         {
-            let mut schema = Schemas::INPUT.ty(content.ty(), &mut refs);
+            let mut schema = match &contents[..] {
+                [only] => Schemas::INPUT.ty(only.ty(), &mut refs),
+                _ => json!({ "anyOf": contents.iter().map(|c| {
+                    let mut schema = Schemas::INPUT.ty(c.ty(), &mut refs);
+                    if let Value::Object(map) = &mut schema {
+                        map.insert("description".to_owned(), json!(format!("As {}.", c.media_type())));
+                    }
+                    schema
+                }).collect::<Vec<_>>() }),
+            };
             if let Value::Object(map) = &mut schema
                 && !b.description().trim().is_empty()
             {
@@ -343,7 +355,7 @@ impl<'f> Tool<'f> {
             if b.is_required() {
                 required.push("body".to_owned());
             }
-            body = Some(content.media_type().to_owned());
+            body = Some(contents.iter().map(|c| c.media_type().to_owned()).collect());
         }
 
         let path = segments(m.path(), &path_names(m))?;
@@ -847,12 +859,13 @@ fn tools_file(group: Group<'_>, tools: &[Tool<'_>]) -> ts::File {
                         });
                         p!(f, "],");
                     }
-                    if let Some(media_type) = &t.body {
+                    if let Some(media_types) = &t.body {
+                        let types: Vec<String> = media_types.iter().map(|t| string(t)).collect();
                         p!(
                             f,
-                            "body: { value: args[\"body\"], mediaType: ",
-                            string(media_type),
-                            " },"
+                            "body: { value: args[\"body\"], mediaTypes: [",
+                            types.join(", "),
+                            "] },"
                         );
                     }
                 });
@@ -1066,6 +1079,7 @@ mod tests {
                 "_/tool.ts",
                 "index.ts",
                 "pets/outputs.ts",
+                "pets/photos/tools.ts",
                 "pets/schemas.ts",
                 "pets/tools.ts"
             ]
@@ -1098,8 +1112,8 @@ mod tests {
             "{tools}"
         );
         assert!(
-            tools.contains(r#"["X-Trace", param(args, "headers", "X-Trace")],"#),
-            "{tools}"
+            tools.contains(r#"["x-trace", param(args, "headers", "x-trace")],"#),
+            "header names in lower case: {tools}"
         );
         let list = &tools[tools.find(r#"name: "pets_list","#).unwrap()..];
         let input = &list[list.find("inputSchema: {").unwrap()..list.find("outputSchema").unwrap()];
@@ -1107,7 +1121,10 @@ mod tests {
             assert!(input.contains(place), "parameters by where they go: {input}");
         }
         assert!(input.contains(r#""store_id": {"#), "keyed by wire name: {input}");
-        assert!(input.contains(r#""X-Trace": {"#), "keyed by wire name: {input}");
+        assert!(
+            input.contains(r#""x-trace": {"#),
+            "a header by its name in lower case: {input}"
+        );
         assert!(
             input.contains("required: [\n        \"path\"\n      ],"),
             "only the path is required: {input}"
@@ -1121,7 +1138,7 @@ mod tests {
         let files = generate(PETS);
         let tools = file(&files, "pets/tools.ts");
         assert!(
-            tools.contains(r#"body: { value: args["body"], mediaType: "application/json" },"#),
+            tools.contains(r#"body: { value: args["body"], mediaTypes: ["application/json"] },"#),
             "{tools}"
         );
         assert!(tools.contains(r#""Pet": Pet,"#), "{tools}");
@@ -1207,12 +1224,75 @@ mod tests {
             !tools.contains("pets_replace"),
             "deprecated methods have no tool: {tools}"
         );
-        assert!(!files.iter().any(|(path, _)| path == "pets/photos/tools.ts"));
         let readme = file(&files, "README.md");
-        assert!(readme.contains("3 tools in 1 groups."), "{readme}");
+        assert!(readme.contains("4 tools in 2 groups."), "{readme}");
         assert!(
-            readme.contains("| `POST` | `/stores/{store_id}/photos` | the request body is not JSON (image/png) |"),
-            "{readme}"
+            !readme.contains("photos"),
+            "a body in any media type gets a tool: {readme}"
+        );
+    }
+
+    /// A body in several media types is in the one the `content-type` header
+    /// argument names, JSON by default, with the spec's schema for each; a
+    /// string body of any other media type is sent as it is.
+    #[test]
+    fn bodies_in_any_media_type() {
+        let files = generate(
+            r##"{"openapi": "3.1.0", "info": {"title": "t", "version": "1"},
+                "paths": {
+                    "/values/{key}": {"put": {"x-forge-group-name": "kv", "x-forge-method-name": "put",
+                        "parameters": [{"name": "key", "in": "path", "required": true, "schema": {"type": "string"}}],
+                        "requestBody": {"required": true, "content": {
+                            "multipart/form-data": {"schema": {"type": "object", "required": ["value"], "properties": {
+                                "value": {"type": "string", "format": "binary"},
+                                "metadata": {"type": "object"}}}},
+                            "application/octet-stream": {"schema": {"type": "string", "format": "binary"}}}},
+                        "responses": {"200": {"description": "ok"}}}},
+                    "/query": {"post": {"x-forge-group-name": "kv", "x-forge-method-name": "query",
+                        "requestBody": {"required": true, "content": {
+                            "text/plain": {"schema": {"type": "string"}},
+                            "application/json": {"schema": {"type": "object", "properties": {"sql": {"type": "string"}}}}}},
+                        "responses": {"200": {"description": "ok"}}}},
+                    "/sql": {"post": {"x-forge-group-name": "kv", "x-forge-method-name": "sql",
+                        "requestBody": {"required": true, "content": {"text/plain": {"schema": {"type": "string"}}}},
+                        "responses": {"200": {"description": "ok"}}}}}}"##,
+        );
+        let tools = file(&files, "kv/tools.ts");
+        let compact: String = tools.split_whitespace().collect();
+        assert!(
+            compact.contains(r#""enum":["application/octet-stream","multipart/form-data"]"#),
+            "the media types the body takes: {tools}"
+        );
+        assert!(tools.contains(r#""description": "As multipart/form-data.""#), "{tools}");
+        assert!(
+            tools.contains(r#""description": "As application/octet-stream.""#),
+            "{tools}"
+        );
+        assert!(tools.contains(r#""metadata": {"#), "the spec's form fields: {tools}");
+        assert!(
+            compact.contains(r#""filename":{"type":"string"}"#),
+            "a file can be named: {tools}"
+        );
+        assert!(
+            compact.contains(r#""enum":["application/json","text/plain"]"#),
+            "the media types, in the spec's order: {tools}"
+        );
+        assert!(
+            tools.contains(r#"["content-type", param(args, "headers", "content-type")],"#),
+            "sent as a header: {tools}"
+        );
+        assert!(
+            tools.contains(r#"body: { value: args["body"], mediaTypes: ["application/json", "text/plain"] },"#),
+            "{tools}"
+        );
+        assert!(
+            tools.contains(r#"body: { value: args["body"], mediaTypes: ["text/plain"] },"#),
+            "one media type: {tools}"
+        );
+        assert_eq!(
+            tools.matches(r#""content-type": {"#).count(),
+            2,
+            "only with a choice: {tools}"
         );
     }
 

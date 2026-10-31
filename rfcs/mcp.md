@@ -59,7 +59,7 @@ Each `tools.ts` exports `tools`, an array of the group's tools sorted by name, a
   extensions: { 'x-api-token-group': [ … ] },
   responses: { schemas: { '200': { … }, '4XX': { … } }, $defs: { … } },
   outputSchema: { … , $defs: { … } },
-  request: (args) => ({ path: `/zones/${pathParam(args, 'zone_id')}/dns_records`, body: { value: args['body'], mediaType: 'application/json' } }),
+  request: (args) => ({ path: `/zones/${pathParam(args, 'zone_id')}/dns_records`, body: { value: args['body'], mediaTypes: ['application/json'] } }),
 }
 ```
 
@@ -69,12 +69,11 @@ The runtime imports nothing at runtime, only the SDK's types, so the tools load 
 
 Every method forge reads gets a tool, except:
 
-| Method                                                                                                               | Why                                                                                                         |
-| -------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
-| Deprecated (`deprecated: true`)                                                                                      | Left out silently.                                                                                          |
-| A required request body with no JSON media type (`multipart/form-data`, `application/octet-stream`, `text/plain`, …) | A tool's arguments are JSON. An optional non-JSON body is left off the tool, and the method still gets one. |
-| A tool name over 128 characters                                                                                      | MCP's limit.                                                                                                |
-| A tool name another method of its group already has, such as `x1b` and `x_1b`, both `x1b` in camelCase               | Names must be unique across the server; the first method by name keeps it. See [Names](#names).             |
+| Method                                                                                                 | Why                                                                                             |
+| ------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------- |
+| Deprecated (`deprecated: true`)                                                                        | Left out silently.                                                                              |
+| A tool name over 128 characters                                                                        | MCP's limit.                                                                                    |
+| A tool name another method of its group already has, such as `x1b` and `x_1b`, both `x1b` in camelCase | Names must be unique across the server; the first method by name keeps it. See [Names](#names). |
 
 Each of these except deprecation is listed in `README.md` with the method, path and reason, so a change to the spec that loses a tool shows in review. Operations forge itself doesn't read, such as those with `x-fern-ignore`, never reach the generator. Hidden methods (`x-forge-hidden`) get a tool.
 
@@ -101,8 +100,8 @@ The name comes from forge's group hierarchy and method names, as for every targe
 
 - **`path`**: an object of the path parameters, keyed by their names on the wire. Every one is required, and so is `path`.
 - **`query`**: an object of the query parameters, likewise. Each is required if the spec says so, and `query` is required if one is.
-- **`headers`**: an object of the header parameters, likewise. Read-only headers are left out.
-- **`body`**: the JSON body, as the API takes it, with the body's description. It is required if the body is.
+- **`headers`**: an object of the header parameters, keyed by name in lower case, as HTTP/2 and `fetch` write them; `buildRequest` takes them in any case. Read-only headers are left out.
+- **`body`**: the body, as the API takes it, with the body's description. It is required if the body is. Its schema is the spec's for its media type, except that a `format: binary` value, such as a file part, is its contents as text or `{ content, filename?, contentType? }`, as `FormData.append(name, blob, filename)` takes a file; a body in several media types is `anyOf` the schema of each, and `headers` gains `content-type`, an enum of them, which names the one sent.
 
 A place without parameters has no argument. `inputSchema` and each place set `additionalProperties: false`, so a client that validates arguments refuses a misspelled parameter, or one in the wrong place, before calling. The arguments mirror the HTTP request, so names never clash and are what the API documents:
 
@@ -117,14 +116,14 @@ A place without parameters has no argument. `inputSchema` and each place set `ad
 - `path`: the template with each parameter substituted. `pathParam` reads it from `args.path`, percent-encodes it, and throws `InvalidArguments` if it is missing or empty.
 - `query`: each parameter's wire name, value and whether it is exploded. `param` reads it from `args.query`, and headers from `args.headers`, throwing `InvalidArguments` if the place isn't an object.
 - `headers`: each header's wire name and value.
-- `body`: the value and its media type.
+- `body`: the value and the media types the API takes it in.
 
 `buildRequest(tool, args, baseUrl)` turns that into the HTTP request, as plain data: `{ method, url, headers, body? }`, with lower-case header names and the body as a string. It crosses RPC or `postMessage` as it is, and `fetch(request.url, request)` sends it. It checks that every argument is one the tool takes, at the top level and inside `path`, `query` and `headers`, naming the place a parameter goes when it was passed in the wrong one (`per_page goes in query`) and what a place takes when a name is misspelled, and that the required arguments are present, including required parameters such as `query.page`, then:
 
 - serializes query parameters in OpenAPI's default `form` style (`a=1&a=2` exploded, `a=1,2` not; objects as `k=v` pairs or `name=k,v`);
 - joins an array header with `,`;
 - leaves out every query parameter and header that is `undefined` or `null`;
-- sends `Accept: application/json`, and the body as JSON with its media type.
+- sends `Accept: application/json`, and the body in the media type a `content-type` header argument names or else the one its value fits, as `fetch` picks one: a file's own type; for a string or file, the first that is neither JSON nor a form; for anything else, the first JSON one, else `multipart/form-data` or `application/x-www-form-urlencoded` for an object. It encodes the body as `fetch` would: a JSON media type as JSON; an object as `multipart/form-data` parts (a `{ content, filename?, contentType? }` as a file part, another object as a JSON part, anything else as a text part) or `application/x-www-form-urlencoded` pairs; and any other string as it is. A file as the whole body is its contents, as a `Blob` is. A string sent as `multipart/form-data` is a body already encoded; its first line names the boundary. Arguments are JSON, so a body of bytes, such as an image, can only be text.
 
 It doesn't validate values against the schema. The API does that, and its error says more than ours would.
 

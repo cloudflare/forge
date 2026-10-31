@@ -49,6 +49,7 @@ impl Schemas {
     /// Returns the schema of `t`, adding the models it refers to to `refs`.
     pub(super) fn ty<'f>(self, t: Type<'f>, refs: &mut Refs<'f>) -> Value {
         match t {
+            Type::Scalar(Scalar::Binary) if self.direction == Direction::Input => file_schema(),
             Type::Scalar(scalar) => scalar_schema(scalar),
             Type::Enum(e) => {
                 let values: Vec<Value> = e
@@ -248,6 +249,28 @@ fn kind(value: &Value) -> &'static str {
         Value::Number(n) if n.is_i64() || n.is_u64() => "integer",
         _ => "number",
     }
+}
+
+/// Returns the schema of a `format: binary` argument, such as a file in a
+/// `multipart/form-data` body: its contents as text, or as a file with a name
+/// and a media type, as `FormData.append(name, blob, filename)` sends one.
+/// Arguments are JSON, so the contents are text.
+fn file_schema() -> Value {
+    json!({
+        "anyOf": [
+            { "type": "string" },
+            {
+                "type": "object",
+                "properties": {
+                    "content": { "type": "string" },
+                    "filename": { "type": "string" },
+                    "contentType": { "type": "string" }
+                },
+                "required": ["content"],
+                "additionalProperties": false
+            }
+        ]
+    })
 }
 
 /// Returns the schema of `scalar`.

@@ -11,7 +11,7 @@ export const tools: readonly Tool[] = [
       properties: {
         path: { type: 'object', properties: { store_id: { type: 'string' } }, required: ['store_id'] },
         query: { type: 'object', properties: { tag: { type: 'array' }, sort: { type: 'object' } } },
-        headers: { type: 'object', properties: { 'X-Trace': { type: 'string' } } },
+        headers: { type: 'object', properties: { 'x-trace': { type: 'string' } } },
       },
       required: ['path'],
     },
@@ -34,7 +34,7 @@ export const tools: readonly Tool[] = [
         ['tag', param(args, 'query', 'tag'), true],
         ['sort', param(args, 'query', 'sort'), false],
       ],
-      headers: [['X-Trace', param(args, 'headers', 'X-Trace')]],
+      headers: [['x-trace', param(args, 'headers', 'x-trace')]],
     }),
   },
   {
@@ -55,7 +55,7 @@ export const tools: readonly Tool[] = [
     request: (args) => ({
       path: `/stores/${pathParam(args, 'store_id')}/pets`,
       query: [['dry_run', param(args, 'query', 'dry_run'), true]],
-      body: { value: args['body'], mediaType: 'application/json' },
+      body: { value: args['body'], mediaTypes: ['application/json'] },
     }),
   },
 ];
