@@ -301,6 +301,15 @@ importers:
         specifier: 7.0.2
         version: 7.0.2
 
+  packages/mcp-search-eval:
+    devDependencies:
+      '@types/node':
+        specifier: 26.0.1
+        version: 26.0.1
+      typescript:
+        specifier: 7.0.2
+        version: 7.0.2
+
   src/bin/forge/mcp/lib:
     devDependencies:
       '@modelcontextprotocol/server':

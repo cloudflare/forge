@@ -1,0 +1,19 @@
+{
+  "name": "mcp-search-eval",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Measures how well the tools forge generates for MCP can be found by searching their names and descriptions.",
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "node --import ./src/register.ts --test \"test/**/*.test.ts\"",
+    "eval": "node --import ./src/register.ts src/main.ts"
+  },
+  "devDependencies": {
+    "@types/node": "26.0.1",
+    "typescript": "7.0.2"
+  },
+  "engines": {
+    "node": ">=26"
+  }
+}

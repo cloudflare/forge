@@ -1,0 +1,92 @@
+[
+  { "task": "list my Workers scripts", "expect": ["GET /accounts/{account_id}/workers/scripts"] },
+  { "task": "deploy a Worker script", "expect": ["PUT /accounts/{account_id}/workers/scripts/{script_name}"] },
+  { "task": "delete a Worker", "expect": ["DELETE /accounts/{account_id}/workers/scripts/{script_name}"] },
+  {
+    "task": "set a secret on a Worker",
+    "expect": ["PUT /accounts/{account_id}/workers/scripts/{script_name}/secrets"]
+  },
+  { "task": "list the routes of Workers on a zone", "expect": ["GET /zones/{zone_id}/workers/routes"] },
+  { "task": "list D1 databases", "expect": ["GET /accounts/{account_id}/d1/database"] },
+  {
+    "task": "run a SQL query against a D1 database",
+    "expect": [
+      "POST /accounts/{account_id}/d1/database/{database_id}/query",
+      "POST /accounts/{account_id}/d1/database/{database_id}/raw"
+    ]
+  },
+  { "task": "create a KV namespace", "expect": ["POST /accounts/{account_id}/storage/kv/namespaces"] },
+  {
+    "task": "read a value from KV by key",
+    "expect": ["GET /accounts/{account_id}/storage/kv/namespaces/{namespace_id}/values/{key_name}"]
+  },
+  {
+    "task": "write a value to KV",
+    "expect": [
+      "PUT /accounts/{account_id}/storage/kv/namespaces/{namespace_id}/values/{key_name}",
+      "PUT /accounts/{account_id}/storage/kv/namespaces/{namespace_id}/bulk"
+    ]
+  },
+  {
+    "task": "list the keys in a KV namespace",
+    "expect": ["GET /accounts/{account_id}/storage/kv/namespaces/{namespace_id}/keys"]
+  },
+  { "task": "list R2 buckets", "expect": ["GET /accounts/{account_id}/r2/buckets"] },
+  { "task": "create an R2 bucket", "expect": ["POST /accounts/{account_id}/r2/buckets"] },
+  {
+    "task": "upload a file to an R2 bucket",
+    "expect": ["PUT /accounts/{account_id}/r2/buckets/{bucket_name}/objects/{object_key}"]
+  },
+  {
+    "task": "list the objects in an R2 bucket",
+    "expect": ["GET /accounts/{account_id}/r2/buckets/{bucket_name}/objects"]
+  },
+  { "task": "list my zones", "expect": ["GET /zones"] },
+  { "task": "add a domain to Cloudflare", "expect": ["POST /zones"] },
+  { "task": "list DNS records for a domain", "expect": ["GET /zones/{zone_id}/dns_records"] },
+  { "task": "create a DNS record", "expect": ["POST /zones/{zone_id}/dns_records"] },
+  {
+    "task": "update a DNS record",
+    "expect": ["PATCH /zones/{zone_id}/dns_records/{dns_record_id}", "PUT /zones/{zone_id}/dns_records/{dns_record_id}"]
+  },
+  { "task": "delete a DNS record", "expect": ["DELETE /zones/{zone_id}/dns_records/{dns_record_id}"] },
+  { "task": "import DNS records from a BIND zone file", "expect": ["POST /zones/{zone_id}/dns_records/import"] },
+  { "task": "purge the cache for a site", "expect": ["POST /zones/{zone_id}/purge_cache"] },
+  {
+    "task": "change a zone setting such as always use HTTPS",
+    "expect": ["PATCH /zones/{zone_id}/settings/{setting_id}"]
+  },
+  { "task": "list the rulesets of a zone", "expect": ["GET /{account_or_zone}/{account_or_zone_id}/rulesets"] },
+  { "task": "list Pages projects", "expect": ["GET /accounts/{account_id}/pages/projects"] },
+  {
+    "task": "list deployments of a Pages project",
+    "expect": ["GET /accounts/{account_id}/pages/projects/{project_name}/deployments"]
+  },
+  { "task": "list Queues", "expect": ["GET /accounts/{account_id}/queues"] },
+  { "task": "send a message to a queue", "expect": ["POST /accounts/{account_id}/queues/{queue_id}/messages"] },
+  { "task": "list Access applications", "expect": ["GET /{account_or_zone}/{account_or_zone_id}/access/apps"] },
+  { "task": "list members of my account", "expect": ["GET /accounts/{account_id}/members"] },
+  { "task": "list my accounts", "expect": ["GET /accounts"] },
+  { "task": "verify my API token", "expect": ["GET /user/tokens/verify", "GET /accounts/{account_id}/tokens/verify"] },
+  { "task": "create an API token", "expect": ["POST /user/tokens", "POST /accounts/{account_id}/tokens"] },
+  { "task": "list Hyperdrive configs", "expect": ["GET /accounts/{account_id}/hyperdrive/configs"] },
+  { "task": "create a Vectorize index", "expect": ["POST /accounts/{account_id}/vectorize/v2/indexes"] },
+  {
+    "task": "insert vectors into a Vectorize index",
+    "expect": ["POST /accounts/{account_id}/vectorize/v2/indexes/{index_name}/insert"]
+  },
+  { "task": "run an AI model with Workers AI", "expect": ["POST /accounts/{account_id}/ai/run/{model_name}"] },
+  { "task": "query Workers Analytics Engine with SQL", "expect": ["POST /accounts/{account_id}/analytics_engine/sql"] },
+  { "task": "upload an image to Cloudflare Images", "expect": ["POST /accounts/{account_id}/images/v1"] },
+  { "task": "list Stream videos", "expect": ["GET /accounts/{account_id}/stream"] },
+  {
+    "task": "list Durable Object namespaces",
+    "expect": ["GET /accounts/{account_id}/workers/durable_objects/namespaces"]
+  },
+  { "task": "list Turnstile widgets", "expect": ["GET /accounts/{account_id}/challenges/widgets"] },
+  {
+    "task": "list email routing rules for a zone",
+    "expect": ["GET /{account_or_zone}/{account_or_zone_id}/email/routing/rules"]
+  },
+  { "task": "list Cloudflare Tunnels", "expect": ["GET /accounts/{account_id}/cfd_tunnel"] }
+]
