@@ -396,6 +396,8 @@ pub(super) struct SchemaObject {
     /// `readOnly`: the value appears in responses, and a client should not
     /// send it.
     pub(super) read_only: bool,
+    /// `writeOnly`: the client sends the value, but responses omit it.
+    pub(super) write_only: bool,
     /// Whether the schema is marked `x-sensitive: true`: the value is a
     /// secret, such as a password or a token.
     pub(super) sensitive: bool,
@@ -1619,6 +1621,7 @@ keys! {
         Default = "default",
         Deprecated = "deprecated",
         ReadOnly = "readOnly",
+        WriteOnly = "writeOnly",
         Sensitive = "x-sensitive",
         ModelName = "x-fern-type-name",
         FieldName = "x-fern-property-name",
@@ -1676,6 +1679,7 @@ impl ReadObject for SchemaObject {
                 SchemaKey::Default => schema.default = Some(doc.add(map.next_value::<Json>()?)),
                 SchemaKey::Deprecated => schema.deprecated = map.next_value()?,
                 SchemaKey::ReadOnly => schema.read_only = map.next_value()?,
+                SchemaKey::WriteOnly => schema.write_only = map.next_value()?,
                 SchemaKey::Sensitive => schema.sensitive = map.next_value()?,
                 SchemaKey::ModelName => schema.model_name = map.next_value_seed(seed::<ReadStr>(doc))?,
                 SchemaKey::FieldName => schema.field_name = map.next_value_seed(seed::<ReadStr>(doc))?,

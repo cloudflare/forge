@@ -659,6 +659,7 @@ impl<'d> Builder<'d> {
                     description: body.description,
                     deprecated: false,
                     read_only: false,
+                    write_only: false,
                     sensitive: false,
                     default: None,
                 });
@@ -786,6 +787,7 @@ impl<'d> Builder<'d> {
                     description: Str::default(),
                     deprecated: false,
                     read_only: false,
+                    write_only: false,
                     sensitive: false,
                     default: None,
                 },
@@ -833,6 +835,7 @@ impl<'d> Builder<'d> {
                 for mut field in more.drain(..) {
                     // A client sends every parameter.
                     field.read_only = false;
+                    field.write_only = false;
                     fields.push(field);
                     locations.push(Location::Query { exploded: true });
                 }
@@ -944,6 +947,7 @@ impl<'d> Builder<'d> {
             description: self.strings.push(description),
             deprecated,
             read_only: false,
+            write_only: false,
             sensitive: self.schema_flags(param.schema).sensitive,
             default: self.schema_default(param.schema),
         }
@@ -1618,6 +1622,7 @@ impl<'d> Builder<'d> {
                 description: self.strings.push(description),
                 deprecated,
                 read_only: flags.read_only,
+                write_only: flags.write_only,
                 sensitive: flags.sensitive,
                 default: self.schema_default(property),
             });
@@ -2004,13 +2009,13 @@ impl<'d> Builder<'d> {
         None
     }
 
-    /// Returns whether `schema` is read-only and sensitive, as a field
-    /// gives them: whether it or any schema along its chain of `$ref`s has
-    /// `readOnly: true`, and `x-sensitive: true`.
+    /// Returns the field flags of `schema`: whether it or any schema along
+    /// its chain of `$ref`s has `readOnly: true`, `writeOnly: true` or
+    /// `x-sensitive: true`.
     ///
-    /// A `readOnly` next to a `$ref` counts from OpenAPI 3.1, and is
-    /// ignored in 3.0, as every keyword next to a `$ref` is. An
-    /// `x-sensitive` next to a `$ref` counts in every version, since tools
+    /// A `readOnly` or `writeOnly` next to a `$ref` counts from OpenAPI 3.1,
+    /// and is ignored in 3.0. An `x-sensitive` next to a `$ref` counts in
+    /// every version, since tools
     /// commonly honour extensions there. The chain stops at a `$ref` that
     /// does not point to a schema, which reading the schema's type
     /// reports, and after 32 `$ref`s, which lead back to themselves.
@@ -2024,8 +2029,9 @@ impl<'d> Builder<'d> {
             let object = doc.get(object);
             let has_ref = !object.reference.is_empty();
             flags.read_only |= object.read_only && !(has_ref && self.v30);
+            flags.write_only |= object.write_only && !(has_ref && self.v30);
             flags.sensitive |= object.sensitive;
-            if !has_ref || (flags.read_only && flags.sensitive) {
+            if !has_ref || (flags.read_only && flags.write_only && flags.sensitive) {
                 break;
             }
             let Ok((target, _)) = self.resolve(doc.str(object.reference)) else {
@@ -2144,6 +2150,7 @@ impl<'d> Builder<'d> {
 #[derive(Clone, Copy, Default)]
 struct SchemaFlags {
     read_only: bool,
+    write_only: bool,
     sensitive: bool,
 }
 

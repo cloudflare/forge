@@ -178,7 +178,7 @@ const FEATURES: &str = r##"{
   "components": {"schemas": {
     "Pet": {"type": "object", "properties": {
       "id": {"type": "string", "readOnly": true},
-      "password": {"type": "string", "x-sensitive": true},
+      "password": {"type": "string", "writeOnly": true, "x-sensitive": true},
       "tags": {"type": "array", "items": {"type": "string"}, "minItems": 0, "maxItems": 3},
       "dataset_scope": {"oneOf": [
         {"type": "object", "properties": {"type": {"const": "default"}}, "required": ["type"], "additionalProperties": false},
@@ -194,7 +194,7 @@ const FEATURES: &str = r##"{
       "owner": {"$ref": "#/components/schemas/Owner", "description": "Who has the pet."},
       "nickname": {"anyOf": [{"type": "string"}, {"type": "integer"}]},
       "age": {"oneOf": [{"type": "string"}, {"type": "integer"}]}
-    }, "required": ["id"]},
+    }, "required": ["id", "password"]},
     "DatasetIDs": {"type": "array", "minItems": 1, "maxItems": 50, "items": {"$ref": "#/components/schemas/ID"}},
     "ID": {"type": "string", "format": "uuid"},
     "Owner": {"type": "object", "description": "A person.", "properties": {
@@ -222,6 +222,7 @@ fn reads_all_of_the_forge() {
                 "extension \"x-alias\"",
                 "headers",
                 "read only true",
+                "write only true",
                 "sensitive true",
                 "default Some(",
                 "min items Some(0) max items Some(3)",

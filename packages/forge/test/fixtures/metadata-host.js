@@ -12,6 +12,26 @@ const types = [
   { tag: 'scalar', val: { tag: 'number', val: 'int32' } },
 ];
 
+const database = {
+  fields: [
+    { wireName: 'host', writeOnly: false },
+    { wireName: 'password', writeOnly: true },
+  ].map((field) => ({
+    name: [field.wireName],
+    required: true,
+    ty: 3,
+    description: '',
+    deprecated: false,
+    readOnly: false,
+    sensitive: false,
+    default: null,
+    ...field,
+  })),
+  extra: null,
+};
+
+types.push({ tag: 'object', val: database });
+
 export function info() {
   return { version: '1', description: '', baseUrl: '' };
 }

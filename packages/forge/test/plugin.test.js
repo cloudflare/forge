@@ -7,7 +7,7 @@ import { test } from 'node:test';
 const hooks = registerHooks({
   resolve(specifier, context, nextResolve) {
     return nextResolve(
-      specifier === 'forge:plugin/forge@0.3.0'
+      specifier === 'forge:plugin/forge@0.4.0'
         ? new URL('./fixtures/metadata-host.js', import.meta.url).href
         : specifier,
       context,
@@ -38,7 +38,7 @@ test('UUIDs are a distinct scalar through the plugin API', () => {
   definePlugin({
     generate(forge) {
       assert.deepEqual(
-        forge.models.slice(3).map((model) => model.type),
+        forge.models.slice(3, 8).map((model) => model.type),
         [
           { kind: 'scalar', scalar: 'string' },
           { kind: 'scalar', scalar: 'uuid' },
@@ -46,6 +46,27 @@ test('UUIDs are a distinct scalar through the plugin API', () => {
           { kind: 'scalar', scalar: 'bytes' },
           { kind: 'scalar', scalar: 'number', number: 'int32' },
         ],
+      );
+      return [];
+    },
+  }).generate();
+});
+
+test('required write-only fields can be distinguished through the plugin API', () => {
+  definePlugin({
+    generate(forge) {
+      const database = forge.models.at(-1).type;
+      assert.equal(database.kind, 'object');
+      assert.deepEqual(
+        database.fields.map((field) => [field.wireName, field.required, field.writeOnly]),
+        [
+          ['host', true, false],
+          ['password', true, true],
+        ],
+      );
+      assert.deepEqual(
+        database.fields.filter((field) => !field.writeOnly).map((field) => field.wireName),
+        ['host'],
       );
       return [];
     },

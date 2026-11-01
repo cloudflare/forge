@@ -329,6 +329,7 @@ impl Forge {
                         description: f.description,
                         deprecated: f.deprecated,
                         read_only: f.read_only,
+                        write_only: f.write_only,
                         sensitive: f.sensitive,
                         default: f.default.as_deref().map(Json::parse),
                     })
@@ -464,6 +465,7 @@ struct FieldData {
     description: String,
     deprecated: bool,
     read_only: bool,
+    write_only: bool,
     sensitive: bool,
     default: Option<Json>,
 }
@@ -987,6 +989,10 @@ impl<'f> Field<'f> {
 
     pub fn is_read_only(self) -> bool {
         self.data.read_only
+    }
+
+    pub fn is_write_only(self) -> bool {
+        self.data.write_only
     }
 
     pub fn is_sensitive(self) -> bool {

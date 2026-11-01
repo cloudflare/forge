@@ -1,7 +1,7 @@
 use forge::{Json, Location, Name, Number, Scalar, Type};
 
 use crate::common::{
-    field, field_names, intersection, kind, kinds, method, model_of, object, parse, parse_err, scalar,
+    field, field_names, intersection, kind, kinds, method, model_of, object, parse, parse_err, response_type, scalar,
 };
 
 #[test]
@@ -701,6 +701,28 @@ fn map_body_is_a_body_field() {
 
     let params = object(method(&forge, "a.update").request().unwrap());
     assert_eq!(kind(field(params, "body").ty()), "Object");
+}
+
+#[test]
+fn required_write_only_body_property_is_kept_in_the_shared_model() {
+    let forge = parse(
+        r##"{
+          "openapi": "3.0.3", "info": {"title": "t", "version": "1"},
+          "paths": {"/a": {"post": {"x-fern-sdk-group-name": "a", "x-fern-sdk-method-name": "create",
+            "requestBody": {"content": {"application/json": {"schema": {"$ref": "#/components/schemas/Database"}}}},
+            "responses": {"200": {"description": "ok", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Database"}}}}}}}},
+          "components": {"schemas": {"Database": {"type": "object", "required": ["password"], "properties": {
+            "password": {"type": "string", "writeOnly": true}
+          }}}}
+        }"##,
+    );
+
+    let request = model_of(method(&forge, "a.create").request().unwrap());
+    let response = model_of(response_type(&forge, "a.create"));
+    assert_eq!(request, response);
+    let password = field(object(request.ty()), "password");
+    assert!(password.is_write_only());
+    assert!(password.is_required());
 }
 
 #[test]

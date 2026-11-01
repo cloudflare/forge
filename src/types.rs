@@ -408,6 +408,26 @@ impl<'f> Field<'f> {
         self.data.read_only
     }
 
+    /// Reports whether the field is write-only: a client sends the
+    /// property, but the server does not return it in responses.
+    ///
+    /// Corresponds to `writeOnly: true` on the property's schema or any
+    /// schema along its chain of `$ref`s. A `writeOnly: false` does not
+    /// undo another's `true`. From OpenAPI 3.1, a `writeOnly` next to a
+    /// `$ref` counts; in 3.0 it is ignored. A value that is not a boolean
+    /// is an error.
+    ///
+    /// Forge keeps the field and its requiredness in the shared model.
+    /// A generator decides to leave write-only fields out of responses,
+    /// while keeping them in requests.
+    ///
+    /// As with [`is_read_only`](Self::is_read_only), a parameter's field,
+    /// a request's `body` wrapper and an undeclared path placeholder are
+    /// never write-only.
+    pub fn is_write_only(self) -> bool {
+        self.data.write_only
+    }
+
     /// Reports whether the field holds a secret, such as a password or a
     /// token, which a client should mask when it shows it.
     ///
@@ -607,6 +627,7 @@ pub(crate) struct FieldData {
     pub(crate) description: Str,
     pub(crate) deprecated: bool,
     pub(crate) read_only: bool,
+    pub(crate) write_only: bool,
     pub(crate) sensitive: bool,
     /// The default, in `Forge::defaults`.
     pub(crate) default: Option<Id<Json>>,

@@ -76,14 +76,15 @@ fn field_is_read_only_when_its_property_is() {
 }
 
 #[test]
-fn field_is_neither_read_only_nor_sensitive_by_default() {
+fn field_flags_are_false_by_default() {
     let forge = parse(&responding_with(
-        r#"{"type": "object", "properties": {"name": {"type": "string"}, "shown": {"type": "string", "readOnly": false, "x-sensitive": false}}}"#,
+        r#"{"type": "object", "properties": {"name": {"type": "string"}, "shown": {"type": "string", "readOnly": false, "writeOnly": false, "x-sensitive": false}}}"#,
     ));
 
     let object = object(response_type(&forge, "a.get"));
     for name in ["name", "shown"] {
         assert!(!field(object, name).is_read_only(), "{name}");
+        assert!(!field(object, name).is_write_only(), "{name}");
         assert!(!field(object, name).is_sensitive(), "{name}");
     }
 }
@@ -95,6 +96,37 @@ fn read_only_that_is_not_a_boolean_is_an_error() {
     ));
 
     assert!(err.contains("expected a boolean"), "{err}");
+}
+
+#[test]
+fn write_only_that_is_not_a_boolean_is_an_error() {
+    let err = parse_err(&responding_with(
+        r#"{"type": "object", "properties": {"password": {"type": "string", "writeOnly": "yes"}}}"#,
+    ));
+
+    assert!(err.contains("expected a boolean"), "{err}");
+}
+
+#[test]
+fn required_write_only_field_can_be_omitted_from_response_fields() {
+    let forge = parse(&responding_with(
+        r#"{"type": "object", "required": ["host", "password"], "properties": {
+          "host": {"type": "string"}, "password": {"type": "string", "writeOnly": true}
+        }}"#,
+    ));
+
+    let object = object(response_type(&forge, "a.get"));
+    let password = field(object, "password");
+    assert!(password.is_write_only());
+    assert!(password.is_required());
+    assert_eq!(
+        object
+            .fields()
+            .filter(|field| !field.is_write_only())
+            .map(|field| field.wire_name())
+            .collect::<Vec<_>>(),
+        ["host"]
+    );
 }
 
 #[test]

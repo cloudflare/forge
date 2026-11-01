@@ -32,8 +32,8 @@
 // classes behind them stay private, so the bindings never show in
 // index.d.ts.
 
-import * as host from 'forge:plugin/forge@0.3.0';
-import type * as hostPlugin from 'forge:plugin/plugin@0.3.0';
+import * as host from 'forge:plugin/forge@0.4.0';
+import type * as hostPlugin from 'forge:plugin/plugin@0.4.0';
 
 // ---------------------------------------------------------------------------
 // The API.
@@ -267,6 +267,8 @@ export interface Field {
    * though the same model's field appears in responses: `readOnly`.
    */
   readonly readOnly: boolean;
+  /** Whether the client sends the property but responses omit it: `writeOnly`. */
+  readonly writeOnly: boolean;
   /** Whether the value is a secret, such as a password or a token, to keep out of logs: `x-sensitive`. */
   readonly sensitive: boolean;
   /** The `default` of the property's schema, or undefined if it has none. */
@@ -927,6 +929,7 @@ class FieldImpl implements Field {
   readonly description: string;
   readonly deprecated: boolean;
   readonly readOnly: boolean;
+  readonly writeOnly: boolean;
   readonly sensitive: boolean;
   readonly default: Json | undefined;
   private readonly ty: host.TypeId;
@@ -944,6 +947,7 @@ class FieldImpl implements Field {
     this.description = info.description;
     this.deprecated = info.deprecated;
     this.readOnly = info.readOnly;
+    this.writeOnly = info.writeOnly;
     this.sensitive = info.sensitive;
     const value = opt(info.default);
     this.default = value === undefined ? undefined : parseJson(value);

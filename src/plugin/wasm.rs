@@ -60,7 +60,7 @@ macro_rules! wit {
 
 wit!(
     r#"
-package forge:plugin@0.3.0;
+package forge:plugin@0.4.0;
 
 /// Read-only access to the forge a plugin runs on, which the host keeps.
 /// Each id is an index the host gave out. An id the host never gave out
@@ -207,6 +207,8 @@ interface forge {
         deprecated: bool,
         /// Whether the server sets the property, so a client doesn't send it.
         read-only: bool,
+        /// Whether the client sends the property but responses omit it.
+        write-only: bool,
         /// Whether the value is a secret, such as a password or a token.
         sensitive: bool,
         /// The `default` of the property's schema.
@@ -600,6 +602,7 @@ impl wit::Host for State {
                         description: s(field.description),
                         deprecated: field.deprecated,
                         read_only: field.read_only,
+                        write_only: field.write_only,
                         sensitive: field.sensitive,
                         default: field.default.map(|id| json(&forge.defaults[id.index()])),
                     })

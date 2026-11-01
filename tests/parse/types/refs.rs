@@ -372,6 +372,43 @@ fn property_that_is_a_ref_is_sensitive_when_its_schema_is() {
 }
 
 #[test]
+fn property_write_only_follows_a_chain_of_refs() {
+    let forge = parse(&responding_with_schemas(
+        r##"{"type": "object", "properties": {"password": {"$ref": "#/components/schemas/Password"}}}"##,
+        r##"{"Password": {"$ref": "#/components/schemas/Secret"}, "Secret": {"type": "string", "writeOnly": true}}"##,
+    ));
+
+    assert!(field(object(response_type(&forge, "a.get")), "password").is_write_only());
+}
+
+#[test]
+fn write_only_ref_annotations_follow_the_openapi_version() {
+    for version in ["3.0.3", "3.1.0", "3.2.0"] {
+        let spec = responding_with_schemas(
+            r##"{"type": "object", "properties": {"password": {"$ref": "#/components/schemas/Password", "writeOnly": true}}}"##,
+            r#"{"Password": {"type": "string"}}"#,
+        ).replace("3.0.3", version);
+        let forge = parse(&spec);
+
+        assert_eq!(
+            field(object(response_type(&forge, "a.get")), "password").is_write_only(),
+            version != "3.0.3"
+        );
+    }
+}
+
+#[test]
+fn write_only_false_does_not_undo_the_referenced_schemas_flag() {
+    let spec = responding_with_schemas(
+        r##"{"type": "object", "properties": {"password": {"$ref": "#/components/schemas/Password", "writeOnly": false}}}"##,
+        r#"{"Password": {"type": "string", "writeOnly": true}}"#,
+    ).replace("3.0.3", "3.1.0");
+    let forge = parse(&spec);
+
+    assert!(field(object(response_type(&forge, "a.get")), "password").is_write_only());
+}
+
+#[test]
 fn sensitive_next_to_a_property_ref_counts_in_3_0() {
     let forge = parse(&responding_with_schemas(
         r##"{"type": "object", "properties": {"token": {"$ref": "#/components/schemas/Token", "x-sensitive": true}}}"##,
