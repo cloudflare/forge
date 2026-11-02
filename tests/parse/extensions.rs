@@ -9,7 +9,7 @@ fn operation_with(fields: &str) -> String {
         r#"{{
           "openapi": "3.0.3", "info": {{"title": "t", "version": "1"}},
           "paths": {{"/a": {{"get": {{{fields}
-            "x-fern-sdk-group-name": "a", "x-fern-sdk-method-name": "get",
+            "x-forge-group-name": "a", "x-forge-method-name": "get",
             "responses": {{"204": {{"description": "ok"}}}}}}}}}}
         }}"#
     )
@@ -71,7 +71,7 @@ fn method_without_extensions_has_none() {
 
     let get = method(&forge, "a.get");
     assert_eq!(get.extensions().len(), 0);
-    assert_eq!(get.extension("x-fern-sdk-method-name"), None);
+    assert_eq!(get.extension("x-forge-method-name"), None);
 }
 
 #[test]
@@ -85,24 +85,44 @@ fn keys_that_are_not_extensions_are_not_kept() {
 
 #[test]
 fn extensions_forge_reads_are_not_kept() {
-    let forge = parse(&operation_with(r#""x-fern-ignore": false, "x-a": 1,"#));
+    let forge = parse(&operation_with(r#""x-forge-skip": false, "x-a": 1,"#));
 
     let get = method(&forge, "a.get");
     assert_eq!(names(&forge, "a.get"), ["x-a"]);
-    assert_eq!(get.extension("x-fern-sdk-group-name"), None);
-    assert_eq!(get.extension("x-fern-ignore"), None);
+    assert_eq!(get.extension("x-forge-group-name"), None);
+    assert_eq!(get.extension("x-forge-skip"), None);
+}
+
+#[test]
+fn vendor_extensions_are_not_parser_fallbacks() {
+    let forge = parse(&operation_with(
+        r#""x-fern-sdk-group-name": "other", "x-fern-sdk-method-name": "other",
+          "x-fern-ignore": true, "x-fern-availability": "beta","#,
+    ));
+
+    let get = method(&forge, "a.get");
+    assert_eq!(get.availability(), None);
+    assert_eq!(
+        names(&forge, "a.get"),
+        [
+            "x-fern-sdk-group-name",
+            "x-fern-sdk-method-name",
+            "x-fern-ignore",
+            "x-fern-availability"
+        ]
+    );
 }
 
 #[test]
 fn availability_hidden_and_confirmation_are_not_kept() {
     let forge = parse(&operation_with(
-        r#""x-a": 1, "x-fern-availability": "beta", "x-forge-hidden": true,
+        r#""x-a": 1, "x-forge-availability": "beta", "x-forge-hidden": true,
           "x-forge-require-confirmation": "Sure?", "x-b": 2,"#,
     ));
 
     let get = method(&forge, "a.get");
     assert_eq!(names(&forge, "a.get"), ["x-a", "x-b"]);
-    assert_eq!(get.extension("x-fern-availability"), None);
+    assert_eq!(get.extension("x-forge-availability"), None);
     assert_eq!(get.extension("x-forge-hidden"), None);
     assert_eq!(get.extension("x-forge-require-confirmation"), None);
 }
@@ -113,9 +133,9 @@ fn extensions_forge_reads_are_still_read() {
         r#"{
           "openapi": "3.0.3", "info": {"title": "t", "version": "1"},
           "paths": {"/a": {
-            "get": {"x-fern-sdk-group-name": ["a", "b"], "x-fern-sdk-method-name": "list", "x-a": 1,
+            "get": {"x-forge-group-name": ["a", "b"], "x-forge-method-name": "list", "x-a": 1,
               "responses": {"204": {"description": "ok"}}},
-            "post": {"x-fern-sdk-group-name": "a", "x-fern-sdk-method-name": "create", "x-fern-ignore": true,
+            "post": {"x-forge-group-name": "a", "x-forge-method-name": "create", "x-forge-skip": true,
               "x-a": 1, "responses": {"204": {"description": "ok"}}}
           }}
         }"#,
@@ -136,9 +156,9 @@ fn repeated_extension_has_the_last_value_in_the_place_of_the_first() {
 
 #[test]
 fn repeated_extension_forge_reads_is_still_an_error() {
-    let err = parse_err(&operation_with(r#""x-fern-ignore": false, "x-fern-ignore": false,"#));
+    let err = parse_err(&operation_with(r#""x-forge-skip": false, "x-forge-skip": false,"#));
 
-    assert!(err.contains("duplicate field `x-fern-ignore`"), "{err}");
+    assert!(err.contains("duplicate field `x-forge-skip`"), "{err}");
 }
 
 #[test]
@@ -147,11 +167,11 @@ fn each_method_keeps_its_own_extensions() {
         r#"{
           "openapi": "3.0.3", "info": {"title": "t", "version": "1"},
           "paths": {
-            "/a": {"get": {"x-fern-sdk-group-name": "a", "x-fern-sdk-method-name": "get", "x-a": "get",
+            "/a": {"get": {"x-forge-group-name": "a", "x-forge-method-name": "get", "x-a": "get",
               "responses": {"204": {"description": "ok"}}}},
-            "/b": {"get": {"x-fern-sdk-group-name": "a", "x-fern-sdk-method-name": "list",
+            "/b": {"get": {"x-forge-group-name": "a", "x-forge-method-name": "list",
               "responses": {"204": {"description": "ok"}}}},
-            "/c": {"post": {"x-fern-sdk-group-name": "a", "x-fern-sdk-method-name": "create", "x-a": "create",
+            "/c": {"post": {"x-forge-group-name": "a", "x-forge-method-name": "create", "x-a": "create",
               "x-b": [], "responses": {"204": {"description": "ok"}}}}
           }
         }"#,
@@ -170,7 +190,7 @@ fn extensions_outside_the_operation_are_not_kept() {
     let forge = parse(
         r#"{
           "openapi": "3.0.3", "info": {"title": "t", "version": "1"}, "x-root": 1,
-          "paths": {"/a": {"x-path-item": 1, "get": {"x-fern-sdk-group-name": "a", "x-fern-sdk-method-name": "get",
+          "paths": {"/a": {"x-path-item": 1, "get": {"x-forge-group-name": "a", "x-forge-method-name": "get",
             "parameters": [{"name": "q", "in": "query", "x-parameter": 1, "schema": {"type": "string", "x-schema": 1}}],
             "responses": {"204": {"description": "ok", "x-response": 1}}}}}
         }"#,
@@ -186,11 +206,11 @@ fn operation_of_a_referenced_path_item_keeps_its_extensions() {
           "openapi": "3.1.0", "info": {"title": "t", "version": "1"},
           "paths": {
             "/a": {"$ref": "#/components/pathItems/A"},
-            "/b": {"get": {"x-fern-sdk-group-name": "b", "x-fern-sdk-method-name": "get", "x-b": 2,
+            "/b": {"get": {"x-forge-group-name": "b", "x-forge-method-name": "get", "x-b": 2,
               "responses": {"204": {"description": "ok"}}}}
           },
           "components": {"pathItems": {
-            "A": {"get": {"x-fern-sdk-group-name": "a", "x-fern-sdk-method-name": "get", "x-a": 1,
+            "A": {"get": {"x-forge-group-name": "a", "x-forge-method-name": "get", "x-a": 1,
               "responses": {"204": {"description": "ok"}}}}
           }}
         }"##,
