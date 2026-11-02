@@ -1,5 +1,5 @@
 
-package forge:plugin@0.3.0;
+package forge:plugin@0.4.0;
 
 /// Read-only access to the forge a plugin runs on, which the host keeps.
 /// Each id is an index the host gave out. An id the host never gave out
@@ -8,7 +8,7 @@ package forge:plugin@0.3.0;
 /// Everything a part has is returned in one call, and orders and meanings
 /// are as the Rust API documents them.
 interface forge {
-    type group-id = u32;
+    type namespace-id = u32;
     type method-id = u32;
     type model-id = u32;
     type type-id = u32;
@@ -30,19 +30,19 @@ interface forge {
 
     /// How many of each part the forge has. Ids run from 0 to the count.
     record forge-counts {
-        groups: u32,
+        namespaces: u32,
         methods: u32,
         models: u32,
         types: u32,
     }
 
-    record group-info {
+    record namespace-info {
         name: name,
         description: string,
-        /// The groups from the top level down to this one, ending with it.
-        path: list<group-id>,
-        /// The groups directly inside, sorted by name.
-        children: list<group-id>,
+        /// The namespaces from the top level down to this one, ending with it.
+        path: list<namespace-id>,
+        /// The namespaces directly inside, sorted by name.
+        children: list<namespace-id>,
         /// The methods directly inside, sorted by name.
         methods: list<method-id>,
         models: list<model-id>,
@@ -89,7 +89,7 @@ interface forge {
 
     record method-info {
         name: name,
-        group: group-id,
+        namespace: namespace-id,
         http-method: http-method,
         path: string,
         summary: string,
@@ -117,7 +117,7 @@ interface forge {
     record model-info {
         schema-name: string,
         name: name,
-        group: option<group-id>,
+        namespace: option<namespace-id>,
         description: string,
         deprecated: bool,
         ty: type-id,
@@ -191,11 +191,11 @@ interface forge {
 
     info: func() -> forge-info;
     counts: func() -> forge-counts;
-    /// Every group, depth first.
-    groups: func() -> list<group-id>;
-    /// The models at the top level, in no group.
+    /// Every namespace, depth first.
+    namespaces: func() -> list<namespace-id>;
+    /// The models at the top level, in no namespace.
     models: func() -> list<model-id>;
-    get-group: func(id: group-id) -> group-info;
+    get-namespace: func(id: namespace-id) -> namespace-info;
     get-method: func(id: method-id) -> method-info;
     get-model: func(id: model-id) -> model-info;
     get-type: func(id: type-id) -> type-info;
@@ -206,7 +206,7 @@ interface forge {
 
 world plugin {
     import forge;
-    use forge.{group-id};
+    use forge.{namespace-id};
 
     /// A generated file: its path relative to the output directory, using
     /// `/` as a separator, and its content. A file with no content is not
@@ -218,7 +218,7 @@ world plugin {
 
     /// Generates files for the forge. Called exactly once.
     export generate: func() -> result<list<file>, string>;
-    /// Generates files for a group. Called exactly once for each group, in
-    /// parallel with other groups, each in an instance of its own.
-    export generate-group: func(group: group-id) -> result<list<file>, string>;
+    /// Generates files for a namespace. Called exactly once for each namespace, in
+    /// parallel with other namespaces, each in an instance of its own.
+    export generate-namespace: func(namespace: namespace-id) -> result<list<file>, string>;
 }

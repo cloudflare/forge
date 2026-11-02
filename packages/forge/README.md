@@ -55,7 +55,7 @@ to select more than one. For example,
 
 What is rewritten:
 
-- A group path written as an array becomes the names joined by dots
+- A namespace path written as an array becomes the names joined by dots
   (`["a", "b"]` becomes `"a.b"`), unless a name has a dot in it.
 - A skip for only some targets, written as a list, has no native form, since
   `x-forge-skip` is for every target: it is left as it is. A skip that is plainly
@@ -88,7 +88,7 @@ has a key to rewrite is not a minimal edit. The order of its keys is kept.
 ## Plugins
 
 A plugin generates an SDK, or anything else, from the document: forge parses
-it, and hands the plugin its groups, methods, models and types. Plugins are
+it, and hands the plugin its namespaces, methods, models and types. Plugins are
 WebAssembly components, so they run anywhere forge does, sandboxed: a plugin
 reads nothing but the document, and its only output is the files it returns.
 
@@ -120,16 +120,16 @@ function ts(type: Type): string {
   }
 }
 
-export const { generate, generateGroup } = definePlugin({
+export const { generate, generateNamespace } = definePlugin({
   // Called once, for the whole document.
   generate(forge) {
     return [{ path: 'README.md', content: `# API ${forge.version}\n` }];
   },
 
-  // Called once for each group, in parallel.
-  generateGroup(group) {
-    const dir = group.path.map((name) => name.camel()).join('/');
-    const lines = group.models.map((m) => `export type ${m.name.pascal()} = ${ts(m.type)};`);
+  // Called once for each namespace, in parallel.
+  generateNamespace(namespace) {
+    const dir = namespace.path.map((name) => name.camel()).join('/');
+    const lines = namespace.models.map((m) => `export type ${m.name.pascal()} = ${ts(m.type)};`);
     return [{ path: `${dir}/models.ts`, content: lines.join('\n') }];
   },
 });
@@ -144,7 +144,7 @@ npx forge openapi.json --target wasm://plugin.wasm --out sdk
 
 `@cloudflare/forge/plugin` is typed throughout. A type is a union you narrow
 by `kind`, so a `never` check in a `switch` turns a kind you missed into a
-compile error. The same group, method or model is always the same object,
+compile error. The same namespace, method or model is always the same object,
 so you can compare them with `===` and keep them in a `Map`.
 
 Array types expose `minItems` and `maxItems`; an absent bound is
@@ -153,9 +153,14 @@ Array types expose `minItems` and `maxItems`; an absent bound is
 can handle it explicitly. Other unrecognized string formats remain
 `scalar: 'string'`. Forge does not validate request values.
 
-The plugin interface is `forge:plugin@0.3.0`. Rebuild plugins compiled
-against `0.2.0` with the updated package before running them with this
-version of Forge.
+The plugin interface is `forge:plugin@0.4.0`. It renames groups to namespaces,
+so rebuild plugins compiled against `0.3.0` with the updated package before
+running them with this version of Forge. The WIT intentionally has no group
+aliases. Rust and TypeScript source APIs keep deprecated `Group`, `groups`,
+`group` and `generateGroup` aliases where possible; OpenAPI input keeps
+`x-forge-group-name` and nested `groups` in `x-forge-commands` as deprecated
+aliases. New code and documents should use `Namespace`, `namespaces`,
+`namespace`, `generateNamespace`, `x-forge-namespace` and nested `namespaces`.
 
 A plugin fails by throwing; forge stops and prints the message. Its files
 go through the same checks as forge's own: a path must be relative, use `/`,
@@ -163,8 +168,8 @@ have no `.` or `..` parts, and no two files may share one.
 
 Things to know:
 
-- **Each group runs in an instance of its own.** `generateGroup` sees
-  nothing that `generate` or another group kept in module state.
+- **Each namespace runs in an instance of its own.** `generateNamespace` sees
+  nothing that `generate` or another namespace kept in module state.
 - **There is no Node.** Plugins have no `fs`, `process`, network or clock.
   Libraries in plain JavaScript bundle in and work.
 - **QuickJS runs the plugin.** `forge-plugin build` compiles it in, for a
@@ -248,8 +253,8 @@ to the file. `Client`, which the file declares, isn't imported, so the other
 `Client` gets a `$`. `Pet` is used as both a type and a value, so it's
 imported once, as a value; `Temporal.Instant` is imported as `Temporal`.
 
-A plugin puts these together. This one writes a `models.ts` for each group,
-importing the models it refers to from the groups they're in:
+A plugin puts these together. This one writes a `models.ts` for each namespace,
+importing the models it refers to from the namespaces they're in:
 
 ```ts
 import { definePlugin, type Model, type Type } from '@cloudflare/forge/plugin';
@@ -262,7 +267,7 @@ function ts(type: Type): Part {
     case 'union':
       return join(' | ', type.members.map(ts));
     case 'model':
-      // Imported from the models.ts of the model's group.
+      // Imported from the models.ts of the model's namespace.
       return frag`${ident.model(type.model).ty()}`;
     default:
       return frag`unknown`;
@@ -279,10 +284,10 @@ function models(dir: Module, models: readonly Model[]): File {
   return f;
 }
 
-export const { generate, generateGroup } = definePlugin({
-  // The models in no group, which more than one top-level group uses.
+export const { generate, generateNamespace } = definePlugin({
+  // The models in no namespace, which more than one top-level namespace uses.
   generate: (forge) => [models(module.ROOT, forge.models)],
-  generateGroup: (group) => [models(module.group(group), group.models)],
+  generateNamespace: (namespace) => [models(module.namespace(namespace), namespace.models)],
 });
 ```
 
@@ -299,8 +304,8 @@ export const { generate, generateGroup } = definePlugin({
 - `module("pets/models.ts")` is a generated file, which other files import
   as `./models.js`, and `module("zod")` a package. `m.ident(name)`, or
   `ident(name, m)`, is an identifier it declares; `.ty()` marks it as a
-  type, and `.as(alias)` imports it under another name. `module.group(group)`
-  is a group's directory, `module.ROOT` the output directory's, and
+  type, and `.as(alias)` imports it under another name. `module.namespace(namespace)`
+  is a namespace's directory, `module.ROOT` the output directory's, and
   `ident.model(model)` a model's identifier.
 - `file(path)` returns a `File`, which is a plugin's file as it is: one with
   nothing printed isn't written, and its text starts with a preamble marking

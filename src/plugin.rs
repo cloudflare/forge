@@ -5,7 +5,7 @@ use std::path::{Component, Path};
 
 use rayon::prelude::*;
 
-use crate::{Forge, Group};
+use crate::{Forge, Namespace};
 
 pub mod ts;
 #[cfg(feature = "wasm")]
@@ -25,10 +25,17 @@ pub trait Plugin: Sync {
         Ok(std::iter::empty())
     }
 
-    /// Generates files for the given group.
+    /// Generates files for the given namespace.
     ///
-    /// This will be called exactly once for each group and in parallel with other groups.
-    fn generate_group(&self, _: Group<'_>) -> Result<impl Iterator<Item = Self::File>, Err> {
+    /// This will be called exactly once for each namespace and in parallel with other namespaces.
+    fn generate_namespace(&self, namespace: Namespace<'_>) -> Result<impl Iterator<Item = Self::File>, Err> {
+        #[expect(deprecated, reason = "the default preserves old Plugin implementations")]
+        self.generate_group(namespace)
+    }
+
+    /// Generates files for the given namespace.
+    #[deprecated(note = "use `generate_namespace` instead")]
+    fn generate_group(&self, _: Namespace<'_>) -> Result<impl Iterator<Item = Self::File>, Err> {
         Ok(std::iter::empty())
     }
 }
@@ -43,19 +50,19 @@ pub trait File: Send {
 
 /// Runs `plugin` on `forge` and returns every file it generates.
 ///
-/// Calls [`Plugin::generate`] once, then [`Plugin::generate_group`] for each
-/// group in parallel. The files from `generate` come first, then each
-/// group's files in the order of [`Forge::groups`].
+/// Calls [`Plugin::generate`] once, then [`Plugin::generate_namespace`] for each
+/// namespace in parallel. The files from `generate` come first, then each
+/// namespace's files in the order of [`Forge::namespaces`].
 pub fn run<P: Plugin>(forge: &Forge, plugin: &P) -> Result<Vec<P::File>, Err> {
     let mut files: Vec<P::File> = plugin.generate(forge)?.collect();
 
-    let groups: Vec<Group<'_>> = forge.groups().collect();
-    let per_group = groups
+    let namespaces: Vec<Namespace<'_>> = forge.namespaces().collect();
+    let per_namespace = namespaces
         .par_iter()
-        .map(|&group| Ok(plugin.generate_group(group)?.collect::<Vec<_>>()))
+        .map(|&namespace| Ok(plugin.generate_namespace(namespace)?.collect::<Vec<_>>()))
         .collect::<Result<Vec<_>, Err>>()?;
 
-    files.extend(per_group.into_iter().flatten());
+    files.extend(per_namespace.into_iter().flatten());
     Ok(files)
 }
 

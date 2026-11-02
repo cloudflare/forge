@@ -1,13 +1,13 @@
 //! The TypeScript SDK generator, ported from Go's `internal/ts` and
 //! following the specs in specs/ts.
 //!
-//! Every group gets a client.ts, a models.ts and an index.ts in its
+//! Every namespace gets a client.ts, a models.ts and an index.ts in its
 //! directory. The root also gets the runtime library, in `_/`.
 
 use std::borrow::Cow;
 
 use forge::ts::{self, Ident, Module, PREAMBLE};
-use forge::{Err, Forge, Group, Method, Model, Plugin};
+use forge::{Err, Forge, Method, Model, Namespace, Plugin};
 
 mod client;
 mod codec;
@@ -32,8 +32,8 @@ impl Plugin for Generator {
         Ok(files.into_iter())
     }
 
-    fn generate_group(&self, group: Group<'_>) -> Result<impl Iterator<Item = File>, Err> {
-        Ok(files(Node::Group(group))?.into_iter())
+    fn generate_namespace(&self, namespace: Namespace<'_>) -> Result<impl Iterator<Item = File>, Err> {
+        Ok(files(Node::Namespace(namespace))?.into_iter())
     }
 }
 
@@ -74,14 +74,14 @@ impl forge::File for File {
     }
 }
 
-/// The root, or a group: what has a client.ts, models.ts and index.ts.
-// TODO: Remove once the library exposes the root as a `Group`, which
+/// The root, or a namespace: what has a client.ts, models.ts and index.ts.
+// TODO: Remove once the library exposes the root as a `Namespace`, which
 // `Plugin::generate` could pass in. Then every function here takes a
-// `Group`.
+// `Namespace`.
 #[derive(Clone, Copy)]
 enum Node<'f> {
     Root(&'f Forge),
-    Group(Group<'f>),
+    Namespace(Namespace<'f>),
 }
 
 impl<'f> Node<'f> {
@@ -89,24 +89,24 @@ impl<'f> Node<'f> {
     fn dir(self) -> Module {
         match self {
             Node::Root(_) => Module::ROOT,
-            Node::Group(group) => Module::group(group),
+            Node::Namespace(namespace) => Module::namespace(namespace),
         }
     }
 
-    /// Returns how many groups deep the node is: 0 for the root.
+    /// Returns how many namespaces deep the node is: 0 for the root.
     fn depth(self) -> usize {
         match self {
             Node::Root(_) => 0,
-            Node::Group(group) => group.path().len(),
+            Node::Namespace(namespace) => namespace.path().len(),
         }
     }
 
-    /// Returns the names of the groups down to the node, in camelCase and
+    /// Returns the names of the namespaces down to the node, in camelCase and
     /// separated by dots, for errors.
     fn path(self) -> String {
         match self {
             Node::Root(_) => String::new(),
-            Node::Group(group) => group.path().map(|name| name.camel()).collect::<Vec<_>>().join("."),
+            Node::Namespace(namespace) => namespace.path().map(|name| name.camel()).collect::<Vec<_>>().join("."),
         }
     }
 
@@ -115,15 +115,15 @@ impl<'f> Node<'f> {
     fn methods(self) -> Vec<Method<'f>> {
         match self {
             Node::Root(_) => Vec::new(),
-            Node::Group(group) => group.methods().collect(),
+            Node::Namespace(namespace) => namespace.methods().collect(),
         }
     }
 
-    /// Returns the groups directly in the node, sorted by name.
-    fn children(self) -> Vec<Group<'f>> {
+    /// Returns the namespaces directly in the node, sorted by name.
+    fn children(self) -> Vec<Namespace<'f>> {
         match self {
-            Node::Root(forge) => forge.groups().filter(|g| g.parent().is_none()).collect(),
-            Node::Group(group) => group.children().collect(),
+            Node::Root(forge) => forge.namespaces().filter(|g| g.parent().is_none()).collect(),
+            Node::Namespace(namespace) => namespace.children().collect(),
         }
     }
 
@@ -132,7 +132,7 @@ impl<'f> Node<'f> {
     fn models(self) -> Vec<Model<'f>> {
         let mut models: Vec<Model<'f>> = match self {
             Node::Root(forge) => forge.models().collect(),
-            Node::Group(group) => group.models().collect(),
+            Node::Namespace(namespace) => namespace.models().collect(),
         };
         models.sort_by_key(|m| m.schema_name());
         models

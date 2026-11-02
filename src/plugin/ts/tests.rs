@@ -370,25 +370,28 @@ fn models() {
         r##"{
           "openapi": "3.0.3", "info": {"title": "t", "version": "1"},
           "paths": {
-            "/a": {"get": {"x-forge-group-name": ["pet-store", "list_all"], "x-forge-method-name": "get",
+            "/a": {"get": {"x-forge-namespace": ["pet-store", "list_all"], "x-forge-method-name": "get",
               "responses": {"200": {"description": "ok", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/pet_owner"}}}}}}},
-            "/b": {"get": {"x-forge-group-name": ["pet-store"], "x-forge-method-name": "get",
+            "/b": {"get": {"x-forge-namespace": ["pet-store"], "x-forge-method-name": "get",
               "responses": {"200": {"description": "ok", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/2fa"}}}}}}},
-            "/c": {"get": {"x-forge-group-name": ["other"], "x-forge-method-name": "get",
+            "/c": {"get": {"x-forge-namespace": ["other"], "x-forge-method-name": "get",
               "responses": {"200": {"description": "ok", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/2fa"}}}}}}}
           },
           "components": {"schemas": {"pet_owner": {"type": "string"}, "2fa": {"type": "string"}}}
         }"##,
     )
     .unwrap();
-    let group = |path: &[&str]| {
+    let namespace = |path: &[&str]| {
         let names: Vec<Name> = path.iter().map(|name| Name::new(name)).collect();
-        forge.groups().find(|group| group.path().eq(names.iter())).unwrap()
+        forge
+            .namespaces()
+            .find(|namespace| namespace.path().eq(names.iter()))
+            .unwrap()
     };
     let model = |schema_name: &str| {
         forge
-            .groups()
-            .flat_map(|group| group.models())
+            .namespaces()
+            .flat_map(|namespace| namespace.models())
             .chain(forge.models())
             .find(|model| model.schema_name() == schema_name)
             .unwrap()
@@ -396,9 +399,9 @@ fn models() {
     let (owner, two_fa) = (model("pet_owner"), model("2fa"));
 
     assert_eq!(Module::ROOT.sub("models.ts"), Module::new("models.ts"));
-    assert_eq!(Module::group(group(&["pet-store"])), Module::new("petStore"));
+    assert_eq!(Module::namespace(namespace(&["pet-store"])), Module::new("petStore"));
     assert_eq!(
-        Module::group(group(&["pet-store", "list_all"])).sub("client.ts"),
+        Module::namespace(namespace(&["pet-store", "list_all"])).sub("client.ts"),
         Module::new("petStore/listAll/client.ts")
     );
     assert_eq!(

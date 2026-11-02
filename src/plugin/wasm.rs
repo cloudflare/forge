@@ -2,14 +2,14 @@
 //! targets the component model.
 //!
 //! A plugin is a component of the `plugin` world in [`WIT`]. It exports
-//! `generate` and `generate-group`, which [`WasmPlugin`] calls where
-//! [`Plugin::generate`] and [`Plugin::generate_group`] are, and imports
+//! `generate` and `generate-namespace`, which [`WasmPlugin`] calls where
+//! [`Plugin::generate`] and [`Plugin::generate_namespace`] are, and imports
 //! the `forge` interface, which reads the [`Forge`] the host runs it on.
 //!
 //! The forge is never copied into a plugin. It stays in the host, and the
-//! plugin reads it a part at a time through ids: a group, method, model or
-//! type is a `u32`, and the plugin calls `get-group`, `get-method`,
-//! `get-model` or `get-type` for the part's data. Groups run in parallel,
+//! plugin reads it a part at a time through ids: a namespace, method, model or
+//! type is a `u32`, and the plugin calls `get-namespace`, `get-method`,
+//! `get-model` or `get-type` for the part's data. Namespaces run in parallel,
 //! each in an instance of its own, and every instance reads the same
 //! forge.
 //!
@@ -37,7 +37,7 @@ use wasmtime_wasi::{WasiCtx, WasiCtxView, WasiView};
 use crate::arena::Str;
 use crate::method::{ContentData, ResponseData};
 use crate::types::{EnumData, FieldData, TypeData};
-use crate::{Availability, Err, File, Forge, Group, HttpMethod, Json, Location, Name, Number, Plugin, Scalar};
+use crate::{Availability, Err, File, Forge, HttpMethod, Json, Location, Name, Namespace, Number, Plugin, Scalar};
 
 /// Defines [`WIT`] and its host bindings from one copy of the text.
 macro_rules! wit {
@@ -60,7 +60,7 @@ macro_rules! wit {
 
 wit!(
     r#"
-package forge:plugin@0.3.0;
+package forge:plugin@0.4.0;
 
 /// Read-only access to the forge a plugin runs on, which the host keeps.
 /// Each id is an index the host gave out. An id the host never gave out
@@ -69,7 +69,7 @@ package forge:plugin@0.3.0;
 /// Everything a part has is returned in one call, and orders and meanings
 /// are as the Rust API documents them.
 interface forge {
-    type group-id = u32;
+    type namespace-id = u32;
     type method-id = u32;
     type model-id = u32;
     type type-id = u32;
@@ -91,19 +91,19 @@ interface forge {
 
     /// How many of each part the forge has. Ids run from 0 to the count.
     record forge-counts {
-        groups: u32,
+        namespaces: u32,
         methods: u32,
         models: u32,
         types: u32,
     }
 
-    record group-info {
+    record namespace-info {
         name: name,
         description: string,
-        /// The groups from the top level down to this one, ending with it.
-        path: list<group-id>,
-        /// The groups directly inside, sorted by name.
-        children: list<group-id>,
+        /// The namespaces from the top level down to this one, ending with it.
+        path: list<namespace-id>,
+        /// The namespaces directly inside, sorted by name.
+        children: list<namespace-id>,
         /// The methods directly inside, sorted by name.
         methods: list<method-id>,
         models: list<model-id>,
@@ -150,7 +150,7 @@ interface forge {
 
     record method-info {
         name: name,
-        group: group-id,
+        namespace: namespace-id,
         http-method: http-method,
         path: string,
         summary: string,
@@ -178,7 +178,7 @@ interface forge {
     record model-info {
         schema-name: string,
         name: name,
-        group: option<group-id>,
+        namespace: option<namespace-id>,
         description: string,
         deprecated: bool,
         ty: type-id,
@@ -252,11 +252,11 @@ interface forge {
 
     info: func() -> forge-info;
     counts: func() -> forge-counts;
-    /// Every group, depth first.
-    groups: func() -> list<group-id>;
-    /// The models at the top level, in no group.
+    /// Every namespace, depth first.
+    namespaces: func() -> list<namespace-id>;
+    /// The models at the top level, in no namespace.
     models: func() -> list<model-id>;
-    get-group: func(id: group-id) -> group-info;
+    get-namespace: func(id: namespace-id) -> namespace-info;
     get-method: func(id: method-id) -> method-info;
     get-model: func(id: model-id) -> model-info;
     get-type: func(id: type-id) -> type-info;
@@ -267,7 +267,7 @@ interface forge {
 
 world plugin {
     import forge;
-    use forge.{group-id};
+    use forge.{namespace-id};
 
     /// A generated file: its path relative to the output directory, using
     /// `/` as a separator, and its content. A file with no content is not
@@ -279,9 +279,9 @@ world plugin {
 
     /// Generates files for the forge. Called exactly once.
     export generate: func() -> result<list<file>, string>;
-    /// Generates files for a group. Called exactly once for each group, in
-    /// parallel with other groups, each in an instance of its own.
-    export generate-group: func(group: group-id) -> result<list<file>, string>;
+    /// Generates files for a namespace. Called exactly once for each namespace, in
+    /// parallel with other namespaces, each in an instance of its own.
+    export generate-namespace: func(namespace: namespace-id) -> result<list<file>, string>;
 }
 "#
 );
@@ -292,7 +292,7 @@ use bindings::forge::plugin::forge as wit;
 /// [`WIT`].
 ///
 /// It compiles the component once, then keeps a pool of instances, so
-/// groups run in parallel without compiling or instantiating it again. A
+/// namespaces run in parallel without compiling or instantiating it again. A
 /// call takes an instance from the pool, or makes one if none is free, and
 /// returns it unless the plugin trapped.
 pub struct WasmPlugin {
@@ -381,9 +381,9 @@ impl Plugin for WasmPlugin {
         self.call(forge, |plugin, store| plugin.call_generate(store))
     }
 
-    fn generate_group(&self, group: Group<'_>) -> Result<impl Iterator<Item = WasmFile>, Err> {
-        self.call(group.forge, |plugin, store| {
-            plugin.call_generate_group(store, group.id.0)
+    fn generate_namespace(&self, namespace: Namespace<'_>) -> Result<impl Iterator<Item = WasmFile>, Err> {
+        self.call(namespace.forge, |plugin, store| {
+            plugin.call_generate_namespace(store, namespace.id.0)
         })
     }
 }
@@ -449,29 +449,29 @@ impl wit::Host for State {
     fn counts(&mut self) -> wasmtime::Result<wit::ForgeCounts> {
         let forge = self.forge()?;
         Ok(wit::ForgeCounts {
-            groups: forge.groups.len() as u32,
+            namespaces: forge.namespaces.len() as u32,
             methods: forge.methods.len() as u32,
             models: forge.models.len() as u32,
             types: forge.types.len() as u32,
         })
     }
 
-    fn groups(&mut self) -> wasmtime::Result<Vec<u32>> {
-        Ok(self.forge()?.groups().map(|group| group.id.0).collect())
+    fn namespaces(&mut self) -> wasmtime::Result<Vec<u32>> {
+        Ok(self.forge()?.namespaces().map(|namespace| namespace.id.0).collect())
     }
 
     fn models(&mut self) -> wasmtime::Result<Vec<u32>> {
         Ok(self.forge()?.top_models.iter().map(|id| id.0).collect())
     }
 
-    fn get_group(&mut self, id: u32) -> wasmtime::Result<wit::GroupInfo> {
+    fn get_namespace(&mut self, id: u32) -> wasmtime::Result<wit::NamespaceInfo> {
         let forge = self.forge()?;
-        let data = get(&forge.groups, id, "group")?;
-        Ok(wit::GroupInfo {
+        let data = get(&forge.namespaces, id, "namespace")?;
+        Ok(wit::NamespaceInfo {
             name: words(&data.name),
             description: data.description.clone(),
             path: data.path.iter().map(|id| id.0).collect(),
-            children: data.groups.iter().map(|id| id.0).collect(),
+            children: data.namespaces.iter().map(|id| id.0).collect(),
             methods: data.methods.iter().map(|id| id.0).collect(),
             models: data.models.iter().map(|id| id.0).collect(),
         })
@@ -483,7 +483,7 @@ impl wit::Host for State {
         let s = |s: Str| forge.strings.get(s).to_owned();
         Ok(wit::MethodInfo {
             name: words(&data.name),
-            group: data.group.0,
+            namespace: data.namespace.0,
             http_method: match &data.http_method {
                 HttpMethod::Get => wit::HttpMethod::Get,
                 HttpMethod::Put => wit::HttpMethod::Put,
@@ -535,7 +535,7 @@ impl wit::Host for State {
         Ok(wit::ModelInfo {
             schema_name: forge.strings.get(data.schema_name).to_owned(),
             name: words(&data.name),
-            group: data.group.map(|id| id.0),
+            namespace: data.namespace.map(|id| id.0),
             description: forge.strings.get(data.description).to_owned(),
             deprecated: data.deprecated,
             ty: data.ty.0,

@@ -11,7 +11,7 @@ use serde_json::Value;
 const FERN: &str = r#"{"openapi":"3.0.3","info":{"title":"t","version":"1"},"paths":{"/a":{"get":{"x-fern-sdk-group-name":["a"],"x-fern-sdk-method-name":"get","responses":{"204":{"description":"ok"}}}}}}"#;
 
 /// The same document, written native.
-const NATIVE: &str = r#"{"openapi":"3.0.3","info":{"title":"t","version":"1"},"paths":{"/a":{"get":{"x-forge-group-name":"a","x-forge-method-name":"get","responses":{"204":{"description":"ok"}}}}}}"#;
+const NATIVE: &str = r#"{"openapi":"3.0.3","info":{"title":"t","version":"1"},"paths":{"/a":{"get":{"x-forge-namespace":"a","x-forge-method-name":"get","responses":{"204":{"description":"ok"}}}}}}"#;
 
 /// A document with a key from each compatibility source.
 const SOURCES: &str = r##"{"openapi":"3.0.3","info":{"title":"t","version":"1"},"paths":{"/a":{"get":{"x-fern-sdk-group-name":["a"],"x-fern-sdk-method-name":"get","responses":{"200":{"description":"ok","content":{"application/json":{"schema":{"$ref":"#/components/schemas/S"}}}}}}}},"components":{"schemas":{"S":{"type":"object","properties":{"secret":{"type":"string","x-sensitive":true},"hidden":{"type":"string","x-stainless-skip":true}}}}}}"##;
@@ -221,7 +221,7 @@ fn a_native_key_wins_and_the_other_is_dropped() {
     let file = dir.join("spec.json");
     fs::write(
         &file,
-        r#"{"openapi":"3.0.3","info":{"title":"t","version":"1"},"paths":{"/a":{"get":{"x-fern-sdk-method-name":"old","x-forge-method-name":"new","x-forge-group-name":["a"],"responses":{"204":{"description":"ok"}}}}}}"#,
+        r#"{"openapi":"3.0.3","info":{"title":"t","version":"1"},"paths":{"/a":{"get":{"x-fern-sdk-method-name":"old","x-forge-method-name":"new","x-forge-namespace":["a"],"responses":{"204":{"description":"ok"}}}}}}"#,
     )
     .unwrap();
 
@@ -234,7 +234,7 @@ fn a_native_key_wins_and_the_other_is_dropped() {
 }
 
 #[test]
-fn a_group_that_cannot_be_a_dotted_string_is_kept_and_nothing_is_said_about_it() {
+fn a_namespace_that_cannot_be_a_dotted_string_is_kept_and_nothing_is_said_about_it() {
     let dir = dir("kept");
     let file = dir.join("spec.json");
     fs::write(&file, FERN.replace(r#"["a"]"#, r#"["a.b"]"#)).unwrap();
@@ -249,7 +249,7 @@ fn a_group_that_cannot_be_a_dotted_string_is_kept_and_nothing_is_said_about_it()
     );
     assert_eq!(
         fs::read_to_string(&file).unwrap(),
-        NATIVE.replace(r#""x-forge-group-name":"a""#, r#""x-forge-group-name":["a.b"]"#),
+        NATIVE.replace(r#""x-forge-namespace":"a""#, r#""x-forge-namespace":["a.b"]"#),
         "the array is kept, and only the keys are renamed"
     );
 }
@@ -617,7 +617,7 @@ fn standard_input_is_called_stdin_and_a_failure_on_it_says_so() {
 }
 
 #[test]
-fn v_says_how_many_group_paths_were_joined() {
+fn v_says_how_many_namespace_paths_were_joined() {
     let dir = dir("joined");
     let file = dir.join("spec.json");
     fs::write(&file, FERN).unwrap();
@@ -625,7 +625,7 @@ fn v_says_how_many_group_paths_were_joined() {
     let out = rewrite(&["-v", file.to_str().unwrap()], "");
 
     assert!(
-        text(&out.stderr).contains("  1 group path written as a dotted string"),
+        text(&out.stderr).contains("  1 namespace path written as a dotted string"),
         "{}",
         text(&out.stderr)
     );

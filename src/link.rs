@@ -25,8 +25,8 @@ use crate::types::{
     ArrayData, DiscriminatorData, EnumData, FieldData, NameId, ObjectData, TypeData, TypeId, UnionData,
 };
 use crate::{
-    Availability, EnumValue, Forge, GroupData, GroupId, HttpMethod, Location, MethodData, MethodId, ModelData, ModelId,
-    Name, Number, Scalar,
+    Availability, EnumValue, Forge, HttpMethod, Location, MethodData, MethodId, ModelData, ModelId, Name,
+    NamespaceData, NamespaceId, Number, Scalar,
 };
 use openapi::{
     Commands, ContentEncoding, Definition, Discriminator, Doc, Format, Info, Item, Literal, Operation, Parameter,
@@ -99,7 +99,7 @@ fn build(mut doc: Doc) -> Result<Forge, Vec<String>> {
     };
     builder.add_paths(doc.paths);
     let Builder {
-        mut groups,
+        mut namespaces,
         mut top,
         methods,
         models,
@@ -115,8 +115,8 @@ fn build(mut doc: Doc) -> Result<Forge, Vec<String>> {
     if !errors.is_empty() {
         return Err(errors);
     }
-    sort(&mut groups, &mut top, &methods);
-    describe(&mut groups, &top, &mut commands);
+    sort(&mut namespaces, &mut top, &methods);
+    describe(&mut namespaces, &top, &mut commands);
     let mut names = vec![Name::default(); name_ids.len()];
     for (name, id) in name_ids {
         names[id.index()] = name;
@@ -125,7 +125,7 @@ fn build(mut doc: Doc) -> Result<Forge, Vec<String>> {
         description: description(&info),
         version: info.version,
         base_url: url,
-        groups,
+        namespaces,
         top,
         methods,
         models,
@@ -186,45 +186,45 @@ fn base_url(server: &Server) -> Result<String, String> {
     Ok(url)
 }
 
-/// Sorts the top-level groups `top`, and the subgroups and methods of each
-/// group, by name. Only the lists of IDs are sorted, so every ID stays the
+/// Sorts the top-level namespaces `top`, and the subnamespaces and methods of each
+/// namespace, by name. Only the lists of IDs are sorted, so every ID stays the
 /// same.
-fn sort(groups: &mut [GroupData], top: &mut [GroupId], methods: &[MethodData]) {
-    top.sort_by(|a, b| groups[a.index()].name.cmp(&groups[b.index()].name));
-    for i in 0..groups.len() {
+fn sort(namespaces: &mut [NamespaceData], top: &mut [NamespaceId], methods: &[MethodData]) {
+    top.sort_by(|a, b| namespaces[a.index()].name.cmp(&namespaces[b.index()].name));
+    for i in 0..namespaces.len() {
         // Moved out while sorted, since the names are in the same slice.
-        let mut children = mem::take(&mut groups[i].groups);
-        children.sort_by(|a, b| groups[a.index()].name.cmp(&groups[b.index()].name));
-        groups[i].groups = children;
-        groups[i]
+        let mut children = mem::take(&mut namespaces[i].namespaces);
+        children.sort_by(|a, b| namespaces[a.index()].name.cmp(&namespaces[b.index()].name));
+        namespaces[i].namespaces = children;
+        namespaces[i]
             .methods
             .sort_by(|a, b| methods[a.index()].name.cmp(&methods[b.index()].name));
     }
 }
 
-/// Sets the description of the groups `ids` and every group inside them
+/// Sets the description of the namespaces `ids` and every namespace inside them
 /// from their entries in `commands`.
-fn describe(groups: &mut [GroupData], ids: &[GroupId], commands: &mut Commands) {
+fn describe(namespaces: &mut [NamespaceData], ids: &[NamespaceId], commands: &mut Commands) {
     for &id in ids {
-        let data = &mut groups[id.index()];
+        let data = &mut namespaces[id.index()];
         let Some(command) = commands.0.get_mut(&data.name) else {
             continue;
         };
         data.description = mem::take(&mut command.description);
-        // Moved out while the subgroups are described, since they live in
+        // Moved out while the subnamespaces are described, since they live in
         // the same slice.
-        let children = mem::take(&mut data.groups);
-        describe(groups, &children, &mut command.groups);
-        groups[id.index()].groups = children;
+        let children = mem::take(&mut data.namespaces);
+        describe(namespaces, &children, &mut command.namespaces);
+        namespaces[id.index()].namespaces = children;
     }
 }
 
-/// Places each model in the deepest group shared by every method that uses
+/// Places each model in the deepest namespace shared by every method that uses
 /// it, directly or through other models, and returns the models placed at
 /// the top level.
 fn place_models(forge: &mut Forge) -> Vec<ModelId> {
     let Forge {
-        groups,
+        namespaces,
         methods,
         models,
         types,
@@ -241,16 +241,16 @@ fn place_models(forge: &mut Forge) -> Vec<ModelId> {
         models_in(&types, model.ty, &mut used, &mut walk);
         uses.push(used);
     }
-    // The groups shared by every use of each model so far, from the top
+    // The namespaces shared by every use of each model so far, from the top
     // level down; none for a model not yet reached.
-    let mut shared: Vec<Option<Vec<GroupId>>> = vec![None; models.len()];
+    let mut shared: Vec<Option<Vec<NamespaceId>>> = vec![None; models.len()];
     // The last method that reached each model, so a method walks each
     // model once.
     let mut reached_by: Vec<usize> = vec![usize::MAX; models.len()];
     let mut stack = Vec::new();
     for (i, method) in methods.iter().enumerate() {
         method_models(&types, method, &mut stack, &mut walk);
-        let path = &groups[method.group.index()].path;
+        let path = &namespaces[method.namespace.index()].path;
         while let Some(id) = stack.pop() {
             let m = id.index();
             if reached_by[m] == i {
@@ -272,13 +272,13 @@ fn place_models(forge: &mut Forge) -> Vec<ModelId> {
     let mut top = Vec::new();
     for (m, shared) in shared.into_iter().enumerate() {
         let id = ModelId(m as u32);
-        let group = match shared {
+        let namespace = match shared {
             Some(shared) => shared.last().copied(),
             None => None,
         };
-        models[m].group = group;
-        match group {
-            Some(group) => groups[group.index()].models.push(id),
+        models[m].namespace = namespace;
+        match namespace {
+            Some(namespace) => namespaces[namespace.index()].models.push(id),
             None => top.push(id),
         }
     }
@@ -395,13 +395,13 @@ struct Builder<'d> {
     /// `$ref` are ignored.
     v30: bool,
 
-    groups: Vec<GroupData>,
-    top: Vec<GroupId>,
-    /// Each group by its parent, or none for a top-level group, and name.
-    group_index: HashMap<(Option<GroupId>, Name), GroupId>,
+    namespaces: Vec<NamespaceData>,
+    top: Vec<NamespaceId>,
+    /// Each namespace by its parent, or none for a top-level namespace, and name.
+    namespace_index: HashMap<(Option<NamespaceId>, Name), NamespaceId>,
     methods: Vec<MethodData>,
-    /// Each method by group and name.
-    method_index: HashMap<(GroupId, Name), MethodId>,
+    /// Each method by namespace and name.
+    method_index: HashMap<(NamespaceId, Name), MethodId>,
     types: Vec<TypeData>,
     /// The type of each scalar, which every use shares.
     scalars: Vec<(Scalar, TypeId)>,
@@ -455,9 +455,9 @@ impl<'d> Builder<'d> {
             doc,
             index,
             v30,
-            groups: Vec::new(),
+            namespaces: Vec::new(),
             top: Vec::new(),
-            group_index: HashMap::new(),
+            namespace_index: HashMap::new(),
             methods: Vec::new(),
             method_index: HashMap::new(),
             types: Vec::new(),
@@ -569,14 +569,14 @@ impl<'d> Builder<'d> {
         if definition.method_name.is_empty() {
             return;
         }
-        let group_names = doc.list(definition.group_names);
-        if group_names.is_empty() {
+        let namespace_names = doc.list(definition.namespace_names);
+        if namespace_names.is_empty() {
             return;
         }
-        let group_names: Vec<Name> = group_names.iter().map(|&name| Name::new(doc.str(name))).collect();
-        for name in &group_names {
+        let namespace_names: Vec<Name> = namespace_names.iter().map(|&name| Name::new(doc.str(name))).collect();
+        for name in &namespace_names {
             if name.is_empty() {
-                self.error("x-forge-group-name has a group name with no letters or digits");
+                self.error("x-forge-namespace has a namespace name with no letters or digits");
                 return;
             }
         }
@@ -595,19 +595,19 @@ impl<'d> Builder<'d> {
                 ));
             }
         }
-        let mut group = None;
-        for group_name in group_names {
-            group = Some(self.child(group, group_name));
+        let mut namespace = None;
+        for namespace_name in namespace_names {
+            namespace = Some(self.child(namespace, namespace_name));
         }
-        let Some(group) = group else {
+        let Some(namespace) = namespace else {
             return;
         };
         let id = MethodId(u32::try_from(self.methods.len()).expect("fewer than 2^32 methods"));
-        match self.method_index.entry((group, name.clone())) {
+        match self.method_index.entry((namespace, name.clone())) {
             Entry::Occupied(entry) => {
                 let other = &self.methods[entry.get().index()];
                 let message = format!(
-                    "method {:?} is also {} {} in the same group",
+                    "method {:?} is also {} {} in the same namespace",
                     name.words().join(" "),
                     other.http_method.as_str(),
                     self.strings.get(other.path)
@@ -673,10 +673,10 @@ impl<'d> Builder<'d> {
         }
         let (responses, errors) = self.responses(operation);
 
-        self.groups[group.index()].methods.push(id);
+        self.namespaces[namespace.index()].methods.push(id);
         self.methods.push(MethodData {
             name,
-            group,
+            namespace,
             http_method,
             path: self.strings.push(path),
             summary: self.strings.push(doc.str(operation.summary)),
@@ -696,33 +696,33 @@ impl<'d> Builder<'d> {
         });
     }
 
-    /// Returns the group `name` inside `parent`, or at the top level if
+    /// Returns the namespace `name` inside `parent`, or at the top level if
     /// `parent` is none, adding it if it is missing.
-    fn child(&mut self, parent: Option<GroupId>, name: Name) -> GroupId {
+    fn child(&mut self, parent: Option<NamespaceId>, name: Name) -> NamespaceId {
         let key = (parent, name);
-        if let Some(&id) = self.group_index.get(&key) {
+        if let Some(&id) = self.namespace_index.get(&key) {
             return id;
         }
         let name = &key.1;
-        let id = GroupId(u32::try_from(self.groups.len()).expect("fewer than 2^32 groups"));
+        let id = NamespaceId(u32::try_from(self.namespaces.len()).expect("fewer than 2^32 namespaces"));
         let mut path = match parent {
-            Some(parent) => self.groups[parent.index()].path.clone(),
+            Some(parent) => self.namespaces[parent.index()].path.clone(),
             None => Vec::new(),
         };
         path.push(id);
-        self.groups.push(GroupData {
+        self.namespaces.push(NamespaceData {
             name: name.clone(),
             description: String::new(),
-            groups: Vec::new(),
+            namespaces: Vec::new(),
             path,
             methods: Vec::new(),
             models: Vec::new(),
         });
         match parent {
-            Some(parent) => self.groups[parent.index()].groups.push(id),
+            Some(parent) => self.namespaces[parent.index()].namespaces.push(id),
             None => self.top.push(id),
         }
-        self.group_index.insert(key, id);
+        self.namespace_index.insert(key, id);
         id
     }
 
@@ -1426,7 +1426,7 @@ impl<'d> Builder<'d> {
         self.models.push(ModelData {
             schema_name: self.strings.push(&schema_name),
             name,
-            group: None,
+            namespace: None,
             description: self.strings.push(description),
             deprecated,
             ty: unknown,

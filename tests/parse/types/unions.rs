@@ -76,7 +76,7 @@ fn type_array_is_exclusive() {
     let forge = parse(
         r#"{
           "openapi": "3.1.0", "info": {"title": "t", "version": "1"},
-          "paths": {"/a": {"get": {"x-forge-group-name": "a", "x-forge-method-name": "get",
+          "paths": {"/a": {"get": {"x-forge-namespace": "a", "x-forge-method-name": "get",
             "responses": {"200": {"description": "ok", "content": {"application/json": {"schema": {
               "type": ["string", "integer"]
             }}}}}}}}
@@ -138,7 +138,7 @@ fn types_in_a_type_array_are_a_union() {
     let forge = parse(
         r#"{
           "openapi": "3.1.0", "info": {"title": "t", "version": "1"},
-          "paths": {"/a": {"get": {"x-forge-group-name": "a", "x-forge-method-name": "get",
+          "paths": {"/a": {"get": {"x-forge-namespace": "a", "x-forge-method-name": "get",
             "responses": {"200": {"description": "ok", "content": {"application/json": {"schema": {
               "type": ["string", "integer"]
             }}}}}}}}
@@ -329,7 +329,7 @@ fn discriminator_default_mapping_is_the_default() {
     let forge = parse(
         r##"{
           "openapi": "3.2.0", "info": {"title": "t", "version": "1"},
-          "paths": {"/a": {"get": {"x-forge-group-name": "a", "x-forge-method-name": "get",
+          "paths": {"/a": {"get": {"x-forge-namespace": "a", "x-forge-method-name": "get",
             "responses": {"200": {"description": "ok", "content": {"application/json": {"schema": {
               "oneOf": [{"$ref": "#/components/schemas/A"}, {"$ref": "#/components/schemas/B"}],
               "discriminator": {"propertyName": "kind", "mapping": {"a": "#/components/schemas/A"}, "defaultMapping": "#/components/schemas/B"}

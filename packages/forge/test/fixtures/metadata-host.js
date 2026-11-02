@@ -16,12 +16,30 @@ export function info() {
   return { version: '1', description: '', baseUrl: '' };
 }
 
+export function namespaces() {
+  return [0];
+}
+
+export function getNamespace(id) {
+  if (id !== 0) {
+    throw new Error(`unknown namespace ${id}`);
+  }
+  return { name: ['pets'], description: '', path: [0], children: [], methods: [], models: [] };
+}
+
 export function models() {
   return types.map((_, id) => id);
 }
 
 export function getModel(id) {
-  return { schemaName: `Type${id}`, name: [`type${id}`], description: '', deprecated: false, group: undefined, ty: id };
+  return {
+    schemaName: `Type${id}`,
+    name: [`type${id}`],
+    description: '',
+    deprecated: false,
+    namespace: undefined,
+    ty: id,
+  };
 }
 
 export function getType(id) {

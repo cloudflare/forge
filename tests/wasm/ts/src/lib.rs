@@ -34,7 +34,7 @@ use wit::forge::plugin::forge as host;
 pub mod plugin {
     use std::borrow::Cow;
 
-    use crate::{Forge, Group};
+    use crate::{Forge, Namespace};
 
     pub mod ts;
 
@@ -49,7 +49,7 @@ pub mod plugin {
             Ok(std::iter::empty())
         }
 
-        fn generate_group(&self, _: Group<'_>) -> Result<impl Iterator<Item = Self::File>, Err> {
+        fn generate_namespace(&self, _: Namespace<'_>) -> Result<impl Iterator<Item = Self::File>, Err> {
             Ok(std::iter::empty())
         }
     }
@@ -94,11 +94,11 @@ impl wit::Guest for Component {
         render(bin::ts::Generator.generate(&forge).map_err(|err| err.to_string())?)
     }
 
-    fn generate_group(group: u32) -> Result<Vec<wit::File>, String> {
+    fn generate_namespace(namespace: u32) -> Result<Vec<wit::File>, String> {
         let forge = Forge::fetch();
         render(
             bin::ts::Generator
-                .generate_group(forge.group(group))
+                .generate_namespace(forge.namespace(namespace))
                 .map_err(|err| err.to_string())?,
         )
     }
@@ -128,10 +128,10 @@ pub struct Forge {
     pub description: String,
     pub base_url: String,
 
-    groups: Vec<u32>,
+    namespaces: Vec<u32>,
     top_models: Vec<u32>,
 
-    group_data: FrozenMap<u32, Box<GroupData>>,
+    namespace_data: FrozenMap<u32, Box<NamespaceData>>,
     method_data: FrozenMap<u32, Box<MethodData>>,
     model_data: FrozenMap<u32, Box<ModelData>>,
     type_data: FrozenMap<u32, Box<TypeData>>,
@@ -144,25 +144,25 @@ impl Forge {
             version: info.version,
             description: info.description,
             base_url: info.base_url,
-            groups: host::groups(),
+            namespaces: host::namespaces(),
             top_models: host::models(),
-            group_data: FrozenMap::new(),
+            namespace_data: FrozenMap::new(),
             method_data: FrozenMap::new(),
             model_data: FrozenMap::new(),
             type_data: FrozenMap::new(),
         }
     }
 
-    pub fn groups(&self) -> impl Iterator<Item = Group<'_>> {
-        self.groups.iter().map(|&id| self.group(id))
+    pub fn namespaces(&self) -> impl Iterator<Item = Namespace<'_>> {
+        self.namespaces.iter().map(|&id| self.namespace(id))
     }
 
     pub fn models(&self) -> impl ExactSizeIterator<Item = Model<'_>> {
         self.top_models.iter().map(|&id| self.model(id))
     }
 
-    fn group(&self, id: u32) -> Group<'_> {
-        Group { forge: self, id }
+    fn namespace(&self, id: u32) -> Namespace<'_> {
+        Namespace { forge: self, id }
     }
 
     fn method(&self, id: u32) -> Method<'_> {
@@ -173,23 +173,23 @@ impl Forge {
         Model { forge: self, id }
     }
 
-    fn depth_first<'f>(&'f self, ids: &'f [u32]) -> impl Iterator<Item = Group<'f>> {
+    fn depth_first<'f>(&'f self, ids: &'f [u32]) -> impl Iterator<Item = Namespace<'f>> {
         let mut stack: Vec<u32> = ids.iter().rev().copied().collect();
         iter::from_fn(move || {
-            let group = self.group(stack.pop()?);
-            stack.extend(group.data().children.iter().rev());
-            Some(group)
+            let namespace = self.namespace(stack.pop()?);
+            stack.extend(namespace.data().children.iter().rev());
+            Some(namespace)
         })
     }
 
-    fn group_data(&self, id: u32) -> &GroupData {
-        if let Some(data) = self.group_data.get(&id) {
+    fn namespace_data(&self, id: u32) -> &NamespaceData {
+        if let Some(data) = self.namespace_data.get(&id) {
             return data;
         }
-        let g = host::get_group(id);
-        self.group_data.insert(
+        let g = host::get_namespace(id);
+        self.namespace_data.insert(
             id,
-            Box::new(GroupData {
+            Box::new(NamespaceData {
                 name: Name::from_words(g.name),
                 description: g.description,
                 path: g.path,
@@ -209,7 +209,7 @@ impl Forge {
             id,
             Box::new(MethodData {
                 name: Name::from_words(m.name),
-                group: m.group,
+                namespace: m.namespace,
                 http_method: match m.http_method {
                     host::HttpMethod::Get => HttpMethod::Get,
                     host::HttpMethod::Put => HttpMethod::Put,
@@ -265,7 +265,7 @@ impl Forge {
             Box::new(ModelData {
                 schema_name: m.schema_name,
                 name: Name::from_words(m.name),
-                group: m.group,
+                namespace: m.namespace,
                 description: m.description,
                 deprecated: m.deprecated,
                 ty: m.ty,
@@ -372,7 +372,7 @@ fn response(r: host::ResponseInfo) -> ResponseData {
     }
 }
 
-struct GroupData {
+struct NamespaceData {
     name: Name,
     description: String,
     path: Vec<u32>,
@@ -383,7 +383,7 @@ struct GroupData {
 
 struct MethodData {
     name: Name,
-    group: u32,
+    namespace: u32,
     http_method: HttpMethod,
     path: String,
     summary: String,
@@ -423,7 +423,7 @@ struct ContentData {
 struct ModelData {
     schema_name: String,
     name: Name,
-    group: Option<u32>,
+    namespace: Option<u32>,
     description: String,
     deprecated: bool,
     ty: u32,
@@ -485,12 +485,12 @@ struct DiscriminatorData {
 // The public API, as src/lib.rs, src/types.rs and src/method.rs have it.
 
 #[derive(Clone, Copy)]
-pub struct Group<'f> {
+pub struct Namespace<'f> {
     forge: &'f Forge,
     id: u32,
 }
 
-impl<'f> Group<'f> {
+impl<'f> Namespace<'f> {
     pub fn name(self) -> &'f Name {
         &self.data().name
     }
@@ -501,22 +501,22 @@ impl<'f> Group<'f> {
 
     pub fn path(self) -> impl ExactSizeIterator<Item = &'f Name> + DoubleEndedIterator {
         let forge = self.forge;
-        self.data().path.iter().map(move |&id| forge.group(id).name())
+        self.data().path.iter().map(move |&id| forge.namespace(id).name())
     }
 
-    pub fn parent(self) -> Option<Group<'f>> {
+    pub fn parent(self) -> Option<Namespace<'f>> {
         let [.., parent, _] = self.data().path[..] else {
             return None;
         };
-        Some(self.forge.group(parent))
+        Some(self.forge.namespace(parent))
     }
 
-    pub fn children(self) -> impl ExactSizeIterator<Item = Group<'f>> {
+    pub fn children(self) -> impl ExactSizeIterator<Item = Namespace<'f>> {
         let forge = self.forge;
-        self.data().children.iter().map(move |&id| forge.group(id))
+        self.data().children.iter().map(move |&id| forge.namespace(id))
     }
 
-    pub fn descendants(self) -> impl Iterator<Item = Group<'f>> {
+    pub fn descendants(self) -> impl Iterator<Item = Namespace<'f>> {
         self.forge.depth_first(&self.data().children)
     }
 
@@ -530,29 +530,29 @@ impl<'f> Group<'f> {
         self.data().models.iter().map(move |&id| forge.model(id))
     }
 
-    fn data(self) -> &'f GroupData {
-        self.forge.group_data(self.id)
+    fn data(self) -> &'f NamespaceData {
+        self.forge.namespace_data(self.id)
     }
 }
 
-impl PartialEq for Group<'_> {
+impl PartialEq for Namespace<'_> {
     fn eq(&self, other: &Self) -> bool {
         std::ptr::eq(self.forge, other.forge) && self.id == other.id
     }
 }
 
-impl Eq for Group<'_> {}
+impl Eq for Namespace<'_> {}
 
-impl std::hash::Hash for Group<'_> {
+impl std::hash::Hash for Namespace<'_> {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         std::ptr::hash(self.forge, state);
         self.id.hash(state);
     }
 }
 
-impl fmt::Debug for Group<'_> {
+impl fmt::Debug for Namespace<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("Group")
+        f.debug_struct("Namespace")
             .field("path", &self.path().collect::<Vec<_>>())
             .finish()
     }
@@ -569,8 +569,8 @@ impl<'f> Method<'f> {
         &self.data().name
     }
 
-    pub fn group(self) -> Group<'f> {
-        self.forge.group(self.data().group)
+    pub fn namespace(self) -> Namespace<'f> {
+        self.forge.namespace(self.data().namespace)
     }
 
     pub fn http_method(self) -> &'f HttpMethod {
@@ -679,7 +679,7 @@ impl std::hash::Hash for Method<'_> {
 impl fmt::Debug for Method<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("Method")
-            .field("group", &self.group().path().collect::<Vec<_>>())
+            .field("namespace", &self.namespace().path().collect::<Vec<_>>())
             .field("name", self.name())
             .field("http_method", self.http_method())
             .field("path", &self.path())
@@ -756,8 +756,8 @@ impl<'f> Model<'f> {
         &self.data().name
     }
 
-    pub fn group(self) -> Option<Group<'f>> {
-        Some(self.forge.group(self.data().group?))
+    pub fn namespace(self) -> Option<Namespace<'f>> {
+        Some(self.forge.namespace(self.data().namespace?))
     }
 
     pub fn description(self) -> &'f str {
@@ -801,7 +801,10 @@ impl fmt::Display for Model<'_> {
 impl fmt::Debug for Model<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("Model")
-            .field("group", &self.group().map(|group| group.path().collect::<Vec<_>>()))
+            .field(
+                "namespace",
+                &self.namespace().map(|namespace| namespace.path().collect::<Vec<_>>()),
+            )
             .field("schema_name", &self.schema_name())
             .finish()
     }

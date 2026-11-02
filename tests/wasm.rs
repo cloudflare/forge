@@ -30,7 +30,7 @@ mod bin {
     pub mod ts;
 }
 
-/// A document with nested groups, path and query parameters, bodies,
+/// A document with nested namespaces, path and query parameters, bodies,
 /// errors, and models that are enums, unions with a discriminator,
 /// intersections, maps and nullable, and that refer to each other in a
 /// cycle.
@@ -41,7 +41,7 @@ const SPEC: &str = r##"{
   "paths": {
     "/pets": {
       "get": {
-        "x-forge-group-name": ["pets"], "x-forge-method-name": "list", "summary": "Lists pets.",
+        "x-forge-namespace": ["pets"], "x-forge-method-name": "list", "summary": "Lists pets.",
         "parameters": [
           {"name": "limit", "in": "query", "schema": {"type": "integer", "format": "int32"}},
           {"name": "tags", "in": "query", "explode": false, "schema": {"type": "array", "items": {"type": "string"}}}
@@ -52,14 +52,14 @@ const SPEC: &str = r##"{
         }
       },
       "post": {
-        "x-forge-group-name": ["pets"], "x-forge-method-name": "create", "deprecated": true,
+        "x-forge-namespace": ["pets"], "x-forge-method-name": "create", "deprecated": true,
         "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/NewPet"}}}},
         "responses": {"201": {"description": "created", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Pet"}}}}}
       }
     },
     "/pets/{pet_id}": {
       "get": {
-        "x-forge-group-name": ["pets"], "x-forge-method-name": "get",
+        "x-forge-namespace": ["pets"], "x-forge-method-name": "get",
         "parameters": [{"name": "pet_id", "in": "path", "required": true, "schema": {"type": "string", "format": "uuid"}}],
         "responses": {
           "200": {"description": "ok", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Pet"}}}},
@@ -69,7 +69,7 @@ const SPEC: &str = r##"{
     },
     "/pets/{pet_id}/photos": {
       "put": {
-        "x-forge-group-name": ["pets", "photos"], "x-forge-method-name": "upload",
+        "x-forge-namespace": ["pets", "photos"], "x-forge-method-name": "upload",
         "parameters": [{"name": "pet_id", "in": "path", "required": true, "schema": {"type": "string"}}],
         "requestBody": {"content": {"application/octet-stream": {"schema": {"type": "string", "format": "binary"}}}},
         "responses": {"204": {"description": "done"}}
@@ -77,7 +77,7 @@ const SPEC: &str = r##"{
     },
     "/owners": {
       "get": {
-        "x-forge-group-name": ["owners"], "x-forge-method-name": "list",
+        "x-forge-namespace": ["owners"], "x-forge-method-name": "list",
         "responses": {"200": {"description": "ok", "content": {"application/json": {"schema": {
           "type": "object",
           "properties": {
@@ -128,7 +128,7 @@ const SPEC: &str = r##"{
 /// doesn't use: header parameters, availability, hidden methods,
 /// confirmations, aliases, extensions of every JSON type, read-only,
 /// sensitive and defaulted fields, limits on arrays, binary content,
-/// descriptions of content, unions that are not exclusive, and groups
+/// descriptions of content, unions that are not exclusive, and namespaces
 /// described with dotted keys.
 const FEATURES: &str = r##"{
   "openapi": "3.1.0",
@@ -138,7 +138,7 @@ const FEATURES: &str = r##"{
     "/pets/{id}": {
       "parameters": [{"name": "X-Trace", "in": "header", "schema": {"type": "string"}}],
       "get": {
-        "x-forge-group-name": ["pets"], "x-forge-method-name": "get",
+        "x-forge-namespace": ["pets"], "x-forge-method-name": "get",
         "x-forge-availability": "beta", "x-forge-hidden": true,
         "x-custom": {"b": 1, "a": [1.5, "two \"quoted\"\n", null, true, {}], "b": 2},
         "x-flag": false, "x-count": 9007199254740993, "x-text": "é 😀",
@@ -152,9 +152,9 @@ const FEATURES: &str = r##"{
       },
       "delete": {
         "x-forge-aliases": [
-          {"x-forge-group-name": ["pets"], "x-forge-method-name": "remove", "x-forge-availability": "deprecated",
+          {"x-forge-namespace": ["pets"], "x-forge-method-name": "remove", "x-forge-availability": "deprecated",
             "x-forge-require-confirmation": "This deletes the pet.", "x-alias": [1]},
-          {"x-forge-group-name": ["admin", "pets"], "x-forge-method-name": "delete", "x-forge-require-confirmation": ""}
+          {"x-forge-namespace": ["admin", "pets"], "x-forge-method-name": "delete", "x-forge-require-confirmation": ""}
         ],
         "parameters": [{"name": "id", "in": "path", "required": true, "schema": {"type": "string"}}],
         "responses": {"204": {"description": "gone"}}
@@ -162,7 +162,7 @@ const FEATURES: &str = r##"{
     },
     "/pets/{id}/photo": {
       "put": {
-        "x-forge-group-name": ["pets", "photos"], "x-forge-method-name": "upload",
+        "x-forge-namespace": ["pets", "photos"], "x-forge-method-name": "upload",
         "parameters": [{"name": "id", "in": "path", "required": true, "schema": {"type": "string"}}],
         "requestBody": {"required": true, "content": {
           "application/octet-stream": {"schema": {"type": "string", "format": "binary", "description": "The photo."}},
@@ -351,7 +351,7 @@ fn bench() {
     for path in std::env::split_paths(&paths).filter(|path| !path.as_os_str().is_empty()) {
         let json = std::fs::read(&path).unwrap();
         let forge = parse(&json);
-        let groups = forge.groups().count();
+        let namespaces = forge.namespaces().count();
 
         let start = Instant::now();
         let files = wasm(&forge, &plugin).unwrap();
@@ -365,7 +365,7 @@ fn bench() {
         );
 
         println!(
-            "\n{} ({} MB, {groups} groups, {} files, identical output and dump)",
+            "\n{} ({} MB, {namespaces} namespaces, {} files, identical output and dump)",
             path.display(),
             json.len() / 1_000_000,
             files.len(),
@@ -385,7 +385,7 @@ fn bench() {
             row(&name, native, wasm);
         }
 
-        // `run` calls `generate` alone before the groups, so it bounds
+        // `run` calls `generate` alone before the namespaces, so it bounds
         // how much the threads can help.
         let native = median(|| {
             let files = bin::ts::Generator.generate(&forge).unwrap();
@@ -394,20 +394,20 @@ fn bench() {
         let wasm = median(|| plugin.generate(&forge).unwrap().for_each(drop));
         row("serial `generate` only", native, wasm);
 
-        // A group runs on one thread, so the slowest one bounds it too.
+        // A namespace runs on one thread, so the slowest one bounds it too.
         let (native, wasm) = forge
-            .groups()
-            .map(|group| {
+            .namespaces()
+            .map(|namespace| {
                 let native = median(|| {
-                    let files = bin::ts::Generator.generate_group(group).unwrap();
+                    let files = bin::ts::Generator.generate_namespace(namespace).unwrap();
                     files.for_each(|file| drop(file.content().unwrap()));
                 });
-                let wasm = median(|| plugin.generate_group(group).unwrap().for_each(drop));
+                let wasm = median(|| plugin.generate_namespace(namespace).unwrap().for_each(drop));
                 (native, wasm)
             })
             .max()
             .unwrap();
-        row("slowest group", native, wasm);
+        row("slowest namespace", native, wasm);
     }
 }
 

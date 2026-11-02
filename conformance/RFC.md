@@ -44,17 +44,17 @@ start, and knows nothing about the target's language or toolchain.
 
 One OpenAPI document, written for the cases, with a fixed set of 9 methods:
 
-| Method                     | Route                                                       | Covers                                                                                                                                                        |
-| -------------------------- | ----------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `health`                   | `GET /health`                                               | root method, bearer `token` header, no parameters                                                                                                             |
-| `projects.create`          | `POST /orgs/{org_id}/projects`                              | SDK variable (`org_id`), object body, `date-time`, `date`, `int64`, `byte`, 201                                                                               |
-| `projects.get`             | `GET /orgs/{org_id}/projects/{project_id}`                  | path parameters, declared errors (404, `4XX`), undeclared status, unknown response properties                                                                 |
-| `projects.update`          | `PATCH /orgs/{org_id}/projects/{project_id}`                | path, query (repeated and special-character names) and header parameters with an object body, body property colliding with a parameter name                   |
-| `projects.delete`          | `DELETE /orgs/{org_id}/projects/{project_id}`               | 204 response with no body                                                                                                                                     |
-| `projects.archive`         | `POST /orgs/{org_id}/projects/{project_id}/archive`         | method and subgroup with the same name                                                                                                                        |
-| `projects.archive.restore` | `POST /orgs/{org_id}/projects/{project_id}/archive/restore` | subgroup on a method                                                                                                                                          |
-| `projects.members.replace` | `PUT /orgs/{org_id}/projects/{project_id}/members`          | nested group, array body, two success statuses (200 and 201) with different bodies                                                                            |
-| `dnsRecords.getById`       | `POST /zones/{zone_id}/dns-records/{record_id}`             | kebab-case group (`dns-records`), camelCase method with acronym (`getByID`), primitives, enums, maps, `nullable`, `allOf`, `oneOf`, `anyOf`, recursive models |
+| Method                     | Route                                                       | Covers                                                                                                                                                            |
+| -------------------------- | ----------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `health`                   | `GET /health`                                               | root method, bearer `token` header, no parameters                                                                                                                 |
+| `projects.create`          | `POST /orgs/{org_id}/projects`                              | SDK variable (`org_id`), object body, `date-time`, `date`, `int64`, `byte`, 201                                                                                   |
+| `projects.get`             | `GET /orgs/{org_id}/projects/{project_id}`                  | path parameters, declared errors (404, `4XX`), undeclared status, unknown response properties                                                                     |
+| `projects.update`          | `PATCH /orgs/{org_id}/projects/{project_id}`                | path, query (repeated and special-character names) and header parameters with an object body, body property colliding with a parameter name                       |
+| `projects.delete`          | `DELETE /orgs/{org_id}/projects/{project_id}`               | 204 response with no body                                                                                                                                         |
+| `projects.archive`         | `POST /orgs/{org_id}/projects/{project_id}/archive`         | method and subnamespace with the same name                                                                                                                        |
+| `projects.archive.restore` | `POST /orgs/{org_id}/projects/{project_id}/archive/restore` | subnamespace on a method                                                                                                                                          |
+| `projects.members.replace` | `PUT /orgs/{org_id}/projects/{project_id}/members`          | nested namespace, array body, two success statuses (200 and 201) with different bodies                                                                            |
+| `dnsRecords.getById`       | `POST /zones/{zone_id}/dns-records/{record_id}`             | kebab-case namespace (`dns-records`), camelCase method with acronym (`getByID`), primitives, enums, maps, `nullable`, `allOf`, `oneOf`, `anyOf`, recursive models |
 
 Every method in the suite API has at least one case.
 
@@ -67,7 +67,7 @@ the caller must get. Cases are YAML files, each a list of cases.
 - name: an object body is sent in wire names
   variables: { orgId: o1 }
   call:
-    group: projects
+    namespace: projects
     method: create
     body: { displayName: Demo }
   exchange:
@@ -91,8 +91,8 @@ type Case = {
   name: string; // unique across all case files
   variables?: Record<string, Value>; // SDK variables (x-fern-sdk-variable), set when the client is created
   call: {
-    group: string; // property path from the root client, e.g. "projects.members"; "" for root
-    method: string; // method name on that group
+    namespace: string; // property path from the root client, e.g. "projects.members"; "" for root
+    method: string; // method name on that namespace
     path?: Record<string, Value>; // path parameters, by field name
     query?: Record<string, Value>; // query parameters, by field name
     headers?: Record<string, Value>; // header parameters, by field name
@@ -190,7 +190,7 @@ Input, the case's client side plus where to send requests:
   "baseUrl": "http://127.0.0.1:52100/",
   "token": "conformance-token",
   "variables": { "orgId": "o1" },
-  "call": { "group": "projects", "method": "create", "body": { "displayName": "Demo" } }
+  "call": { "namespace": "projects", "method": "create", "body": { "displayName": "Demo" } }
 }
 ```
 
@@ -205,7 +205,7 @@ Output, with the same id and a `Result`, or `unexpected`:
 For each line the program:
 
 1. creates a client from `baseUrl`, `token` and `variables`;
-2. calls `call.method` on `call.group` with the inputs in `call`;
+2. calls `call.method` on `call.namespace` with the inputs in `call`;
 3. maps the return value or error to a `Result`, converting tagged values to
    and from the language's types.
 
