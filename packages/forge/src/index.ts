@@ -2,24 +2,24 @@
  * Write forge plugins in TypeScript or JavaScript.
  *
  * A plugin generates files from the forge of an OpenAPI document: its
- * groups, methods, models and types, as forge's Rust API has them. Build it
+ * namespaces, methods, models and types, as forge's Rust API has them. Build it
  * with `forge-plugin build`, and run it with
  * `forge openapi.json --target wasm://plugin.wasm --out sdk`.
  *
  * ```ts
  * import { definePlugin } from "@cloudflare/forge/plugin";
  *
- * export const { generate, generateGroup } = definePlugin({
- *   generateGroup(group) {
- *     const names = group.methods.map((m) => m.name.camel());
- *     return [{ path: `${group.name.kebab()}.txt`, content: names.join("\n") }];
+ * export const { generate, generateNamespace } = definePlugin({
+ *   generateNamespace(namespace) {
+ *     const names = namespace.methods.map((m) => m.name.camel());
+ *     return [{ path: `${namespace.name.kebab()}.txt`, content: names.join("\n") }];
  *   },
  * });
  * ```
  *
  * The forge stays in forge's process. Each part is fetched the first time
  * a plugin reads it, and kept until the call ends, so reading a part again
- * is free, and the same part is always the same object: compare groups,
+ * is free, and the same part is always the same object: compare namespaces,
  * methods and models with `===`.
  *
  * @module
@@ -32,8 +32,8 @@
 // classes behind them stay private, so the bindings never show in
 // index.d.ts.
 
-import * as host from 'forge:plugin/forge@0.3.0';
-import type * as hostPlugin from 'forge:plugin/plugin@0.3.0';
+import * as host from 'forge:plugin/forge@0.4.0';
+import type * as hostPlugin from 'forge:plugin/plugin@0.4.0';
 
 // ---------------------------------------------------------------------------
 // The API.
@@ -43,11 +43,13 @@ export interface Plugin {
   /** Generates files for the forge. Called exactly once. */
   generate?(forge: Forge): Iterable<File>;
   /**
-   * Generates files for a group. Called exactly once for each group, in
-   * parallel with other groups, each in an instance of its own. Nothing a
-   * call keeps in module state is seen by the calls for other groups.
+   * Generates files for a namespace. Called exactly once for each namespace, in
+   * parallel with other namespaces, each in an instance of its own. Nothing a
+   * call keeps in module state is seen by the calls for other namespaces.
    */
-  generateGroup?(group: Group): Iterable<File>;
+  generateNamespace?(namespace: Namespace): Iterable<File>;
+  /** @deprecated Use {@link generateNamespace} instead. */
+  generateGroup?(namespace: Namespace): Iterable<File>;
 }
 
 /**
@@ -67,7 +69,7 @@ export interface File {
 /** What the entry module of a plugin exports, under these names. */
 export interface Exports {
   generate(): Array<{ path: string; content: Uint8Array }>;
-  generateGroup(group: number): Array<{ path: string; content: Uint8Array }>;
+  generateNamespace(namespace: number): Array<{ path: string; content: Uint8Array }>;
 }
 
 /**
@@ -102,36 +104,43 @@ export interface Forge {
   readonly description: string;
   /** The URL of the first server, with its variables substituted. */
   readonly baseUrl: string;
-  /** Every group, depth first. Siblings are sorted by name. */
-  readonly groups: readonly Group[];
-  /** The models in no group: those methods in more than one top-level group use. */
+  /** Every namespace, depth first. Siblings are sorted by name. */
+  readonly namespaces: readonly Namespace[];
+  /** @deprecated Use {@link namespaces} instead. */
+  readonly groups: readonly Namespace[];
+  /** The models in no namespace: those methods in more than one top-level namespace use. */
   readonly models: readonly Model[];
 }
 
-/** A named collection of subgroups, methods and models. */
-export interface Group {
+/** A named collection of subnamespaces, methods and models. */
+export interface Namespace {
   readonly name: Name;
   /** A short description, or an empty string. */
   readonly description: string;
-  /** The names of the groups from the top level down to this one, ending with its own. */
+  /** The names of the namespaces from the top level down to this one, ending with its own. */
   readonly path: readonly Name[];
-  /** The group this one is in, or undefined at the top level. */
-  readonly parent: Group | undefined;
-  /** The groups directly inside, sorted by name. */
-  readonly children: readonly Group[];
-  /** Every group below this one, depth first. */
-  readonly descendants: readonly Group[];
+  /** The namespace this one is in, or undefined at the top level. */
+  readonly parent: Namespace | undefined;
+  /** The namespaces directly inside, sorted by name. */
+  readonly children: readonly Namespace[];
+  /** Every namespace below this one, depth first. */
+  readonly descendants: readonly Namespace[];
   /** The methods directly inside, sorted by name. */
   readonly methods: readonly Method[];
-  /** The models placed directly in this group: the deepest one every method using them shares. */
+  /** The models placed directly in this namespace: the deepest one every method using them shares. */
   readonly models: readonly Model[];
 }
 
+/** @deprecated Use {@link Namespace} instead. */
+export type Group = Namespace;
+
 /** An operation an SDK exposes as a function. */
 export interface Method {
-  /** Unique within its group. */
+  /** Unique within its namespace. */
   readonly name: Name;
-  readonly group: Group;
+  readonly namespace: Namespace;
+  /** @deprecated Use {@link namespace} instead. */
+  readonly group: Namespace;
   /** As it is sent, such as `GET`. */
   readonly httpMethod: string;
   /** The path template, such as `/accounts/{account_id}`. */
@@ -245,8 +254,10 @@ export interface Model {
   /** Its key in `components.schemas`, such as `Account`, or a path such as `Tree/$defs/Node`. */
   readonly schemaName: string;
   readonly name: Name;
-  /** The group it is placed in, or undefined at the top level. */
-  readonly group: Group | undefined;
+  /** The namespace it is placed in, or undefined at the top level. */
+  readonly namespace: Namespace | undefined;
+  /** @deprecated Use {@link namespace} instead. */
+  readonly group: Namespace | undefined;
   readonly description: string;
   readonly deprecated: boolean;
   readonly type: Type;
@@ -376,7 +387,7 @@ export interface ModelType {
  * plugin's entry module:
  *
  * ```ts
- * export const { generate, generateGroup } = definePlugin({ ... });
+ * export const { generate, generateNamespace } = definePlugin({ ... });
  * ```
  *
  * Throw to fail: forge stops and prints the error's message.
@@ -386,10 +397,13 @@ export function definePlugin(plugin: Plugin): Exports {
     generate() {
       return call(() => files(plugin.generate?.(new ForgeImpl()) ?? []));
     },
-    generateGroup(id: host.GroupId) {
-      return call(() => files(plugin.generateGroup?.(new ForgeImpl().group(id)) ?? []));
+    generateNamespace(id: host.NamespaceId) {
+      return call(() => {
+        const namespace = new ForgeImpl().namespace(id);
+        return files(plugin.generateNamespace?.(namespace) ?? plugin.generateGroup?.(namespace) ?? []);
+      });
     },
-  } satisfies Pick<typeof hostPlugin, 'generate' | 'generateGroup'>;
+  } satisfies Pick<typeof hostPlugin, 'generate' | 'generateNamespace'>;
   return exports;
 }
 
@@ -557,11 +571,11 @@ class ForgeImpl implements Forge {
   readonly version: string;
   readonly description: string;
   readonly baseUrl: string;
-  private readonly groupCache = new Map<host.GroupId, GroupImpl>();
+  private readonly namespaceCache = new Map<host.NamespaceId, NamespaceImpl>();
   private readonly methodCache = new Map<host.MethodId, MethodImpl>();
   private readonly modelCache = new Map<host.ModelId, ModelImpl>();
   private readonly typeCache = new Map<host.TypeId, Type>();
-  private readonly allGroups = lazy(() => ids(host.groups()).map((id) => this.group(id)));
+  private readonly allNamespaces = lazy(() => ids(host.namespaces()).map((id) => this.namespace(id)));
   private readonly topModels = lazy(() => ids(host.models()).map((id) => this.model(id)));
 
   constructor() {
@@ -571,16 +585,20 @@ class ForgeImpl implements Forge {
     this.baseUrl = info.baseUrl;
   }
 
-  get groups(): readonly Group[] {
-    return this.allGroups();
+  get namespaces(): readonly Namespace[] {
+    return this.allNamespaces();
+  }
+
+  get groups(): readonly Namespace[] {
+    return this.namespaces;
   }
 
   get models(): readonly Model[] {
     return this.topModels();
   }
 
-  group(id: host.GroupId): GroupImpl {
-    return cached(this.groupCache, id, () => new GroupImpl(this, id));
+  namespace(id: host.NamespaceId): NamespaceImpl {
+    return cached(this.namespaceCache, id, () => new NamespaceImpl(this, id));
   }
 
   method(id: host.MethodId): MethodImpl {
@@ -596,22 +614,22 @@ class ForgeImpl implements Forge {
   }
 }
 
-class GroupImpl implements Group {
+class NamespaceImpl implements Namespace {
   private readonly info: () => {
     name: Name;
     description: string;
-    path: host.GroupId[];
-    children: host.GroupId[];
+    path: host.NamespaceId[];
+    children: host.NamespaceId[];
     methods: host.MethodId[];
     models: host.ModelId[];
   };
 
   constructor(
     private readonly forge: ForgeImpl,
-    id: host.GroupId,
+    id: host.NamespaceId,
   ) {
     this.info = lazy(() => {
-      const g = host.getGroup(id);
+      const g = host.getNamespace(id);
       return {
         name: new NameImpl(g.name),
         description: g.description,
@@ -632,25 +650,25 @@ class GroupImpl implements Group {
   }
 
   get path(): readonly Name[] {
-    return this.info().path.map((id) => this.forge.group(id).name);
+    return this.info().path.map((id) => this.forge.namespace(id).name);
   }
 
-  get parent(): Group | undefined {
+  get parent(): Namespace | undefined {
     const path = this.info().path;
     const parent = path[path.length - 2];
-    return parent === undefined ? undefined : this.forge.group(parent);
+    return parent === undefined ? undefined : this.forge.namespace(parent);
   }
 
-  get children(): readonly Group[] {
-    return this.info().children.map((id) => this.forge.group(id));
+  get children(): readonly Namespace[] {
+    return this.info().children.map((id) => this.forge.namespace(id));
   }
 
-  get descendants(): readonly Group[] {
-    const out: Group[] = [];
+  get descendants(): readonly Namespace[] {
+    const out: Namespace[] = [];
     const stack = [...this.children].reverse();
-    for (let group = stack.pop(); group !== undefined; group = stack.pop()) {
-      out.push(group);
-      stack.push(...[...group.children].reverse());
+    for (let namespace = stack.pop(); namespace !== undefined; namespace = stack.pop()) {
+      out.push(namespace);
+      stack.push(...[...namespace.children].reverse());
     }
     return out;
   }
@@ -681,7 +699,7 @@ const httpMethods: Record<Exclude<host.HttpMethod['tag'], 'other'>, string> = {
 class MethodImpl implements Method {
   private readonly info: () => {
     name: Name;
-    group: host.GroupId;
+    namespace: host.NamespaceId;
     httpMethod: string;
     path: string;
     summary: string;
@@ -707,7 +725,7 @@ class MethodImpl implements Method {
       const body = opt(m.body);
       return {
         name: new NameImpl(m.name),
-        group: m.group,
+        namespace: m.namespace,
         httpMethod: m.httpMethod.tag === 'other' ? m.httpMethod.val : httpMethods[m.httpMethod.tag],
         path: m.path,
         summary: m.summary,
@@ -734,8 +752,12 @@ class MethodImpl implements Method {
     return this.info().name;
   }
 
-  get group(): Group {
-    return this.forge.group(this.info().group);
+  get namespace(): Namespace {
+    return this.forge.namespace(this.info().namespace);
+  }
+
+  get group(): Namespace {
+    return this.namespace;
   }
 
   get httpMethod(): string {
@@ -867,7 +889,7 @@ class ModelImpl implements Model {
   private readonly info: () => {
     schemaName: string;
     name: Name;
-    group: host.GroupId | undefined;
+    namespace: host.NamespaceId | undefined;
     description: string;
     deprecated: boolean;
     ty: host.TypeId;
@@ -882,7 +904,7 @@ class ModelImpl implements Model {
       return {
         schemaName: m.schemaName,
         name: new NameImpl(m.name),
-        group: opt(m.group),
+        namespace: opt(m.namespace),
         description: m.description,
         deprecated: m.deprecated,
         ty: m.ty,
@@ -898,9 +920,13 @@ class ModelImpl implements Model {
     return this.info().name;
   }
 
-  get group(): Group | undefined {
-    const group = this.info().group;
-    return group === undefined ? undefined : this.forge.group(group);
+  get namespace(): Namespace | undefined {
+    const namespace = this.info().namespace;
+    return namespace === undefined ? undefined : this.forge.namespace(namespace);
+  }
+
+  get group(): Namespace | undefined {
+    return this.namespace;
   }
 
   get description(): string {

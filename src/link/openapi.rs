@@ -242,9 +242,12 @@ pub(super) struct Operation {
 pub(super) struct Definition {
     /// The `x-forge-method-name`, or empty for none.
     pub(super) method_name: Str,
-    /// The `x-forge-group-name`: the group path, top level first, or
+    /// The `x-forge-namespace`: the namespace path, top level first, or
     /// empty for none.
-    pub(super) group_names: Span<Str>,
+    pub(super) namespace_names: Span<Str>,
+    /// Whether `namespace_names` came from the canonical key, which wins
+    /// over the deprecated `x-forge-group-name` alias in either order.
+    namespace_is_native: bool,
     /// `x-forge-skip`.
     pub(super) skip: bool,
     /// `x-forge-hidden`.
@@ -482,7 +485,7 @@ pub(super) struct Discriminator {
 }
 
 /// The `x-forge-commands` extension of the OpenAPI Object: an entry for
-/// each top-level group, by name.
+/// each top-level namespace, by name.
 #[derive(Default)]
 pub(super) struct Commands(pub(super) HashMap<Name, Command>);
 
@@ -491,11 +494,11 @@ pub(super) struct Commands(pub(super) HashMap<Name, Command>);
 pub(super) struct Command {
     #[serde(default)]
     pub(super) description: String,
-    /// The entries of the group's subgroups.
-    #[serde(default)]
-    pub(super) groups: Commands,
-    /// Whether an entry describes this group, rather than it only being on
-    /// the way to a group a dotted name describes.
+    /// The entries of the namespace's subnamespaces.
+    #[serde(default, alias = "groups")]
+    pub(super) namespaces: Commands,
+    /// Whether an entry describes this namespace, rather than it only being on
+    /// the way to a namespace a dotted name describes.
     #[serde(skip)]
     pub(super) described: bool,
 }
@@ -851,17 +854,17 @@ impl Read for Types {
     }
 }
 
-/// Reads an `x-forge-group-name`: a string split on dots, or an array of
-/// strings that are not split. The empty string is no group.
-struct GroupNames;
+/// Reads an `x-forge-namespace`: a string split on dots, or an array of
+/// strings that are not split. The empty string is no namespace.
+struct NamespaceNames;
 
-impl Read for GroupNames {
+impl Read for NamespaceNames {
     type Out = Span<Str>;
 
     fn read<'de, D: Deserializer<'de>>(doc: &mut Doc, deserializer: D) -> Result<Span<Str>, D::Error> {
-        struct GroupNamesVisitor<'a>(&'a mut Doc);
+        struct NamespaceNamesVisitor<'a>(&'a mut Doc);
 
-        impl<'de> Visitor<'de> for GroupNamesVisitor<'_> {
+        impl<'de> Visitor<'de> for NamespaceNamesVisitor<'_> {
             type Value = Span<Str>;
 
             fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -882,7 +885,7 @@ impl Read for GroupNames {
             }
         }
 
-        deserializer.deserialize_any(GroupNamesVisitor(doc))
+        deserializer.deserialize_any(NamespaceNamesVisitor(doc))
     }
 }
 
@@ -1186,7 +1189,8 @@ keys! {
     /// The keys of a [`Definition`], in an Operation Object or an alias.
     DefinitionKey {
         MethodName = "x-forge-method-name",
-        GroupNames = "x-forge-group-name",
+        NamespaceNames = "x-forge-namespace",
+        LegacyNamespaceNames = "x-forge-group-name",
         Skip = "x-forge-skip",
         Hidden = "x-forge-hidden",
         Confirmation = "x-forge-require-confirmation",
@@ -1204,7 +1208,16 @@ impl Definition {
     ) -> Result<(), A::Error> {
         match key {
             DefinitionKey::MethodName => self.method_name = map.next_value_seed(seed::<ReadStr>(doc))?,
-            DefinitionKey::GroupNames => self.group_names = map.next_value_seed(seed::<GroupNames>(doc))?,
+            DefinitionKey::NamespaceNames => {
+                self.namespace_names = map.next_value_seed(seed::<NamespaceNames>(doc))?;
+                self.namespace_is_native = true;
+            }
+            DefinitionKey::LegacyNamespaceNames => {
+                let names = map.next_value_seed(seed::<NamespaceNames>(doc))?;
+                if !self.namespace_is_native {
+                    self.namespace_names = names;
+                }
+            }
             DefinitionKey::Skip => self.skip = map.next_value()?,
             DefinitionKey::Hidden => self.hidden = map.next_value()?,
             DefinitionKey::Confirmation => {
@@ -1784,9 +1797,9 @@ impl<'de> Deserialize<'de> for Count {
 }
 
 /// Reads `x-forge-commands`. A key with dots, such as
-/// `dynamic-routing.deployments`, is a path: it describes the group
+/// `dynamic-routing.deployments`, is a path: it describes the namespace
 /// `deployments` inside `dynamic-routing`, the same as nesting the entry in
-/// the `groups` of a `dynamic-routing` entry.
+/// the `namespaces` of a `dynamic-routing` entry.
 impl<'de> Deserialize<'de> for Commands {
     fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Commands, D::Error> {
         struct CommandsVisitor;
@@ -1814,15 +1827,15 @@ impl<'de> Deserialize<'de> for Commands {
 }
 
 impl Commands {
-    /// Places `command` at `path`, adding the groups on the way that no
-    /// entry describes. Two entries that describe the same group, such as
-    /// `abuse_reports` and `abuse-reports`, or `a.b` and `b` in the `groups`
+    /// Places `command` at `path`, adding the namespaces on the way that no
+    /// entry describes. Two entries that describe the same namespace, such as
+    /// `abuse_reports` and `abuse-reports`, or `a.b` and `b` in the `namespaces`
     /// of `a`, are an error.
     fn insert(&mut self, path: &[Name], command: Command) -> Result<(), String> {
         let (name, rest) = path.split_first().expect("a key has at least one name");
         let entry = self.0.entry(name.clone()).or_default();
         if !rest.is_empty() {
-            return entry.groups.insert(rest, command);
+            return entry.namespaces.insert(rest, command);
         }
         if entry.described && command.described {
             let words = name.words().join(" ");
@@ -1830,15 +1843,15 @@ impl Commands {
         }
         let Command {
             description,
-            groups,
+            namespaces,
             described,
         } = command;
         if described {
             entry.description = description;
             entry.described = true;
         }
-        for (name, group) in groups.0 {
-            entry.groups.insert(&[name], group)?;
+        for (name, namespace) in namespaces.0 {
+            entry.namespaces.insert(&[name], namespace)?;
         }
         Ok(())
     }

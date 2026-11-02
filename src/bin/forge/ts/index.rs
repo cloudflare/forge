@@ -1,4 +1,4 @@
-//! The index.ts of a group, its public surface (specs/01-output-layout.md).
+//! The index.ts of a namespace, its public surface (specs/01-output-layout.md).
 
 use std::collections::HashSet;
 

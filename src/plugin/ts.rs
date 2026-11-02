@@ -17,7 +17,7 @@
 use std::borrow::Cow;
 use std::fmt;
 
-use crate::{Group, Model};
+use crate::{Model, Namespace};
 
 mod file;
 mod print;
@@ -103,15 +103,21 @@ impl Module {
         Module(Cow::Borrowed(path))
     }
 
-    /// Returns the directory that holds `group`'s files, its
-    /// [`sub`](Module::sub) modules: the group's path, with each name in
+    /// Returns the directory that holds `namespace`'s files, its
+    /// [`sub`](Module::sub) modules: the namespace's path, with each name in
     /// camelCase and prefixed with `_` if it starts with a digit. Top-level
     /// files go in [`Module::ROOT`] instead.
     ///
-    /// A group `list_all` inside `pet-store` gets `petStore/listAll`.
-    pub fn group(group: Group<'_>) -> Module {
-        let dirs: Vec<String> = group.path().map(|name| identifier(name.camel())).collect();
+    /// A namespace `list_all` inside `pet-store` gets `petStore/listAll`.
+    pub fn namespace(namespace: Namespace<'_>) -> Module {
+        let dirs: Vec<String> = namespace.path().map(|name| identifier(name.camel())).collect();
         Module::from(dirs.join("/"))
+    }
+
+    /// Returns the directory that holds `namespace`'s files.
+    #[deprecated(note = "use `namespace` instead")]
+    pub fn group(namespace: Namespace<'_>) -> Module {
+        Module::namespace(namespace)
     }
 
     /// Returns the path or specifier of the module.
@@ -189,7 +195,7 @@ pub struct Ident {
 impl Ident {
     /// Returns the identifier of `model`: its name in PascalCase, prefixed
     /// with `_` if it starts with a digit, declared in the `models.ts` of
-    /// its group's directory ([`Module::group`]), or of the root for a
+    /// its namespace's directory ([`Module::namespace`]), or of the root for a
     /// top-level model. Call [`ty`](Ident::ty) on it to import it with
     /// `import type`.
     ///
@@ -197,7 +203,7 @@ impl Ident {
     /// changes the identifier and prints that one everywhere it refers to
     /// the model.
     pub fn model(model: Model<'_>) -> Ident {
-        let dir = model.group().map_or(Module::ROOT, Module::group);
+        let dir = model.namespace().map_or(Module::ROOT, Module::namespace);
         dir.sub("models.ts").ident(identifier(model.name().pascal()))
     }
 

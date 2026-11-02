@@ -1,11 +1,11 @@
-//! The client.ts of a group: its client (specs/07-client-surface.md), and
+//! The client.ts of a namespace: its client (specs/07-client-surface.md), and
 //! the requests (specs/05-requests.md), responses (specs/06-responses.md)
 //! and operations of its methods.
 
 use std::collections::{HashMap, HashSet};
 
 use forge::ts::{File, Fragment, Ident, Module, frag, p};
-use forge::{Field, Group, Location, Method, Model, Type};
+use forge::{Field, Location, Method, Model, Namespace, Type};
 
 use super::models::print_fields;
 use super::operation::operation;
@@ -17,11 +17,12 @@ use super::{Node, request_options, runtime};
 /// Returns the client.ts of `node`: its ClientOptions and Client,
 /// createClient and bind, the request and response types of each method,
 /// then the operation of each method. The library has already rejected
-/// methods and groups with no name and duplicate methods, and equal group
-/// names are one group.
+/// methods and namespaces with no name and duplicate methods, and equal namespace
+/// names are one namespace.
 pub(super) fn client(node: Node<'_>) -> File {
-    let groups = node.children();
-    let group_names: HashMap<String, Group<'_>> = groups.iter().map(|&sub| (group_name(sub), sub)).collect();
+    let namespaces = node.children();
+    let namespace_names: HashMap<String, Namespace<'_>> =
+        namespaces.iter().map(|&sub| (namespace_name(sub), sub)).collect();
 
     // A method that is not JSON is left out (specs/13-non-json-operations.md).
     let methods: Vec<(Method<'_>, Request<'_>)> = node
@@ -34,7 +35,7 @@ pub(super) fn client(node: Node<'_>) -> File {
     let mut f = File::new(node.dir().sub("client.ts"));
     client_options(&mut f);
     p!(f);
-    client_interface(&mut f, &methods, &groups, &group_names);
+    client_interface(&mut f, &methods, &namespaces, &namespace_names);
     p!(f);
     p!(
         f,
@@ -58,7 +59,7 @@ pub(super) fn client(node: Node<'_>) -> File {
     });
     p!(f, "}");
     p!(f);
-    bind(&mut f, &methods, &groups, &group_names);
+    bind(&mut f, &methods, &namespaces, &namespace_names);
     for (m, request) in &methods {
         p!(f);
         request_type(&mut f, *m, request);
@@ -72,7 +73,7 @@ pub(super) fn client(node: Node<'_>) -> File {
     f
 }
 
-/// Declares the ClientOptions of a group: the options every client takes,
+/// Declares the ClientOptions of a namespace: the options every client takes,
 /// and baseUrl, which is required.
 fn client_options(f: &mut File) {
     p!(
@@ -90,21 +91,21 @@ fn client_options(f: &mut File) {
     p!(f, "}");
 }
 
-/// Declares bind, which returns the Client of a group on a transport: each
-/// method sends its operation, and each subgroup is a getter that binds the
-/// subgroup's Client the first time it is read. A method and a subgroup
+/// Declares bind, which returns the Client of a namespace on a transport: each
+/// method sends its operation, and each subnamespace is a getter that binds the
+/// subnamespace's Client the first time it is read. A method and a subnamespace
 /// with the same name share a getter, of the method with the members of the
-/// subgroup's Client.
+/// subnamespace's Client.
 fn bind(
     f: &mut File,
     methods: &[(Method<'_>, Request<'_>)],
-    groups: &[Group<'_>],
-    group_names: &HashMap<String, Group<'_>>,
+    namespaces: &[Namespace<'_>],
+    namespace_names: &HashMap<String, Namespace<'_>>,
 ) {
     let shared: HashMap<String, Method<'_>> = methods
         .iter()
         .map(|&(m, _)| (method_name(m), m))
-        .filter(|(name, _)| group_names.contains_key(name))
+        .filter(|(name, _)| namespace_names.contains_key(name))
         .collect();
     p!(
         f,
@@ -117,8 +118,8 @@ fn bind(
         " {"
     );
     f.indent(|f| {
-        for &sub in groups {
-            let name = group_name(sub);
+        for &sub in namespaces {
+            let name = namespace_name(sub);
             match shared.get(&name) {
                 Some(&m) => {
                     let method = js_string(&method_name(m));
@@ -144,8 +145,8 @@ fn bind(
                     p!(f, key(&name), ": (request, options) => ", send(f, m), ",");
                 }
             }
-            for &sub in groups {
-                let name = group_name(sub);
+            for &sub in namespaces {
+                let name = namespace_name(sub);
                 p!(f, "get ", key(&name), "() {");
                 f.indent(|f| match shared.get(&name) {
                     Some(&m) => {
@@ -182,29 +183,29 @@ fn send(f: &File, m: Method<'_>) -> Fragment {
     frag!("transport.send(", operation_ident(f, m), ", request, options)")
 }
 
-/// Returns the bind of group `g`, imported under the name of the group.
-fn bind_ident(g: Group<'_>) -> Ident {
+/// Returns the bind of namespace `g`, imported under the name of the namespace.
+fn bind_ident(g: Namespace<'_>) -> Ident {
     let alias = format!("bind{}", identifier(g.name().pascal()));
-    Module::group(g).sub("client.ts").ident("bind").alias(alias)
+    Module::namespace(g).sub("client.ts").ident("bind").alias(alias)
 }
 
-/// Returns the Client of group `g`, imported under the name of the group.
-fn client_ident(g: Group<'_>) -> Ident {
+/// Returns the Client of namespace `g`, imported under the name of the namespace.
+fn client_ident(g: Namespace<'_>) -> Ident {
     let alias = format!("{}Client", identifier(g.name().pascal()));
-    Module::group(g).sub("client.ts").ident("Client").ty().alias(alias)
+    Module::namespace(g).sub("client.ts").ident("Client").ty().alias(alias)
 }
 
-/// Declares the Client of a group: its methods, then its subgroups, which
-/// `group_names` has by name. A method and a subgroup with the same name
+/// Declares the Client of a namespace: its methods, then its subnamespaces, which
+/// `namespace_names` has by name. A method and a subnamespace with the same name
 /// share the property, which is a function with the members of the
-/// subgroup's Client.
+/// subnamespace's Client.
 fn client_interface(
     f: &mut File,
     methods: &[(Method<'_>, Request<'_>)],
-    groups: &[Group<'_>],
-    group_names: &HashMap<String, Group<'_>>,
+    namespaces: &[Namespace<'_>],
+    namespace_names: &HashMap<String, Namespace<'_>>,
 ) {
-    if methods.is_empty() && groups.is_empty() {
+    if methods.is_empty() && namespaces.is_empty() {
         p!(f, "export interface ", f.ident("Client"), " {}");
         return;
     }
@@ -216,7 +217,7 @@ fn client_interface(
             f.doc(&doc(&method_doc(m), m.is_deprecated()));
             let name = method_name(m);
             let params = method_params(f, m, request);
-            match group_names.get(&name) {
+            match namespace_names.get(&name) {
                 None => p!(f, key(&name), "(", params, "): ", result(f, m), ";"),
                 Some(&sub) => {
                     p!(
@@ -235,8 +236,8 @@ fn client_interface(
                 }
             }
         }
-        for &sub in groups {
-            let name = group_name(sub);
+        for &sub in namespaces {
+            let name = namespace_name(sub);
             if !shared.contains(&name) {
                 p!(f, "readonly ", key(&name), ": ", client_ident(sub), ";");
             }
@@ -475,12 +476,12 @@ pub(super) fn operation_ident(f: &File, m: Method<'_>) -> Ident {
     f.ident(format!("{}Operation", identifier(m.name().pascal())))
 }
 
-/// Returns the property of a method and a group in the Client.
+/// Returns the property of a method and a namespace in the Client.
 fn method_name(m: Method<'_>) -> String {
     identifier(m.name().camel())
 }
 
-fn group_name(g: Group<'_>) -> String {
+fn namespace_name(g: Namespace<'_>) -> String {
     identifier(g.name().camel())
 }
 

@@ -65,7 +65,7 @@ pub(super) struct Rename {
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum Form {
     Same,
-    Group,
+    Namespace,
     BoolOrTargets,
 }
 
@@ -77,10 +77,10 @@ impl Rename {
         }
     }
 
-    pub(super) const fn group(native: &'static str) -> Rename {
+    pub(super) const fn namespace(native: &'static str) -> Rename {
         Rename {
             native,
-            form: Form::Group,
+            form: Form::Namespace,
         }
     }
 
@@ -96,7 +96,7 @@ impl Rename {
     }
 
     fn value(self: &Rename, value: Value) -> (Value, Option<Detail>) {
-        let Form::Group = self.form else {
+        let Form::Namespace = self.form else {
             return (value, None);
         };
         let Value::Array(names) = &value else {
@@ -108,8 +108,8 @@ impl Rename {
         (
             Value::String(path),
             Some(Detail::new(
-                "group path written as a dotted string",
-                "group paths written as dotted strings",
+                "namespace path written as a dotted string",
+                "namespace paths written as dotted strings",
             )),
         )
     }

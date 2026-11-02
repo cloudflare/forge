@@ -32,7 +32,7 @@
  * ```
  *
  * A `File` is a plugin's file as it is: return it from `generate` or
- * `generateGroup`. One with nothing printed renders as nothing, so forge
+ * `generateNamespace`. One with nothing printed renders as nothing, so forge
  * doesn't write it.
  *
  * This is forge's Rust `forge::ts`, and renders the same text, with tagged
@@ -46,7 +46,7 @@
 // the forge only through the types of index.ts, so it needs no host, and
 // its tests run in Node.
 
-import type { Group, Model, Name } from './index.js';
+import type { Model, Name, Namespace } from './index.js';
 
 /** One level of indentation. */
 const INDENT = '  ';
@@ -253,17 +253,22 @@ export const module: {
   /** The output directory. Its `sub` modules are the top-level files. */
   readonly ROOT: Module;
   /**
-   * Returns the directory that holds `group`'s files: the group's path,
+   * Returns the directory that holds `namespace`'s files: the namespace's path,
    * with each name in camelCase and prefixed with `_` if it starts with a
-   * digit. A group `list_all` inside `pet-store` gets `petStore/listAll`.
+   * digit. A namespace `list_all` inside `pet-store` gets `petStore/listAll`.
    * Top-level files go in `module.ROOT` instead.
    */
-  group(group: Pick<Group, 'path'>): Module;
+  namespace(namespace: Pick<Namespace, 'path'>): Module;
+  /** @deprecated Use {@link namespace} instead. */
+  group(namespace: Pick<Namespace, 'path'>): Module;
 } = Object.freeze(
   Object.assign((path: string) => makeModule(path), {
     ROOT: makeModule(''),
-    group(group: Pick<Group, 'path'>): Module {
-      return makeModule(group.path.map((name) => identifier(name.camel())).join('/'));
+    namespace(namespace: Pick<Namespace, 'path'>): Module {
+      return makeModule(namespace.path.map((name) => identifier(name.camel())).join('/'));
+    },
+    group(namespace: Pick<Namespace, 'path'>): Module {
+      return module.namespace(namespace);
     },
   }),
 );
@@ -274,13 +279,13 @@ export const ident: {
   /**
    * Returns the identifier of `model`: its name in PascalCase, prefixed
    * with `_` if it starts with a digit, declared in the `models.ts` of its
-   * group's directory (`module.group`), or of the root for a top-level
+   * namespace's directory (`module.namespace`), or of the root for a top-level
    * model. Call `ty` on it to import it with `import type`.
    *
    * A plugin that names models differently makes its own identifier, and
    * prints that one everywhere it refers to the model.
    */
-  model(model: Pick<Model, 'name' | 'group'>): Ident;
+  model(model: Pick<Model, 'name' | 'namespace'>): Ident;
 } = Object.freeze(
   Object.assign(
     (
@@ -302,8 +307,8 @@ export const ident: {
       );
     },
     {
-      model(model: Pick<Model, 'name' | 'group'>): Ident {
-        const dir = model.group ? module.group(model.group) : module.ROOT;
+      model(model: Pick<Model, 'name' | 'namespace'>): Ident {
+        const dir = model.namespace ? module.namespace(model.namespace) : module.ROOT;
         return dir.sub('models.ts').ident(identifier(model.name.pascal()));
       },
     },
@@ -525,14 +530,14 @@ function nameOf(state: FileState, id: Ident, aliases: Map<string, string>): stri
 function declarationsOf(state: FileState, imports: Imports, aliases: Map<string, string>): string {
   let b = '';
   let previous: Module | undefined;
-  for (const group of chunkBy(imports.sorted, (a, b) => a.module.equals(b.module))) {
-    const module = group[0]!.module;
+  for (const namespace of chunkBy(imports.sorted, (a, b) => a.module.equals(b.module))) {
+    const module = namespace[0]!.module;
     if (previous && rank(previous) !== rank(module)) {
       b += '\n';
     }
     previous = module;
-    const allTypes = group.every((i) => !imports.values.has(i.key));
-    const names = group.map((i) => {
+    const allTypes = namespace.every((i) => !imports.values.has(i.key));
+    const names = namespace.map((i) => {
       let name = i.name;
       const alias = aliases.get(i.key)!;
       if (alias !== name) {

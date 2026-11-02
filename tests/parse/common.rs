@@ -2,7 +2,7 @@
 //! asserts only what it is about. Each helper panics with what there is
 //! when it finds nothing.
 
-use forge::{EnumValue, Field, Forge, Group, Intersection, Method, Model, Name, Object, Scalar, Type, Union};
+use forge::{EnumValue, Field, Forge, Intersection, Method, Model, Name, Namespace, Object, Scalar, Type, Union};
 
 /// Parses `json` as a whole document.
 #[track_caller]
@@ -19,7 +19,7 @@ pub fn responding_with(schema: &str) -> String {
     format!(
         r#"{{
           "openapi": "3.0.3", "info": {{"title": "t", "version": "1"}},
-          "paths": {{"/a": {{"get": {{"x-forge-group-name": "a", "x-forge-method-name": "get",
+          "paths": {{"/a": {{"get": {{"x-forge-namespace": "a", "x-forge-method-name": "get",
             "responses": {{"200": {{"description": "ok", "content": {{"application/json": {{"schema": {schema}}}}}}}}}}}}}}}
         }}"#
     )
@@ -31,7 +31,7 @@ pub fn responding_with_schemas(schema: &str, schemas: &str) -> String {
     format!(
         r#"{{
           "openapi": "3.0.3", "info": {{"title": "t", "version": "1"}},
-          "paths": {{"/a": {{"get": {{"x-forge-group-name": "a", "x-forge-method-name": "get",
+          "paths": {{"/a": {{"get": {{"x-forge-namespace": "a", "x-forge-method-name": "get",
             "responses": {{"200": {{"description": "ok", "content": {{"application/json": {{"schema": {schema}}}}}}}}}}}}}}},
           "components": {{"schemas": {schemas}}}
         }}"#
@@ -47,28 +47,28 @@ pub fn parse_err(json: &str) -> String {
     }
 }
 
-/// Returns the group at `path`: the names from the top level down,
+/// Returns the namespace at `path`: the names from the top level down,
 /// separated by dots, such as `zones` or `zones.settings`.
 #[track_caller]
-pub fn group<'f>(forge: &'f Forge, path: &str) -> Group<'f> {
+pub fn namespace<'f>(forge: &'f Forge, path: &str) -> Namespace<'f> {
     let names: Vec<Name> = path.split('.').map(Name::new).collect();
-    let Some(group) = forge.groups().find(|group| group.path().eq(names.iter())) else {
-        panic!("no group {path:?} in {:?}", forge.groups().collect::<Vec<_>>());
+    let Some(namespace) = forge.namespaces().find(|namespace| namespace.path().eq(names.iter())) else {
+        panic!("no namespace {path:?} in {:?}", forge.namespaces().collect::<Vec<_>>());
     };
-    group
+    namespace
 }
 
-/// Returns the method at `path`: its group's path, a dot and its name,
+/// Returns the method at `path`: its namespace's path, a dot and its name,
 /// such as `zones.get`.
 #[track_caller]
 pub fn method<'f>(forge: &'f Forge, path: &str) -> Method<'f> {
-    let Some((group_path, name)) = path.rsplit_once('.') else {
-        panic!("method path {path:?} is not group.method");
+    let Some((namespace_path, name)) = path.rsplit_once('.') else {
+        panic!("method path {path:?} is not namespace.method");
     };
-    let group = group(forge, group_path);
+    let namespace = namespace(forge, namespace_path);
     let name = Name::new(name);
-    let Some(method) = group.methods().find(|method| *method.name() == name) else {
-        panic!("no method {path:?} in {:?}", group.methods().collect::<Vec<_>>());
+    let Some(method) = namespace.methods().find(|method| *method.name() == name) else {
+        panic!("no method {path:?} in {:?}", namespace.methods().collect::<Vec<_>>());
     };
     method
 }
@@ -77,7 +77,7 @@ pub fn method<'f>(forge: &'f Forge, path: &str) -> Method<'f> {
 pub fn models(forge: &Forge) -> Vec<&str> {
     let mut names: Vec<&str> = forge
         .models()
-        .chain(forge.groups().flat_map(|group| group.models()))
+        .chain(forge.namespaces().flat_map(|namespace| namespace.models()))
         .map(|model| model.schema_name())
         .collect();
     names.sort_unstable();
@@ -88,7 +88,11 @@ pub fn models(forge: &Forge) -> Vec<&str> {
 /// placed.
 #[track_caller]
 pub fn model<'f>(forge: &'f Forge, schema_name: &str) -> Model<'f> {
-    let models = || forge.models().chain(forge.groups().flat_map(|group| group.models()));
+    let models = || {
+        forge
+            .models()
+            .chain(forge.namespaces().flat_map(|namespace| namespace.models()))
+    };
     let Some(model) = models().find(|model| model.schema_name() == schema_name) else {
         panic!("no model {schema_name:?} in {:?}", models().collect::<Vec<_>>());
     };

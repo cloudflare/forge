@@ -195,7 +195,7 @@ fn pattern_properties_are_ignored() {
     let forge = parse(
         r#"{
           "openapi": "3.1.0", "info": {"title": "t", "version": "1"},
-          "paths": {"/a": {"get": {"x-forge-group-name": "a", "x-forge-method-name": "get",
+          "paths": {"/a": {"get": {"x-forge-namespace": "a", "x-forge-method-name": "get",
             "responses": {"200": {"description": "ok", "content": {"application/json": {"schema": {
               "type": "object", "properties": {"id": {"type": "string"}}, "patternProperties": {"^x-": {"type": "string"}}
             }}}}}}}}
@@ -212,7 +212,7 @@ fn false_property_is_no_field() {
     let forge = parse(
         r#"{
           "openapi": "3.1.0", "info": {"title": "t", "version": "1"},
-          "paths": {"/a": {"get": {"x-forge-group-name": "a", "x-forge-method-name": "get",
+          "paths": {"/a": {"get": {"x-forge-namespace": "a", "x-forge-method-name": "get",
             "responses": {"200": {"description": "ok", "content": {"application/json": {"schema": {
               "type": "object", "properties": {"id": {"type": "string"}, "gone": false}
             }}}}}}}}

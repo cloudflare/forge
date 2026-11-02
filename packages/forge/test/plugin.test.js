@@ -7,7 +7,7 @@ import { test } from 'node:test';
 const hooks = registerHooks({
   resolve(specifier, context, nextResolve) {
     return nextResolve(
-      specifier === 'forge:plugin/forge@0.3.0'
+      specifier === 'forge:plugin/forge@0.4.0'
         ? new URL('./fixtures/metadata-host.js', import.meta.url).href
         : specifier,
       context,
@@ -16,6 +16,25 @@ const hooks = registerHooks({
 });
 const { definePlugin } = await import('../plugin/index.js');
 hooks.deregister();
+
+test('deprecated group aliases forward to namespaces', () => {
+  let called = false;
+  const plugin = definePlugin({
+    generate(forge) {
+      assert.equal(forge.groups, forge.namespaces);
+      return [];
+    },
+    generateGroup(namespace) {
+      called = true;
+      assert.equal(namespace.name.toString(), 'pets');
+      return [];
+    },
+  });
+
+  plugin.generate();
+  plugin.generateNamespace(0);
+  assert.equal(called, true);
+});
 
 test('array bounds distinguish absent, zero and one through the plugin API', () => {
   definePlugin({

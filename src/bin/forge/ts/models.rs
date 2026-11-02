@@ -1,4 +1,4 @@
-//! The models.ts of a group, following specs/04-model-declarations.md.
+//! The models.ts of a namespace, following specs/04-model-declarations.md.
 
 use std::collections::HashMap;
 
@@ -16,8 +16,8 @@ pub(super) fn models(node: Node<'_>) -> Result<File, Vec<String>> {
     let models = node.models();
     // TODO: Move both checks into the library, next to the method checks in
     // src/link.rs. It accepts a model whose name has no letters or digits,
-    // and two models in a group with equal names, such as schemas `Pet` and
-    // `pet`. Then this function, `files` and `generate_group` can't fail.
+    // and two models in a namespace with equal names, such as schemas `Pet` and
+    // `pet`. Then this function, `files` and `generate_namespace` can't fail.
     let mut errs = Vec::new();
     let mut names: HashMap<String, Model<'_>> = HashMap::new();
     for &m in &models {
@@ -29,7 +29,7 @@ pub(super) fn models(node: Node<'_>) -> Result<File, Vec<String>> {
             ));
         } else if let Some(other) = names.get(&name) {
             errs.push(format!(
-                "group {:?}: schemas {:?} and {:?} have the same name {name:?}",
+                "namespace {:?}: schemas {:?} and {:?} have the same name {name:?}",
                 node.path(),
                 other.schema_name(),
                 m.schema_name(),

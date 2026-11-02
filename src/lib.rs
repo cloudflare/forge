@@ -45,15 +45,15 @@ pub struct Forge {
     /// with its server variables substituted.
     pub base_url: String, // Eventually we will support servers at descendants as well.
 
-    /// Every group, indexed by `GroupId`.
-    groups: Vec<GroupData>,
-    /// The top-level groups.
-    top: Vec<GroupId>,
+    /// Every namespace, indexed by `NamespaceId`.
+    namespaces: Vec<NamespaceData>,
+    /// The top-level namespaces.
+    top: Vec<NamespaceId>,
     /// Every method, indexed by `MethodId`.
     methods: Vec<MethodData>,
     /// Every model, indexed by `ModelId`.
     models: Vec<ModelData>,
-    /// The models at the top level, in no group.
+    /// The models at the top level, in no namespace.
     top_models: Vec<ModelId>,
     /// Every type, indexed by `TypeId`.
     types: Vec<TypeData>,
@@ -77,22 +77,28 @@ pub struct Forge {
 }
 
 impl Forge {
-    /// Returns every group, depth first: each group comes before its
-    /// subgroups, and all of them before its next sibling. Siblings are
+    /// Returns every namespace, depth first: each namespace comes before its
+    /// subnamespaces, and all of them before its next sibling. Siblings are
     /// sorted by name.
-    pub fn groups(&self) -> impl Iterator<Item = Group<'_>> {
+    pub fn namespaces(&self) -> impl Iterator<Item = Namespace<'_>> {
         self.depth_first(&self.top)
     }
 
-    /// Returns the models at the top level, which are in no group, in an
+    /// Returns every namespace, depth first.
+    #[deprecated(note = "use `namespaces` instead")]
+    pub fn groups(&self) -> impl Iterator<Item = Namespace<'_>> {
+        self.namespaces()
+    }
+
+    /// Returns the models at the top level, which are in no namespace, in an
     /// unspecified order. These are the models used by methods in more than
-    /// one top-level group.
+    /// one top-level namespace.
     pub fn models(&self) -> impl ExactSizeIterator<Item = Model<'_>> {
         self.top_models.iter().map(|&id| self.model(id))
     }
 
-    fn group(&self, id: GroupId) -> Group<'_> {
-        Group { forge: self, id }
+    fn namespace(&self, id: NamespaceId) -> Namespace<'_> {
+        Namespace { forge: self, id }
     }
 
     fn method(&self, id: MethodId) -> Method<'_> {
@@ -103,116 +109,120 @@ impl Forge {
         Model { forge: self, id }
     }
 
-    /// Returns the groups `ids` and every group inside them, depth first,
-    /// keeping the order of `ids` and of each group's subgroups.
-    fn depth_first<'f>(&'f self, ids: &'f [GroupId]) -> impl Iterator<Item = Group<'f>> {
-        // The groups still to visit, the next one last, so each list is
+    /// Returns the namespaces `ids` and every namespace inside them, depth first,
+    /// keeping the order of `ids` and of each namespace's subnamespaces.
+    fn depth_first<'f>(&'f self, ids: &'f [NamespaceId]) -> impl Iterator<Item = Namespace<'f>> {
+        // The namespaces still to visit, the next one last, so each list is
         // pushed in reverse.
-        let mut stack: Vec<GroupId> = ids.iter().rev().copied().collect();
+        let mut stack: Vec<NamespaceId> = ids.iter().rev().copied().collect();
         iter::from_fn(move || {
-            let group = self.group(stack.pop()?);
-            stack.extend(group.data().groups.iter().rev());
-            Some(group)
+            let namespace = self.namespace(stack.pop()?);
+            stack.extend(namespace.data().namespaces.iter().rev());
+            Some(namespace)
         })
     }
 }
 
-/// A named collection of subgroups, methods and models in a [`Forge`].
+/// A named collection of subnamespaces, methods and models in a [`Forge`].
 ///
-/// A `Group` is a reference into the `Forge` it came from: it is cheap to
-/// copy, and cannot outlive the `Forge`. Two `Group`s are equal when they
-/// are the same group of the same `Forge`.
+/// A `Namespace` is a reference into the `Forge` it came from: it is cheap to
+/// copy, and cannot outlive the `Forge`. Two `Namespace`s are equal when they
+/// are the same namespace of the same `Forge`.
 #[derive(Clone, Copy)]
-pub struct Group<'f> {
+pub struct Namespace<'f> {
     forge: &'f Forge,
-    id: GroupId,
+    id: NamespaceId,
 }
 
-impl<'f> Group<'f> {
-    /// Returns the name of the group.
+/// The former name of [`Namespace`].
+#[deprecated(note = "use `Namespace` instead")]
+pub type Group<'f> = Namespace<'f>;
+
+impl<'f> Namespace<'f> {
+    /// Returns the name of the namespace.
     pub fn name(self) -> &'f Name {
         &self.data().name
     }
 
-    /// Returns a short description of the group, or an empty string if it
+    /// Returns a short description of the namespace, or an empty string if it
     /// has none.
     ///
     /// Comes from the `x-forge-commands` extension at the root of the
-    /// document, which has an entry for each group, keyed by name. A
-    /// top-level group's description is the `description` of its entry. A
-    /// subgroup's entry sits in the `groups` of its parent's entry, or
+    /// document, which has an entry for each namespace, keyed by name. A
+    /// top-level namespace's description is the `description` of its entry. A
+    /// subnamespace's entry sits in the `namespaces` of its parent's entry, or
     /// anywhere above it under a key with dots: `a.b` in the root, or `b.c`
-    /// in the `groups` of `a`, both describe the group `c` in `b` in `a`.
+    /// in the `namespaces` of `a`, both describe the namespace `c` in `b` in `a`.
     /// Names match when they are equal as [`Name`]s. Two entries for the
-    /// same group are an error.
+    /// same namespace are an error.
     pub fn description(self) -> &'f str {
         &self.data().description
     }
 
-    /// Returns the names of the groups from the top level down to this one,
-    /// ending with this group's own name.
+    /// Returns the names of the namespaces from the top level down to this one,
+    /// ending with this namespace's own name.
     pub fn path(self) -> impl ExactSizeIterator<Item = &'f Name> + DoubleEndedIterator {
         self.data()
             .path
             .iter()
-            .map(move |&id| &self.forge.groups[id.index()].name)
+            .map(move |&id| &self.forge.namespaces[id.index()].name)
     }
 
-    /// Returns the group this one is inside, or `None` for a top-level
-    /// group.
-    pub fn parent(self) -> Option<Group<'f>> {
-        // The path ends with this group, so its parent comes just before.
+    /// Returns the namespace this one is inside, or `None` for a top-level
+    /// namespace.
+    pub fn parent(self) -> Option<Namespace<'f>> {
+        // The path ends with this namespace, so its parent comes just before.
         let [.., parent, _] = self.data().path[..] else {
             return None;
         };
-        Some(self.forge.group(parent))
+        Some(self.forge.namespace(parent))
     }
 
-    /// Returns the groups directly inside this one, sorted by name.
-    pub fn children(self) -> impl ExactSizeIterator<Item = Group<'f>> {
-        self.data().groups.iter().map(move |&id| self.forge.group(id))
+    /// Returns the namespaces directly inside this one, sorted by name.
+    pub fn children(self) -> impl ExactSizeIterator<Item = Namespace<'f>> {
+        self.data().namespaces.iter().map(move |&id| self.forge.namespace(id))
     }
 
-    /// Returns every group below this one, depth first, walked the same way
-    /// as [`Forge::groups`]. This group is not included.
-    pub fn descendants(self) -> impl Iterator<Item = Group<'f>> {
-        self.forge.depth_first(&self.data().groups)
+    /// Returns every namespace below this one, depth first, walked the same way
+    /// as [`Forge::namespaces`]. This namespace is not included.
+    pub fn descendants(self) -> impl Iterator<Item = Namespace<'f>> {
+        self.forge.depth_first(&self.data().namespaces)
     }
 
-    /// Returns the methods directly in this group, sorted by name.
+    /// Returns the methods directly in this namespace, sorted by name.
     pub fn methods(self) -> impl ExactSizeIterator<Item = Method<'f>> {
         self.data().methods.iter().map(move |&id| self.forge.method(id))
     }
 
-    /// Returns the models placed directly in this group, in an unspecified
-    /// order. See [`Model::group`] for where a model is placed.
+    /// Returns the models placed directly in this namespace, in an unspecified
+    /// order. See [`Model::namespace`] for where a model is placed.
     pub fn models(self) -> impl ExactSizeIterator<Item = Model<'f>> {
         self.data().models.iter().map(move |&id| self.forge.model(id))
     }
 
-    fn data(self) -> &'f GroupData {
-        &self.forge.groups[self.id.index()]
+    fn data(self) -> &'f NamespaceData {
+        &self.forge.namespaces[self.id.index()]
     }
 }
 
-impl PartialEq for Group<'_> {
+impl PartialEq for Namespace<'_> {
     fn eq(&self, other: &Self) -> bool {
         std::ptr::eq(self.forge, other.forge) && self.id == other.id
     }
 }
 
-impl Eq for Group<'_> {}
+impl Eq for Namespace<'_> {}
 
-impl std::hash::Hash for Group<'_> {
+impl std::hash::Hash for Namespace<'_> {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         std::ptr::hash(self.forge, state);
         self.id.hash(state);
     }
 }
 
-impl std::fmt::Debug for Group<'_> {
+impl std::fmt::Debug for Namespace<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("Group")
+        f.debug_struct("Namespace")
             .field("path", &self.path().collect::<Vec<_>>())
             .finish()
     }
@@ -222,26 +232,26 @@ impl std::fmt::Debug for Group<'_> {
 /// exposes as a function.
 ///
 /// An operation can instead be exposed as several methods, each under its
-/// own group and name, with the `x-forge-aliases` extension: an array of
+/// own namespace and name, with the `x-forge-aliases` extension: an array of
 /// objects, each an alias that is a method of the operation. The
-/// operation's own group and name then make no method, and its own
+/// operation's own namespace and name then make no method, and its own
 /// `x-forge-skip` does not stop its aliases. An empty array makes no
 /// method, an element that is not an object is ignored, and a value that
 /// is not an array is an error. Aliases do not nest: an `x-forge-aliases`
 /// in an alias is ignored, as are its keys that are not extensions.
 ///
 /// An alias says, as an operation would, the method's
-/// [`group`](Method::group), [`name`](Method::name),
+/// [`namespace`](Method::namespace), [`name`](Method::name),
 /// [`availability`](Method::availability), whether it is
 /// [hidden](Method::is_hidden), its [`confirmation`](Method::confirmation)
 /// and its [`extensions`](Method::extensions), and whether it is ignored
 /// with `x-forge-skip`. None of these come from the operation: an alias
 /// without an extension does not have the operation's. The rest, from the
 /// HTTP method and path to the responses, is the operation's, and every
-/// alias has it. Each alias is a method of its own group, so a model one
+/// alias has it. Each alias is a method of its own namespace, so a model one
 /// uses is placed as though each alias were a separate operation.
 ///
-/// Like a [`Group`], a `Method` is a cheap reference into its `Forge`. Two
+/// Like a [`Namespace`], a `Method` is a cheap reference into its `Forge`. Two
 /// `Method`s are equal when they are the same method of the same `Forge`.
 #[derive(Clone, Copy)]
 pub struct Method<'f> {
@@ -250,28 +260,34 @@ pub struct Method<'f> {
 }
 
 impl<'f> Method<'f> {
-    /// Returns the name of the method, which is unique within its group.
+    /// Returns the name of the method, which is unique within its namespace.
     ///
     /// Corresponds to the `x-forge-method-name` extension of the
     /// operation, or of the alias the method comes from. An operation or
     /// alias without one, or with an empty one, is not a method, and one
-    /// with no letters or digits is an error. Two methods in a group with
+    /// with no letters or digits is an error. Two methods in a namespace with
     /// equal names are an error, whether they are aliases or not.
     pub fn name(self) -> &'f Name {
         &self.data().name
     }
 
-    /// Returns the group the method is in.
+    /// Returns the namespace the method is in.
     ///
-    /// Corresponds to the `x-forge-group-name` extension of the operation, or
-    /// of the alias the method comes from: a string of group names
+    /// Corresponds to the `x-forge-namespace` extension of the operation, or
+    /// of the alias the method comes from: a string of namespace names
     /// separated by dots, such as `accounts.members`, or an array with one
-    /// group name per element, top level first, whose elements are not
+    /// namespace name per element, top level first, whose elements are not
     /// split. An operation or alias without one, with an empty one, or
-    /// with `x-forge-skip: true` is not a method. A group name with no
+    /// with `x-forge-skip: true` is not a method. A namespace name with no
     /// letters or digits is an error.
-    pub fn group(self) -> Group<'f> {
-        self.forge.group(self.data().group)
+    pub fn namespace(self) -> Namespace<'f> {
+        self.forge.namespace(self.data().namespace)
+    }
+
+    /// Returns the namespace the method is in.
+    #[deprecated(note = "use `namespace` instead")]
+    pub fn group(self) -> Namespace<'f> {
+        self.namespace()
     }
 
     /// Returns the HTTP method the operation is sent with.
@@ -498,7 +514,7 @@ impl<'f> Method<'f> {
     /// An extension is a key of the
     /// [Operation Object](https://spec.openapis.org/oas/latest.html#operation-object)
     /// that starts with `x-`. Those forge reads, `x-forge-method-name`,
-    /// `x-forge-group-name`, `x-forge-skip`, `x-forge-availability`,
+    /// `x-forge-namespace`, `x-forge-skip`, `x-forge-availability`,
     /// `x-forge-hidden`, `x-forge-require-confirmation` and
     /// `x-forge-aliases`, are left out. Other keys forge does not read, such as
     /// the extensions other tools write, are kept, and `forge normalize` is
@@ -538,7 +554,7 @@ impl std::hash::Hash for Method<'_> {
 impl std::fmt::Debug for Method<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Method")
-            .field("group", &self.group().path().collect::<Vec<_>>())
+            .field("namespace", &self.namespace().path().collect::<Vec<_>>())
             .field("name", self.name())
             .field("http_method", self.http_method())
             .field("path", &self.path())
@@ -633,7 +649,7 @@ impl Availability {
 /// parameter, one of [`Method::headers`]. Response headers are not read,
 /// so a use in one does not count.
 ///
-/// Like a [`Group`], a `Model` is a cheap reference into its `Forge`. Two
+/// Like a [`Namespace`], a `Model` is a cheap reference into its `Forge`. Two
 /// `Model`s are equal when they are the same model of the same `Forge`.
 #[derive(Clone, Copy)]
 pub struct Model<'f> {
@@ -658,15 +674,21 @@ impl<'f> Model<'f> {
         &self.data().name
     }
 
-    /// Returns the group the model is placed in, or `None` if it is at the
+    /// Returns the namespace the model is placed in, or `None` if it is at the
     /// top level.
     ///
-    /// A model is placed in the deepest group shared by every method that
+    /// A model is placed in the deepest namespace shared by every method that
     /// uses it, directly or through other models: a model used in `a.b.c`
     /// and `a.b.d` is in `a.b`, one used only in `a.b.e` is in `a.b.e`, and
     /// one used in `a` and `x` is at the top level.
-    pub fn group(self) -> Option<Group<'f>> {
-        Some(self.forge.group(self.data().group?))
+    pub fn namespace(self) -> Option<Namespace<'f>> {
+        Some(self.forge.namespace(self.data().namespace?))
+    }
+
+    /// Returns the namespace the model is placed in.
+    #[deprecated(note = "use `namespace` instead")]
+    pub fn group(self) -> Option<Namespace<'f>> {
+        self.namespace()
     }
 
     /// Returns a description of the model, or an empty string if it has
@@ -723,34 +745,37 @@ impl std::fmt::Display for Model<'_> {
 impl std::fmt::Debug for Model<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Model")
-            .field("group", &self.group().map(|group| group.path().collect::<Vec<_>>()))
+            .field(
+                "namespace",
+                &self.namespace().map(|namespace| namespace.path().collect::<Vec<_>>()),
+            )
             .field("schema_name", &self.schema_name())
             .finish()
     }
 }
 
-/// The index of a group's data in its `Forge`.
+/// The index of a namespace's data in its `Forge`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-struct GroupId(u32);
+struct NamespaceId(u32);
 
-impl GroupId {
+impl NamespaceId {
     fn index(self) -> usize {
         self.0 as usize
     }
 }
 
-/// What a [`Forge`] stores for each group.
-struct GroupData {
+/// What a [`Forge`] stores for each namespace.
+struct NamespaceData {
     name: Name,
     description: String,
-    /// The groups directly inside this one.
-    groups: Vec<GroupId>,
-    /// The groups from the top level down to this one, ending with this
-    /// group itself.
-    path: Vec<GroupId>,
-    /// The methods directly in this group.
+    /// The namespaces directly inside this one.
+    namespaces: Vec<NamespaceId>,
+    /// The namespaces from the top level down to this one, ending with this
+    /// namespace itself.
+    path: Vec<NamespaceId>,
+    /// The methods directly in this namespace.
     methods: Vec<MethodId>,
-    /// The models placed directly in this group.
+    /// The models placed directly in this namespace.
     models: Vec<ModelId>,
 }
 
@@ -767,8 +792,8 @@ impl MethodId {
 /// What a [`Forge`] stores for each method.
 struct MethodData {
     name: Name,
-    /// The group the method is in.
-    group: GroupId,
+    /// The namespace the method is in.
+    namespace: NamespaceId,
     http_method: HttpMethod,
     /// The path template, such as `/accounts/{account_id}`.
     path: Str,
@@ -811,8 +836,8 @@ struct ModelData {
     /// Where the schema is under `components.schemas`.
     schema_name: Str,
     name: Name,
-    /// The group the model is placed in, or none for the top level.
-    group: Option<GroupId>,
+    /// The namespace the model is placed in, or none for the top level.
+    namespace: Option<NamespaceId>,
     description: Str,
     deprecated: bool,
     ty: TypeId,

@@ -371,7 +371,7 @@ test('display', () => {
 });
 
 test('models', () => {
-  // Stand-ins for the forge's groups and models: what module.group and
+  // Stand-ins for the forge's namespaces and models: what module.namespace and
   // ident.model read of them.
   const name = (...words) => ({
     words,
@@ -380,12 +380,18 @@ test('models', () => {
   });
   const petStore = { path: [name('pet', 'store')] };
   const listAll = { path: [name('pet', 'store'), name('list', 'all')] };
-  const owner = { schemaName: 'pet_owner', name: name('pet', 'owner'), group: listAll, toString: () => 'pet_owner' };
-  const twoFa = { schemaName: '2fa', name: name('2fa'), group: undefined, toString: () => '2fa' };
+  const owner = {
+    schemaName: 'pet_owner',
+    name: name('pet', 'owner'),
+    namespace: listAll,
+    toString: () => 'pet_owner',
+  };
+  const twoFa = { schemaName: '2fa', name: name('2fa'), namespace: undefined, toString: () => '2fa' };
 
   assert.equal(module.ROOT.sub('models.ts').path, 'models.ts');
-  assert.equal(module.group(petStore).path, 'petStore');
-  assert.equal(module.group(listAll).sub('client.ts').path, 'petStore/listAll/client.ts');
+  assert.equal(module.namespace(petStore).path, 'petStore');
+  assert.equal(module.group(petStore).path, module.namespace(petStore).path);
+  assert.equal(module.namespace(listAll).sub('client.ts').path, 'petStore/listAll/client.ts');
   assert.equal(ident.model(owner).module.path, 'petStore/listAll/models.ts');
   assert.equal(ident.model(owner).name, 'PetOwner');
   assert.equal(ident.model(twoFa).module.path, 'models.ts');

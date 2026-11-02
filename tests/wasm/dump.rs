@@ -5,7 +5,7 @@
 
 use std::fmt::Write;
 
-use forge::{Content, Field, Forge, Group, Method, Model, Name, Object, Type};
+use forge::{Content, Field, Forge, Method, Model, Name, Namespace, Object, Type};
 
 /// Returns everything `forge` has, as text.
 pub fn dump(forge: &Forge) -> String {
@@ -17,8 +17,8 @@ pub fn dump(forge: &Forge) -> String {
     for model in forge.models() {
         self::model(o, 0, model);
     }
-    for group in forge.groups() {
-        self::group(o, group);
+    for namespace in forge.namespaces() {
+        self::namespace(o, namespace);
     }
     out
 }
@@ -31,32 +31,34 @@ fn name(name: &Name) -> String {
     name.words().join(" ")
 }
 
-fn group(o: &mut String, group: Group<'_>) {
-    let path: Vec<String> = group.path().map(name).collect();
-    line(o, 0, format_args!("group {path:?} {:?}", group.description()));
-    let parent = group.parent().map(|parent| name(parent.name()));
-    let children: Vec<String> = group.children().map(|child| name(child.name())).collect();
-    let descendants: Vec<String> = group.descendants().map(|d| name(d.name())).collect();
+fn namespace(o: &mut String, namespace: Namespace<'_>) {
+    let path: Vec<String> = namespace.path().map(name).collect();
+    line(o, 0, format_args!("namespace {path:?} {:?}", namespace.description()));
+    let parent = namespace.parent().map(|parent| name(parent.name()));
+    let children: Vec<String> = namespace.children().map(|child| name(child.name())).collect();
+    let descendants: Vec<String> = namespace.descendants().map(|d| name(d.name())).collect();
     line(
         o,
         1,
         format_args!("parent {parent:?} children {children:?} descendants {descendants:?}"),
     );
-    for model in group.models() {
+    for model in namespace.models() {
         self::model(o, 1, model);
     }
-    for method in group.methods() {
+    for method in namespace.methods() {
         self::method(o, method);
     }
 }
 
 fn model(o: &mut String, depth: usize, model: Model<'_>) {
-    let group = model.group().map(|group| group.path().map(name).collect::<Vec<_>>());
+    let namespace = model
+        .namespace()
+        .map(|namespace| namespace.path().map(name).collect::<Vec<_>>());
     line(
         o,
         depth,
         format_args!(
-            "model {:?} name {:?} group {group:?} description {:?} deprecated {}",
+            "model {:?} name {:?} namespace {namespace:?} description {:?} deprecated {}",
             model.schema_name(),
             name(model.name()),
             model.description(),
@@ -75,7 +77,7 @@ fn method(o: &mut String, method: Method<'_>) {
             name(method.name()),
             method.http_method().as_str(),
             method.path(),
-            name(method.group().name()),
+            name(method.namespace().name()),
         ),
     );
     line(
