@@ -1,0 +1,23 @@
+---
+import DocsLayout from '../../../layouts/DocsLayout.astro';
+import CommandReference from '../../../components/commands/CommandReference.astro';
+import { commandProducts, getCommandSidebar } from '../../../command-sidebar.ts';
+import { commandTitle } from '../../../command-reference/routing.ts';
+import { getCommandRouter } from '../../../command-reference/server.ts';
+
+const router = await getCommandRouter();
+const command = router.resolve(Astro.url, commandProducts);
+if (!command) return new Response('Not found', { status: 404 });
+const sidebar = await getCommandSidebar(Astro.url);
+---
+
+<DocsLayout
+  title={commandTitle(command)}
+  description={command.description}
+  sidebar={sidebar}
+  headings={false}
+  breadcrumbs={[]}
+  showDescription={false}
+>
+  <CommandReference command={command} />
+</DocsLayout>

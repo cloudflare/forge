@@ -1,21 +1,19 @@
 ---
 import DocsLayout from '../../layouts/DocsLayout.astro';
 import CommandReference from '../../components/commands/CommandReference.astro';
-import { getApiRouter } from '../../api-server.ts';
+import { commandProducts, getCommandSidebar } from '../../command-sidebar.ts';
 import { commandPath, commandTitle } from '../../command-reference/routing.ts';
 import { getCommandRouter } from '../../command-reference/server.ts';
 import type { CommandMetadata } from '../../command-reference/schema.ts';
-import { getPageSidebar } from '../../page-sidebar.ts';
 
 export const prerender = true;
 
 export async function getStaticPaths() {
-  const [apiRouter, router] = await Promise.all([getApiRouter(), getCommandRouter()]);
-  const productIds = new Set(apiRouter.plan.catalog.products.map((product) => product.id));
-  return router.commands.filter((command) => !productIds.has(command.fullPath[0])).map((command) => ({
-    params: { path: commandPath(command) },
-    props: { command },
-  }));
+  const router = await getCommandRouter();
+  const productIds = new Set(commandProducts.map((product) => product.id));
+  return router.commands
+    .filter((command) => !productIds.has(command.fullPath[0]))
+    .map((command) => ({ params: { path: commandPath(command) }, props: { command } }));
 }
 
 interface Props {
@@ -23,8 +21,7 @@ interface Props {
 }
 
 const { command } = Astro.props;
-
-const sidebar = await getPageSidebar(Astro.url);
+const sidebar = await getCommandSidebar(Astro.url);
 ---
 
 <DocsLayout

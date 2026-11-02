@@ -2,18 +2,13 @@
 import DocsLayout from '../../layouts/DocsLayout.astro';
 import CommandDirectory from '../../components/commands/CommandDirectory.astro';
 import CopyableCommand from '../../components/commands/CopyableCommand.astro';
-import { getApiRouter } from '../../api-server.ts';
+import { commandProducts, getCommandSidebar } from '../../command-sidebar.ts';
 import { getCommandRouter } from '../../command-reference/server.ts';
-import { getPageSidebar } from '../../page-sidebar.ts';
 
 export const prerender = true;
 
-const [apiRouter, router, sidebar] = await Promise.all([
-  getApiRouter(),
-  getCommandRouter(),
-  getPageSidebar(Astro.url),
-]);
-const productIds = new Set(apiRouter.plan.catalog.products.map((product) => product.id));
+const [router, sidebar] = await Promise.all([getCommandRouter(), getCommandSidebar(Astro.url)]);
+const productIds = new Set(commandProducts.map((product) => product.id));
 const commands = router.commands.filter((command) => !productIds.has(command.fullPath[0]));
 ---
 
