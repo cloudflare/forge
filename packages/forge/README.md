@@ -19,8 +19,8 @@ Pass `-` instead of a path to read the document from standard input. Run
 ## Normalizing a document
 
 `forge normalize` rewrites metadata extensions from other tools into Forge's
-`x-forge-*` vocabulary. This command does not change which extensions Forge
-reads; adopting the native vocabulary in the parser is a separate change.
+`x-forge-*` vocabulary. Forge reads that native vocabulary directly: vendor
+extensions have no parser effect until they are normalized.
 
 ```sh
 # Print the document with its keys rewritten. Nothing is changed.
