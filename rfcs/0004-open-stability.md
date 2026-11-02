@@ -44,6 +44,14 @@ helpers would incorrectly make an unknown stage look definitively neither
 pre-release, stable nor deprecated. Classification is descriptive and does not
 filter the model.
 
+The escape hatch is intentional. APIs may use stages such as `experimental`,
+`early-access`, `canary`, `maintenance`, `legacy`, `sunset`, `retired` or
+`end-of-life`. Forge preserves these without assigning semantics until a real
+consumer needs them. In particular, `deprecated` normally remains usable while
+`retired` may not, so Forge should not classify them together prematurely.
+Labels such as `internal`, `private` and `invite-only` describe visibility and
+belong in conditions rather than stability.
+
 ## Resolution
 
 Forge recognizes these exact, case-sensitive aliases:
