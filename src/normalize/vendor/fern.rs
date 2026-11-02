@@ -1,16 +1,16 @@
 //! The adapter for Fern's `x-fern-*` extensions.
 
-use super::{Group, Rename, Rule, Source};
+use super::{Rename, Rule, Source};
 
 pub(super) struct Fern;
 
-static METHOD_NAME: Rename = Rename("x-forge-method-name");
-static GROUP_NAME: Group = Group("x-forge-group-name");
-static SKIP: Rename = Rename("x-forge-skip");
-static AVAILABILITY: Rename = Rename("x-forge-availability");
-static PARAMETER_NAME: Rename = Rename("x-forge-parameter-name");
-static MODEL_NAME: Rename = Rename("x-forge-model-name");
-static PROPERTY_NAME: Rename = Rename("x-forge-property-name");
+static METHOD_NAME: Rename = Rename::same("x-forge-method-name");
+static GROUP_NAME: Rename = Rename::group("x-forge-group-name");
+static SKIP: Rename = Rename::same("x-forge-skip");
+static AVAILABILITY: Rename = Rename::same("x-forge-availability");
+static PARAMETER_NAME: Rename = Rename::same("x-forge-parameter-name");
+static MODEL_NAME: Rename = Rename::same("x-forge-model-name");
+static PROPERTY_NAME: Rename = Rename::same("x-forge-property-name");
 
 static DEFINITION: [Rule; 4] = [
     ("x-fern-sdk-method-name", &METHOD_NAME),
@@ -29,15 +29,15 @@ impl Source for Fern {
         "fern"
     }
 
-    fn definitions(&self) -> &'static [Rule] {
+    fn definition(&self) -> &'static [Rule] {
         &DEFINITION
     }
 
-    fn parameters(&self) -> &'static [Rule] {
+    fn parameter(&self) -> &'static [Rule] {
         &PARAMETER
     }
 
-    fn schemas(&self) -> &'static [Rule] {
+    fn schema(&self) -> &'static [Rule] {
         &SCHEMA
     }
 }

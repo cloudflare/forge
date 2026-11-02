@@ -1,6 +1,7 @@
 //! Tests for the private adapter registry.
 
 use super::*;
+use crate::normalize::{Options, Sources};
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 enum Level {
@@ -19,29 +20,30 @@ fn tables() -> Vec<(&'static dyn Source, Level, &'static str, &'static dyn Norma
     ALL.iter()
         .flat_map(|source| {
             [
-                table(*source, Level::Definition, source.definitions()),
-                table(*source, Level::Parameter, source.parameters()),
-                table(*source, Level::Schema, source.schemas()),
+                table(*source, Level::Definition, source.definition()),
+                table(*source, Level::Parameter, source.parameter()),
+                table(*source, Level::Schema, source.schema()),
             ]
             .concat()
         })
         .collect()
 }
 
-fn read(source: &dyn Source, level: Level, key: &str) -> Option<&'static dyn Normalize> {
+fn read(sources: &Sources, level: Level, key: &str) -> Option<&'static dyn Normalize> {
     match level {
-        Level::Definition => source.definition(key),
-        Level::Parameter => source.parameter(key),
-        Level::Schema => source.schema(key),
+        Level::Definition => sources.definition(key),
+        Level::Parameter => sources.parameter(key),
+        Level::Schema => sources.schema(key),
     }
 }
 
 #[test]
 fn a_key_is_read_only_at_its_level() {
     for (source, level, name, _) in tables() {
+        let sources = Sources::named(source.name()).unwrap();
         for other in [Level::Definition, Level::Parameter, Level::Schema] {
             assert_eq!(
-                read(source, other, name).is_some(),
+                read(&sources, other, name).is_some(),
                 other == level,
                 "{name} at {other:?}"
             );
@@ -67,50 +69,48 @@ fn a_key_is_read_only_when_its_source_is_selected() {
 
 #[test]
 fn every_adapter_is_in_all_sources() {
-    for source in ALL {
-        for level in [Level::Definition, Level::Parameter, Level::Schema] {
-            for key in match level {
-                Level::Definition => source.definitions(),
-                Level::Parameter => source.parameters(),
-                Level::Schema => source.schemas(),
-            } {
-                assert!(
-                    read(&Sources::ALL, level, key.0).is_some(),
-                    "{}: {}",
-                    source.name(),
-                    key.0
-                );
-            }
-        }
+    let sources = Sources::all();
+    for (source, level, name, _) in tables() {
+        assert!(read(&sources, level, name).is_some(), "{}: {name}", source.name());
     }
 }
 
 #[test]
-fn every_rule_becomes_a_native_key() {
-    for (_, _, name, normalize) in tables() {
+fn every_rule_writes_a_native_key() {
+    for (_, _, original, normalize) in tables() {
+        let mut container = serde_json::Map::from_iter([(original.to_owned(), Value::Bool(true))]);
+
         assert!(
-            normalize.native().starts_with("x-forge-"),
-            "{name} becomes {}",
-            normalize.native()
+            normalize
+                .normalize(&mut container, original, &Options::default())
+                .is_some()
         );
-        assert!(!name.starts_with("x-forge-"), "{name}");
+        assert!(!container.contains_key(original), "{original}");
+        assert!(
+            container.keys().all(|key| key.starts_with("x-forge-")),
+            "{original}: {container:?}"
+        );
     }
 }
 
 #[test]
 fn only_the_stainless_skip_may_have_no_native_value() {
-    let targets = serde_json::json!(["terraform"]);
-    for (_, _, name, normalize) in tables() {
+    for (_, _, original, normalize) in tables() {
+        let mut container = serde_json::Map::from_iter([(original.to_owned(), serde_json::json!(["terraform"]))]);
+
         assert_eq!(
-            normalize.normalize(&targets).is_none(),
-            name == "x-stainless-skip",
-            "{name}"
+            normalize
+                .normalize(&mut container, original, &Options::default())
+                .is_none(),
+            original == "x-stainless-skip",
+            "{original}"
         );
     }
 }
 
 #[test]
 fn the_other_extensions_of_these_tools_are_not_read() {
+    let sources = Sources::all();
     for key in [
         "x-fern-enum",
         "x-fern-audiences",
@@ -121,8 +121,8 @@ fn the_other_extensions_of_these_tools_are_not_read() {
         "x-forge-skip",
         "x-forge-method-name",
     ] {
-        assert!(Sources::ALL.definition(key).is_none(), "{key}");
-        assert!(Sources::ALL.parameter(key).is_none(), "{key}");
-        assert!(Sources::ALL.schema(key).is_none(), "{key}");
+        assert!(sources.definition(key).is_none(), "{key}");
+        assert!(sources.parameter(key).is_none(), "{key}");
+        assert!(sources.schema(key).is_none(), "{key}");
     }
 }

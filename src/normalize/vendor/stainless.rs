@@ -1,10 +1,10 @@
 //! The adapter for Stainless's `x-stainless-*` extensions.
 
-use super::{BoolOrTargets, Rule, Source};
+use super::{Rename, Rule, Source};
 
 pub(super) struct Stainless;
 
-static SKIP: BoolOrTargets = BoolOrTargets("x-forge-skip");
+static SKIP: Rename = Rename::bool_or_targets("x-forge-skip");
 static SCHEMA: [Rule; 1] = [("x-stainless-skip", &SKIP)];
 
 impl Source for Stainless {
@@ -12,7 +12,7 @@ impl Source for Stainless {
         "stainless"
     }
 
-    fn schemas(&self) -> &'static [Rule] {
+    fn schema(&self) -> &'static [Rule] {
         &SCHEMA
     }
 }

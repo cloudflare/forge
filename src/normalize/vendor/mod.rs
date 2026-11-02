@@ -1,9 +1,15 @@
-//! The normalization adapters from compatibility extensions to Forge's native
-//! `x-forge-*` vocabulary.
+//! Compatibility-source adapters for [`super::normalize`].
 //!
-//! Each source owns the rules for every OpenAPI object kind it supports. The
-//! walker depends only on [`Source`], so adding an adapter does not require
-//! changing its traversal or dispatch.
+//! A [`Source`] names the normalizers that apply to operations, parameters,
+//! and schemas. A key is listed only at the OpenAPI object kind where Forge
+//! reads its native replacement; elsewhere it is left alone. [`Normalize`]
+//! owns the complete mutation for one compatibility key, so a future
+//! normalizer is not required to be a one-to-one rename.
+//!
+//! To add a compatibility source, implement [`Source`] in a module here and
+//! add its value to [`ALL`]. To add a key to an existing source, add its
+//! [`Rule`] to the applicable table. Normalization introduces no new Forge
+//! semantics: the corresponding native key must already exist.
 
 mod cloudflare;
 mod fern;
@@ -11,166 +17,144 @@ mod stainless;
 #[cfg(test)]
 mod tests;
 
-use serde_json::Value;
+use serde_json::{Map, Value};
 
-use super::Sources;
+use super::{Change, Detail, Options};
 
-/// The result of normalizing one extension value.
-pub(super) struct Replacement {
-    /// The value written under the native key.
-    pub(super) value: Value,
-    /// Whether a group array was joined into a dotted string.
-    pub(super) joined: bool,
-}
-
-/// Normalizes one compatibility extension.
-pub(super) trait Normalize: Sync {
-    /// The native key that says the same thing.
-    fn native(&self) -> &'static str;
-
-    /// Returns the native value, or none when the compatibility value says
-    /// something the native key cannot represent.
-    fn normalize(&self, original: &Value) -> Option<Replacement>;
-}
-
-/// Copies a value under a different key.
-pub(super) struct Rename(pub(super) &'static str);
-
-impl Normalize for Rename {
-    fn native(&self) -> &'static str {
-        self.0
-    }
-
-    fn normalize(&self, original: &Value) -> Option<Replacement> {
-        Some(Replacement {
-            value: original.clone(),
-            joined: false,
-        })
-    }
-}
-
-/// Turns a group path array into its dotted-string form when that is lossless.
-pub(super) struct Group(pub(super) &'static str);
-
-impl Normalize for Group {
-    fn native(&self) -> &'static str {
-        self.0
-    }
-
-    fn normalize(&self, original: &Value) -> Option<Replacement> {
-        let Value::Array(names) = original else {
-            return Some(Replacement {
-                value: original.clone(),
-                joined: false,
-            });
-        };
-        let Some(value) = dotted(names) else {
-            return Some(Replacement {
-                value: original.clone(),
-                joined: false,
-            });
-        };
-        Some(Replacement {
-            value: Value::String(value),
-            joined: true,
-        })
-    }
-}
-
-/// Copies a boolean, but leaves a target list alone because the native key
-/// cannot represent a skip that applies to only some targets.
-pub(super) struct BoolOrTargets(pub(super) &'static str);
-
-impl Normalize for BoolOrTargets {
-    fn native(&self) -> &'static str {
-        self.0
-    }
-
-    fn normalize(&self, original: &Value) -> Option<Replacement> {
-        if original.is_array() {
-            return None;
-        }
-        Some(Replacement {
-            value: original.clone(),
-            joined: false,
-        })
-    }
-}
-
-/// One compatibility key and how it is normalized.
+/// One compatibility key and the normalizer that owns it.
 pub(super) type Rule = (&'static str, &'static dyn Normalize);
 
-/// A compatibility source.
+/// A source of compatibility extensions.
 pub(super) trait Source: Sync {
     /// The name accepted by `--from`.
     fn name(&self) -> &'static str;
 
-    /// Rules that apply to operations and aliases.
-    fn definitions(&self) -> &'static [Rule] {
+    /// Normalizers for operations and aliases.
+    fn definition(&self) -> &'static [Rule] {
         &[]
     }
 
-    /// Rules that apply to Parameter Objects.
-    fn parameters(&self) -> &'static [Rule] {
+    /// Normalizers for Parameter Objects.
+    fn parameter(&self) -> &'static [Rule] {
         &[]
     }
 
-    /// Rules that apply to Schema Objects.
-    fn schemas(&self) -> &'static [Rule] {
+    /// Normalizers for Schema Objects.
+    fn schema(&self) -> &'static [Rule] {
         &[]
-    }
-
-    fn definition(&self, key: &str) -> Option<&'static dyn Normalize> {
-        find(self.definitions(), key)
-    }
-
-    fn parameter(&self, key: &str) -> Option<&'static dyn Normalize> {
-        find(self.parameters(), key)
-    }
-
-    fn schema(&self, key: &str) -> Option<&'static dyn Normalize> {
-        find(self.schemas(), key)
     }
 }
 
-/// Every available adapter. Its position is the bit used by [`Sources`].
+/// Normalizes one compatibility extension in its containing object.
+pub(super) trait Normalize: Sync {
+    /// Returns the change that was made, or none when this value has no native
+    /// representation and the object is left alone.
+    fn normalize(&self, container: &mut Map<String, Value>, original: &str, options: &Options) -> Option<Change>;
+}
+
+/// Renames one extension to its native equivalent.
+///
+/// Every current compatibility rule is a rename, with one of the value forms
+/// below. A future rule that restructures an object can implement [`Normalize`]
+/// directly instead.
+pub(super) struct Rename {
+    native: &'static str,
+    form: Form,
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Form {
+    Same,
+    Group,
+    BoolOrTargets,
+}
+
+impl Rename {
+    pub(super) const fn same(native: &'static str) -> Rename {
+        Rename {
+            native,
+            form: Form::Same,
+        }
+    }
+
+    pub(super) const fn group(native: &'static str) -> Rename {
+        Rename {
+            native,
+            form: Form::Group,
+        }
+    }
+
+    pub(super) const fn bool_or_targets(native: &'static str) -> Rename {
+        Rename {
+            native,
+            form: Form::BoolOrTargets,
+        }
+    }
+
+    fn supports(self: &Rename, value: &Value) -> bool {
+        self.form != Form::BoolOrTargets || !value.is_array()
+    }
+
+    fn value(self: &Rename, value: Value) -> (Value, Option<Detail>) {
+        let Form::Group = self.form else {
+            return (value, None);
+        };
+        let Value::Array(names) = &value else {
+            return (value, None);
+        };
+        let Some(path) = dotted(names) else {
+            return (value, None);
+        };
+        (
+            Value::String(path),
+            Some(Detail::new(
+                "group path written as a dotted string",
+                "group paths written as dotted strings",
+            )),
+        )
+    }
+}
+
+impl Normalize for Rename {
+    fn normalize(&self, container: &mut Map<String, Value>, original: &str, options: &Options) -> Option<Change> {
+        let value = container.get(original)?;
+        if !self.supports(value) {
+            return None;
+        }
+
+        // The native value wins when both are present. Keeping compatibility
+        // keys makes this object already normalized; otherwise the old key is
+        // removed without touching the native one.
+        if container.contains_key(self.native) {
+            if options.leave_old_extensions {
+                return None;
+            }
+            container.shift_remove(original);
+            return Some(Change::plain());
+        }
+
+        let at = container
+            .keys()
+            .position(|key| key == original)
+            .expect("the compatibility key was found in its container");
+        let original_value = if options.leave_old_extensions {
+            value.clone()
+        } else {
+            container
+                .shift_remove(original)
+                .expect("the compatibility key was found in its container")
+        };
+        let (native_value, detail) = self.value(original_value);
+        container.shift_insert(at, self.native.to_owned(), native_value);
+        Some(match detail {
+            Some(detail) => Change::described(detail),
+            None => Change::plain(),
+        })
+    }
+}
+
+/// Every available compatibility source.
 pub(super) static ALL: [&dyn Source; 3] = [&cloudflare::Cloudflare, &fern::Fern, &stainless::Stainless];
-
-impl Source for Sources {
-    fn name(&self) -> &'static str {
-        "selected sources"
-    }
-
-    fn definition(&self, key: &str) -> Option<&'static dyn Normalize> {
-        selected(self).find_map(|source| source.definition(key))
-    }
-
-    fn parameter(&self, key: &str) -> Option<&'static dyn Normalize> {
-        selected(self).find_map(|source| source.parameter(key))
-    }
-
-    fn schema(&self, key: &str) -> Option<&'static dyn Normalize> {
-        selected(self).find_map(|source| source.schema(key))
-    }
-}
-
-pub(super) fn named(name: &str) -> Option<usize> {
-    ALL.iter().position(|source| source.name() == name)
-}
-
-fn selected(sources: &Sources) -> impl Iterator<Item = &'static dyn Source> {
-    ALL.iter()
-        .enumerate()
-        .filter(|(index, _)| sources.contains(*index))
-        .map(|(_, source)| *source)
-}
-
-fn find(table: &'static [Rule], key: &str) -> Option<&'static dyn Normalize> {
-    table
-        .iter()
-        .find(|(name, _)| *name == key)
-        .map(|(_, normalize)| *normalize)
-}
 
 /// Returns the names of an array joined by dots, if each is a name that a
 /// dotted string reads back as it is.

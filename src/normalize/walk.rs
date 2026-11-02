@@ -9,7 +9,6 @@
 
 use serde_json::{Map, Value};
 
-use super::vendor::Source;
 use super::{Options, Report};
 
 /// A kind of object that is read.
@@ -76,16 +75,6 @@ fn child(kind: Kind, key: &str, value: &Value) -> Option<Shape> {
     })
 }
 
-/// What is done to a member of an object.
-enum Action {
-    /// The key is written as the native key with this value.
-    Rename(&'static str, Value),
-    /// The member is removed, since a native key says what it says.
-    Remove,
-    /// The native key is written before it with this value, and it stays.
-    Insert(&'static str, Value),
-}
-
 /// Walks a document, which is changed, and returns what was done.
 pub(super) fn walk(document: &mut Value, options: &Options) -> Report {
     let mut walk = Walk {
@@ -149,61 +138,23 @@ impl Walk<'_> {
 
     /// Decides what to do to the compatibility keys of one object and does it.
     fn rewrite(&mut self, members: &mut Map<String, Value>, kind: Kind) {
-        let mut actions: Vec<(String, Action)> = Vec::new();
-        for (key, value) in members.iter() {
-            if !key.starts_with("x-") {
-                continue;
-            }
-            let normalize = match kind {
-                Kind::Operation => self.options.sources.definition(key),
-                Kind::Parameter => self.options.sources.parameter(key),
-                Kind::Schema => self.options.sources.schema(key),
-                Kind::Document | Kind::Components | Kind::PathItem | Kind::Alias | Kind::Body | Kind::Media => None,
-            };
-            let Some(normalize) = normalize else {
-                continue;
-            };
-            let Some(replacement) = normalize.normalize(value) else {
-                continue;
-            };
-            // The native key that is beside is the one that decides.
-            let native = normalize.native();
-            let writes = !members.contains_key(native);
-            if writes && replacement.joined {
-                self.report.joined += 1;
-            }
-            let action = match (self.options.leave_old_extensions, writes) {
-                (false, true) => Action::Rename(native, replacement.value),
-                (false, false) => Action::Remove,
-                (true, true) => Action::Insert(native, replacement.value),
-                (true, false) => continue,
-            };
-            *self.report.migrated.entry(key.clone()).or_insert(0) += 1;
-            actions.push((key.clone(), action));
-        }
-        if actions.is_empty() {
-            return;
-        }
+        let normalizers: Vec<_> = members
+            .keys()
+            .filter(|key| key.starts_with("x-"))
+            .filter_map(|key| {
+                let normalize = match kind {
+                    Kind::Operation => self.options.sources.definition(key),
+                    Kind::Parameter => self.options.sources.parameter(key),
+                    Kind::Schema => self.options.sources.schema(key),
+                    Kind::Document | Kind::Components | Kind::PathItem | Kind::Alias | Kind::Body | Kind::Media => None,
+                };
+                normalize.map(|normalize| (key.clone(), normalize))
+            })
+            .collect();
 
-        // The members are written again in the order they were in. If two keys
-        // of other tools said the same native field, the last would win here,
-        // where a rewrite of bytes would have written the native key twice, for
-        // `forge` to reject. No table has two keys for a field today.
-        for (key, value) in std::mem::take(members) {
-            match actions.iter().position(|(name, _)| *name == key) {
-                None => {
-                    members.insert(key, value);
-                }
-                Some(at) => match actions.swap_remove(at).1 {
-                    Action::Rename(native, written) => {
-                        members.insert(native.to_owned(), written);
-                    }
-                    Action::Remove => {}
-                    Action::Insert(native, written) => {
-                        members.insert(native.to_owned(), written);
-                        members.insert(key, value);
-                    }
-                },
+        for (original, normalize) in normalizers {
+            if let Some(change) = normalize.normalize(members, &original, self.options) {
+                self.report.record(&original, change);
             }
         }
     }

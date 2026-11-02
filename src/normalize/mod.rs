@@ -24,33 +24,68 @@ use serde_json::Value;
 use serde_json::ser::PrettyFormatter;
 
 /// The sources of compatibility keys that [`normalize`] rewrites.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct Sources(u8);
+#[derive(Clone)]
+pub struct Sources(Vec<&'static dyn vendor::Source>);
 
 impl Sources {
     /// Every compatibility source.
-    pub const ALL: Sources = Sources((1 << vendor::ALL.len()) - 1);
-
-    /// No compatibility sources.
-    pub const NONE: Sources = Sources(0);
+    pub fn all() -> Sources {
+        Sources(vendor::ALL.to_vec())
+    }
 
     /// Returns the source called `name`, if it exists.
     pub fn named(name: &str) -> Option<Sources> {
-        vendor::named(name).map(|index| Sources(1 << index))
+        vendor::ALL
+            .iter()
+            .find(|source| source.name() == name)
+            .map(|source| Sources(vec![*source]))
     }
 
     /// Returns these sources and `other` together.
-    pub const fn union(self, other: Sources) -> Sources {
-        Sources(self.0 | other.0)
+    pub fn union(mut self, other: Sources) -> Sources {
+        for source in other.0 {
+            if !self.0.iter().any(|selected| selected.name() == source.name()) {
+                self.0.push(source);
+            }
+        }
+        self
     }
 
-    const fn contains(self, index: usize) -> bool {
-        self.0 & (1 << index) != 0
+    fn find(
+        &self,
+        key: &str,
+        rules: impl Fn(&dyn vendor::Source) -> &'static [vendor::Rule],
+    ) -> Option<&'static dyn vendor::Normalize> {
+        self.0
+            .iter()
+            .flat_map(|source| rules(*source))
+            .find(|(original, _)| *original == key)
+            .map(|(_, normalize)| *normalize)
+    }
+
+    fn definition(&self, key: &str) -> Option<&'static dyn vendor::Normalize> {
+        self.find(key, |source| source.definition())
+    }
+
+    fn parameter(&self, key: &str) -> Option<&'static dyn vendor::Normalize> {
+        self.find(key, |source| source.parameter())
+    }
+
+    fn schema(&self, key: &str) -> Option<&'static dyn vendor::Normalize> {
+        self.find(key, |source| source.schema())
+    }
+}
+
+impl fmt::Debug for Sources {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_list()
+            .entries(self.0.iter().map(|source| source.name()))
+            .finish()
     }
 }
 
 /// What [`normalize`] does.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Debug)]
 pub struct Options {
     /// Keeps each key that is rewritten, beside the native key that replaces
     /// it, for what still reads the old one.
@@ -63,8 +98,37 @@ impl Default for Options {
     fn default() -> Options {
         Options {
             leave_old_extensions: false,
-            sources: Sources::ALL,
+            sources: Sources::all(),
         }
+    }
+}
+
+/// An optional explanation of a normalization change.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+struct Detail {
+    one: &'static str,
+    many: &'static str,
+}
+
+impl Detail {
+    const fn new(one: &'static str, many: &'static str) -> Detail {
+        Detail { one, many }
+    }
+}
+
+/// A change made by one normalizer.
+#[derive(Clone, Copy, Debug)]
+struct Change {
+    detail: Option<Detail>,
+}
+
+impl Change {
+    const fn plain() -> Change {
+        Change { detail: None }
+    }
+
+    const fn described(detail: Detail) -> Change {
+        Change { detail: Some(detail) }
     }
 }
 
@@ -74,15 +138,29 @@ pub struct Report {
     /// How many keys were rewritten, or removed for a native key that
     /// already said it, by the name of the key.
     pub migrated: BTreeMap<String, usize>,
-    /// How many group paths were written again, as the names joined by dots,
-    /// which is the one value that is not copied as it was.
-    pub joined: usize,
+    details: BTreeMap<Detail, usize>,
 }
 
 impl Report {
     /// Returns whether the document is different from what it was.
     pub fn changed(&self) -> bool {
         !self.migrated.is_empty()
+    }
+
+    /// Returns the additional descriptions of changes, and how many times
+    /// each happened.
+    pub fn details(&self) -> impl Iterator<Item = (usize, &'static str)> + '_ {
+        self.details.iter().map(|(detail, count)| {
+            let description = if *count == 1 { detail.one } else { detail.many };
+            (*count, description)
+        })
+    }
+
+    fn record(&mut self, original: &str, change: Change) {
+        *self.migrated.entry(original.to_owned()).or_insert(0) += 1;
+        if let Some(detail) = change.detail {
+            *self.details.entry(detail).or_insert(0) += 1;
+        }
     }
 }
 

@@ -4,7 +4,7 @@ use super::{Rename, Rule, Source};
 
 pub(super) struct Cloudflare;
 
-static SENSITIVE: Rename = Rename("x-forge-sensitive");
+static SENSITIVE: Rename = Rename::same("x-forge-sensitive");
 static SCHEMA: [Rule; 1] = [("x-sensitive", &SENSITIVE)];
 
 impl Source for Cloudflare {
@@ -12,7 +12,7 @@ impl Source for Cloudflare {
         "cloudflare"
     }
 
-    fn schemas(&self) -> &'static [Rule] {
+    fn schema(&self) -> &'static [Rule] {
         &SCHEMA
     }
 }

@@ -65,9 +65,12 @@ struct Say {
 
 pub fn run(args: Args) -> Result<(), Err> {
     let sources = if args.from.is_empty() {
-        Sources::ALL
+        Sources::all()
     } else {
-        args.from.into_iter().fold(Sources::NONE, Sources::union)
+        args.from
+            .into_iter()
+            .reduce(Sources::union)
+            .expect("at least one source was given")
     };
     let options = Options {
         leave_old_extensions: args.leave_old_extensions,
@@ -336,12 +339,8 @@ fn print(name: &str, report: &Report, say: Say) {
             for (key, count) in &report.migrated {
                 eprintln!("  {key}: {count}");
             }
-            if report.joined > 0 {
-                eprintln!(
-                    "  {} group {} written as a dotted string",
-                    report.joined,
-                    plural(report.joined, "path", "paths")
-                );
+            for (count, description) in report.details() {
+                eprintln!("  {count} {description}");
             }
         }
     }
