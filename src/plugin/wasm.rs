@@ -143,7 +143,7 @@ interface forge {
         json: option<u32>,
     }
 
-    /// The stage of the API a method is in, from `x-fern-availability`.
+    /// The stage of the API a method is in, from `x-forge-availability`.
     enum availability {
         alpha, beta, preview, generally-available, deprecated,
     }
