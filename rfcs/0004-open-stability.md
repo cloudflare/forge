@@ -28,6 +28,22 @@ string becomes `other` with its original value, so new vocabulary does not
 require a Forge or plugin-interface change. Stages have no ordering and do not
 filter the model.
 
+## Classes
+
+Known stages have one of three broad meanings:
+
+| Class         | Stages                                          |
+| ------------- | ----------------------------------------------- |
+| `pre-release` | `alpha`, `beta`, `preview`, `release-candidate` |
+| `stable`      | `stable`                                        |
+| `deprecated`  | `deprecated`                                    |
+
+`other` is unclassified. The Rust and TypeScript APIs expose a derived
+classifier that returns one of these classes or none for `other`; three boolean
+helpers would incorrectly make an unknown stage look definitively neither
+pre-release, stable nor deprecated. Classification is descriptive and does not
+filter the model.
+
 ## Resolution
 
 Forge recognizes these exact, case-sensitive aliases:
