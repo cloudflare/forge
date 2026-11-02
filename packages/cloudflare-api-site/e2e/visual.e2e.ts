@@ -5,22 +5,14 @@ const pages = {
   product: '/api/zero-trust/',
   resource: '/api/zero-trust/devices/ip-profiles/',
   operation: '/api/zero-trust/devices/ip-profiles/methods/list/',
-  'operation-typescript': '/api/zero-trust/devices/ip-profiles/methods/list/?lang=typescript',
+  'operation-terraform': '/api/dns/records/methods/create/?lang=hcl',
   tooling: '/api/tooling/',
   'not-found': '/api/nope.txt',
 };
 
 const viewports = { desktop: { width: 1440, height: 900 }, mobile: { width: 390, height: 844 } };
 
-const descriptions = [
-  '.api-overview',
-  '.forge-operation-desc',
-  '.forge-request-body-description',
-  '.forge-desc',
-  '.forge-enum-description',
-  '.forge-response-description',
-  '.forge-response-example-description',
-].join(', ');
+const descriptions = '.nb-md';
 
 for (const [name, path] of Object.entries(pages)) {
   for (const [viewport, size] of Object.entries(viewports)) {
