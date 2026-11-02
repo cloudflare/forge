@@ -232,7 +232,7 @@ impl std::fmt::Debug for Group<'_> {
 ///
 /// An alias says, as an operation would, the method's
 /// [`group`](Method::group), [`name`](Method::name),
-/// [`availability`](Method::availability), [`audiences`](Method::audiences), whether it is
+/// [`availability`](Method::availability), whether it is
 /// [hidden](Method::is_hidden), its [`confirmation`](Method::confirmation)
 /// and its [`extensions`](Method::extensions), and whether it is ignored
 /// with `x-forge-skip`. None of these come from the operation: an alias
@@ -331,18 +331,6 @@ impl<'f> Method<'f> {
     /// `deprecated: true` has whatever availability it says, or none.
     pub fn availability(self) -> Option<Availability> {
         self.data().availability
-    }
-
-    /// Returns the audiences the method belongs to, in the order written.
-    ///
-    /// Corresponds to `x-forge-audiences`, an array of audience identifiers.
-    /// An operation or alias without it belongs to no named audience. Forge
-    /// records the identifiers for plugins; it does not filter methods itself.
-    pub fn audiences(self) -> impl Iterator<Item = &'f str> + 'f {
-        self.data()
-            .audiences
-            .iter()
-            .map(|&audience| self.forge.strings.get(audience))
     }
 
     /// Reports whether the method should be left out of listings of
@@ -511,7 +499,6 @@ impl<'f> Method<'f> {
     /// [Operation Object](https://spec.openapis.org/oas/latest.html#operation-object)
     /// that starts with `x-`. Those forge reads, `x-forge-method-name`,
     /// `x-forge-group-name`, `x-forge-skip`, `x-forge-availability`,
-    /// `x-forge-audiences`,
     /// `x-forge-hidden`, `x-forge-require-confirmation` and
     /// `x-forge-aliases`, are left out. Other keys forge does not read, such as
     /// the extensions other tools write, are kept, and `forge normalize` is
@@ -789,7 +776,6 @@ struct MethodData {
     description: Str,
     deprecated: bool,
     availability: Option<Availability>,
-    audiences: Vec<Str>,
     hidden: bool,
     /// The sentence to confirm with, or `None` for none.
     confirmation: Option<Str>,

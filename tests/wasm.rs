@@ -139,7 +139,7 @@ const FEATURES: &str = r##"{
       "parameters": [{"name": "X-Trace", "in": "header", "schema": {"type": "string"}}],
       "get": {
         "x-forge-group-name": ["pets"], "x-forge-method-name": "get",
-        "x-forge-availability": "beta", "x-forge-audiences": ["sdk", "docs"], "x-forge-hidden": true,
+        "x-forge-availability": "beta", "x-forge-hidden": true,
         "x-custom": {"b": 1, "a": [1.5, "two \"quoted\"\n", null, true, {}], "b": 2},
         "x-flag": false, "x-count": 9007199254740993, "x-text": "é 😀",
         "parameters": [
@@ -215,7 +215,7 @@ fn reads_all_of_the_forge() {
         // Every feature is in the dump, so the comparison covers it.
         if spec == FEATURES {
             for seen in [
-                "availability Some(\"beta\") audiences [\"sdk\", \"docs\"] hidden true",
+                "availability Some(\"beta\") hidden true",
                 "confirmation Some(\"This deletes the pet.\")",
                 "confirmation Some(\"\")",
                 "extension \"x-custom\"",

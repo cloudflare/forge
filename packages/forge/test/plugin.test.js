@@ -7,7 +7,7 @@ import { test } from 'node:test';
 const hooks = registerHooks({
   resolve(specifier, context, nextResolve) {
     return nextResolve(
-      specifier === 'forge:plugin/forge@0.4.0'
+      specifier === 'forge:plugin/forge@0.3.0'
         ? new URL('./fixtures/metadata-host.js', import.meta.url).href
         : specifier,
       context,

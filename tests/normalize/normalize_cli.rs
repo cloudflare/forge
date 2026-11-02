@@ -135,24 +135,6 @@ fn standard_input_is_written_to_standard_output() {
 }
 
 #[test]
-fn fern_audiences_and_availability_become_native_method_metadata() {
-    let document = FERN.replace(
-        r#""x-fern-sdk-group-name":["a"]"#,
-        r#""x-fern-sdk-group-name":["a"],"x-fern-audiences":["sdk"],"x-fern-availability":"beta""#,
-    );
-
-    let out = normalize(&["--from", "fern", "-"], &document);
-
-    succeeded(&out);
-    let value: Value = serde_json::from_slice(&out.stdout).unwrap();
-    let operation = &value["paths"]["/a"]["get"];
-    assert_eq!(operation["x-forge-audiences"], serde_json::json!(["sdk"]));
-    assert_eq!(operation["x-forge-availability"], "beta");
-    assert!(operation.get("x-fern-audiences").is_none());
-    assert!(operation.get("x-fern-availability").is_none());
-}
-
-#[test]
 fn from_rewrites_only_the_selected_compatibility_sources_and_may_be_repeated() {
     let out = normalize(&["--from", "fern", "--from", "cloudflare", "-"], SOURCES);
 

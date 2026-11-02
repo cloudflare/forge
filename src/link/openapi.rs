@@ -256,8 +256,6 @@ pub(super) struct Definition {
     /// checked as the method is built, so that an error can name the
     /// operation.
     pub(super) availability: Option<Str>,
-    /// The audience identifiers in `x-forge-audiences`, as written.
-    pub(super) audiences: Span<Str>,
     /// Each other extension, which is not read, in `Doc::extensions`, in
     /// the order they are written. One written more than once has the last
     /// value written, in the place of the first.
@@ -1193,7 +1191,6 @@ keys! {
         Hidden = "x-forge-hidden",
         Confirmation = "x-forge-require-confirmation",
         Availability = "x-forge-availability",
-        Audiences = "x-forge-audiences",
     }
 }
 
@@ -1215,9 +1212,6 @@ impl Definition {
             }
             DefinitionKey::Availability => {
                 self.availability = Some(map.next_value_seed(seed::<ReadStr>(doc))?);
-            }
-            DefinitionKey::Audiences => {
-                self.audiences = map.next_value_seed(seed::<Seq<ReadStr>>(doc))?;
             }
             DefinitionKey::Other => skip(map)?,
         }

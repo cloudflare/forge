@@ -32,8 +32,8 @@
 // classes behind them stay private, so the bindings never show in
 // index.d.ts.
 
-import * as host from 'forge:plugin/forge@0.4.0';
-import type * as hostPlugin from 'forge:plugin/plugin@0.4.0';
+import * as host from 'forge:plugin/forge@0.3.0';
+import type * as hostPlugin from 'forge:plugin/plugin@0.3.0';
 
 // ---------------------------------------------------------------------------
 // The API.
@@ -146,8 +146,6 @@ export interface Method {
   readonly deprecated: boolean;
   /** The stage of the API the method is in, from `x-forge-availability`, or undefined if it doesn't say. */
   readonly availability: Availability | undefined;
-  /** Audience identifiers from `x-forge-audiences`, in written order. */
-  readonly audiences: readonly string[];
   /**
    * Whether to leave the method out of listings of methods, such as a CLI's
    * help, although it can still be called: `x-forge-hidden`.
@@ -690,7 +688,6 @@ class MethodImpl implements Method {
     description: string;
     deprecated: boolean;
     availability: Availability | undefined;
-    audiences: readonly string[];
     hidden: boolean;
     confirmation: string | undefined;
     request: host.TypeId | undefined;
@@ -717,7 +714,6 @@ class MethodImpl implements Method {
         description: m.description,
         deprecated: m.deprecated,
         availability: opt(m.availability),
-        audiences: m.audiences,
         hidden: m.hidden,
         confirmation: opt(m.confirmation),
         request: opt(m.request),
@@ -764,10 +760,6 @@ class MethodImpl implements Method {
 
   get availability(): Availability | undefined {
     return this.info().availability;
-  }
-
-  get audiences(): readonly string[] {
-    return this.info().audiences;
   }
 
   get hidden(): boolean {

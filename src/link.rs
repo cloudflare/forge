@@ -595,11 +595,6 @@ impl<'d> Builder<'d> {
                 ));
             }
         }
-        let audiences = doc
-            .list(definition.audiences)
-            .iter()
-            .map(|&audience| self.strings.push(doc.str(audience)))
-            .collect();
         let mut group = None;
         for group_name in group_names {
             group = Some(self.child(group, group_name));
@@ -688,7 +683,6 @@ impl<'d> Builder<'d> {
             description: self.strings.push(doc.str(operation.description)),
             deprecated: operation.deprecated,
             availability,
-            audiences,
             hidden: definition.hidden,
             confirmation: definition.confirmation.map(|s| self.strings.push(doc.str(s))),
             request,

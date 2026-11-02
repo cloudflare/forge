@@ -98,7 +98,7 @@ fn each_alias_has_its_own_availability_hidden_confirmation_and_extensions() {
     let forge = parse(&aliased(
         r#"[
           {"x-forge-group-name": "a", "x-forge-method-name": "pause",
-            "x-forge-availability": "generally-available", "x-forge-audiences": ["sdk", "docs"], "x-forge-hidden": true,
+            "x-forge-availability": "generally-available", "x-forge-hidden": true,
             "x-forge-params": {"status": {"default": "pause", "hidden": true}}},
           {"x-forge-group-name": "a", "x-forge-method-name": "terminate",
             "x-forge-availability": "beta", "x-forge-require-confirmation": "Sure?", "x-a": 1, "x-b": 2}
@@ -108,7 +108,6 @@ fn each_alias_has_its_own_availability_hidden_confirmation_and_extensions() {
 
     let pause = method(&forge, "a.pause");
     assert_eq!(pause.availability(), Some(Availability::GenerallyAvailable));
-    assert_eq!(pause.audiences().collect::<Vec<_>>(), ["sdk", "docs"]);
     assert!(pause.is_hidden());
     assert_eq!(pause.confirmation(), None);
     let names: Vec<&str> = pause.extensions().map(|(name, _)| name).collect();

@@ -55,9 +55,6 @@ to select more than one. For example,
 
 What is rewritten:
 
-- Fern method availability and audience tags become `x-forge-availability`
-  and `x-forge-audiences`. Forge exposes both to plugins but does not filter
-  methods by audience itself.
 - A group path written as an array becomes the names joined by dots
   (`["a", "b"]` becomes `"a.b"`), unless a name has a dot in it.
 - A skip for only some targets, written as a list, has no native form, since
@@ -156,7 +153,7 @@ Array types expose `minItems` and `maxItems`; an absent bound is
 can handle it explicitly. Other unrecognized string formats remain
 `scalar: 'string'`. Forge does not validate request values.
 
-The plugin interface is `forge:plugin@0.4.0`. Rebuild plugins compiled
+The plugin interface is `forge:plugin@0.3.0`. Rebuild plugins compiled
 against `0.2.0` with the updated package before running them with this
 version of Forge.
 

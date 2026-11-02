@@ -113,6 +113,7 @@ fn the_other_extensions_of_these_tools_are_not_read() {
     let sources = Sources::all();
     for key in [
         "x-fern-enum",
+        "x-fern-audiences",
         "x-fern-pagination",
         "x-fern-sdk-variables",
         "x-stainless-terraform-configurability",
