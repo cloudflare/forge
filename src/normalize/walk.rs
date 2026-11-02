@@ -9,22 +9,8 @@
 
 use serde_json::{Map, Value};
 
-use super::vendor::{self, Form, Key};
+use super::vendor::Source;
 use super::{Options, Report};
-
-/// Returns the names of an array joined by dots, if each is a name that a
-/// dotted string reads back as it is.
-fn dotted(names: &[Value]) -> Option<String> {
-    let mut path = String::new();
-    for (i, name) in names.iter().enumerate() {
-        let name = name.as_str().filter(|name| !name.is_empty() && !name.contains('.'))?;
-        if i > 0 {
-            path.push('.');
-        }
-        path.push_str(name);
-    }
-    Some(path)
-}
 
 /// A kind of object that is read.
 #[derive(Clone, Copy)]
@@ -92,13 +78,12 @@ fn child(kind: Kind, key: &str, value: &Value) -> Option<Shape> {
 
 /// What is done to a member of an object.
 enum Action {
-    /// The key is written as the native key, with its value, or with this one.
-    Rename(&'static str, Option<Value>),
+    /// The key is written as the native key with this value.
+    Rename(&'static str, Value),
     /// The member is removed, since a native key says what it says.
     Remove,
-    /// The native key is written before it, with its value, or with this one,
-    /// and it stays.
-    Insert(&'static str, Option<Value>),
+    /// The native key is written before it with this value, and it stays.
+    Insert(&'static str, Value),
 }
 
 /// Walks a document, which is changed, and returns what was done.
@@ -124,9 +109,9 @@ impl Walk<'_> {
             return;
         };
         match kind {
-            Kind::Operation | Kind::Alias => self.rewrite(members, vendor::definition),
-            Kind::Parameter => self.rewrite(members, vendor::parameter),
-            Kind::Schema => self.rewrite(members, vendor::schema),
+            Kind::Operation | Kind::Alias => self.rewrite(members, Kind::Operation),
+            Kind::Parameter => self.rewrite(members, Kind::Parameter),
+            Kind::Schema => self.rewrite(members, Kind::Schema),
             Kind::Document | Kind::Components | Kind::PathItem | Kind::Body | Kind::Media => {}
         }
         for (key, member) in members.iter_mut() {
@@ -162,36 +147,35 @@ impl Walk<'_> {
         }
     }
 
-    /// Decides what to do to the keys of the object that a native key replaces,
-    /// as `read` says which they are for the kind of object it is, and does it.
-    fn rewrite(&mut self, members: &mut Map<String, Value>, read: fn(&str, super::Sources) -> Option<Key>) {
+    /// Decides what to do to the compatibility keys of one object and does it.
+    fn rewrite(&mut self, members: &mut Map<String, Value>, kind: Kind) {
         let mut actions: Vec<(String, Action)> = Vec::new();
         for (key, value) in members.iter() {
             if !key.starts_with("x-") {
                 continue;
             }
-            let Some(hit) = read(key, self.options.sources) else {
+            let normalize = match kind {
+                Kind::Operation => self.options.sources.definition(key),
+                Kind::Parameter => self.options.sources.parameter(key),
+                Kind::Schema => self.options.sources.schema(key),
+                Kind::Document | Kind::Components | Kind::PathItem | Kind::Alias | Kind::Body | Kind::Media => None,
+            };
+            let Some(normalize) = normalize else {
                 continue;
             };
-            // A list of targets is something no native key says: it is left
-            // as it is written, and not for a rewrite to say some other way
-            // or to drop.
-            if hit.form == Form::BoolOrTargets && value.is_array() {
+            let Some(replacement) = normalize.normalize(value) else {
                 continue;
-            }
+            };
             // The native key that is beside is the one that decides.
-            let writes = !members.contains_key(hit.native);
-            let written = match value {
-                Value::Array(names) if writes && hit.form == Form::Group => dotted(names).map(Value::String),
-                _ => None,
-            };
-            if written.is_some() {
+            let native = normalize.native();
+            let writes = !members.contains_key(native);
+            if writes && replacement.joined {
                 self.report.joined += 1;
             }
             let action = match (self.options.leave_old_extensions, writes) {
-                (false, true) => Action::Rename(hit.native, written),
+                (false, true) => Action::Rename(native, replacement.value),
                 (false, false) => Action::Remove,
-                (true, true) => Action::Insert(hit.native, written),
+                (true, true) => Action::Insert(native, replacement.value),
                 (true, false) => continue,
             };
             *self.report.migrated.entry(key.clone()).or_insert(0) += 1;
@@ -212,11 +196,11 @@ impl Walk<'_> {
                 }
                 Some(at) => match actions.swap_remove(at).1 {
                     Action::Rename(native, written) => {
-                        members.insert(native.to_owned(), written.unwrap_or(value));
+                        members.insert(native.to_owned(), written);
                     }
                     Action::Remove => {}
                     Action::Insert(native, written) => {
-                        members.insert(native.to_owned(), written.unwrap_or_else(|| value.clone()));
+                        members.insert(native.to_owned(), written);
                         members.insert(key, value);
                     }
                 },

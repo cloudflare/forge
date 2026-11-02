@@ -151,11 +151,12 @@ fn from_rewrites_only_the_selected_compatibility_sources_and_may_be_repeated() {
 }
 
 #[test]
-fn deprecated_is_a_compatibility_source_and_currently_has_no_keys() {
+fn from_rejects_an_unknown_compatibility_source() {
     let out = normalize(&["--from", "deprecated", "-"], SOURCES);
 
-    succeeded(&out);
-    assert_eq!(text(&out.stdout), SOURCES);
+    let err = failed(&out);
+    assert!(err.contains("unknown compatibility source"), "{err}");
+    assert!(err.contains("cloudflare, fern, or stainless"), "{err}");
 }
 
 #[test]
@@ -359,9 +360,8 @@ fn the_usage_says_forge_normalize_and_the_help_of_forge_lists_the_command() {
     );
     assert!(text(&help.stdout).contains("--check"), "{}", text(&help.stdout));
     assert!(
-        text(&help.stdout).contains("--from <FROM>")
+        text(&help.stdout).contains("--from <SOURCE>")
             && text(&help.stdout).contains("cloudflare")
-            && text(&help.stdout).contains("deprecated")
             && text(&help.stdout).contains("fern")
             && text(&help.stdout).contains("stainless"),
         "{}",

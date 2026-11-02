@@ -1,6 +1,18 @@
 //! The adapter for Cloudflare's compatibility extensions.
 
-use super::Key;
+use super::{Rename, Rule, Source};
 
-/// The keys of a Schema Object.
-pub(super) const SCHEMA: [(&str, Key); 1] = [("x-sensitive", Key::same("x-forge-sensitive"))];
+pub(super) struct Cloudflare;
+
+static SENSITIVE: Rename = Rename("x-forge-sensitive");
+static SCHEMA: [Rule; 1] = [("x-sensitive", &SENSITIVE)];
+
+impl Source for Cloudflare {
+    fn name(&self) -> &'static str {
+        "cloudflare"
+    }
+
+    fn schemas(&self) -> &'static [Rule] {
+        &SCHEMA
+    }
+}

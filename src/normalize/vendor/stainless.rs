@@ -1,9 +1,18 @@
 //! The adapter for Stainless's `x-stainless-*` extensions.
-//!
-//! `x-stainless-skip` may be a list of the targets to skip a property for,
-//! which a native skip, that is for every target, does not say.
 
-use super::Key;
+use super::{BoolOrTargets, Rule, Source};
 
-/// The keys of a Schema Object.
-pub(super) const SCHEMA: [(&str, Key); 1] = [("x-stainless-skip", Key::bool_or_targets("x-forge-skip"))];
+pub(super) struct Stainless;
+
+static SKIP: BoolOrTargets = BoolOrTargets("x-forge-skip");
+static SCHEMA: [Rule; 1] = [("x-stainless-skip", &SKIP)];
+
+impl Source for Stainless {
+    fn name(&self) -> &'static str {
+        "stainless"
+    }
+
+    fn schemas(&self) -> &'static [Rule] {
+        &SCHEMA
+    }
+}

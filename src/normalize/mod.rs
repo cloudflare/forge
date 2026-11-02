@@ -10,9 +10,8 @@
 //!
 //! The document is read with `serde_json` and written again, in the order its
 //! keys were in, with the indentation of its first indented line. That is
-//! simple, and it is not a minimal edit: what is lost is listed in the README
-//! of the package under "Known limitations", and each one is pinned by a test in
-//! `tests/normalize/known_gaps.rs`.
+//! simple, and it is not a minimal edit: what is lost is listed in the package
+//! README under "Known limitations".
 
 mod vendor;
 mod walk;
@@ -24,52 +23,29 @@ use serde::Serialize;
 use serde_json::Value;
 use serde_json::ser::PrettyFormatter;
 
-/// A source of compatibility keys that [`normalize`] can rewrite.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Source {
-    /// Cloudflare's compatibility keys.
-    Cloudflare,
-    /// Deprecated Forge keys that have a current replacement.
-    Deprecated,
-    /// Fern's compatibility keys.
-    Fern,
-    /// Stainless's compatibility keys.
-    Stainless,
-}
-
-impl Source {
-    const fn bit(self) -> u8 {
-        match self {
-            Source::Cloudflare => 1,
-            Source::Deprecated => 2,
-            Source::Fern => 4,
-            Source::Stainless => 8,
-        }
-    }
-}
-
 /// The sources of compatibility keys that [`normalize`] rewrites.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Sources(u8);
 
 impl Sources {
     /// Every compatibility source.
-    pub const ALL: Sources = Sources(1 | 2 | 4 | 8);
+    pub const ALL: Sources = Sources((1 << vendor::ALL.len()) - 1);
 
-    /// Returns only `source`.
-    pub const fn only(source: Source) -> Sources {
-        Sources(source.bit())
+    /// No compatibility sources.
+    pub const NONE: Sources = Sources(0);
+
+    /// Returns the source called `name`, if it exists.
+    pub fn named(name: &str) -> Option<Sources> {
+        vendor::named(name).map(|index| Sources(1 << index))
     }
 
-    /// Returns whether `source` is included.
-    pub const fn contains(self, source: Source) -> bool {
-        self.0 & source.bit() != 0
+    /// Returns these sources and `other` together.
+    pub const fn union(self, other: Sources) -> Sources {
+        Sources(self.0 | other.0)
     }
-}
 
-impl FromIterator<Source> for Sources {
-    fn from_iter<T: IntoIterator<Item = Source>>(sources: T) -> Sources {
-        Sources(sources.into_iter().fold(0, |bits, source| bits | source.bit()))
+    const fn contains(self, index: usize) -> bool {
+        self.0 & (1 << index) != 0
     }
 }
 
@@ -172,7 +148,7 @@ fn write(document: &Value, original: &[u8]) -> Vec<u8> {
 
 /// Returns what `original` is indented with, or none if it is on one line.
 fn indentation(original: &[u8]) -> Option<&[u8]> {
-    let first = memchr::memchr(b'\n', original)?;
+    let first = original.iter().position(|&byte| byte == b'\n')?;
     for line in original[first + 1..].split(|byte| *byte == b'\n') {
         let blanks = line.iter().take_while(|byte| matches!(byte, b' ' | b'\t')).count();
         if blanks > 0 && blanks < line.len() {
@@ -185,13 +161,6 @@ fn indentation(original: &[u8]) -> Option<&[u8]> {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn all_sources_includes_every_compatibility_adapter() {
-        for source in [Source::Cloudflare, Source::Deprecated, Source::Fern, Source::Stainless] {
-            assert!(Sources::ALL.contains(source), "{source:?}");
-        }
-    }
 
     #[test]
     fn the_indentation_is_that_of_the_first_line_that_is_indented() {

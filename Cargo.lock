@@ -574,7 +574,6 @@ version = "0.1.0"
 dependencies = [
  "clap",
  "divan",
- "memchr",
  "rayon",
  "serde",
  "serde_json",

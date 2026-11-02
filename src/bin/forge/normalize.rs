@@ -7,26 +7,11 @@ use std::io::{self, Read, Write};
 use std::path::{Path, PathBuf};
 
 use forge::Err;
-use forge::normalize::{Normalized, Options, Report, Source, Sources, normalize};
+use forge::normalize::{Normalized, Options, Report, Sources, normalize};
 
-/// A compatibility source named on the command line.
-#[derive(Clone, Copy, clap::ValueEnum)]
-enum SourceArg {
-    Cloudflare,
-    Deprecated,
-    Fern,
-    Stainless,
-}
-
-impl From<SourceArg> for Source {
-    fn from(source: SourceArg) -> Source {
-        match source {
-            SourceArg::Cloudflare => Source::Cloudflare,
-            SourceArg::Deprecated => Source::Deprecated,
-            SourceArg::Fern => Source::Fern,
-            SourceArg::Stainless => Source::Stainless,
-        }
-    }
+fn source(name: &str) -> Result<Sources, String> {
+    Sources::named(name)
+        .ok_or_else(|| format!("unknown compatibility source {name:?}; expected cloudflare, fern, or stainless"))
 }
 
 /// What `forge normalize` is given, which says what it does in `main.rs`.
@@ -46,10 +31,10 @@ pub struct Args {
     /// it, for what still reads the old one.
     #[arg(long)]
     leave_old_extensions: bool,
-    /// Rewrite only keys from this compatibility source. May be repeated.
+    /// Rewrite only keys from cloudflare, fern, or stainless. May be repeated.
     /// Without it, keys from every source are rewritten.
-    #[arg(long = "from", value_enum)]
-    from: Vec<SourceArg>,
+    #[arg(long = "from", value_parser = source, value_name = "SOURCE")]
+    from: Vec<Sources>,
     /// Say what would be rewritten, and write nothing. It fails if there is
     /// anything to rewrite, to check that documents are normalized.
     #[arg(long)]
@@ -82,7 +67,7 @@ pub fn run(args: Args) -> Result<(), Err> {
     let sources = if args.from.is_empty() {
         Sources::ALL
     } else {
-        args.from.into_iter().map(Source::from).collect()
+        args.from.into_iter().fold(Sources::NONE, Sources::union)
     };
     let options = Options {
         leave_old_extensions: args.leave_old_extensions,

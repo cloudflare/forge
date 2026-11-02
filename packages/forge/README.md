@@ -49,11 +49,9 @@ file is left as it is, with an error. `-v` says how many times each key was
 rewritten. Documents have to be JSON: YAML is not supported yet.
 
 By default every compatibility source is normalized. Use `--from cloudflare`,
-`--from deprecated`, `--from fern`, or `--from stainless` to select only that
-source; repeat `--from` to select more than one. For example,
+`--from fern`, or `--from stainless` to select only that source; repeat `--from`
+to select more than one. For example,
 `--from fern --from cloudflare` leaves Stainless extensions untouched.
-`deprecated` is the migration path for old Forge keys after they are renamed;
-it currently has no keys.
 
 What is rewritten:
 
