@@ -13,6 +13,8 @@ Or run it once without installing:
 npx @cloudflare/forge openapi.json --generator ts --out sdk
 ```
 
+The former `--target` option remains available as a compatibility alias.
+
 Pass `-` instead of a path to read the document from standard input. Run
 `forge --help` for every option.
 

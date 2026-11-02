@@ -28,7 +28,7 @@ struct Args {
     spec: Option<PathBuf>,
     /// The language of the SDK: `ts` for TypeScript, or `wasm://PATH` for
     /// the plugin compiled to a WebAssembly component at PATH.
-    #[arg(long, value_parser = Generator::parse, required = true)]
+    #[arg(long, alias = "target", value_parser = Generator::parse, required = true)]
     generator: Option<Generator>,
     /// The directory to write the SDK to.
     #[arg(long, required = true)]
@@ -153,6 +153,9 @@ mod tests {
 
         let document = parse(&["./normalize", "--generator", "ts", "--out", "sdk"]).unwrap();
         assert!(document.command.is_none() && document.spec.as_deref() == Some(Path::new("./normalize")));
+
+        let legacy = parse(&["a.json", "--target", "ts", "--out", "sdk"]).unwrap();
+        assert!(matches!(legacy.generator, Some(super::Generator::Ts)));
 
         // What a command or a document needs is not waived for the other.
         assert!(parse(&["normalize"]).is_err());
