@@ -79,10 +79,16 @@ stage.
 - `x-fern-availability` maps through the aliases above.
 - `x-stability` maps through the same resolver.
 
-The Rust, TypeScript and WIT plugin APIs replace `availability` with
-`stability`. WIT represents the open enum as known cases plus `other(string)`;
-this breaking interface change increments the pre-1.0 WIT minor version and
-requires plugins to rebuild.
+## Migration
+
+This RFC defines the target naming for the next planned breaking release; it
+does not require a release solely for this rename. In that release, the internal
+model, Rust API, TypeScript API and WIT all replace `availability` with
+`stability`. Rust and TypeScript may keep deprecated forwarding aliases, but WIT
+cannot alias a record field or enum. Its `availability` field and type therefore
+become `stability`, represented by the known cases plus `other(string)`. The WIT
+pre-1.0 minor version increments and plugins rebuild, following
+[RFC 0002](./0002-versioning-and-compatibility.md).
 
 Dates, versions, transition history and configurable stage classifications are
 future lifecycle metadata and are outside this RFC.
