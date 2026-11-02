@@ -87,9 +87,10 @@ fn method(o: &mut String, method: Method<'_>) {
         o,
         2,
         format_args!(
-            "deprecated {} availability {:?} hidden {} confirmation {:?}",
+            "deprecated {} availability {:?} audiences {:?} hidden {} confirmation {:?}",
             method.is_deprecated(),
             method.availability().map(|a| a.as_str()),
+            method.audiences().collect::<Vec<_>>(),
             method.is_hidden(),
             method.confirmation(),
         ),

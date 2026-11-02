@@ -239,6 +239,22 @@ fn method_without_the_extensions_is_listed_unconfirmed_and_of_no_availability() 
     assert!(!get.is_hidden());
     assert_eq!(get.confirmation(), None);
     assert_eq!(get.availability(), None);
+    assert_eq!(get.audiences().count(), 0);
+}
+
+#[test]
+fn method_audiences_are_kept_in_written_order() {
+    let forge = parse(&operation_with(r#""x-forge-audiences": ["sdk", "docs"],"#));
+
+    assert_eq!(method(&forge, "a.get").audiences().collect::<Vec<_>>(), ["sdk", "docs"]);
+}
+
+#[test]
+fn audiences_must_be_an_array_of_strings() {
+    for (value, expected) in [(r#""sdk""#, "expected a sequence"), ("[1]", "expected a string")] {
+        let err = parse_err(&operation_with(&format!(r#""x-forge-audiences": {value},"#)));
+        assert!(err.contains(expected), "{err}");
+    }
 }
 
 #[test]

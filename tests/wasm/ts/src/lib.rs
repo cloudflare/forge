@@ -234,6 +234,7 @@ impl Forge {
                     host::Availability::GenerallyAvailable => Availability::GenerallyAvailable,
                     host::Availability::Deprecated => Availability::Deprecated,
                 }),
+                audiences: m.audiences,
                 hidden: m.hidden,
                 confirmation: m.confirmation,
                 request: m.request,
@@ -390,6 +391,7 @@ struct MethodData {
     description: String,
     deprecated: bool,
     availability: Option<Availability>,
+    audiences: Vec<String>,
     hidden: bool,
     confirmation: Option<String>,
     request: Option<u32>,
@@ -595,6 +597,10 @@ impl<'f> Method<'f> {
 
     pub fn availability(self) -> Option<Availability> {
         self.data().availability
+    }
+
+    pub fn audiences(self) -> impl Iterator<Item = &'f str> + 'f {
+        self.data().audiences.iter().map(String::as_str)
     }
 
     pub fn is_hidden(self) -> bool {

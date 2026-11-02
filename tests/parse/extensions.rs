@@ -85,12 +85,15 @@ fn keys_that_are_not_extensions_are_not_kept() {
 
 #[test]
 fn extensions_forge_reads_are_not_kept() {
-    let forge = parse(&operation_with(r#""x-forge-skip": false, "x-a": 1,"#));
+    let forge = parse(&operation_with(
+        r#""x-forge-skip": false, "x-forge-audiences": ["sdk"], "x-a": 1,"#,
+    ));
 
     let get = method(&forge, "a.get");
     assert_eq!(names(&forge, "a.get"), ["x-a"]);
     assert_eq!(get.extension("x-forge-group-name"), None);
     assert_eq!(get.extension("x-forge-skip"), None);
+    assert_eq!(get.extension("x-forge-audiences"), None);
 }
 
 #[test]

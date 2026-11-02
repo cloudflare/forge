@@ -60,7 +60,7 @@ macro_rules! wit {
 
 wit!(
     r#"
-package forge:plugin@0.3.0;
+package forge:plugin@0.4.0;
 
 /// Read-only access to the forge a plugin runs on, which the host keeps.
 /// Each id is an index the host gave out. An id the host never gave out
@@ -157,6 +157,8 @@ interface forge {
         description: string,
         deprecated: bool,
         availability: option<availability>,
+        /// Audience identifiers from `x-forge-audiences`, in written order.
+        audiences: list<string>,
         /// Whether to leave the method out of listings, from `x-forge-hidden`.
         hidden: bool,
         /// The sentence to show before calling the method, from
@@ -508,6 +510,7 @@ impl wit::Host for State {
                 Availability::GenerallyAvailable => wit::Availability::GenerallyAvailable,
                 Availability::Deprecated => wit::Availability::Deprecated,
             }),
+            audiences: data.audiences.iter().map(|&audience| s(audience)).collect(),
             hidden: data.hidden,
             confirmation: data.confirmation.map(s),
             request: data.request.map(|id| id.0),
