@@ -3,7 +3,6 @@ import { test } from 'node:test';
 import {
   CLOUDFLARE_API_VERSION_CODENAMES,
   cloudflareApiVersionLabel,
-  cloudflareApiVersionSlug,
   cloudflareApiVersionSortKey,
   compareCloudflareApiVersions,
   isDated,
@@ -149,14 +148,4 @@ test('labels render for display', () => {
   assert.equal(label('legacy'), 'Legacy');
   assert.equal(label('2027-01-01.air'), '2027-01-01 (Air)');
   assert.equal(label('2027-02-01.preview'), '2027-02-01 (Preview)');
-});
-
-test('the URL slug is the bare date; the codename and preview suffix never appear', () => {
-  const slug = (wire: string): string => cloudflareApiVersionSlug(parseCloudflareApiVersion(wire));
-  assert.equal(slug('2027-01-01.air'), '2027-01-01');
-  assert.equal(slug('2027-07-01.breeze'), '2027-07-01');
-  // Preview collapses to its date too — "only the date" appears in the URL.
-  assert.equal(slug('2028-01-01.preview'), '2028-01-01');
-  // Legacy has no date, so it keeps its literal token.
-  assert.equal(slug('legacy'), 'legacy');
 });

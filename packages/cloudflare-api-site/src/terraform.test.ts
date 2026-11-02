@@ -1,20 +1,16 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
-import type { FernPageSchema } from 'astro-fern';
 import {
   canonicalTerraformEndpoint,
-  getTerraformOperationData,
   indexTerraformDocs,
   renderTerraformDescriptions,
-  TERRAFORM_EXTENSION_NAME,
   terraformDeclarationLabel,
   terraformEndpointKeys,
   terraformDocsSchema,
   terraformRolesSummary,
   type TerraformDeclaration,
   type TerraformDocs,
-  withTerraformTarget,
 } from './terraform.ts';
 
 const resource: TerraformDeclaration = {
@@ -34,18 +30,6 @@ const dataSource: TerraformDeclaration = {
   roles: ['read'],
   example: 'data "cloudflare_widget" "example" {}\n',
 };
-
-function pageWith(declarations?: TerraformDeclaration[]): FernPageSchema {
-  return {
-    operation: {
-      extensions: declarations ? { [TERRAFORM_EXTENSION_NAME]: { declarations } } : {},
-    },
-    targets: [
-      { id: 'curl', code: 'curl example', syntax: 'bash' },
-      { id: 'terraform', code: null, syntax: 'hcl' },
-    ],
-  } as FernPageSchema;
-}
 
 test('canonical Terraform endpoints ignore parameter naming differences', () => {
   assert.equal(
@@ -133,7 +117,6 @@ test('renderTerraformDescriptions renders every description once and keeps the M
 });
 
 test('Terraform operation data remains namespaced on the operation', () => {
-  assert.deepEqual(getTerraformOperationData(pageWith([resource]).operation)?.declarations, [resource]);
   assert.equal(terraformDeclarationLabel(resource), 'resource cloudflare_widget');
   assert.equal(terraformDeclarationLabel(dataSource), 'data cloudflare_widget_data');
   assert.equal(
@@ -141,15 +124,6 @@ test('Terraform operation data remains namespaced on the operation', () => {
     'Called by this resource to read and import.',
   );
   assert.equal(terraformRolesSummary(dataSource), 'Called by this data source to read.');
-});
-
-test('withTerraformTarget preserves all declaration examples for agent Markdown', () => {
-  const page = pageWith([resource, dataSource]);
-  const decorated = withTerraformTarget(page);
-  const code = decorated.targets.find((target) => target.id === 'terraform')?.code;
-  assert.match(code ?? '', /# resource cloudflare_widget/);
-  assert.match(code ?? '', /# data cloudflare_widget_data/);
-  assert.equal(page.targets.find((target) => target.id === 'terraform')?.code, null);
 });
 
 test('the generated index links every CRUD operation of a resource', async () => {

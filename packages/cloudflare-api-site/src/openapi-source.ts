@@ -1,7 +1,18 @@
-import { readFile } from 'node:fs/promises';
+import { readFile, stat } from 'node:fs/promises';
 
 const FORGE_RELEASES_URL = new URL('https://github.com/cloudflare/forge/releases/');
 const FORGE_OPENAPI_ASSET = 'openapi.forge.json';
+
+export interface ForgeOpenApiSource {
+  document: unknown;
+  /** When the artifact last changed, when its source says. */
+  lastModified?: Date;
+}
+
+function lastModifiedOf(header: string | null): Date | undefined {
+  const date = header ? new Date(header) : undefined;
+  return date && !Number.isNaN(date.getTime()) ? date : undefined;
+}
 
 function parseForgeOpenApi(source: string, location: string): unknown {
   try {
@@ -22,7 +33,7 @@ export function forgeOpenApiUrl(release = process.env['FORGE_OPENAPI_RELEASE']):
 export async function fetchForgeOpenApi(
   release = process.env['FORGE_OPENAPI_RELEASE'],
   fetcher: typeof fetch = globalThis.fetch,
-): Promise<unknown> {
+): Promise<ForgeOpenApiSource> {
   const url = forgeOpenApiUrl(release);
   const response = await fetcher(url);
   if (!response.ok) {
@@ -32,7 +43,7 @@ export async function fetchForgeOpenApi(
   }
 
   try {
-    return await response.json();
+    return { document: await response.json(), lastModified: lastModifiedOf(response.headers.get('last-modified')) };
   } catch (cause) {
     throw new Error(`Could not parse the Forge OpenAPI release asset as JSON (${url})`, { cause });
   }
@@ -41,15 +52,15 @@ export async function fetchForgeOpenApi(
 export async function loadForgeOpenApi(
   specPath = process.env['FORGE_OPENAPI_SPEC'],
   release = process.env['FORGE_OPENAPI_RELEASE'],
-  readTextFile: (path: string) => Promise<string> = (path) => readFile(path, 'utf8'),
-): Promise<unknown> {
+): Promise<ForgeOpenApiSource> {
   if (!specPath) return fetchForgeOpenApi(release);
 
   let source: string;
+  let lastModified: Date;
   try {
-    source = await readTextFile(specPath);
+    [source, { mtime: lastModified }] = await Promise.all([readFile(specPath, 'utf8'), stat(specPath)]);
   } catch (cause) {
     throw new Error(`Could not read the Forge OpenAPI artifact (${specPath})`, { cause });
   }
-  return parseForgeOpenApi(source, specPath);
+  return { document: parseForgeOpenApi(source, specPath), lastModified };
 }

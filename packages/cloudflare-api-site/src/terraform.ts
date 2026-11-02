@@ -1,5 +1,4 @@
 import { z } from 'astro/zod';
-import type { FernPageSchema } from 'astro-fern';
 
 /**
  * How the site reads and shows the generated Terraform docs, `src/generated/terraform-docs.json`,
@@ -110,11 +109,6 @@ export function renderTerraformDescriptions(docs: TerraformDocs, render: (markdo
   return { ...docs, declarations };
 }
 
-export function getTerraformOperationData(operation: FernPageSchema['operation']): TerraformOperationData | undefined {
-  const value = operation.extensions[TERRAFORM_EXTENSION_NAME];
-  return value === undefined ? undefined : terraformOperationDataSchema.parse(value);
-}
-
 const SCOPE_PREFIX = /^\/(?:accounts|zones|\{\})\/\{\}(?=\/|$)/;
 
 /** Normalizes an endpoint so path parameter names do not matter: `get /zones/{zone_id}` -> `get /zones/{}`. */
@@ -200,33 +194,4 @@ export function terraformRolesSummary(declaration: TerraformDeclaration): string
   }
   const list = roles.length === 1 ? roles[0] : `${roles.slice(0, -1).join(', ')} and ${roles.at(-1)}`;
   return `Called by this ${subject} to ${list}.`;
-}
-
-function combinedTerraformSnippet(data: TerraformOperationData): string | undefined {
-  const snippets = data.declarations.flatMap((declaration) =>
-    declaration.example ? [{ label: terraformDeclarationLabel(declaration), code: declaration.example.trimEnd() }] : [],
-  );
-  if (snippets.length === 0) {
-    return undefined;
-  }
-  if (snippets.length === 1) {
-    return snippets[0]?.code;
-  }
-  return snippets.map(({ label, code }) => `# ${label}\n${code}`).join('\n\n');
-}
-
-/** Adds operation-owned Terraform HCL to the generic target for agent Markdown. */
-export function withTerraformTarget(page: FernPageSchema): FernPageSchema {
-  const data = getTerraformOperationData(page.operation);
-  if (!data) {
-    return page;
-  }
-  const code = combinedTerraformSnippet(data);
-  if (!code) {
-    return page;
-  }
-  return {
-    ...page,
-    targets: page.targets.map((target) => (target.id === 'terraform' ? { ...target, code, syntax: 'hcl' } : target)),
-  };
 }
