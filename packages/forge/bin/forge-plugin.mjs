@@ -6,7 +6,7 @@
 //
 // `build` bundles the entry module and its dependencies, and compiles them
 // with QuickJS into a WebAssembly component that
-// `forge --target wasm://plugin.wasm` runs. It uses jco, which projects
+// `forge --generator wasm://plugin.wasm` runs. It uses jco, which projects
 // install themselves, since it is large and only plugin authors need it:
 //
 //     npm install --save-dev @bytecodealliance/jco
@@ -30,7 +30,7 @@ const usage = `usage: forge-plugin build <entry> [-o plugin.wasm]
 build   compiles the plugin whose entry module is <entry>, a .ts or .js file
         that exports definePlugin's generate and generateGroup, into a
         WebAssembly component with QuickJS. Run it with:
-            forge openapi.json --target wasm://plugin.wasm --out sdk
+            forge openapi.json --generator wasm://plugin.wasm --out sdk
         -o, --out      the component to write (default: plugin.wasm)
 wit     prints the WIT plugins are built against`;
 
