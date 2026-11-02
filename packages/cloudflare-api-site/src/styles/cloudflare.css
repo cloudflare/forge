@@ -43,8 +43,11 @@
   --cf-purple: oklch(0.82 0.1 300);
 }
 
+/* Opaque, since Safari blends a translucent selection colour with the system
+   blue; in sRGB, since the grey background's hue would pull an oklch mix pink. */
 ::selection {
-  background: color-mix(in oklch, var(--cf-primary) 15%, transparent);
+  background: color-mix(in srgb, var(--cf-primary) 30%, var(--cf-background));
+  color: var(--cf-foreground);
 }
 
 @media print {

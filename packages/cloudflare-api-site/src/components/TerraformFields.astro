@@ -20,7 +20,7 @@ const { fields } = Astro.props;
           {field.deprecated ? <span class="forge-terraform-deprecated">deprecated</span> : null}
         </div>
         {field.descriptionHtml ? (
-          <div class="forge-terraform-description forge-desc" set:html={field.descriptionHtml} />
+          <div class="forge-terraform-description nb-md" set:html={field.descriptionHtml} />
         ) : field.description ? (
           <p class="forge-terraform-description forge-terraform-plain">{field.description}</p>
         ) : null}

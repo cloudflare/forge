@@ -7,7 +7,7 @@ interface Props extends HTMLAttributes<"div"> {
   placeholder?: string;
 }
 
-const { class: className, placeholder = "Filter…", ...attrs } = Astro.props;
+const { class: className, placeholder = "Filter sidebar", ...attrs } = Astro.props;
 ---
 
 <div class={cn("relative mb-3", className)} {...attrs}>
@@ -16,7 +16,7 @@ const { class: className, placeholder = "Filter…", ...attrs } = Astro.props;
     type="search"
     placeholder={placeholder}
     class="peer w-full rounded-md border border-border bg-card py-1.5 pl-3 pr-9 text-sm text-foreground placeholder:text-muted-foreground transition-colors focus-visible:border-brand focus-visible:outline-2 focus-visible:outline-ring [&:not(:placeholder-shown)]:pr-2"
-    aria-label="Filter navigation"
+    aria-label="Filter sidebar"
     autocomplete="off"
   />
   {/* Shortcut hint — press "/" to focus. Hidden once the input is focused or has a value. */}
