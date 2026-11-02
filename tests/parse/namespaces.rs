@@ -33,7 +33,7 @@ fn deprecated_group_name_is_a_namespace_alias() {
 }
 
 #[test]
-#[allow(deprecated)]
+#[expect(deprecated, reason = "this test exercises the deprecated Rust aliases")]
 fn deprecated_rust_aliases_forward_to_namespaces() {
     let forge = parse(
         r#"{
@@ -50,7 +50,6 @@ fn deprecated_rust_aliases_forward_to_namespaces() {
 
 struct LegacyPlugin;
 
-#[allow(deprecated)]
 impl Plugin for LegacyPlugin {
     type File = LegacyFile;
 

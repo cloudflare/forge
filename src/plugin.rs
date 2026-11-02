@@ -29,7 +29,7 @@ pub trait Plugin: Sync {
     ///
     /// This will be called exactly once for each namespace and in parallel with other namespaces.
     fn generate_namespace(&self, namespace: Namespace<'_>) -> Result<impl Iterator<Item = Self::File>, Err> {
-        #[allow(deprecated)]
+        #[expect(deprecated, reason = "the default preserves old Plugin implementations")]
         self.generate_group(namespace)
     }
 

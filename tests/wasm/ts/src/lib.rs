@@ -801,7 +801,10 @@ impl fmt::Display for Model<'_> {
 impl fmt::Debug for Model<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("Model")
-            .field("namespace", &self.namespace().map(|namespace| namespace.path().collect::<Vec<_>>()))
+            .field(
+                "namespace",
+                &self.namespace().map(|namespace| namespace.path().collect::<Vec<_>>()),
+            )
             .field("schema_name", &self.schema_name())
             .finish()
     }
