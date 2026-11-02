@@ -2,6 +2,12 @@
 
 ## Summary
 
+Forge receives the same generation decision in two opposite vendor forms:
+Stainless lists targets to skip, while Fern lists audiences to keep. Copying
+either shape would make Forge's model vendor-specific and leave plugins to
+interpret it. Both should normalize into one Forge-native policy so specs can
+migrate away from the vendor extensions.
+
 Forge filters skipped operations and fields before a plugin receives its model.
 `x-forge-skip` accepts a boolean or one condition rule:
 
