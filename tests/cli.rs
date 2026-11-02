@@ -33,26 +33,26 @@ fn failure(out: Output) -> String {
 #[test]
 fn flags_are_required() {
     let err = failure(forge(&["-"], SPEC));
-    assert!(err.contains("--target <TARGET>"), "{err}");
+    assert!(err.contains("--generator <GENERATOR>"), "{err}");
     assert!(err.contains("--out <OUT>"), "{err}");
 }
 
 #[test]
-fn unknown_target() {
-    let err = failure(forge(&["-", "--target", "go", "--out", "sdk"], SPEC));
+fn unknown_generator() {
+    let err = failure(forge(&["-", "--generator", "go", "--out", "sdk"], SPEC));
     assert!(err.contains("invalid value 'go'"), "{err}");
     assert!(err.contains("possible values: ts"), "{err}");
 }
 
 #[test]
 fn missing_spec() {
-    let err = failure(forge(&["missing.json", "--target", "ts", "--out", "sdk"], ""));
+    let err = failure(forge(&["missing.json", "--generator", "ts", "--out", "sdk"], ""));
     assert!(err.starts_with("forge: missing.json: "), "{err}");
 }
 
 #[test]
 fn invalid_spec() {
-    let err = failure(forge(&["-", "--target", "ts", "--out", "sdk"], "{"));
+    let err = failure(forge(&["-", "--generator", "ts", "--out", "sdk"], "{"));
     assert!(err.starts_with("forge: -: "), "{err}");
 }
 
@@ -60,7 +60,7 @@ fn invalid_spec() {
 fn ts() {
     let out = std::env::temp_dir().join(format!("forge-cli-ts-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&out);
-    let result = forge(&["-", "--target", "ts", "--out", out.to_str().unwrap()], SPEC);
+    let result = forge(&["-", "--generator", "ts", "--out", out.to_str().unwrap()], SPEC);
     assert!(result.status.success(), "{}", String::from_utf8_lossy(&result.stderr));
     for name in [
         "index.ts",

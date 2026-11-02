@@ -1,8 +1,8 @@
 //! The `forge` command, which generates an SDK from an OpenAPI document.
 //!
 //! ```text
-//! forge openapi.json --target ts --out sdk
-//! forge openapi.json --target wasm://plugin.wasm --out sdk
+//! forge openapi.json --generator ts --out sdk
+//! forge openapi.json --generator wasm://plugin.wasm --out sdk
 //! forge normalize specs/*.json
 //! ```
 
@@ -28,8 +28,8 @@ struct Args {
     spec: Option<PathBuf>,
     /// The language of the SDK: `ts` for TypeScript, or `wasm://PATH` for
     /// the plugin compiled to a WebAssembly component at PATH.
-    #[arg(long, value_parser = Target::parse, required = true)]
-    target: Option<Target>,
+    #[arg(long, value_parser = Generator::parse, required = true)]
+    generator: Option<Generator>,
     /// The directory to write the SDK to.
     #[arg(long, required = true)]
     out: Option<PathBuf>,
@@ -47,9 +47,9 @@ enum Command {
     Normalize(normalize::Args),
 }
 
-/// What forge generates an SDK with.
+/// What Forge generates an SDK with.
 #[derive(Clone)]
-enum Target {
+enum Generator {
     /// The TypeScript generator.
     Ts,
     /// A plugin compiled to a WebAssembly component, at the path.
@@ -57,10 +57,10 @@ enum Target {
     Wasm(PathBuf),
 }
 
-impl Target {
-    fn parse(s: &str) -> Result<Target, String> {
+impl Generator {
+    fn parse(s: &str) -> Result<Generator, String> {
         if s == "ts" {
-            return Ok(Target::Ts);
+            return Ok(Generator::Ts);
         }
         let Some(path) = s.strip_prefix("wasm://") else {
             return Err("possible values: ts, wasm://PATH".to_owned());
@@ -69,7 +69,7 @@ impl Target {
             return Err("wasm:// needs the path of a plugin, as in wasm://plugin.wasm".to_owned());
         }
         #[cfg(feature = "wasm")]
-        return Ok(Target::Wasm(PathBuf::from(path)));
+        return Ok(Generator::Wasm(PathBuf::from(path)));
         #[cfg(not(feature = "wasm"))]
         Err("this forge was built without wasm plugins; build it with `--features wasm`".to_owned())
     }
@@ -91,21 +91,21 @@ fn run(args: Args) -> Result<(), Err> {
         return normalize::run(args);
     }
     // They are required, which a command is the only way around.
-    let (Some(spec), Some(target), Some(out)) = (args.spec, args.target, args.out) else {
-        unreachable!("clap asks for a spec, a target and an out when there is no command");
+    let (Some(spec), Some(generator), Some(out)) = (args.spec, args.generator, args.out) else {
+        unreachable!("clap asks for a spec, a generator and an out when there is no command");
     };
-    generate(&spec, target, &out)
+    generate(&spec, generator, &out)
 }
 
 /// Generates the SDK for the document at `spec`, and writes it to `out`.
-fn generate(spec: &Path, target: Target, out: &Path) -> Result<(), Err> {
-    match target {
-        Target::Ts => {
+fn generate(spec: &Path, generator: Generator, out: &Path) -> Result<(), Err> {
+    match generator {
+        Generator::Ts => {
             let forge = read(spec)?;
             forge::write(out, forge::run(&forge, &ts::Generator)?)
         }
         #[cfg(feature = "wasm")]
-        Target::Wasm(path) => {
+        Generator::Wasm(path) => {
             // Compiling the plugin and reading the document are both slow,
             // so they run at the same time.
             let (plugin, forge) = rayon::join(|| forge::wasm::WasmPlugin::from_file(&path), || read(spec));
@@ -151,14 +151,14 @@ mod tests {
         let command = parse(&["normalize", "--check", "a.json"]).unwrap();
         assert!(matches!(command.command, Some(Command::Normalize(_))) && command.spec.is_none());
 
-        let document = parse(&["./normalize", "--target", "ts", "--out", "sdk"]).unwrap();
+        let document = parse(&["./normalize", "--generator", "ts", "--out", "sdk"]).unwrap();
         assert!(document.command.is_none() && document.spec.as_deref() == Some(Path::new("./normalize")));
 
         // What a command or a document needs is not waived for the other.
         assert!(parse(&["normalize"]).is_err());
         assert!(parse(&["a.json"]).is_err());
-        assert!(parse(&["normalize", "--target", "ts", "a.json"]).is_err());
-        assert!(parse(&["--target", "ts", "normalize", "a.json"]).is_err());
+        assert!(parse(&["normalize", "--generator", "ts", "a.json"]).is_err());
+        assert!(parse(&["--generator", "ts", "normalize", "a.json"]).is_err());
         assert!(parse(&[]).is_err());
     }
 }

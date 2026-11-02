@@ -261,14 +261,14 @@ fn returns_errors() {
     assert_eq!(wasm, native);
 }
 
-/// `forge --target wasm://PATH` runs the plugin at PATH, and writes what
-/// `--target ts` does.
+/// `forge --generator wasm://PATH` runs the plugin at PATH, and writes what
+/// `--generator ts` does.
 #[test]
 fn cli() {
     let out = std::env::temp_dir().join(format!("forge-cli-wasm-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&out);
-    let target = format!("wasm://{}", guest().display());
-    let result = forge_cli(&["-", "--target", &target, "--out", out.to_str().unwrap()]);
+    let generator = format!("wasm://{}", guest().display());
+    let result = forge_cli(&["-", "--generator", &generator, "--out", out.to_str().unwrap()]);
     assert!(result.status.success(), "{}", String::from_utf8_lossy(&result.stderr));
 
     let mut written = Files::new();
@@ -279,7 +279,7 @@ fn cli() {
 
 #[test]
 fn cli_needs_a_path() {
-    let result = forge_cli(&["-", "--target", "wasm://", "--out", "sdk"]);
+    let result = forge_cli(&["-", "--generator", "wasm://", "--out", "sdk"]);
     assert!(!result.status.success());
     let err = String::from_utf8_lossy(&result.stderr);
     assert!(err.contains("wasm:// needs the path of a plugin"), "{err}");
@@ -287,7 +287,7 @@ fn cli_needs_a_path() {
 
 #[test]
 fn cli_missing_plugin() {
-    let result = forge_cli(&["-", "--target", "wasm://missing.wasm", "--out", "sdk"]);
+    let result = forge_cli(&["-", "--generator", "wasm://missing.wasm", "--out", "sdk"]);
     assert!(!result.status.success());
     let err = String::from_utf8_lossy(&result.stderr);
     assert!(err.starts_with("forge: missing.wasm: "), "{err}");

@@ -4,7 +4,7 @@
  * A plugin generates files from the forge of an OpenAPI document: its
  * groups, methods, models and types, as forge's Rust API has them. Build it
  * with `forge-plugin build`, and run it with
- * `forge openapi.json --target wasm://plugin.wasm --out sdk`.
+ * `forge openapi.json --generator wasm://plugin.wasm --out sdk`.
  *
  * ```ts
  * import { definePlugin } from "@cloudflare/forge/plugin";
