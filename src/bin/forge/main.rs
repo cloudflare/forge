@@ -62,23 +62,27 @@ enum Target {
     Capnweb,
     /// A plugin compiled to a WebAssembly component, at the path.
     #[cfg(feature = "wasm")]
-    #[strum(disabled, to_string = "wasm://PATH")]
+    #[strum(disabled)]
     Wasm(PathBuf),
 }
+
+const WASM_PREFIX: &str = "wasm://";
 
 impl Target {
     fn parse(s: &str) -> Result<Target, String> {
         if let Ok(target) = s.parse::<Target>() {
             return Ok(target);
         }
-        let Some(path) = s.strip_prefix("wasm://") else {
+        let Some(path) = s.strip_prefix(WASM_PREFIX) else {
             return Err(format!(
-                "unrecognized target {s}, possible values: {}",
+                "unrecognized target {s}, possible values: {}, or {WASM_PREFIX}PATH",
                 Target::VARIANTS.join(", "),
             ));
         };
         if path.is_empty() {
-            return Err("wasm:// needs the path of a plugin, as in wasm://plugin.wasm".to_owned());
+            return Err(format!(
+                "{WASM_PREFIX} needs the path of a plugin, as in {WASM_PREFIX}plugin.wasm"
+            ));
         }
         #[cfg(feature = "wasm")]
         return Ok(Target::Wasm(PathBuf::from(path)));
