@@ -126,6 +126,8 @@ const RESERVED: [&str; 18] = [
     "then",
     "catch",
     "finally",
+
+    // Cap'n Web reserved names
     "map",
     "dup",
     "onRpcBroken",
