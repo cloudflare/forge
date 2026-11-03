@@ -14,7 +14,7 @@ use std::process::ExitCode;
 
 use clap::Parser;
 use forge::{Err, Forge, Plugin};
-use strum::{EnumIter, EnumString, IntoEnumIterator, IntoStaticStr};
+use strum::{EnumString, VariantNames};
 
 mod capnweb;
 mod normalize;
@@ -53,7 +53,7 @@ enum Command {
 }
 
 /// What forge generates an SDK with.
-#[derive(Clone, EnumIter, EnumString, IntoStaticStr)]
+#[derive(Clone, EnumString, VariantNames)]
 #[strum(serialize_all = "lowercase")]
 enum Target {
     /// The TypeScript generator.
@@ -76,7 +76,7 @@ impl Target {
         let Some(path) = s.strip_prefix(WASM_PREFIX) else {
             return Err(format!(
                 "unrecognized target {s}, possible values: {}, or {WASM_PREFIX}PATH",
-                Target::iter().map(<&str>::from).collect::<Vec<_>>().join(", "),
+                Target::VARIANTS.join(", "),
             ));
         };
         if path.is_empty() {

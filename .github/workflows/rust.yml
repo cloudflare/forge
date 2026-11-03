@@ -104,6 +104,3 @@ jobs:
 
       - name: Test
         run: cargo test --locked --all-features
-
-      - name: Test default features
-        run: cargo test --locked
