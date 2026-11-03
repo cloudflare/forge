@@ -2,7 +2,16 @@ use crate::common::{method, parse, parse_err};
 
 #[test]
 fn version_is_the_info_version() {
-    let forge = parse(r#"{"openapi": "3.0.3", "info": {"title": "t", "version": "2.1.0"}, "paths": {}}"#);
+    let forge = parse(
+        r#"{
+          "openapi": "3.0.3",
+          "info": {
+            "title": "t",
+            "version": "2.1.0"
+          },
+          "paths": {}
+        }"#,
+    );
 
     assert_eq!(forge.version, "2.1.0");
 }
@@ -12,7 +21,12 @@ fn description_joins_title_summary_and_description() {
     let forge = parse(
         r#"{
           "openapi": "3.1.0",
-          "info": {"title": "Example", "summary": "Short.", "description": "Long.", "version": "1"},
+          "info": {
+            "title": "Example",
+            "summary": "Short.",
+            "description": "Long.",
+            "version": "1"
+          },
           "paths": {}
         }"#,
     );
@@ -25,7 +39,11 @@ fn description_leaves_out_missing_parts() {
     let forge = parse(
         r#"{
           "openapi": "3.0.3",
-          "info": {"title": "Example", "description": "Long.", "version": "1"},
+          "info": {
+            "title": "Example",
+            "description": "Long.",
+            "version": "1"
+          },
           "paths": {}
         }"#,
     );
@@ -37,8 +55,19 @@ fn description_leaves_out_missing_parts() {
 fn base_url_is_the_first_server() {
     let forge = parse(
         r#"{
-          "openapi": "3.0.3", "info": {"title": "t", "version": "1"},
-          "servers": [{"url": "https://a.example.com/v1"}, {"url": "https://b.example.com"}],
+          "openapi": "3.0.3",
+          "info": {
+            "title": "t",
+            "version": "1"
+          },
+          "servers": [
+            {
+              "url": "https://a.example.com/v1"
+            },
+            {
+              "url": "https://b.example.com"
+            }
+          ],
           "paths": {}
         }"#,
     );
@@ -50,11 +79,25 @@ fn base_url_is_the_first_server() {
 fn base_url_substitutes_server_variables() {
     let forge = parse(
         r#"{
-          "openapi": "3.0.3", "info": {"title": "t", "version": "1"},
-          "servers": [{
-            "url": "https://{region}.example.com/{version}",
-            "variables": {"region": {"default": "eu", "enum": ["eu", "us"]}, "version": {"default": "v4"}}
-          }],
+          "openapi": "3.0.3",
+          "info": {
+            "title": "t",
+            "version": "1"
+          },
+          "servers": [
+            {
+              "url": "https://{region}.example.com/{version}",
+              "variables": {
+                "region": {
+                  "default": "eu",
+                  "enum": ["eu", "us"]
+                },
+                "version": {
+                  "default": "v4"
+                }
+              }
+            }
+          ],
           "paths": {}
         }"#,
     );
@@ -64,7 +107,16 @@ fn base_url_substitutes_server_variables() {
 
 #[test]
 fn base_url_is_empty_without_servers() {
-    let forge = parse(r#"{"openapi": "3.0.3", "info": {"title": "t", "version": "1"}, "paths": {}}"#);
+    let forge = parse(
+        r#"{
+          "openapi": "3.0.3",
+          "info": {
+            "title": "t",
+            "version": "1"
+          },
+          "paths": {}
+        }"#,
+    );
 
     assert_eq!(forge.base_url, "");
 }
@@ -73,8 +125,16 @@ fn base_url_is_empty_without_servers() {
 fn undefined_server_variable_is_an_error() {
     let err = parse_err(
         r#"{
-          "openapi": "3.0.3", "info": {"title": "t", "version": "1"},
-          "servers": [{"url": "https://{region}.example.com"}],
+          "openapi": "3.0.3",
+          "info": {
+            "title": "t",
+            "version": "1"
+          },
+          "servers": [
+            {
+              "url": "https://{region}.example.com"
+            }
+          ],
           "paths": {}
         }"#,
     );
@@ -86,8 +146,16 @@ fn undefined_server_variable_is_an_error() {
 fn unclosed_server_variable_is_an_error() {
     let err = parse_err(
         r#"{
-          "openapi": "3.0.3", "info": {"title": "t", "version": "1"},
-          "servers": [{"url": "https://{region.example.com"}],
+          "openapi": "3.0.3",
+          "info": {
+            "title": "t",
+            "version": "1"
+          },
+          "servers": [
+            {
+              "url": "https://{region.example.com"
+            }
+          ],
           "paths": {}
         }"#,
     );
@@ -102,9 +170,24 @@ fn every_version_of_3_0_3_1_and_3_2_is_read() {
     ] {
         let forge = parse(&format!(
             r#"{{
-              "openapi": "{version}", "info": {{"title": "t", "version": "1"}},
-              "paths": {{"/a": {{"get": {{"x-forge-group-name": "a", "x-forge-method-name": "get",
-                "responses": {{"204": {{"description": "ok"}}}}}}}}}}
+              "openapi": "{version}",
+              "info": {{
+                "title": "t",
+                "version": "1"
+              }},
+              "paths": {{
+                "/a": {{
+                  "get": {{
+                    "x-forge-group-name": "a",
+                    "x-forge-method-name": "get",
+                    "responses": {{
+                      "204": {{
+                        "description": "ok"
+                      }}
+                    }}
+                  }}
+                }}
+              }}
             }}"#
         ));
 
@@ -116,10 +199,29 @@ fn every_version_of_3_0_3_1_and_3_2_is_read() {
 fn errors_are_reported_together() {
     let err = parse_err(
         r#"{
-          "openapi": "3.0.3", "info": {"title": "t", "version": "1"},
-          "servers": [{"url": "https://{region}.example.com"}],
-          "paths": {"/a": {"get": {"x-forge-group-name": ["a", "", "b"], "x-forge-method-name": "get",
-            "responses": {"204": {"description": "ok"}}}}}
+          "openapi": "3.0.3",
+          "info": {
+            "title": "t",
+            "version": "1"
+          },
+          "servers": [
+            {
+              "url": "https://{region}.example.com"
+            }
+          ],
+          "paths": {
+            "/a": {
+              "get": {
+                "x-forge-group-name": ["a", "", "b"],
+                "x-forge-method-name": "get",
+                "responses": {
+                  "204": {
+                    "description": "ok"
+                  }
+                }
+              }
+            }
+          }
         }"#,
     );
 
@@ -131,7 +233,14 @@ fn errors_are_reported_together() {
 fn other_versions_are_an_error() {
     for version in ["2.0", "3.3.0", "4.0.0"] {
         let err = parse_err(&format!(
-            r#"{{"openapi": "{version}", "info": {{"title": "t", "version": "1"}}, "paths": {{}}}}"#
+            r#"{{
+              "openapi": "{version}",
+              "info": {{
+                "title": "t",
+                "version": "1"
+              }},
+              "paths": {{}}
+            }}"#
         ));
 
         assert!(err.contains(version), "{version}: {err}");
@@ -140,7 +249,16 @@ fn other_versions_are_an_error() {
 
 #[test]
 fn swagger_document_is_an_error() {
-    let err = parse_err(r#"{"swagger": "2.0", "info": {"title": "t", "version": "1"}, "paths": {}}"#);
+    let err = parse_err(
+        r#"{
+          "swagger": "2.0",
+          "info": {
+            "title": "t",
+            "version": "1"
+          },
+          "paths": {}
+        }"#,
+    );
 
     assert!(err.contains("openapi"), "{err}");
 }

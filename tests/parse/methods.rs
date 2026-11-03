@@ -7,10 +7,25 @@ use crate::common::{group, method, parse, parse_err};
 fn operation_with(fields: &str) -> String {
     format!(
         r#"{{
-          "openapi": "3.0.3", "info": {{"title": "t", "version": "1"}},
-          "paths": {{"/a": {{"get": {{{fields}
-            "x-forge-group-name": "a", "x-forge-method-name": "get",
-            "responses": {{"204": {{"description": "ok"}}}}}}}}}}
+          "openapi": "3.0.3",
+          "info": {{
+            "title": "t",
+            "version": "1"
+          }},
+          "paths": {{
+            "/a": {{
+              "get": {{
+                {fields}
+                "x-forge-group-name": "a",
+                "x-forge-method-name": "get",
+                "responses": {{
+                  "204": {{
+                    "description": "ok"
+                  }}
+                }}
+              }}
+            }}
+          }}
         }}"#
     )
 }
@@ -19,17 +34,87 @@ fn operation_with(fields: &str) -> String {
 fn each_operation_field_is_its_http_method() {
     let forge = parse(
         r#"{
-          "openapi": "3.0.3", "info": {"title": "t", "version": "1"},
-          "paths": {"/a": {
-            "get": {"x-forge-group-name": "a", "x-forge-method-name": "get", "responses": {"204": {"description": "ok"}}},
-            "put": {"x-forge-group-name": "a", "x-forge-method-name": "put", "responses": {"204": {"description": "ok"}}},
-            "post": {"x-forge-group-name": "a", "x-forge-method-name": "post", "responses": {"204": {"description": "ok"}}},
-            "delete": {"x-forge-group-name": "a", "x-forge-method-name": "delete", "responses": {"204": {"description": "ok"}}},
-            "options": {"x-forge-group-name": "a", "x-forge-method-name": "options", "responses": {"204": {"description": "ok"}}},
-            "head": {"x-forge-group-name": "a", "x-forge-method-name": "head", "responses": {"204": {"description": "ok"}}},
-            "patch": {"x-forge-group-name": "a", "x-forge-method-name": "patch", "responses": {"204": {"description": "ok"}}},
-            "trace": {"x-forge-group-name": "a", "x-forge-method-name": "trace", "responses": {"204": {"description": "ok"}}}
-          }}
+          "openapi": "3.0.3",
+          "info": {
+            "title": "t",
+            "version": "1"
+          },
+          "paths": {
+            "/a": {
+              "get": {
+                "x-forge-group-name": "a",
+                "x-forge-method-name": "get",
+                "responses": {
+                  "204": {
+                    "description": "ok"
+                  }
+                }
+              },
+              "put": {
+                "x-forge-group-name": "a",
+                "x-forge-method-name": "put",
+                "responses": {
+                  "204": {
+                    "description": "ok"
+                  }
+                }
+              },
+              "post": {
+                "x-forge-group-name": "a",
+                "x-forge-method-name": "post",
+                "responses": {
+                  "204": {
+                    "description": "ok"
+                  }
+                }
+              },
+              "delete": {
+                "x-forge-group-name": "a",
+                "x-forge-method-name": "delete",
+                "responses": {
+                  "204": {
+                    "description": "ok"
+                  }
+                }
+              },
+              "options": {
+                "x-forge-group-name": "a",
+                "x-forge-method-name": "options",
+                "responses": {
+                  "204": {
+                    "description": "ok"
+                  }
+                }
+              },
+              "head": {
+                "x-forge-group-name": "a",
+                "x-forge-method-name": "head",
+                "responses": {
+                  "204": {
+                    "description": "ok"
+                  }
+                }
+              },
+              "patch": {
+                "x-forge-group-name": "a",
+                "x-forge-method-name": "patch",
+                "responses": {
+                  "204": {
+                    "description": "ok"
+                  }
+                }
+              },
+              "trace": {
+                "x-forge-group-name": "a",
+                "x-forge-method-name": "trace",
+                "responses": {
+                  "204": {
+                    "description": "ok"
+                  }
+                }
+              }
+            }
+          }
         }"#,
     );
 
@@ -53,9 +138,24 @@ fn each_operation_field_is_its_http_method() {
 fn query_operation_is_query() {
     let forge = parse(
         r#"{
-          "openapi": "3.2.0", "info": {"title": "t", "version": "1"},
-          "paths": {"/a": {"query": {"x-forge-group-name": "a", "x-forge-method-name": "search",
-            "responses": {"204": {"description": "ok"}}}}}
+          "openapi": "3.2.0",
+          "info": {
+            "title": "t",
+            "version": "1"
+          },
+          "paths": {
+            "/a": {
+              "query": {
+                "x-forge-group-name": "a",
+                "x-forge-method-name": "search",
+                "responses": {
+                  "204": {
+                    "description": "ok"
+                  }
+                }
+              }
+            }
+          }
         }"#,
     );
 
@@ -66,11 +166,26 @@ fn query_operation_is_query() {
 fn additional_operation_is_its_method_as_written() {
     let forge = parse(
         r#"{
-          "openapi": "3.2.0", "info": {"title": "t", "version": "1"},
-          "paths": {"/a": {"additionalOperations": {
-            "COPY": {"x-forge-group-name": "a", "x-forge-method-name": "copy",
-              "responses": {"204": {"description": "ok"}}}
-          }}}
+          "openapi": "3.2.0",
+          "info": {
+            "title": "t",
+            "version": "1"
+          },
+          "paths": {
+            "/a": {
+              "additionalOperations": {
+                "COPY": {
+                  "x-forge-group-name": "a",
+                  "x-forge-method-name": "copy",
+                  "responses": {
+                    "204": {
+                      "description": "ok"
+                    }
+                  }
+                }
+              }
+            }
+          }
         }"#,
     );
 
@@ -84,11 +199,26 @@ fn additional_operation_is_its_method_as_written() {
 fn additional_operation_with_the_method_of_a_field_is_that_variant() {
     let forge = parse(
         r#"{
-          "openapi": "3.2.0", "info": {"title": "t", "version": "1"},
-          "paths": {"/a": {"additionalOperations": {
-            "GET": {"x-forge-group-name": "a", "x-forge-method-name": "get",
-              "responses": {"204": {"description": "ok"}}}
-          }}}
+          "openapi": "3.2.0",
+          "info": {
+            "title": "t",
+            "version": "1"
+          },
+          "paths": {
+            "/a": {
+              "additionalOperations": {
+                "GET": {
+                  "x-forge-group-name": "a",
+                  "x-forge-method-name": "get",
+                  "responses": {
+                    "204": {
+                      "description": "ok"
+                    }
+                  }
+                }
+              }
+            }
+          }
         }"#,
     );
 
@@ -99,11 +229,26 @@ fn additional_operation_with_the_method_of_a_field_is_that_variant() {
 fn additional_operation_methods_are_case_sensitive() {
     let forge = parse(
         r#"{
-          "openapi": "3.2.0", "info": {"title": "t", "version": "1"},
-          "paths": {"/a": {"additionalOperations": {
-            "get": {"x-forge-group-name": "a", "x-forge-method-name": "get",
-              "responses": {"204": {"description": "ok"}}}
-          }}}
+          "openapi": "3.2.0",
+          "info": {
+            "title": "t",
+            "version": "1"
+          },
+          "paths": {
+            "/a": {
+              "additionalOperations": {
+                "get": {
+                  "x-forge-group-name": "a",
+                  "x-forge-method-name": "get",
+                  "responses": {
+                    "204": {
+                      "description": "ok"
+                    }
+                  }
+                }
+              }
+            }
+          }
         }"#,
     );
 
@@ -117,10 +262,27 @@ fn additional_operation_methods_are_case_sensitive() {
 fn method_has_the_summary_description_and_deprecation_of_its_operation() {
     let forge = parse(
         r#"{
-          "openapi": "3.0.3", "info": {"title": "t", "version": "1"},
-          "paths": {"/a": {"get": {"x-forge-group-name": "a", "x-forge-method-name": "get",
-            "summary": "Get an a.", "description": "Gets an a.", "deprecated": true,
-            "responses": {"204": {"description": "ok"}}}}}
+          "openapi": "3.0.3",
+          "info": {
+            "title": "t",
+            "version": "1"
+          },
+          "paths": {
+            "/a": {
+              "get": {
+                "x-forge-group-name": "a",
+                "x-forge-method-name": "get",
+                "summary": "Get an a.",
+                "description": "Gets an a.",
+                "deprecated": true,
+                "responses": {
+                  "204": {
+                    "description": "ok"
+                  }
+                }
+              }
+            }
+          }
         }"#,
     );
 
@@ -134,9 +296,24 @@ fn method_has_the_summary_description_and_deprecation_of_its_operation() {
 fn method_without_docs_is_empty_and_not_deprecated() {
     let forge = parse(
         r#"{
-          "openapi": "3.0.3", "info": {"title": "t", "version": "1"},
-          "paths": {"/a": {"get": {"x-forge-group-name": "a", "x-forge-method-name": "get",
-            "responses": {"204": {"description": "ok"}}}}}
+          "openapi": "3.0.3",
+          "info": {
+            "title": "t",
+            "version": "1"
+          },
+          "paths": {
+            "/a": {
+              "get": {
+                "x-forge-group-name": "a",
+                "x-forge-method-name": "get",
+                "responses": {
+                  "204": {
+                    "description": "ok"
+                  }
+                }
+              }
+            }
+          }
         }"#,
     );
 
@@ -150,12 +327,31 @@ fn method_without_docs_is_empty_and_not_deprecated() {
 fn path_item_ref_is_followed() {
     let forge = parse(
         r##"{
-          "openapi": "3.1.0", "info": {"title": "t", "version": "1"},
-          "paths": {"/a": {"$ref": "#/components/pathItems/A"}},
-          "components": {"pathItems": {
-            "A": {"get": {"x-forge-group-name": "a", "x-forge-method-name": "get",
-              "responses": {"204": {"description": "ok"}}}}
-          }}
+          "openapi": "3.1.0",
+          "info": {
+            "title": "t",
+            "version": "1"
+          },
+          "paths": {
+            "/a": {
+              "$ref": "#/components/pathItems/A"
+            }
+          },
+          "components": {
+            "pathItems": {
+              "A": {
+                "get": {
+                  "x-forge-group-name": "a",
+                  "x-forge-method-name": "get",
+                  "responses": {
+                    "204": {
+                      "description": "ok"
+                    }
+                  }
+                }
+              }
+            }
+          }
         }"##,
     );
 
@@ -166,14 +362,38 @@ fn path_item_ref_is_followed() {
 fn extensions_in_paths_and_path_items_are_not_operations() {
     let forge = parse(
         r#"{
-          "openapi": "3.0.3", "info": {"title": "t", "version": "1"},
+          "openapi": "3.0.3",
+          "info": {
+            "title": "t",
+            "version": "1"
+          },
           "paths": {
-            "x-paths-extension": {"get": {"x-forge-group-name": "x", "x-forge-method-name": "get",
-              "responses": {"204": {"description": "ok"}}}},
+            "x-paths-extension": {
+              "get": {
+                "x-forge-group-name": "x",
+                "x-forge-method-name": "get",
+                "responses": {
+                  "204": {
+                    "description": "ok"
+                  }
+                }
+              }
+            },
             "/a": {
-              "x-forge-commands": {"a": {"description": "A."}},
-              "get": {"x-forge-group-name": "a", "x-forge-method-name": "get",
-                "responses": {"204": {"description": "ok"}}}
+              "x-forge-commands": {
+                "a": {
+                  "description": "A."
+                }
+              },
+              "get": {
+                "x-forge-group-name": "a",
+                "x-forge-method-name": "get",
+                "responses": {
+                  "204": {
+                    "description": "ok"
+                  }
+                }
+              }
             }
           }
         }"#,
@@ -187,13 +407,35 @@ fn extensions_in_paths_and_path_items_are_not_operations() {
 fn additional_operation_with_the_method_of_a_present_field_is_skipped() {
     let forge = parse(
         r#"{
-          "openapi": "3.2.0", "info": {"title": "t", "version": "1"},
-          "paths": {"/a": {
-            "get": {"x-forge-group-name": "a", "x-forge-method-name": "get",
-              "responses": {"204": {"description": "ok"}}},
-            "additionalOperations": {"GET": {"x-forge-group-name": "a", "x-forge-method-name": "shadowed",
-              "responses": {"204": {"description": "ok"}}}}
-          }}
+          "openapi": "3.2.0",
+          "info": {
+            "title": "t",
+            "version": "1"
+          },
+          "paths": {
+            "/a": {
+              "get": {
+                "x-forge-group-name": "a",
+                "x-forge-method-name": "get",
+                "responses": {
+                  "204": {
+                    "description": "ok"
+                  }
+                }
+              },
+              "additionalOperations": {
+                "GET": {
+                  "x-forge-group-name": "a",
+                  "x-forge-method-name": "shadowed",
+                  "responses": {
+                    "204": {
+                      "description": "ok"
+                    }
+                  }
+                }
+              }
+            }
+          }
         }"#,
     );
 
@@ -205,9 +447,24 @@ fn additional_operation_with_the_method_of_a_present_field_is_skipped() {
 fn webhooks_are_not_methods() {
     let forge = parse(
         r#"{
-          "openapi": "3.1.0", "info": {"title": "t", "version": "1"},
-          "webhooks": {"newPet": {"post": {"x-forge-group-name": "pets", "x-forge-method-name": "created",
-            "responses": {"204": {"description": "ok"}}}}}
+          "openapi": "3.1.0",
+          "info": {
+            "title": "t",
+            "version": "1"
+          },
+          "webhooks": {
+            "newPet": {
+              "post": {
+                "x-forge-group-name": "pets",
+                "x-forge-method-name": "created",
+                "responses": {
+                  "204": {
+                    "description": "ok"
+                  }
+                }
+              }
+            }
+          }
         }"#,
     );
 
@@ -218,13 +475,39 @@ fn webhooks_are_not_methods() {
 fn callbacks_are_not_methods() {
     let forge = parse(
         r#"{
-          "openapi": "3.0.3", "info": {"title": "t", "version": "1"},
-          "paths": {"/subscribe": {"post": {"x-forge-group-name": "a", "x-forge-method-name": "subscribe",
-            "callbacks": {"event": {"{$request.query.url}": {"post": {
-              "x-forge-group-name": "a", "x-forge-method-name": "event",
-              "responses": {"204": {"description": "ok"}}
-            }}}},
-            "responses": {"204": {"description": "ok"}}}}}
+          "openapi": "3.0.3",
+          "info": {
+            "title": "t",
+            "version": "1"
+          },
+          "paths": {
+            "/subscribe": {
+              "post": {
+                "x-forge-group-name": "a",
+                "x-forge-method-name": "subscribe",
+                "callbacks": {
+                  "event": {
+                    "{$request.query.url}": {
+                      "post": {
+                        "x-forge-group-name": "a",
+                        "x-forge-method-name": "event",
+                        "responses": {
+                          "204": {
+                            "description": "ok"
+                          }
+                        }
+                      }
+                    }
+                  }
+                },
+                "responses": {
+                  "204": {
+                    "description": "ok"
+                  }
+                }
+              }
+            }
+          }
         }"#,
     );
 
@@ -329,17 +612,46 @@ fn availability_that_is_not_a_string_is_an_error() {
 fn availability_and_deprecation_are_apart() {
     let forge = parse(
         r#"{
-          "openapi": "3.0.3", "info": {"title": "t", "version": "1"},
-          "paths": {"/a": {
-            "get": {"x-forge-group-name": "a", "x-forge-method-name": "get",
-              "deprecated": true, "x-forge-availability": "generally-available",
-              "responses": {"204": {"description": "ok"}}},
-            "put": {"x-forge-group-name": "a", "x-forge-method-name": "put",
-              "x-forge-availability": "deprecated",
-              "responses": {"204": {"description": "ok"}}},
-            "post": {"x-forge-group-name": "a", "x-forge-method-name": "post",
-              "deprecated": true, "responses": {"204": {"description": "ok"}}}
-          }}
+          "openapi": "3.0.3",
+          "info": {
+            "title": "t",
+            "version": "1"
+          },
+          "paths": {
+            "/a": {
+              "get": {
+                "x-forge-group-name": "a",
+                "x-forge-method-name": "get",
+                "deprecated": true,
+                "x-forge-availability": "generally-available",
+                "responses": {
+                  "204": {
+                    "description": "ok"
+                  }
+                }
+              },
+              "put": {
+                "x-forge-group-name": "a",
+                "x-forge-method-name": "put",
+                "x-forge-availability": "deprecated",
+                "responses": {
+                  "204": {
+                    "description": "ok"
+                  }
+                }
+              },
+              "post": {
+                "x-forge-group-name": "a",
+                "x-forge-method-name": "post",
+                "deprecated": true,
+                "responses": {
+                  "204": {
+                    "description": "ok"
+                  }
+                }
+              }
+            }
+          }
         }"#,
     );
 
@@ -358,9 +670,24 @@ fn availability_and_deprecation_are_apart() {
 fn x_forge_method_without_name_is_not_a_method_name() {
     let forge = parse(
         r#"{
-          "openapi": "3.0.3", "info": {"title": "t", "version": "1"},
-          "paths": {"/a": {"get": {"x-forge-group-name": ["a"], "x-forge-method": "get",
-            "responses": {"204": {"description": "ok"}}}}}
+          "openapi": "3.0.3",
+          "info": {
+            "title": "t",
+            "version": "1"
+          },
+          "paths": {
+            "/a": {
+              "get": {
+                "x-forge-group-name": ["a"],
+                "x-forge-method": "get",
+                "responses": {
+                  "204": {
+                    "description": "ok"
+                  }
+                }
+              }
+            }
+          }
         }"#,
     );
 
@@ -372,9 +699,23 @@ fn x_forge_method_without_name_is_not_a_method_name() {
 fn named_by(fields: &str) -> String {
     format!(
         r#"{{
-          "openapi": "3.0.3", "info": {{"title": "t", "version": "1"}},
-          "paths": {{"/a": {{"get": {{{fields}
-            "responses": {{"204": {{"description": "ok"}}}}}}}}}}
+          "openapi": "3.0.3",
+          "info": {{
+            "title": "t",
+            "version": "1"
+          }},
+          "paths": {{
+            "/a": {{
+              "get": {{
+                {fields}
+                "responses": {{
+                  "204": {{
+                    "description": "ok"
+                  }}
+                }}
+              }}
+            }}
+          }}
         }}"#
     )
 }
@@ -425,11 +766,42 @@ fn empty_operation_id_is_not_a_method() {
 fn methods_at_the_top_level_are_sorted_by_name() {
     let forge = parse(
         r#"{
-          "openapi": "3.0.3", "info": {"title": "t", "version": "1"},
+          "openapi": "3.0.3",
+          "info": {
+            "title": "t",
+            "version": "1"
+          },
           "paths": {
-            "/b": {"get": {"operationId": "zap", "responses": {"204": {"description": "ok"}}}},
-            "/a": {"get": {"operationId": "list", "responses": {"204": {"description": "ok"}}}},
-            "/c": {"get": {"operationId": "pets.list", "responses": {"204": {"description": "ok"}}}}
+            "/b": {
+              "get": {
+                "operationId": "zap",
+                "responses": {
+                  "204": {
+                    "description": "ok"
+                  }
+                }
+              }
+            },
+            "/a": {
+              "get": {
+                "operationId": "list",
+                "responses": {
+                  "204": {
+                    "description": "ok"
+                  }
+                }
+              }
+            },
+            "/c": {
+              "get": {
+                "operationId": "pets.list",
+                "responses": {
+                  "204": {
+                    "description": "ok"
+                  }
+                }
+              }
+            }
           }
         }"#,
     );
@@ -443,10 +815,32 @@ fn methods_at_the_top_level_are_sorted_by_name() {
 fn methods_at_the_top_level_with_equal_names_are_an_error() {
     let err = parse_err(
         r#"{
-          "openapi": "3.0.3", "info": {"title": "t", "version": "1"},
+          "openapi": "3.0.3",
+          "info": {
+            "title": "t",
+            "version": "1"
+          },
           "paths": {
-            "/a": {"get": {"operationId": "listPets", "responses": {"204": {"description": "ok"}}}},
-            "/b": {"get": {"operationId": "list_pets", "responses": {"204": {"description": "ok"}}}}
+            "/a": {
+              "get": {
+                "operationId": "listPets",
+                "responses": {
+                  "204": {
+                    "description": "ok"
+                  }
+                }
+              }
+            },
+            "/b": {
+              "get": {
+                "operationId": "list_pets",
+                "responses": {
+                  "204": {
+                    "description": "ok"
+                  }
+                }
+              }
+            }
           }
         }"#,
     );
@@ -468,10 +862,20 @@ fn forge_names_win_over_operation_id() {
 #[test]
 fn one_forge_name_falls_back_to_operation_id() {
     for fields in [
-        r#""x-forge-group-name": "a", "operationId": "pets.list","#,
-        r#""x-forge-method-name": "get", "operationId": "pets.list","#,
-        r#""x-forge-group-name": "", "x-forge-method-name": "get", "operationId": "pets.list","#,
-        r#""x-forge-group-name": "a", "x-forge-method-name": "", "operationId": "pets.list","#,
+        r#"
+          "x-forge-group-name": "a",
+          "operationId": "pets.list","#,
+        r#"
+          "x-forge-method-name": "get",
+          "operationId": "pets.list","#,
+        r#"
+          "x-forge-group-name": "",
+          "x-forge-method-name": "get",
+          "operationId": "pets.list","#,
+        r#"
+          "x-forge-group-name": "a",
+          "x-forge-method-name": "",
+          "operationId": "pets.list","#,
     ] {
         let forge = parse(&named_by(fields));
 
@@ -484,7 +888,9 @@ fn one_forge_name_falls_back_to_operation_id() {
 fn skipped_operation_with_an_operation_id_is_not_a_method() {
     for operation_id in ["pets.list", "listPets"] {
         let forge = parse(&named_by(&format!(
-            r#""operationId": "{operation_id}", "x-forge-skip": true,"#
+            r#"
+              "operationId": "{operation_id}",
+              "x-forge-skip": true,"#
         )));
 
         assert_eq!(forge.groups().count(), 0, "{operation_id}");
@@ -527,12 +933,33 @@ fn operation_id_that_is_not_a_string_is_an_error() {
 fn forge_and_operation_id_methods_with_equal_names_are_an_error() {
     let err = parse_err(
         r#"{
-          "openapi": "3.0.3", "info": {"title": "t", "version": "1"},
+          "openapi": "3.0.3",
+          "info": {
+            "title": "t",
+            "version": "1"
+          },
           "paths": {
-            "/a": {"get": {"x-forge-group-name": "pets", "x-forge-method-name": "list",
-              "responses": {"204": {"description": "ok"}}}},
-            "/b": {"get": {"operationId": "pets.list",
-              "responses": {"204": {"description": "ok"}}}}
+            "/a": {
+              "get": {
+                "x-forge-group-name": "pets",
+                "x-forge-method-name": "list",
+                "responses": {
+                  "204": {
+                    "description": "ok"
+                  }
+                }
+              }
+            },
+            "/b": {
+              "get": {
+                "operationId": "pets.list",
+                "responses": {
+                  "204": {
+                    "description": "ok"
+                  }
+                }
+              }
+            }
           }
         }"#,
     );

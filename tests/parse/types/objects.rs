@@ -5,7 +5,14 @@ use crate::common::{field, field_names, object, parse, parse_err, responding_wit
 #[test]
 fn properties_are_fields_and_allow_no_other_keys() {
     let forge = parse(&responding_with(
-        r#"{"type": "object", "properties": {"id": {"type": "string"}}}"#,
+        r#"{
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string"
+            }
+          }
+        }"#,
     ));
 
     let object = object(response_type(&forge, "a.get"));
@@ -16,7 +23,18 @@ fn properties_are_fields_and_allow_no_other_keys() {
 #[test]
 fn required_fields_are_listed_in_required() {
     let forge = parse(&responding_with(
-        r#"{"type": "object", "required": ["id"], "properties": {"id": {"type": "string"}, "name": {"type": "string"}}}"#,
+        r#"{
+          "type": "object",
+          "required": ["id"],
+          "properties": {
+            "id": {
+              "type": "string"
+            },
+            "name": {
+              "type": "string"
+            }
+          }
+        }"#,
     ));
 
     let object = object(response_type(&forge, "a.get"));
@@ -27,7 +45,15 @@ fn required_fields_are_listed_in_required() {
 #[test]
 fn required_names_without_a_property_are_ignored() {
     let forge = parse(&responding_with(
-        r#"{"type": "object", "required": ["port", "protocol"], "properties": {"port": {"type": "integer"}}}"#,
+        r#"{
+          "type": "object",
+          "required": ["port", "protocol"],
+          "properties": {
+            "port": {
+              "type": "integer"
+            }
+          }
+        }"#,
     ));
 
     let object = object(response_type(&forge, "a.get"));
@@ -38,7 +64,15 @@ fn required_names_without_a_property_are_ignored() {
 #[test]
 fn field_is_named_by_x_forge_property_name() {
     let forge = parse(&responding_with(
-        r#"{"type": "object", "properties": {"owner": {"type": "string", "x-forge-property-name": "person"}}}"#,
+        r#"{
+          "type": "object",
+          "properties": {
+            "owner": {
+              "type": "string",
+              "x-forge-property-name": "person"
+            }
+          }
+        }"#,
     ));
 
     let owner = field(object(response_type(&forge, "a.get")), "owner");
@@ -48,7 +82,14 @@ fn field_is_named_by_x_forge_property_name() {
 #[test]
 fn field_is_named_after_its_property() {
     let forge = parse(&responding_with(
-        r#"{"type": "object", "properties": {"created_at": {"type": "string"}}}"#,
+        r#"{
+          "type": "object",
+          "properties": {
+            "created_at": {
+              "type": "string"
+            }
+          }
+        }"#,
     ));
 
     let created_at = field(object(response_type(&forge, "a.get")), "created_at");
@@ -58,7 +99,16 @@ fn field_is_named_after_its_property() {
 #[test]
 fn field_has_the_description_and_deprecation_of_its_property() {
     let forge = parse(&responding_with(
-        r#"{"type": "object", "properties": {"old": {"type": "string", "description": "Old.", "deprecated": true}}}"#,
+        r#"{
+          "type": "object",
+          "properties": {
+            "old": {
+              "type": "string",
+              "description": "Old.",
+              "deprecated": true
+            }
+          }
+        }"#,
     ));
 
     let old = field(object(response_type(&forge, "a.get")), "old");
@@ -69,7 +119,15 @@ fn field_has_the_description_and_deprecation_of_its_property() {
 #[test]
 fn field_is_read_only_when_its_property_is() {
     let forge = parse(&responding_with(
-        r#"{"type": "object", "properties": {"id": {"type": "string", "readOnly": true}}}"#,
+        r#"{
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "readOnly": true
+            }
+          }
+        }"#,
     ));
 
     assert!(field(object(response_type(&forge, "a.get")), "id").is_read_only());
@@ -78,7 +136,19 @@ fn field_is_read_only_when_its_property_is() {
 #[test]
 fn field_is_neither_read_only_nor_sensitive_by_default() {
     let forge = parse(&responding_with(
-        r#"{"type": "object", "properties": {"name": {"type": "string"}, "shown": {"type": "string", "readOnly": false, "x-forge-sensitive": false}}}"#,
+        r#"{
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string"
+            },
+            "shown": {
+              "type": "string",
+              "readOnly": false,
+              "x-forge-sensitive": false
+            }
+          }
+        }"#,
     ));
 
     let object = object(response_type(&forge, "a.get"));
@@ -91,7 +161,15 @@ fn field_is_neither_read_only_nor_sensitive_by_default() {
 #[test]
 fn read_only_that_is_not_a_boolean_is_an_error() {
     let err = parse_err(&responding_with(
-        r#"{"type": "object", "properties": {"id": {"type": "string", "readOnly": "yes"}}}"#,
+        r#"{
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "readOnly": "yes"
+            }
+          }
+        }"#,
     ));
 
     assert!(err.contains("expected a boolean"), "{err}");
@@ -100,7 +178,15 @@ fn read_only_that_is_not_a_boolean_is_an_error() {
 #[test]
 fn field_is_sensitive_when_its_property_is() {
     let forge = parse(&responding_with(
-        r#"{"type": "object", "properties": {"password": {"type": "string", "x-forge-sensitive": true}}}"#,
+        r#"{
+          "type": "object",
+          "properties": {
+            "password": {
+              "type": "string",
+              "x-forge-sensitive": true
+            }
+          }
+        }"#,
     ));
 
     assert!(field(object(response_type(&forge, "a.get")), "password").is_sensitive());
@@ -109,7 +195,15 @@ fn field_is_sensitive_when_its_property_is() {
 #[test]
 fn sensitive_that_is_not_a_boolean_is_an_error() {
     let err = parse_err(&responding_with(
-        r#"{"type": "object", "properties": {"password": {"type": "string", "x-forge-sensitive": "true"}}}"#,
+        r#"{
+          "type": "object",
+          "properties": {
+            "password": {
+              "type": "string",
+              "x-forge-sensitive": "true"
+            }
+          }
+        }"#,
     ));
 
     assert!(err.contains("expected a boolean"), "{err}");
@@ -118,7 +212,15 @@ fn sensitive_that_is_not_a_boolean_is_an_error() {
 #[test]
 fn property_named_ref_is_a_field() {
     let forge = parse(&responding_with(
-        r#"{"type": "object", "properties": {"$ref": {"type": "string", "format": "uri"}}}"#,
+        r#"{
+          "type": "object",
+          "properties": {
+            "$ref": {
+              "type": "string",
+              "format": "uri"
+            }
+          }
+        }"#,
     ));
 
     assert_eq!(field_names(object(response_type(&forge, "a.get"))), ["$ref"]);
@@ -126,14 +228,26 @@ fn property_named_ref_is_a_field() {
 
 #[test]
 fn properties_without_a_type_are_an_object() {
-    let forge = parse(&responding_with(r#"{"properties": {"id": {"type": "string"}}}"#));
+    let forge = parse(&responding_with(
+        r#"{
+          "properties": {
+            "id": {
+              "type": "string"
+            }
+          }
+        }"#,
+    ));
 
     assert_eq!(field_names(object(response_type(&forge, "a.get"))), ["id"]);
 }
 
 #[test]
 fn object_without_properties_allows_any_keys() {
-    let forge = parse(&responding_with(r#"{"type": "object"}"#));
+    let forge = parse(&responding_with(
+        r#"{
+          "type": "object"
+        }"#,
+    ));
 
     let object = object(response_type(&forge, "a.get"));
     assert_eq!(object.fields().len(), 0);
@@ -143,7 +257,15 @@ fn object_without_properties_allows_any_keys() {
 #[test]
 fn additional_properties_true_allows_any_other_keys() {
     let forge = parse(&responding_with(
-        r#"{"type": "object", "properties": {"id": {"type": "string"}}, "additionalProperties": true}"#,
+        r#"{
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string"
+            }
+          },
+          "additionalProperties": true
+        }"#,
     ));
 
     let object = object(response_type(&forge, "a.get"));
@@ -154,7 +276,15 @@ fn additional_properties_true_allows_any_other_keys() {
 #[test]
 fn additional_properties_false_with_properties_allows_no_other_keys() {
     let forge = parse(&responding_with(
-        r#"{"type": "object", "properties": {"id": {"type": "string"}}, "additionalProperties": false}"#,
+        r#"{
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string"
+            }
+          },
+          "additionalProperties": false
+        }"#,
     ));
 
     assert!(object(response_type(&forge, "a.get")).extra().is_none());
@@ -162,7 +292,12 @@ fn additional_properties_false_with_properties_allows_no_other_keys() {
 
 #[test]
 fn additional_properties_false_without_properties_is_the_empty_object() {
-    let forge = parse(&responding_with(r#"{"type": "object", "additionalProperties": false}"#));
+    let forge = parse(&responding_with(
+        r#"{
+          "type": "object",
+          "additionalProperties": false
+        }"#,
+    ));
 
     let object = object(response_type(&forge, "a.get"));
     assert_eq!(object.fields().len(), 0);
@@ -172,7 +307,12 @@ fn additional_properties_false_without_properties_is_the_empty_object() {
 #[test]
 fn additional_properties_schema_is_the_type_of_other_keys() {
     let forge = parse(&responding_with(
-        r#"{"type": "object", "additionalProperties": {"type": "integer"}}"#,
+        r#"{
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer"
+          }
+        }"#,
     ));
 
     let object = object(response_type(&forge, "a.get"));
@@ -182,7 +322,12 @@ fn additional_properties_schema_is_the_type_of_other_keys() {
 
 #[test]
 fn empty_additional_properties_schema_is_unknown() {
-    let forge = parse(&responding_with(r#"{"type": "object", "additionalProperties": {}}"#));
+    let forge = parse(&responding_with(
+        r#"{
+          "type": "object",
+          "additionalProperties": {}
+        }"#,
+    ));
 
     assert_eq!(
         scalar(object(response_type(&forge, "a.get")).extra().unwrap()),
@@ -194,11 +339,41 @@ fn empty_additional_properties_schema_is_unknown() {
 fn pattern_properties_are_ignored() {
     let forge = parse(
         r#"{
-          "openapi": "3.1.0", "info": {"title": "t", "version": "1"},
-          "paths": {"/a": {"get": {"x-forge-group-name": "a", "x-forge-method-name": "get",
-            "responses": {"200": {"description": "ok", "content": {"application/json": {"schema": {
-              "type": "object", "properties": {"id": {"type": "string"}}, "patternProperties": {"^x-": {"type": "string"}}
-            }}}}}}}}
+          "openapi": "3.1.0",
+          "info": {
+            "title": "t",
+            "version": "1"
+          },
+          "paths": {
+            "/a": {
+              "get": {
+                "x-forge-group-name": "a",
+                "x-forge-method-name": "get",
+                "responses": {
+                  "200": {
+                    "description": "ok",
+                    "content": {
+                      "application/json": {
+                        "schema": {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string"
+                            }
+                          },
+                          "patternProperties": {
+                            "^x-": {
+                              "type": "string"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
         }"#,
     );
 
@@ -211,11 +386,37 @@ fn pattern_properties_are_ignored() {
 fn false_property_is_no_field() {
     let forge = parse(
         r#"{
-          "openapi": "3.1.0", "info": {"title": "t", "version": "1"},
-          "paths": {"/a": {"get": {"x-forge-group-name": "a", "x-forge-method-name": "get",
-            "responses": {"200": {"description": "ok", "content": {"application/json": {"schema": {
-              "type": "object", "properties": {"id": {"type": "string"}, "gone": false}
-            }}}}}}}}
+          "openapi": "3.1.0",
+          "info": {
+            "title": "t",
+            "version": "1"
+          },
+          "paths": {
+            "/a": {
+              "get": {
+                "x-forge-group-name": "a",
+                "x-forge-method-name": "get",
+                "responses": {
+                  "200": {
+                    "description": "ok",
+                    "content": {
+                      "application/json": {
+                        "schema": {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string"
+                            },
+                            "gone": false
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
         }"#,
     );
 
@@ -225,7 +426,18 @@ fn false_property_is_no_field() {
 #[test]
 fn property_skipped_by_x_forge_skip_is_no_field() {
     let forge = parse(&responding_with(
-        r#"{"type": "object", "properties": {"id": {"type": "string"}, "old_id": {"type": "string", "x-forge-skip": true}}}"#,
+        r#"{
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string"
+            },
+            "old_id": {
+              "type": "string",
+              "x-forge-skip": true
+            }
+          }
+        }"#,
     ));
 
     assert_eq!(field_names(object(response_type(&forge, "a.get"))), ["id"]);
@@ -234,7 +446,17 @@ fn property_skipped_by_x_forge_skip_is_no_field() {
 #[test]
 fn fields_with_equal_names_are_an_error() {
     let err = parse_err(&responding_with(
-        r#"{"type": "object", "properties": {"user_id": {"type": "string"}, "userId": {"type": "string"}}}"#,
+        r#"{
+          "type": "object",
+          "properties": {
+            "user_id": {
+              "type": "string"
+            },
+            "userId": {
+              "type": "string"
+            }
+          }
+        }"#,
     ));
 
     assert!(err.contains("user_id") && err.contains("userId"), "{err}");
@@ -243,12 +465,27 @@ fn fields_with_equal_names_are_an_error() {
 #[test]
 fn field_has_the_default_of_its_property() {
     let forge = parse(&responding_with(
-        r#"{"type": "object", "properties": {
-          "name": {"type": "string", "default": "pet"},
-          "limit": {"type": "integer", "default": 20},
-          "ratio": {"type": "number", "default": 0.5},
-          "enabled": {"type": "boolean", "default": false}
-        }}"#,
+        r#"{
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string",
+              "default": "pet"
+            },
+            "limit": {
+              "type": "integer",
+              "default": 20
+            },
+            "ratio": {
+              "type": "number",
+              "default": 0.5
+            },
+            "enabled": {
+              "type": "boolean",
+              "default": false
+            }
+          }
+        }"#,
     ));
 
     let object = object(response_type(&forge, "a.get"));
@@ -261,10 +498,25 @@ fn field_has_the_default_of_its_property() {
 #[test]
 fn object_and_array_defaults_are_kept_as_written() {
     let forge = parse(&responding_with(
-        r#"{"type": "object", "properties": {
-          "settings": {"type": "object", "default": {"b": 1, "a": [true]}},
-          "tags": {"type": "array", "items": {"type": "string"}, "default": ["x", "y"]}
-        }}"#,
+        r#"{
+          "type": "object",
+          "properties": {
+            "settings": {
+              "type": "object",
+              "default": {
+                "b": 1,
+                "a": [true]
+              }
+            },
+            "tags": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "default": ["x", "y"]
+            }
+          }
+        }"#,
     ));
 
     let object = object(response_type(&forge, "a.get"));
@@ -280,7 +532,19 @@ fn object_and_array_defaults_are_kept_as_written() {
 #[test]
 fn null_default_is_apart_from_no_default() {
     let forge = parse(&responding_with(
-        r#"{"type": "object", "properties": {"parent": {"type": "string", "nullable": true, "default": null}, "name": {"type": "string"}}}"#,
+        r#"{
+          "type": "object",
+          "properties": {
+            "parent": {
+              "type": "string",
+              "nullable": true,
+              "default": null
+            },
+            "name": {
+              "type": "string"
+            }
+          }
+        }"#,
     ));
 
     let object = object(response_type(&forge, "a.get"));
@@ -291,7 +555,15 @@ fn null_default_is_apart_from_no_default() {
 #[test]
 fn default_is_not_checked_against_the_schema() {
     let forge = parse(&responding_with(
-        r#"{"type": "object", "properties": {"limit": {"type": "integer", "default": "ten"}}}"#,
+        r#"{
+          "type": "object",
+          "properties": {
+            "limit": {
+              "type": "integer",
+              "default": "ten"
+            }
+          }
+        }"#,
     ));
 
     let limit = field(object(response_type(&forge, "a.get")), "limit");
@@ -302,7 +574,15 @@ fn default_is_not_checked_against_the_schema() {
 fn x_sensitive_is_not_read() {
     // `forge normalize` rewrites it, to `x-forge-sensitive`, which is.
     let forge = parse(&responding_with(
-        r#"{"type": "object", "properties": {"password": {"type": "string", "x-sensitive": true}}}"#,
+        r#"{
+          "type": "object",
+          "properties": {
+            "password": {
+              "type": "string",
+              "x-sensitive": true
+            }
+          }
+        }"#,
     ));
 
     assert!(!field(object(response_type(&forge, "a.get")), "password").is_sensitive());
@@ -311,9 +591,16 @@ fn x_sensitive_is_not_read() {
 #[test]
 fn vendor_name_and_skip_extensions_are_not_read() {
     let forge = parse(&responding_with(
-        r#"{"type": "object", "properties": {"wire_name": {
-          "type": "string", "x-fern-property-name": "renamed", "x-stainless-skip": true
-        }}}"#,
+        r#"{
+          "type": "object",
+          "properties": {
+            "wire_name": {
+              "type": "string",
+              "x-fern-property-name": "renamed",
+              "x-stainless-skip": true
+            }
+          }
+        }"#,
     ));
 
     let object = object(response_type(&forge, "a.get"));
@@ -324,7 +611,16 @@ fn vendor_name_and_skip_extensions_are_not_read() {
 #[test]
 fn sensitive_written_twice_is_an_error_naming_it() {
     let err = parse_err(&responding_with(
-        r#"{"type": "object", "properties": {"password": {"type": "string", "x-forge-sensitive": true, "x-forge-sensitive": true}}}"#,
+        r#"{
+          "type": "object",
+          "properties": {
+            "password": {
+              "type": "string",
+              "x-forge-sensitive": true,
+              "x-forge-sensitive": true
+            }
+          }
+        }"#,
     ));
 
     assert!(err.contains("duplicate field `x-forge-sensitive`"), "{err}");

@@ -6,21 +6,35 @@ use crate::common::{
 
 #[test]
 fn nullable_is_a_union_with_null() {
-    let forge = parse(&responding_with(r#"{"type": "string", "nullable": true}"#));
+    let forge = parse(&responding_with(
+        r#"{
+          "type": "string",
+          "nullable": true
+        }"#,
+    ));
 
     assert_eq!(scalar(non_null(response_type(&forge, "a.get"))), Scalar::String);
 }
 
 #[test]
 fn nullable_false_is_not_a_union() {
-    let forge = parse(&responding_with(r#"{"type": "string", "nullable": false}"#));
+    let forge = parse(&responding_with(
+        r#"{
+          "type": "string",
+          "nullable": false
+        }"#,
+    ));
 
     assert_eq!(scalar(response_type(&forge, "a.get")), Scalar::String);
 }
 
 #[test]
 fn nullable_unknown_is_unknown() {
-    let forge = parse(&responding_with(r#"{"nullable": true}"#));
+    let forge = parse(&responding_with(
+        r#"{
+          "nullable": true
+        }"#,
+    ));
 
     assert_eq!(scalar(response_type(&forge, "a.get")), Scalar::Unknown);
 }
@@ -28,7 +42,11 @@ fn nullable_unknown_is_unknown() {
 #[test]
 fn nullable_enum_is_a_union_with_null() {
     let forge = parse(&responding_with(
-        r#"{"type": "string", "enum": ["a", "b"], "nullable": true}"#,
+        r#"{
+          "type": "string",
+          "enum": ["a", "b"],
+          "nullable": true
+        }"#,
     ));
 
     let a_b = [EnumValue::String("a"), EnumValue::String("b")];
@@ -37,7 +55,12 @@ fn nullable_enum_is_a_union_with_null() {
 
 #[test]
 fn null_in_an_enum_is_a_union_with_null() {
-    let forge = parse(&responding_with(r#"{"type": "string", "enum": ["a", null]}"#));
+    let forge = parse(&responding_with(
+        r#"{
+          "type": "string",
+          "enum": ["a", null]
+        }"#,
+    ));
 
     let a = [EnumValue::String("a")];
     assert_eq!(values(non_null(response_type(&forge, "a.get"))), a);
@@ -46,7 +69,11 @@ fn null_in_an_enum_is_a_union_with_null() {
 #[test]
 fn enum_of_only_null_is_null() {
     let forge = parse(&responding_with(
-        r#"{"type": "object", "enum": [null], "nullable": true}"#,
+        r#"{
+          "type": "object",
+          "enum": [null],
+          "nullable": true
+        }"#,
     ));
 
     assert_eq!(scalar(response_type(&forge, "a.get")), Scalar::Null);
@@ -55,7 +82,17 @@ fn enum_of_only_null_is_null() {
 #[test]
 fn nullable_union_has_null_as_a_member() {
     let forge = parse(&responding_with(
-        r#"{"nullable": true, "oneOf": [{"type": "string"}, {"type": "boolean"}]}"#,
+        r#"{
+          "nullable": true,
+          "oneOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "boolean"
+            }
+          ]
+        }"#,
     ));
 
     assert_eq!(kinds(response_type(&forge, "a.get")), ["Boolean", "Null", "String"]);
@@ -64,7 +101,17 @@ fn nullable_union_has_null_as_a_member() {
 #[test]
 fn nullable_member_of_a_union_is_null_in_the_union() {
     let forge = parse(&responding_with(
-        r#"{"oneOf": [{"type": "string", "nullable": true}, {"type": "boolean"}]}"#,
+        r#"{
+          "oneOf": [
+            {
+              "type": "string",
+              "nullable": true
+            },
+            {
+              "type": "boolean"
+            }
+          ]
+        }"#,
     ));
 
     assert_eq!(kinds(response_type(&forge, "a.get")), ["Boolean", "Null", "String"]);
@@ -72,7 +119,18 @@ fn nullable_member_of_a_union_is_null_in_the_union() {
 
 #[test]
 fn null_enum_member_of_a_union_is_null() {
-    let forge = parse(&responding_with(r#"{"anyOf": [{"type": "string"}, {"enum": [null]}]}"#));
+    let forge = parse(&responding_with(
+        r#"{
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "enum": [null]
+            }
+          ]
+        }"#,
+    ));
 
     assert_eq!(kinds(response_type(&forge, "a.get")), ["Null", "String"]);
 }
@@ -80,8 +138,19 @@ fn null_enum_member_of_a_union_is_null() {
 #[test]
 fn nullable_all_of_is_a_union_with_null() {
     let forge = parse(&responding_with_schemas(
-        r##"{"allOf": [{"$ref": "#/components/schemas/Reason"}], "nullable": true}"##,
-        r#"{"Reason": {"type": "string"}}"#,
+        r##"{
+          "allOf": [
+            {
+              "$ref": "#/components/schemas/Reason"
+            }
+          ],
+          "nullable": true
+        }"##,
+        r#"{
+          "Reason": {
+            "type": "string"
+          }
+        }"#,
     ));
 
     assert_eq!(
@@ -94,11 +163,32 @@ fn nullable_all_of_is_a_union_with_null() {
 fn nullable_is_read_in_3_1() {
     let forge = parse(
         r#"{
-          "openapi": "3.1.0", "info": {"title": "t", "version": "1"},
-          "paths": {"/a": {"get": {"x-forge-group-name": "a", "x-forge-method-name": "get",
-            "responses": {"200": {"description": "ok", "content": {"application/json": {"schema": {
-              "type": "string", "nullable": true
-            }}}}}}}}
+          "openapi": "3.1.0",
+          "info": {
+            "title": "t",
+            "version": "1"
+          },
+          "paths": {
+            "/a": {
+              "get": {
+                "x-forge-group-name": "a",
+                "x-forge-method-name": "get",
+                "responses": {
+                  "200": {
+                    "description": "ok",
+                    "content": {
+                      "application/json": {
+                        "schema": {
+                          "type": "string",
+                          "nullable": true
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
         }"#,
     );
 
@@ -109,11 +199,31 @@ fn nullable_is_read_in_3_1() {
 fn null_in_a_type_array_is_a_union_with_null() {
     let forge = parse(
         r#"{
-          "openapi": "3.1.0", "info": {"title": "t", "version": "1"},
-          "paths": {"/a": {"get": {"x-forge-group-name": "a", "x-forge-method-name": "get",
-            "responses": {"200": {"description": "ok", "content": {"application/json": {"schema": {
-              "type": ["string", "null"]
-            }}}}}}}}
+          "openapi": "3.1.0",
+          "info": {
+            "title": "t",
+            "version": "1"
+          },
+          "paths": {
+            "/a": {
+              "get": {
+                "x-forge-group-name": "a",
+                "x-forge-method-name": "get",
+                "responses": {
+                  "200": {
+                    "description": "ok",
+                    "content": {
+                      "application/json": {
+                        "schema": {
+                          "type": ["string", "null"]
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
         }"#,
     );
 
@@ -124,11 +234,31 @@ fn null_in_a_type_array_is_a_union_with_null() {
 fn null_type_is_null() {
     let forge = parse(
         r#"{
-          "openapi": "3.1.0", "info": {"title": "t", "version": "1"},
-          "paths": {"/a": {"get": {"x-forge-group-name": "a", "x-forge-method-name": "get",
-            "responses": {"200": {"description": "ok", "content": {"application/json": {"schema": {
-              "type": "null"
-            }}}}}}}}
+          "openapi": "3.1.0",
+          "info": {
+            "title": "t",
+            "version": "1"
+          },
+          "paths": {
+            "/a": {
+              "get": {
+                "x-forge-group-name": "a",
+                "x-forge-method-name": "get",
+                "responses": {
+                  "200": {
+                    "description": "ok",
+                    "content": {
+                      "application/json": {
+                        "schema": {
+                          "type": "null"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
         }"#,
     );
 
@@ -139,11 +269,31 @@ fn null_type_is_null() {
 fn const_null_is_null() {
     let forge = parse(
         r#"{
-          "openapi": "3.1.0", "info": {"title": "t", "version": "1"},
-          "paths": {"/a": {"get": {"x-forge-group-name": "a", "x-forge-method-name": "get",
-            "responses": {"200": {"description": "ok", "content": {"application/json": {"schema": {
-              "const": null
-            }}}}}}}}
+          "openapi": "3.1.0",
+          "info": {
+            "title": "t",
+            "version": "1"
+          },
+          "paths": {
+            "/a": {
+              "get": {
+                "x-forge-group-name": "a",
+                "x-forge-method-name": "get",
+                "responses": {
+                  "200": {
+                    "description": "ok",
+                    "content": {
+                      "application/json": {
+                        "schema": {
+                          "const": null
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
         }"#,
     );
 
