@@ -219,6 +219,7 @@ world plugin {
     /// Generates files for the forge. Called exactly once.
     export generate: func() -> result<list<file>, string>;
     /// Generates files for a group. Called exactly once for each group, in
-    /// parallel with other groups, each in an instance of its own.
+    /// parallel with other groups. Instances are reused across groups of
+    /// the same forge.
     export generate-group: func(group: group-id) -> result<list<file>, string>;
 }
