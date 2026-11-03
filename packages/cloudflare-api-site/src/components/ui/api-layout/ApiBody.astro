@@ -9,17 +9,10 @@
  *
  * The status helper and `.nb-md` styles are kept inline here (rather than shared
  * lib/CSS files) so a docs-only site carries no extra API-specific files; the
- * auth→field projection lives in the co-located `./auth`. The operation's
- * request line is the `ApiEndpointCard` component.
+ * auth→field projection lives in the co-located `./auth`.
  */
-import { Aside } from "@/components/ui/aside";
-import { Badge } from "@/components/ui/badge";
-import { Banner } from "@/components/ui/banner";
 import TerraformDeclarations from "@/components/TerraformDeclarations.astro";
-import { Breadcrumbs } from "@/components/ui/breadcrumbs";
 import { ApiFieldList, ApiUnionExplorer } from "@/components/ui/api-field-row";
-import { PageActions } from "@/components/ui/page-actions";
-import ApiEndpointCard from "./ApiEndpointCard.astro";
 import ApiHome from "./ApiHome.astro";
 import ApiOperationList from "./ApiOperationList.astro";
 import ApiHomeChunk from "./ApiHomeChunk.astro";
@@ -27,8 +20,6 @@ import Icon from "@cloudflare/nimbus-docs/components/Icon.astro";
 import { authFields } from "./auth";
 import { cn } from "@/lib/cn";
 import { withBase } from "@cloudflare/nimbus-docs/runtime";
-import { API_HOME_LAST_MODIFIED } from "./home";
-import { config } from "virtual:nimbus/config";
 import type { ApiPageProps, ApiResponseView } from "@cloudflare/nimbus-docs/api";
 import type { ApiHome as ApiHomeView } from "@cloudflare/nimbus-docs/runtime";
 
@@ -44,11 +35,8 @@ const { page, home } = Astro.props;
 // reader without script can walk the whole list.
 const homeChunk = page.kind === "api" && home && home.part.number > 1 ? home.part : undefined;
 const homeNext = homeChunk && home?.parts[homeChunk.number];
-const title = homeChunk ? `${page.title}: endpoints ${homeChunk.start}–${homeChunk.end}` : page.title;
-const markdownUrl = page.markdownHref;
 const isHome = page.kind === "api";
 const intro = homeChunk ? undefined : page.descriptionHtml;
-const subtitle = isHome && !homeChunk ? config.description : undefined;
 
 const detail = (v: unknown): string => JSON.stringify(v);
 
@@ -100,82 +88,10 @@ const requestExamples =
         ? [{ ...page.example, id: "example", label: "Example" }]
         : [];
 
-// Cloudflare notices, from the Forge extensions the prepared spec keeps.
-const extensions = page.kind === "operation" ? page.extensions : undefined;
-const rawAvailability = extensions?.["x-fern-availability"];
-const availability = typeof rawAvailability === "string" ? { status: rawAvailability } : rawAvailability;
-const availabilityNote = !page.deprecated && availability?.message ? availability : undefined;
-const AVAILABILITY: Record<string, { text: string; variant: "info" | "success" | "caution" | "default" }> = {
-  alpha: { text: "Alpha", variant: "info" },
-  beta: { text: "Beta", variant: "info" },
-  preview: { text: "Preview", variant: "info" },
-  "generally-available": { text: "Generally Available", variant: "success" },
-  deprecated: { text: "Deprecated", variant: "caution" },
-  legacy: { text: "Legacy", variant: "default" },
-};
-const availabilityStatus = page.kind === "operation" && page.deprecated ? "deprecated" : availability?.status;
-const availabilityBadge = availabilityStatus
-  ? (AVAILABILITY[availabilityStatus] ?? { text: availabilityStatus.replaceAll("-", " "), variant: "default" as const })
-  : undefined;
-const requireConfirmation = extensions?.["x-forge-require-confirmation"];
-const terraform = extensions?.["x-cloudflare-terraform"];
-
-// Deprecation notice, built as sanitized HTML for the shared Banner (which takes
-// a content string, mirroring DocsLayout's version-deprecation banner).
-const esc = (s: string): string =>
-  s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
-const deprecationDetails = page.deprecated
-  ? [
-      availability?.message && ` ${esc(availability.message)}`,
-      page.deprecation?.successor &&
-        ` Use <a href="${esc(withBase(page.deprecation.successor.href, import.meta.env.BASE_URL))}">${esc(page.deprecation.successor.label)}</a> instead.`,
-      page.deprecation?.migrationHref && ` See the <a href="${esc(withBase(page.deprecation.migrationHref, import.meta.env.BASE_URL))}">migration guide</a>.`,
-    ].filter(Boolean)
-  : [];
-const deprecationHtml = !page.deprecated
-  ? null
-  : deprecationDetails.length > 0
-    ? `<strong>Deprecated.</strong>${deprecationDetails.join("")}`
-    : "This operation is deprecated.";
+const terraform = page.kind === "operation" ? page.extensions?.["x-cloudflare-terraform"] : undefined;
 ---
 
-<div data-pagefind-ignore>
-  <Breadcrumbs items={page.breadcrumbs} endsAtCurrentPage={false} class="pb-2" />
-  {deprecationHtml && <Banner variant="caution" content={deprecationHtml} />}
-  {availabilityNote && (
-    <Aside type="note" title={availabilityNote.status.replaceAll("-", " ")}>
-      <p>{availabilityNote.message}</p>
-    </Aside>
-  )}
-  {requireConfirmation && (
-    <Aside type="danger" title="Destructive operation">
-      <p>{requireConfirmation}</p>
-    </Aside>
-  )}
-</div>
-
-{/* Header order (locked): title → description → endpoint → page actions. The
-    endpoint bar carries the sidebar method chip + verb + path; page actions sit
-    beneath so they read as page-level utilities, not part of the endpoint. The
-    API home's description is its subtitle; the spec's intro follows as body. */}
-<div data-slot="page-header" class="mt-6 flex flex-col gap-4">
-  <div class="flex flex-wrap items-center gap-3">
-    <h1 class="mb-0 leading-tight text-foreground [text-wrap:balance]" style="font-size:var(--nb-h1-size);font-weight:var(--nb-h1-weight);letter-spacing:var(--nb-h1-tracking)">{title}</h1>
-    {availabilityBadge && <Badge text={availabilityBadge.text} variant={availabilityBadge.variant} size="medium" />}
-  </div>
-
-  {subtitle && <p data-slot="page-description" class="m-0 text-lg text-muted-foreground">{subtitle}</p>}
-
-  {!isHome && intro && <div class="nb-md text-muted-foreground [overflow-wrap:anywhere]" set:html={intro} />}
-
-  {page.kind === "operation" && (
-    <ApiEndpointCard method={page.method} path={page.path} server={page.server} isWebhook={page.isWebhook} />
-  )}
-
-  {!homeChunk && <PageActions markdownUrl={markdownUrl} lastUpdated={isHome ? API_HOME_LAST_MODIFIED : undefined} />}
-</div>
-
-<div class="mt-8 flex flex-col gap-8">
+<div class="flex flex-col gap-8">
   {isHome && intro && <div class="nb-md [overflow-wrap:anywhere]" set:html={intro} />}
   {page.kind === "operation" && (
     <>

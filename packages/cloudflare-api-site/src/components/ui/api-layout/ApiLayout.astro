@@ -15,6 +15,7 @@ import { ApiCodeRail } from "@/components/ui/api-code-rail";
 import { Banner } from "@/components/ui/banner";
 import { Pagination } from "@/components/ui/pagination";
 import ApiBody from "./ApiBody.astro";
+import ApiPageHeader from "./ApiPageHeader.astro";
 import { cn } from "@/lib/cn";
 import { getApiVersionHead, getVersionStatus, navBuildId, navStateScript, withBase } from "@cloudflare/nimbus-docs/runtime";
 import type { ApiNav, ApiPageProps } from "@cloudflare/nimbus-docs/api";
@@ -154,33 +155,41 @@ if (versionStatus?.isHidden || homePart) {
   {/* Reserve both desktop tracks before the streamed body/rail HTML arrives.
       Flex only reserves the rail's width once its later sibling is parsed,
       making long API bodies reflow sideways during navigation. */}
-  <div data-api-layout class={cn(
-    "flex min-w-0 flex-1 flex-col",
-    hasRail && "min-[90rem]:grid min-[90rem]:justify-center min-[90rem]:[--nb-content-max:40rem] min-[90rem]:grid-cols-[minmax(0,var(--nb-content-max))_var(--nb-code-rail-width)]",
-  )}>
-    <main id="main-content" tabindex="-1" class="min-w-0 flex-1" {...pagefindAttrs}>
-      <div class="mx-auto max-w-(--nb-content-max) px-4 md:px-8 pt-8 pb-12">
-        {pagefindDeprecated && <span hidden data-pagefind-filter="status:deprecated"></span>}
-        {versionStatus?.isDeprecated && (
-          <div data-pagefind-ignore>
-            <Banner
-              variant="caution"
-              class="mt-0 mb-6"
-              content={`<strong>${versionStatus.version}</strong> is deprecated. <a href="${currentSiblingHref}">See the latest version</a>.`}
-            />
-          </div>
-        )}
-        <ApiBody page={page} home={home} />
-        {nav.prevNext && !hasRail && <Pagination prevNext={nav.prevNext} data-pagefind-ignore />}
-      </div>
-    </main>
+  <main
+    id="main-content"
+    tabindex="-1"
+    data-api-layout
+    class={cn(
+      "flex min-w-0 flex-1 flex-col",
+      hasRail && "min-[90rem]:grid min-[90rem]:justify-center min-[90rem]:[--nb-content-max:40rem] min-[90rem]:grid-cols-[minmax(0,var(--nb-content-max))_var(--nb-code-rail-width)]",
+    )}
+    {...pagefindAttrs}
+  >
+    <div class={cn("mx-auto w-full max-w-(--nb-content-max) px-4 pt-8 md:px-8", hasRail && "min-[90rem]:col-span-2 min-[90rem]:max-w-none min-[90rem]:pe-6 min-[90rem]:[--api-header-measure:calc(var(--nb-content-max)-4rem)]")}>
+      {pagefindDeprecated && <span hidden data-pagefind-filter="status:deprecated"></span>}
+      {versionStatus?.isDeprecated && (
+        <div data-pagefind-ignore>
+          <Banner
+            variant="caution"
+            class="mt-0 mb-6"
+            content={`<strong>${versionStatus.version}</strong> is deprecated. <a href="${currentSiblingHref}">See the latest version</a>.`}
+          />
+        </div>
+      )}
+      <ApiPageHeader page={page} home={home} />
+    </div>
+
+    <div class={cn("mx-auto w-full max-w-(--nb-content-max) px-4 pt-8 pb-12 md:px-8", hasRail && "min-[90rem]:col-start-1 min-[90rem]:row-start-2")}>
+      <ApiBody page={page} home={home} />
+      {nav.prevNext && !hasRail && <Pagination prevNext={nav.prevNext} data-pagefind-ignore />}
+    </div>
 
     {/* Below 90rem the rail reflows inline beneath the body (samples are unique
         content, so they stay in the no-JS HTML for crawlability); at 90rem+ it
         becomes the sticky right column. The left padding keeps overflow-y-auto
         from clipping the LayerCard's outset ring at the scroll edge. */}
     {hasRail && (
-      <div class="mx-auto w-full max-w-(--nb-content-max) px-4 pb-12 md:px-8 min-[90rem]:col-start-2 min-[90rem]:row-span-2 min-[90rem]:row-start-1 min-[90rem]:mx-0 min-[90rem]:max-w-none min-[90rem]:sticky min-[90rem]:top-14 min-[90rem]:h-[calc(100vh-3.5rem)] min-[90rem]:w-(--nb-code-rail-width) min-[90rem]:shrink-0 min-[90rem]:overflow-y-auto min-[90rem]:pt-8 min-[90rem]:pe-6 min-[90rem]:pb-8 min-[90rem]:ps-1">
+      <div data-pagefind-ignore class="mx-auto w-full max-w-(--nb-content-max) px-4 pb-12 md:px-8 min-[90rem]:col-start-2 min-[90rem]:row-span-2 min-[90rem]:row-start-2 min-[90rem]:mx-0 min-[90rem]:max-w-none min-[90rem]:sticky min-[90rem]:top-14 min-[90rem]:max-h-[calc(100vh-3.5rem)] min-[90rem]:w-(--nb-code-rail-width) min-[90rem]:overflow-y-auto min-[90rem]:pt-8 min-[90rem]:pe-6 min-[90rem]:pb-8 min-[90rem]:ps-1">
         <ApiCodeRail
           responses={page.responses}
           samples={page.samples}
@@ -194,11 +203,11 @@ if (versionStatus?.isHidden || homePart) {
     {/* With a rail, previous/next sits after it, so on narrow screens the
         samples come before it; from 90rem it returns under the body. */}
     {hasRail && nav.prevNext && (
-      <div class="mx-auto w-full max-w-(--nb-content-max) px-4 pb-12 -mt-12 md:px-8 min-[90rem]:col-start-1 min-[90rem]:row-start-2">
+      <div class="mx-auto w-full max-w-(--nb-content-max) px-4 pb-12 -mt-12 md:px-8 min-[90rem]:col-start-1 min-[90rem]:row-start-3">
         <Pagination prevNext={nav.prevNext} data-pagefind-ignore />
       </div>
     )}
-  </div>
+  </main>
 </div>
 
 
