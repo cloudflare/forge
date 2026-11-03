@@ -56,7 +56,8 @@ approved zone mapping.
 ## Project ownership
 
 - `astro.config.mjs` installs Nimbus with the API entry from `forgeApi()` and the
-  Cloudflare adapter. API pages render on request.
+  Cloudflare adapter. API pages render on request. It lists the icons the site
+  uses, so only those reach the Worker; add an icon there before using it.
 - `src/forge-api.ts` builds the `astro-fern` content and prepares the spec, as
   above. `src/cloudflare.ts` holds the execution targets, snippets, and routing
   preferences it uses, and `src/version.ts` the API version.

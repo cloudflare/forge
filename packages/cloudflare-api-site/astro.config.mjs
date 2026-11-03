@@ -41,6 +41,29 @@ export default defineConfig({
   },
   integrations: [
     nimbus(nimbusConfig, {
+      icons: {
+        include: {
+          ph: [
+            'caret-down',
+            'caret-right',
+            'check',
+            'clock',
+            'copy',
+            'git-branch',
+            'info',
+            'lightbulb',
+            'list',
+            'markdown-logo',
+            'moon',
+            'pencil-simple',
+            'sun',
+            'warning',
+            'warning-circle',
+            'x',
+          ],
+          'simple-icons': ['go', 'python', 'terraform', 'typescript'],
+        },
+      },
       validateMdx: false,
       rules: {
         'nimbus/frontmatter-shape': 'error',
