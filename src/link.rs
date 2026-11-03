@@ -41,7 +41,10 @@ use openapi::{
 ///
 /// The methods come from the operations under `paths`, including those in
 /// `additionalOperations` and in path items reached by `$ref`, and from
-/// their aliases, as [`Method`](crate::Method) says. Webhooks, callbacks,
+/// their aliases, as [`Method`](crate::Method) says. Each is named by its
+/// `x-forge-group-name` and `x-forge-method-name`, or, without an
+/// `x-forge-method-name`, by an `operationId` such as `pets.list`, as
+/// [`Method::name`](crate::Method::name) says. Webhooks, callbacks,
 /// response headers, cookie parameters, security, and extensions these
 /// docs do not mention are ignored, except that those of an operation or
 /// alias are kept for [`Method::extensions`](crate::Method::extensions).
@@ -556,23 +559,36 @@ impl<'d> Builder<'d> {
         if definition.skip {
             return;
         }
-        if definition.method_name.is_empty() {
+        // `x-forge-method-name` names the method, with `x-forge-group-name`
+        // as its group path, or else an `operationId` with a dot does, as the
+        // group path and the name.
+        let (group_names, name, group_error, name_error): (Vec<Name>, Name, &str, &str) =
+            if !definition.method_name.is_empty() {
+                (
+                    doc.list(definition.group_names)
+                        .iter()
+                        .map(|&name| Name::new(doc.str(name)))
+                        .collect(),
+                    Name::new(doc.str(definition.method_name)),
+                    "x-forge-group-name has a group name with no letters or digits",
+                    "x-forge-method-name has no letters or digits",
+                )
+            } else if let Some((groups, name)) = doc.str(definition.operation_id).rsplit_once('.') {
+                (
+                    groups.split('.').map(Name::new).collect(),
+                    Name::new(name),
+                    "operationId has a group name with no letters or digits",
+                    "operationId has a method name with no letters or digits",
+                )
+            } else {
+                return;
+            };
+        if group_names.iter().any(Name::is_empty) {
+            self.error(group_error);
             return;
         }
-        let group_names: Vec<Name> = doc
-            .list(definition.group_names)
-            .iter()
-            .map(|&name| Name::new(doc.str(name)))
-            .collect();
-        for name in &group_names {
-            if name.is_empty() {
-                self.error("x-forge-group-name has a group name with no letters or digits");
-                return;
-            }
-        }
-        let name = Name::new(doc.str(definition.method_name));
         if name.is_empty() {
-            self.error("x-forge-method-name has no letters or digits");
+            self.error(name_error);
             return;
         }
         let mut availability = None;
