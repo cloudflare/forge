@@ -23,15 +23,11 @@ fn path_param_is_a_required_request_field() {
                     "name": "zone_id",
                     "in": "path",
                     "required": true,
-                    "schema": {
-                      "type": "string"
-                    }
+                    "schema": {"type": "string"}
                   }
                 ],
                 "responses": {
-                  "200": {
-                    "description": "OK"
-                  }
+                  "200": {"description": "OK"}
                 }
               }
             }
@@ -72,15 +68,11 @@ fn vendor_parameter_name_is_not_read() {
                     "name": "wire_name",
                     "in": "query",
                     "x-fern-parameter-name": "renamed",
-                    "schema": {
-                      "type": "string"
-                    }
+                    "schema": {"type": "string"}
                   }
                 ],
                 "responses": {
-                  "204": {
-                    "description": "ok"
-                  }
+                  "204": {"description": "ok"}
                 }
               }
             }
@@ -111,15 +103,11 @@ fn query_param_is_optional_and_exploded_by_default() {
                   {
                     "name": "page",
                     "in": "query",
-                    "schema": {
-                      "type": "integer"
-                    }
+                    "schema": {"type": "integer"}
                   }
                 ],
                 "responses": {
-                  "204": {
-                    "description": "ok"
-                  }
+                  "204": {"description": "ok"}
                 }
               }
             }
@@ -152,15 +140,11 @@ fn query_param_can_be_required() {
                     "name": "page",
                     "in": "query",
                     "required": true,
-                    "schema": {
-                      "type": "integer"
-                    }
+                    "schema": {"type": "integer"}
                   }
                 ],
                 "responses": {
-                  "204": {
-                    "description": "ok"
-                  }
+                  "204": {"description": "ok"}
                 }
               }
             }
@@ -194,16 +178,12 @@ fn query_param_with_explode_false_is_not_exploded() {
                     "explode": false,
                     "schema": {
                       "type": "array",
-                      "items": {
-                        "type": "string"
-                      }
+                      "items": {"type": "string"}
                     }
                   }
                 ],
                 "responses": {
-                  "204": {
-                    "description": "ok"
-                  }
+                  "204": {"description": "ok"}
                 }
               }
             }
@@ -234,22 +214,16 @@ fn header_and_cookie_params_are_not_fields() {
                   {
                     "name": "X-Trace",
                     "in": "header",
-                    "schema": {
-                      "type": "string"
-                    }
+                    "schema": {"type": "string"}
                   },
                   {
                     "name": "session",
                     "in": "cookie",
-                    "schema": {
-                      "type": "string"
-                    }
+                    "schema": {"type": "string"}
                   }
                 ],
                 "responses": {
-                  "204": {
-                    "description": "ok"
-                  }
+                  "204": {"description": "ok"}
                 }
               }
             }
@@ -280,15 +254,11 @@ fn param_field_is_named_by_x_forge_parameter_name() {
                     "name": "q",
                     "in": "query",
                     "x-forge-parameter-name": "query",
-                    "schema": {
-                      "type": "string"
-                    }
+                    "schema": {"type": "string"}
                   }
                 ],
                 "responses": {
-                  "204": {
-                    "description": "ok"
-                  }
+                  "204": {"description": "ok"}
                 }
               }
             }
@@ -334,9 +304,7 @@ fn param_description_falls_back_to_an_inline_schema() {
                   }
                 ],
                 "responses": {
-                  "204": {
-                    "description": "ok"
-                  }
+                  "204": {"description": "ok"}
                 }
               }
             }
@@ -368,22 +336,16 @@ fn param_description_comes_from_a_ref_schema() {
                     "name": "own",
                     "in": "query",
                     "description": "Param.",
-                    "schema": {
-                      "$ref": "#/components/schemas/Id"
-                    }
+                    "schema": {"$ref": "#/components/schemas/Id"}
                   },
                   {
                     "name": "id",
                     "in": "query",
-                    "schema": {
-                      "$ref": "#/components/schemas/Id"
-                    }
+                    "schema": {"$ref": "#/components/schemas/Id"}
                   }
                 ],
                 "responses": {
-                  "204": {
-                    "description": "ok"
-                  }
+                  "204": {"description": "ok"}
                 }
               }
             }
@@ -423,24 +385,18 @@ fn param_description_follows_a_chain_of_refs() {
                     "name": "id",
                     "in": "path",
                     "required": true,
-                    "schema": {
-                      "$ref": "#/components/schemas/Id"
-                    }
+                    "schema": {"$ref": "#/components/schemas/Id"}
                   }
                 ],
                 "responses": {
-                  "204": {
-                    "description": "ok"
-                  }
+                  "204": {"description": "ok"}
                 }
               }
             }
           },
           "components": {
             "schemas": {
-              "Id": {
-                "$ref": "#/components/schemas/Uuid"
-              },
+              "Id": {"$ref": "#/components/schemas/Uuid"},
               "Uuid": {
                 "type": "string",
                 "description": "A UUID."
@@ -472,9 +428,7 @@ fn param_description_is_never_a_schema_title() {
                   {
                     "name": "id",
                     "in": "query",
-                    "schema": {
-                      "$ref": "#/components/schemas/Id"
-                    }
+                    "schema": {"$ref": "#/components/schemas/Id"}
                   },
                   {
                     "name": "inline",
@@ -486,9 +440,7 @@ fn param_description_is_never_a_schema_title() {
                   }
                 ],
                 "responses": {
-                  "204": {
-                    "description": "ok"
-                  }
+                  "204": {"description": "ok"}
                 }
               }
             }
@@ -534,9 +486,7 @@ fn description_next_to_a_param_schema_ref_is_its_own_in_3_1() {
                   }
                 ],
                 "responses": {
-                  "204": {
-                    "description": "ok"
-                  }
+                  "204": {"description": "ok"}
                 }
               }
             }
@@ -576,20 +526,14 @@ fn param_description_comes_from_an_all_of_member_in_3_1() {
                     "in": "query",
                     "schema": {
                       "allOf": [
-                        {
-                          "$ref": "#/components/schemas/Region"
-                        },
-                        {
-                          "default": "us"
-                        }
+                        {"$ref": "#/components/schemas/Region"},
+                        {"default": "us"}
                       ]
                     }
                   }
                 ],
                 "responses": {
-                  "204": {
-                    "description": "ok"
-                  }
+                  "204": {"description": "ok"}
                 }
               }
             }
@@ -629,20 +573,14 @@ fn param_description_from_an_all_of_member_is_ignored_in_3_0() {
                     "in": "query",
                     "schema": {
                       "allOf": [
-                        {
-                          "$ref": "#/components/schemas/Region"
-                        },
-                        {
-                          "default": "us"
-                        }
+                        {"$ref": "#/components/schemas/Region"},
+                        {"default": "us"}
                       ]
                     }
                   }
                 ],
                 "responses": {
-                  "204": {
-                    "description": "ok"
-                  }
+                  "204": {"description": "ok"}
                 }
               }
             }
@@ -683,9 +621,7 @@ fn param_ref_description_overrides_the_params_in_3_1() {
                   }
                 ],
                 "responses": {
-                  "204": {
-                    "description": "ok"
-                  }
+                  "204": {"description": "ok"}
                 }
               }
             }
@@ -696,9 +632,7 @@ fn param_ref_description_overrides_the_params_in_3_1() {
                 "name": "page",
                 "in": "query",
                 "description": "A page.",
-                "schema": {
-                  "type": "integer"
-                }
+                "schema": {"type": "integer"}
               }
             }
           }
@@ -730,9 +664,7 @@ fn param_ref_description_is_ignored_in_3_0() {
                   }
                 ],
                 "responses": {
-                  "204": {
-                    "description": "ok"
-                  }
+                  "204": {"description": "ok"}
                 }
               }
             }
@@ -743,9 +675,7 @@ fn param_ref_description_is_ignored_in_3_0() {
                 "name": "page",
                 "in": "query",
                 "description": "A page.",
-                "schema": {
-                  "type": "integer"
-                }
+                "schema": {"type": "integer"}
               }
             }
           }
@@ -771,14 +701,10 @@ fn param_ref_without_a_description_has_the_params() {
                 "x-forge-group-name": "a",
                 "x-forge-method-name": "list",
                 "parameters": [
-                  {
-                    "$ref": "#/components/parameters/Page"
-                  }
+                  {"$ref": "#/components/parameters/Page"}
                 ],
                 "responses": {
-                  "204": {
-                    "description": "ok"
-                  }
+                  "204": {"description": "ok"}
                 }
               }
             }
@@ -789,9 +715,7 @@ fn param_ref_without_a_description_has_the_params() {
                 "name": "page",
                 "in": "query",
                 "description": "A page.",
-                "schema": {
-                  "type": "integer"
-                }
+                "schema": {"type": "integer"}
               }
             }
           }
@@ -837,24 +761,18 @@ fn param_field_is_never_read_only() {
                   {
                     "name": "page",
                     "in": "query",
-                    "schema": {
-                      "$ref": "#/components/schemas/Page"
-                    }
+                    "schema": {"$ref": "#/components/schemas/Page"}
                   }
                 ],
                 "responses": {
-                  "204": {
-                    "description": "ok"
-                  }
+                  "204": {"description": "ok"}
                 }
               }
             }
           },
           "components": {
             "schemas": {
-              "Since": {
-                "type": "string"
-              },
+              "Since": {"type": "string"},
               "Page": {
                 "type": "integer",
                 "readOnly": true
@@ -905,9 +823,7 @@ fn query_string_property_is_never_read_only() {
                   }
                 ],
                 "responses": {
-                  "204": {
-                    "description": "ok"
-                  }
+                  "204": {"description": "ok"}
                 }
               }
             }
@@ -946,15 +862,11 @@ fn param_field_is_sensitive_when_its_schema_is() {
                   {
                     "name": "page",
                     "in": "query",
-                    "schema": {
-                      "type": "integer"
-                    }
+                    "schema": {"type": "integer"}
                   }
                 ],
                 "responses": {
-                  "204": {
-                    "description": "ok"
-                  }
+                  "204": {"description": "ok"}
                 }
               }
             }
@@ -985,24 +897,18 @@ fn param_field_is_sensitive_when_its_ref_schema_is() {
                   {
                     "name": "token",
                     "in": "query",
-                    "schema": {
-                      "$ref": "#/components/schemas/Token"
-                    }
+                    "schema": {"$ref": "#/components/schemas/Token"}
                   }
                 ],
                 "responses": {
-                  "204": {
-                    "description": "ok"
-                  }
+                  "204": {"description": "ok"}
                 }
               }
             }
           },
           "components": {
             "schemas": {
-              "Token": {
-                "$ref": "#/components/schemas/Secret"
-              },
+              "Token": {"$ref": "#/components/schemas/Secret"},
               "Secret": {
                 "type": "string",
                 "x-forge-sensitive": true
@@ -1040,18 +946,14 @@ fn sensitive_next_to_a_param_schema_ref_counts_in_3_0() {
                   }
                 ],
                 "responses": {
-                  "204": {
-                    "description": "ok"
-                  }
+                  "204": {"description": "ok"}
                 }
               }
             }
           },
           "components": {
             "schemas": {
-              "Token": {
-                "type": "string"
-              }
+              "Token": {"type": "string"}
             }
           }
         }"##,
@@ -1079,15 +981,11 @@ fn sensitive_on_the_param_itself_is_ignored() {
                     "name": "token",
                     "in": "query",
                     "x-forge-sensitive": true,
-                    "schema": {
-                      "type": "string"
-                    }
+                    "schema": {"type": "string"}
                   }
                 ],
                 "responses": {
-                  "204": {
-                    "description": "ok"
-                  }
+                  "204": {"description": "ok"}
                 }
               }
             }
@@ -1113,14 +1011,10 @@ fn param_ref_is_followed() {
                 "x-forge-group-name": "a",
                 "x-forge-method-name": "list",
                 "parameters": [
-                  {
-                    "$ref": "#/components/parameters/Page"
-                  }
+                  {"$ref": "#/components/parameters/Page"}
                 ],
                 "responses": {
-                  "204": {
-                    "description": "ok"
-                  }
+                  "204": {"description": "ok"}
                 }
               }
             }
@@ -1130,9 +1024,7 @@ fn param_ref_is_followed() {
               "Page": {
                 "name": "page",
                 "in": "query",
-                "schema": {
-                  "type": "integer"
-                }
+                "schema": {"type": "integer"}
               }
             }
           }
@@ -1160,27 +1052,21 @@ fn path_item_params_belong_to_each_operation() {
                   "name": "id",
                   "in": "path",
                   "required": true,
-                  "schema": {
-                    "type": "string"
-                  }
+                  "schema": {"type": "string"}
                 }
               ],
               "get": {
                 "x-forge-group-name": "a",
                 "x-forge-method-name": "get",
                 "responses": {
-                  "204": {
-                    "description": "ok"
-                  }
+                  "204": {"description": "ok"}
                 }
               },
               "delete": {
                 "x-forge-group-name": "a",
                 "x-forge-method-name": "delete",
                 "responses": {
-                  "204": {
-                    "description": "ok"
-                  }
+                  "204": {"description": "ok"}
                 }
               }
             }
@@ -1210,9 +1096,7 @@ fn operation_param_replaces_the_path_item_param() {
                 {
                   "name": "page",
                   "in": "query",
-                  "schema": {
-                    "type": "string"
-                  }
+                  "schema": {"type": "string"}
                 }
               ],
               "get": {
@@ -1222,15 +1106,11 @@ fn operation_param_replaces_the_path_item_param() {
                   {
                     "name": "page",
                     "in": "query",
-                    "schema": {
-                      "type": "integer"
-                    }
+                    "schema": {"type": "integer"}
                   }
                 ],
                 "responses": {
-                  "204": {
-                    "description": "ok"
-                  }
+                  "204": {"description": "ok"}
                 }
               }
             }
@@ -1258,9 +1138,7 @@ fn undeclared_path_placeholder_is_a_required_string() {
                 "x-forge-group-name": "a",
                 "x-forge-method-name": "get",
                 "responses": {
-                  "204": {
-                    "description": "ok"
-                  }
+                  "204": {"description": "ok"}
                 }
               }
             }
@@ -1290,9 +1168,7 @@ fn params_are_in_path_template_then_declared_order() {
                 {
                   "name": "item_query",
                   "in": "query",
-                  "schema": {
-                    "type": "string"
-                  }
+                  "schema": {"type": "string"}
                 }
               ],
               "get": {
@@ -1302,31 +1178,23 @@ fn params_are_in_path_template_then_declared_order() {
                   {
                     "name": "op_query",
                     "in": "query",
-                    "schema": {
-                      "type": "string"
-                    }
+                    "schema": {"type": "string"}
                   },
                   {
                     "name": "first",
                     "in": "path",
                     "required": true,
-                    "schema": {
-                      "type": "string"
-                    }
+                    "schema": {"type": "string"}
                   },
                   {
                     "name": "second",
                     "in": "path",
                     "required": true,
-                    "schema": {
-                      "type": "string"
-                    }
+                    "schema": {"type": "string"}
                   }
                 ],
                 "responses": {
-                  "204": {
-                    "description": "ok"
-                  }
+                  "204": {"description": "ok"}
                 }
               }
             }
@@ -1361,12 +1229,8 @@ fn query_string_object_is_query_fields() {
                         "schema": {
                           "type": "object",
                           "properties": {
-                            "status": {
-                              "type": "string"
-                            },
-                            "limit": {
-                              "type": "integer"
-                            }
+                            "status": {"type": "string"},
+                            "limit": {"type": "integer"}
                           }
                         }
                       }
@@ -1374,9 +1238,7 @@ fn query_string_object_is_query_fields() {
                   }
                 ],
                 "responses": {
-                  "204": {
-                    "description": "ok"
-                  }
+                  "204": {"description": "ok"}
                 }
               }
             }
@@ -1407,9 +1269,7 @@ fn no_params_and_no_body_is_no_request() {
                 "x-forge-group-name": "a",
                 "x-forge-method-name": "get",
                 "responses": {
-                  "204": {
-                    "description": "ok"
-                  }
+                  "204": {"description": "ok"}
                 }
               }
             }
@@ -1439,17 +1299,13 @@ fn body_without_params_is_the_request() {
                     "application/json": {
                       "schema": {
                         "type": "array",
-                        "items": {
-                          "type": "string"
-                        }
+                        "items": {"type": "string"}
                       }
                     }
                   }
                 },
                 "responses": {
-                  "204": {
-                    "description": "ok"
-                  }
+                  "204": {"description": "ok"}
                 }
               }
             }
@@ -1479,9 +1335,7 @@ fn object_body_is_intersected_with_the_params() {
                     "name": "id",
                     "in": "path",
                     "required": true,
-                    "schema": {
-                      "type": "string"
-                    }
+                    "schema": {"type": "string"}
                   }
                 ],
                 "requestBody": {
@@ -1490,18 +1344,14 @@ fn object_body_is_intersected_with_the_params() {
                       "schema": {
                         "type": "object",
                         "properties": {
-                          "name": {
-                            "type": "string"
-                          }
+                          "name": {"type": "string"}
                         }
                       }
                     }
                   }
                 },
                 "responses": {
-                  "204": {
-                    "description": "ok"
-                  }
+                  "204": {"description": "ok"}
                 }
               }
             }
@@ -1537,24 +1387,18 @@ fn model_body_is_intersected_with_the_params() {
                     "name": "id",
                     "in": "path",
                     "required": true,
-                    "schema": {
-                      "type": "string"
-                    }
+                    "schema": {"type": "string"}
                   }
                 ],
                 "requestBody": {
                   "content": {
                     "application/json": {
-                      "schema": {
-                        "$ref": "#/components/schemas/Pet"
-                      }
+                      "schema": {"$ref": "#/components/schemas/Pet"}
                     }
                   }
                 },
                 "responses": {
-                  "204": {
-                    "description": "ok"
-                  }
+                  "204": {"description": "ok"}
                 }
               }
             }
@@ -1564,9 +1408,7 @@ fn model_body_is_intersected_with_the_params() {
               "Pet": {
                 "type": "object",
                 "properties": {
-                  "name": {
-                    "type": "string"
-                  }
+                  "name": {"type": "string"}
                 }
               }
             }
@@ -1602,9 +1444,7 @@ fn union_body_is_intersected_with_the_params() {
                     "name": "id",
                     "in": "path",
                     "required": true,
-                    "schema": {
-                      "type": "string"
-                    }
+                    "schema": {"type": "string"}
                   }
                 ],
                 "requestBody": {
@@ -1612,21 +1452,15 @@ fn union_body_is_intersected_with_the_params() {
                     "application/json": {
                       "schema": {
                         "oneOf": [
-                          {
-                            "$ref": "#/components/schemas/Cat"
-                          },
-                          {
-                            "$ref": "#/components/schemas/Dog"
-                          }
+                          {"$ref": "#/components/schemas/Cat"},
+                          {"$ref": "#/components/schemas/Dog"}
                         ]
                       }
                     }
                   }
                 },
                 "responses": {
-                  "204": {
-                    "description": "ok"
-                  }
+                  "204": {"description": "ok"}
                 }
               }
             }
@@ -1636,17 +1470,13 @@ fn union_body_is_intersected_with_the_params() {
               "Cat": {
                 "type": "object",
                 "properties": {
-                  "meows": {
-                    "type": "boolean"
-                  }
+                  "meows": {"type": "boolean"}
                 }
               },
               "Dog": {
                 "type": "object",
                 "properties": {
-                  "barks": {
-                    "type": "boolean"
-                  }
+                  "barks": {"type": "boolean"}
                 }
               }
             }
@@ -1682,9 +1512,7 @@ fn array_body_is_the_last_field_of_the_params() {
                     "name": "id",
                     "in": "path",
                     "required": true,
-                    "schema": {
-                      "type": "string"
-                    }
+                    "schema": {"type": "string"}
                   }
                 ],
                 "requestBody": {
@@ -1692,17 +1520,13 @@ fn array_body_is_the_last_field_of_the_params() {
                     "application/json": {
                       "schema": {
                         "type": "array",
-                        "items": {
-                          "type": "string"
-                        }
+                        "items": {"type": "string"}
                       }
                     }
                   }
                 },
                 "responses": {
-                  "204": {
-                    "description": "ok"
-                  }
+                  "204": {"description": "ok"}
                 }
               }
             }
@@ -1737,9 +1561,7 @@ fn body_field_is_neither_read_only_nor_sensitive() {
                     "name": "id",
                     "in": "path",
                     "required": true,
-                    "schema": {
-                      "type": "string"
-                    }
+                    "schema": {"type": "string"}
                   }
                 ],
                 "requestBody": {
@@ -1747,9 +1569,7 @@ fn body_field_is_neither_read_only_nor_sensitive() {
                     "application/json": {
                       "schema": {
                         "type": "array",
-                        "items": {
-                          "type": "string"
-                        },
+                        "items": {"type": "string"},
                         "readOnly": true,
                         "x-forge-sensitive": true
                       }
@@ -1757,9 +1577,7 @@ fn body_field_is_neither_read_only_nor_sensitive() {
                   }
                 },
                 "responses": {
-                  "204": {
-                    "description": "ok"
-                  }
+                  "204": {"description": "ok"}
                 }
               }
             }
@@ -1789,9 +1607,7 @@ fn read_only_field_of_a_body_model_is_kept() {
                 "requestBody": {
                   "content": {
                     "application/json": {
-                      "schema": {
-                        "$ref": "#/components/schemas/Pet"
-                      }
+                      "schema": {"$ref": "#/components/schemas/Pet"}
                     }
                   }
                 },
@@ -1800,9 +1616,7 @@ fn read_only_field_of_a_body_model_is_kept() {
                     "description": "ok",
                     "content": {
                       "application/json": {
-                        "schema": {
-                          "$ref": "#/components/schemas/Pet"
-                        }
+                        "schema": {"$ref": "#/components/schemas/Pet"}
                       }
                     }
                   }
@@ -1819,9 +1633,7 @@ fn read_only_field_of_a_body_model_is_kept() {
                     "type": "string",
                     "readOnly": true
                   },
-                  "name": {
-                    "type": "string"
-                  }
+                  "name": {"type": "string"}
                 }
               }
             }
@@ -1854,9 +1666,7 @@ fn map_body_is_a_body_field() {
                     "name": "id",
                     "in": "path",
                     "required": true,
-                    "schema": {
-                      "type": "string"
-                    }
+                    "schema": {"type": "string"}
                   }
                 ],
                 "requestBody": {
@@ -1864,17 +1674,13 @@ fn map_body_is_a_body_field() {
                     "application/json": {
                       "schema": {
                         "type": "object",
-                        "additionalProperties": {
-                          "type": "string"
-                        }
+                        "additionalProperties": {"type": "string"}
                       }
                     }
                   }
                 },
                 "responses": {
-                  "204": {
-                    "description": "ok"
-                  }
+                  "204": {"description": "ok"}
                 }
               }
             }
@@ -1905,9 +1711,7 @@ fn unknown_body_is_a_body_field() {
                     "name": "id",
                     "in": "path",
                     "required": true,
-                    "schema": {
-                      "type": "string"
-                    }
+                    "schema": {"type": "string"}
                   }
                 ],
                 "requestBody": {
@@ -1918,9 +1722,7 @@ fn unknown_body_is_a_body_field() {
                   }
                 },
                 "responses": {
-                  "204": {
-                    "description": "ok"
-                  }
+                  "204": {"description": "ok"}
                 }
               }
             }
@@ -1951,9 +1753,7 @@ fn nullable_body_is_a_body_field() {
                     "name": "id",
                     "in": "path",
                     "required": true,
-                    "schema": {
-                      "type": "string"
-                    }
+                    "schema": {"type": "string"}
                   }
                 ],
                 "requestBody": {
@@ -1963,18 +1763,14 @@ fn nullable_body_is_a_body_field() {
                         "type": "object",
                         "nullable": true,
                         "properties": {
-                          "name": {
-                            "type": "string"
-                          }
+                          "name": {"type": "string"}
                         }
                       }
                     }
                   }
                 },
                 "responses": {
-                  "204": {
-                    "description": "ok"
-                  }
+                  "204": {"description": "ok"}
                 }
               }
             }
@@ -2005,9 +1801,7 @@ fn body_with_the_name_of_a_param_is_a_body_field() {
                     "name": "zone_id",
                     "in": "path",
                     "required": true,
-                    "schema": {
-                      "type": "string"
-                    }
+                    "schema": {"type": "string"}
                   }
                 ],
                 "requestBody": {
@@ -2016,21 +1810,15 @@ fn body_with_the_name_of_a_param_is_a_body_field() {
                       "schema": {
                         "type": "object",
                         "properties": {
-                          "zoneId": {
-                            "type": "string"
-                          },
-                          "name": {
-                            "type": "string"
-                          }
+                          "zoneId": {"type": "string"},
+                          "name": {"type": "string"}
                         }
                       }
                     }
                   }
                 },
                 "responses": {
-                  "204": {
-                    "description": "ok"
-                  }
+                  "204": {"description": "ok"}
                 }
               }
             }
@@ -2058,27 +1846,21 @@ fn field_of_another_method_has_no_location() {
                   "name": "id",
                   "in": "path",
                   "required": true,
-                  "schema": {
-                    "type": "string"
-                  }
+                  "schema": {"type": "string"}
                 }
               ],
               "get": {
                 "x-forge-group-name": "a",
                 "x-forge-method-name": "get",
                 "responses": {
-                  "204": {
-                    "description": "ok"
-                  }
+                  "204": {"description": "ok"}
                 }
               },
               "delete": {
                 "x-forge-group-name": "a",
                 "x-forge-method-name": "delete",
                 "responses": {
-                  "204": {
-                    "description": "ok"
-                  }
+                  "204": {"description": "ok"}
                 }
               }
             }
@@ -2111,9 +1893,7 @@ fn body_that_is_not_json_is_an_unknown_body_field() {
                     "name": "id",
                     "in": "path",
                     "required": true,
-                    "schema": {
-                      "type": "string"
-                    }
+                    "schema": {"type": "string"}
                   }
                 ],
                 "requestBody": {
@@ -2132,9 +1912,7 @@ fn body_that_is_not_json_is_an_unknown_body_field() {
                   }
                 },
                 "responses": {
-                  "204": {
-                    "description": "ok"
-                  }
+                  "204": {"description": "ok"}
                 }
               }
             }
@@ -2177,9 +1955,7 @@ fn body_that_is_only_multipart_is_an_unknown_request() {
                   }
                 },
                 "responses": {
-                  "204": {
-                    "description": "ok"
-                  }
+                  "204": {"description": "ok"}
                 }
               }
             }
@@ -2211,23 +1987,17 @@ fn path_param_missing_from_the_template_is_dropped() {
                     "name": "id",
                     "in": "path",
                     "required": true,
-                    "schema": {
-                      "type": "string"
-                    }
+                    "schema": {"type": "string"}
                   },
                   {
                     "name": "account_id",
                     "in": "path",
                     "required": true,
-                    "schema": {
-                      "type": "string"
-                    }
+                    "schema": {"type": "string"}
                   }
                 ],
                 "responses": {
-                  "204": {
-                    "description": "ok"
-                  }
+                  "204": {"description": "ok"}
                 }
               }
             }
@@ -2257,15 +2027,11 @@ fn deprecated_query_param_is_a_deprecated_field() {
                     "name": "page",
                     "in": "query",
                     "deprecated": true,
-                    "schema": {
-                      "type": "integer"
-                    }
+                    "schema": {"type": "integer"}
                   }
                 ],
                 "responses": {
-                  "204": {
-                    "description": "ok"
-                  }
+                  "204": {"description": "ok"}
                 }
               }
             }
@@ -2296,15 +2062,11 @@ fn deprecated_path_param_is_not_a_deprecated_field() {
                     "in": "path",
                     "required": true,
                     "deprecated": true,
-                    "schema": {
-                      "type": "string"
-                    }
+                    "schema": {"type": "string"}
                   }
                 ],
                 "responses": {
-                  "204": {
-                    "description": "ok"
-                  }
+                  "204": {"description": "ok"}
                 }
               }
             }
@@ -2334,9 +2096,7 @@ fn all_of_body_is_one_member_of_the_intersection() {
                     "name": "id",
                     "in": "path",
                     "required": true,
-                    "schema": {
-                      "type": "string"
-                    }
+                    "schema": {"type": "string"}
                   }
                 ],
                 "requestBody": {
@@ -2344,21 +2104,15 @@ fn all_of_body_is_one_member_of_the_intersection() {
                     "application/json": {
                       "schema": {
                         "allOf": [
-                          {
-                            "$ref": "#/components/schemas/A"
-                          },
-                          {
-                            "$ref": "#/components/schemas/B"
-                          }
+                          {"$ref": "#/components/schemas/A"},
+                          {"$ref": "#/components/schemas/B"}
                         ]
                       }
                     }
                   }
                 },
                 "responses": {
-                  "204": {
-                    "description": "ok"
-                  }
+                  "204": {"description": "ok"}
                 }
               }
             }
@@ -2368,17 +2122,13 @@ fn all_of_body_is_one_member_of_the_intersection() {
               "A": {
                 "type": "object",
                 "properties": {
-                  "a": {
-                    "type": "string"
-                  }
+                  "a": {"type": "string"}
                 }
               },
               "B": {
                 "type": "object",
                 "properties": {
-                  "b": {
-                    "type": "string"
-                  }
+                  "b": {"type": "string"}
                 }
               }
             }
@@ -2418,9 +2168,7 @@ fn param_with_content_is_an_error() {
                         "schema": {
                           "type": "object",
                           "properties": {
-                            "status": {
-                              "type": "string"
-                            }
+                            "status": {"type": "string"}
                           }
                         }
                       }
@@ -2428,9 +2176,7 @@ fn param_with_content_is_an_error() {
                   }
                 ],
                 "responses": {
-                  "204": {
-                    "description": "ok"
-                  }
+                  "204": {"description": "ok"}
                 }
               }
             }
@@ -2448,18 +2194,14 @@ fn query_style_other_than_form_is_an_error() {
             "spaceDelimited",
             r#"{
               "type": "array",
-              "items": {
-                "type": "string"
-              }
+              "items": {"type": "string"}
             }"#,
         ),
         (
             "pipeDelimited",
             r#"{
               "type": "array",
-              "items": {
-                "type": "string"
-              }
+              "items": {"type": "string"}
             }"#,
         ),
         (
@@ -2467,9 +2209,7 @@ fn query_style_other_than_form_is_an_error() {
             r#"{
               "type": "object",
               "properties": {
-                "status": {
-                  "type": "string"
-                }
+                "status": {"type": "string"}
               }
             }"#,
         ),
@@ -2495,9 +2235,7 @@ fn query_style_other_than_form_is_an_error() {
                       }}
                     ],
                     "responses": {{
-                      "204": {{
-                        "description": "ok"
-                      }}
+                      "204": {{"description": "ok"}}
                     }}
                   }}
                 }}
@@ -2529,9 +2267,7 @@ fn two_query_string_params_are_an_error() {
                     "in": "querystring",
                     "content": {
                       "application/x-www-form-urlencoded": {
-                        "schema": {
-                          "type": "object"
-                        }
+                        "schema": {"type": "object"}
                       }
                     }
                   },
@@ -2540,17 +2276,13 @@ fn two_query_string_params_are_an_error() {
                     "in": "querystring",
                     "content": {
                       "application/x-www-form-urlencoded": {
-                        "schema": {
-                          "type": "object"
-                        }
+                        "schema": {"type": "object"}
                       }
                     }
                   }
                 ],
                 "responses": {
-                  "204": {
-                    "description": "ok"
-                  }
+                  "204": {"description": "ok"}
                 }
               }
             }
@@ -2576,9 +2308,7 @@ fn query_and_query_string_params_are_an_error() {
                 {
                   "name": "page",
                   "in": "query",
-                  "schema": {
-                    "type": "integer"
-                  }
+                  "schema": {"type": "integer"}
                 }
               ],
               "get": {
@@ -2590,17 +2320,13 @@ fn query_and_query_string_params_are_an_error() {
                     "in": "querystring",
                     "content": {
                       "application/x-www-form-urlencoded": {
-                        "schema": {
-                          "type": "object"
-                        }
+                        "schema": {"type": "object"}
                       }
                     }
                   }
                 ],
                 "responses": {
-                  "204": {
-                    "description": "ok"
-                  }
+                  "204": {"description": "ok"}
                 }
               }
             }
@@ -2627,9 +2353,7 @@ fn body_field_is_required_when_the_body_is() {
                   "name": "id",
                   "in": "path",
                   "required": true,
-                  "schema": {
-                    "type": "string"
-                  }
+                  "schema": {"type": "string"}
                 }
               ],
               "put": {
@@ -2641,17 +2365,13 @@ fn body_field_is_required_when_the_body_is() {
                     "application/json": {
                       "schema": {
                         "type": "array",
-                        "items": {
-                          "type": "string"
-                        }
+                        "items": {"type": "string"}
                       }
                     }
                   }
                 },
                 "responses": {
-                  "204": {
-                    "description": "ok"
-                  }
+                  "204": {"description": "ok"}
                 }
               },
               "patch": {
@@ -2662,17 +2382,13 @@ fn body_field_is_required_when_the_body_is() {
                     "application/json": {
                       "schema": {
                         "type": "array",
-                        "items": {
-                          "type": "string"
-                        }
+                        "items": {"type": "string"}
                       }
                     }
                   }
                 },
                 "responses": {
-                  "204": {
-                    "description": "ok"
-                  }
+                  "204": {"description": "ok"}
                 }
               }
             }
@@ -2704,22 +2420,16 @@ fn params_with_equal_names_are_an_error() {
                     "name": "zone_id",
                     "in": "path",
                     "required": true,
-                    "schema": {
-                      "type": "string"
-                    }
+                    "schema": {"type": "string"}
                   },
                   {
                     "name": "zoneId",
                     "in": "query",
-                    "schema": {
-                      "type": "string"
-                    }
+                    "schema": {"type": "string"}
                   }
                 ],
                 "responses": {
-                  "204": {
-                    "description": "ok"
-                  }
+                  "204": {"description": "ok"}
                 }
               }
             }
@@ -2751,15 +2461,11 @@ fn path_style_other_than_simple_is_an_error() {
                         "in": "path",
                         "required": true,
                         "style": "{style}",
-                        "schema": {{
-                          "type": "string"
-                        }}
+                        "schema": {{"type": "string"}}
                       }}
                     ],
                     "responses": {{
-                      "204": {{
-                        "description": "ok"
-                      }}
+                      "204": {{"description": "ok"}}
                     }}
                   }}
                 }}
@@ -2797,15 +2503,11 @@ fn param_field_has_the_default_of_its_schema() {
                   {
                     "name": "page",
                     "in": "query",
-                    "schema": {
-                      "type": "integer"
-                    }
+                    "schema": {"type": "integer"}
                   }
                 ],
                 "responses": {
-                  "204": {
-                    "description": "ok"
-                  }
+                  "204": {"description": "ok"}
                 }
               }
             }
@@ -2837,18 +2539,12 @@ fn param_field_has_the_default_of_its_ref_schema() {
                     "name": "order",
                     "in": "path",
                     "required": true,
-                    "schema": {
-                      "$ref": "#/components/schemas/Order"
-                    }
+                    "schema": {"$ref": "#/components/schemas/Order"}
                   },
-                  {
-                    "$ref": "#/components/parameters/Direction"
-                  }
+                  {"$ref": "#/components/parameters/Direction"}
                 ],
                 "responses": {
-                  "204": {
-                    "description": "ok"
-                  }
+                  "204": {"description": "ok"}
                 }
               }
             }
@@ -2858,15 +2554,11 @@ fn param_field_has_the_default_of_its_ref_schema() {
               "Direction": {
                 "name": "direction",
                 "in": "query",
-                "schema": {
-                  "$ref": "#/components/schemas/Direction"
-                }
+                "schema": {"$ref": "#/components/schemas/Direction"}
               }
             },
             "schemas": {
-              "Order": {
-                "$ref": "#/components/schemas/Field"
-              },
+              "Order": {"$ref": "#/components/schemas/Field"},
               "Field": {
                 "type": "string",
                 "default": "name"
@@ -2911,9 +2603,7 @@ fn default_next_to_a_param_schema_ref_is_its_own_in_3_1() {
                   }
                 ],
                 "responses": {
-                  "204": {
-                    "description": "ok"
-                  }
+                  "204": {"description": "ok"}
                 }
               }
             }
@@ -2952,15 +2642,11 @@ fn default_on_the_param_itself_is_ignored() {
                     "name": "per_page",
                     "in": "query",
                     "default": 20,
-                    "schema": {
-                      "type": "integer"
-                    }
+                    "schema": {"type": "integer"}
                   }
                 ],
                 "responses": {
-                  "204": {
-                    "description": "ok"
-                  }
+                  "204": {"description": "ok"}
                 }
               }
             }
@@ -2993,18 +2679,14 @@ fn body_field_and_undeclared_placeholder_have_no_default() {
                     "application/json": {
                       "schema": {
                         "type": "array",
-                        "items": {
-                          "type": "string"
-                        },
+                        "items": {"type": "string"},
                         "default": ["x"]
                       }
                     }
                   }
                 },
                 "responses": {
-                  "204": {
-                    "description": "ok"
-                  }
+                  "204": {"description": "ok"}
                 }
               }
             }
@@ -3036,18 +2718,14 @@ fn array_body_keeps_its_max_items() {
                     "application/json": {
                       "schema": {
                         "type": "array",
-                        "items": {
-                          "type": "string"
-                        },
+                        "items": {"type": "string"},
                         "maxItems": 100
                       }
                     }
                   }
                 },
                 "responses": {
-                  "204": {
-                    "description": "ok"
-                  }
+                  "204": {"description": "ok"}
                 }
               }
             }

@@ -18,9 +18,7 @@ fn array_of_items() {
     let forge = parse(&responding_with(
         r#"{
           "type": "array",
-          "items": {
-            "type": "string"
-          }
+          "items": {"type": "string"}
         }"#,
     ));
 
@@ -60,9 +58,7 @@ fn arrays_with_different_minimums_keep_their_own_bounds() {
               "items": {},
               "minItems": 0
             },
-            "one": {
-              "$ref": "#/components/schemas/One"
-            },
+            "one": {"$ref": "#/components/schemas/One"},
             "any": {
               "items": {}
             }
@@ -133,9 +129,7 @@ fn empty_items_are_unknown() {
 fn items_without_a_type_are_an_array() {
     let forge = parse(&responding_with(
         r#"{
-          "items": {
-            "type": "string"
-          }
+          "items": {"type": "string"}
         }"#,
     ));
 
@@ -161,9 +155,7 @@ fn array_without_items_has_unknown_elements() {
                     "description": "ok",
                     "content": {
                       "application/json": {
-                        "schema": {
-                          "type": "array"
-                        }
+                        "schema": {"type": "array"}
                       }
                     }
                   }
@@ -199,12 +191,8 @@ fn tuple_is_unknown() {
                         "schema": {
                           "type": "array",
                           "prefixItems": [
-                            {
-                              "type": "string"
-                            },
-                            {
-                              "type": "integer"
-                            }
+                            {"type": "string"},
+                            {"type": "integer"}
                           ],
                           "items": false
                         }
@@ -226,9 +214,7 @@ fn max_items_is_the_most_elements() {
     let forge = parse(&responding_with(
         r#"{
           "type": "array",
-          "items": {
-            "type": "string"
-          },
+          "items": {"type": "string"},
           "maxItems": 3
         }"#,
     ));
@@ -241,9 +227,7 @@ fn array_without_max_items_has_no_limit() {
     let forge = parse(&responding_with(
         r#"{
           "type": "array",
-          "items": {
-            "type": "string"
-          }
+          "items": {"type": "string"}
         }"#,
     ));
 
@@ -271,9 +255,7 @@ fn max_items_of_an_array_property() {
           "properties": {
             "tags": {
               "type": "array",
-              "items": {
-                "type": "string"
-              },
+              "items": {"type": "string"},
               "maxItems": 20
             }
           }
@@ -292,23 +274,17 @@ fn arrays_of_the_same_items_with_different_limits_are_apart() {
           "properties": {
             "few": {
               "type": "array",
-              "items": {
-                "type": "string"
-              },
+              "items": {"type": "string"},
               "maxItems": 2
             },
             "many": {
               "type": "array",
-              "items": {
-                "type": "string"
-              },
+              "items": {"type": "string"},
               "maxItems": 50
             },
             "any": {
               "type": "array",
-              "items": {
-                "type": "string"
-              }
+              "items": {"type": "string"}
             }
           }
         }"#,
@@ -326,23 +302,17 @@ fn array_model_keeps_the_limit_of_its_schema() {
         r##"{
           "type": "object",
           "properties": {
-            "tags": {
-              "$ref": "#/components/schemas/Tags"
-            },
+            "tags": {"$ref": "#/components/schemas/Tags"},
             "names": {
               "type": "array",
-              "items": {
-                "type": "string"
-              }
+              "items": {"type": "string"}
             }
           }
         }"##,
         r#"{
           "Tags": {
             "type": "array",
-            "items": {
-              "type": "string"
-            },
+            "items": {"type": "string"},
             "maxItems": 5
           }
         }"#,

@@ -10,23 +10,15 @@ const A_AND_B: &str = r#"{
   "A": {
     "type": "object",
     "properties": {
-      "kind": {
-        "type": "string"
-      },
-      "a": {
-        "type": "string"
-      }
+      "kind": {"type": "string"},
+      "a": {"type": "string"}
     }
   },
   "B": {
     "type": "object",
     "properties": {
-      "kind": {
-        "type": "string"
-      },
-      "b": {
-        "type": "string"
-      }
+      "kind": {"type": "string"},
+      "b": {"type": "string"}
     }
   }
 }"#;
@@ -44,12 +36,8 @@ fn one_of_is_a_union() {
     let forge = parse(&responding_with_schemas(
         r##"{
           "oneOf": [
-            {
-              "$ref": "#/components/schemas/A"
-            },
-            {
-              "$ref": "#/components/schemas/B"
-            }
+            {"$ref": "#/components/schemas/A"},
+            {"$ref": "#/components/schemas/B"}
           ]
         }"##,
         A_AND_B,
@@ -65,12 +53,8 @@ fn any_of_is_a_union() {
     let forge = parse(&responding_with(
         r#"{
           "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "boolean"
-            }
+            {"type": "string"},
+            {"type": "boolean"}
           ]
         }"#,
     ));
@@ -83,12 +67,8 @@ fn one_of_is_exclusive() {
     let forge = parse(&responding_with(
         r#"{
           "oneOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "boolean"
-            }
+            {"type": "string"},
+            {"type": "boolean"}
           ]
         }"#,
     ));
@@ -101,12 +81,8 @@ fn any_of_is_not_exclusive() {
     let forge = parse(&responding_with(
         r#"{
           "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "boolean"
-            }
+            {"type": "string"},
+            {"type": "boolean"}
           ]
         }"#,
     ));
@@ -119,16 +95,10 @@ fn any_of_with_a_discriminator_is_not_exclusive() {
     let forge = parse(&responding_with_schemas(
         r##"{
           "anyOf": [
-            {
-              "$ref": "#/components/schemas/A"
-            },
-            {
-              "$ref": "#/components/schemas/B"
-            }
+            {"$ref": "#/components/schemas/A"},
+            {"$ref": "#/components/schemas/B"}
           ],
-          "discriminator": {
-            "propertyName": "kind"
-          }
+          "discriminator": {"propertyName": "kind"}
         }"##,
         A_AND_B,
     ));
@@ -176,12 +146,8 @@ fn type_and_null_are_exclusive() {
     let forge = parse(&responding_with(
         r#"{
           "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
+            {"type": "string"},
+            {"type": "null"}
           ]
         }"#,
     ));
@@ -196,12 +162,8 @@ fn nullable_any_of_is_not_exclusive() {
     let forge = parse(&responding_with(
         r#"{
           "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "boolean"
-            }
+            {"type": "string"},
+            {"type": "boolean"}
           ],
           "nullable": true
         }"#,
@@ -217,17 +179,11 @@ fn one_of_with_an_any_of_member_is_not_exclusive() {
     let forge = parse(&responding_with(
         r#"{
           "oneOf": [
-            {
-              "type": "boolean"
-            },
+            {"type": "boolean"},
             {
               "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "integer"
-                }
+                {"type": "string"},
+                {"type": "integer"}
               ]
             }
           ]
@@ -246,20 +202,12 @@ fn discriminated_member_keeps_its_own_exclusivity() {
           "anyOf": [
             {
               "oneOf": [
-                {
-                  "$ref": "#/components/schemas/A"
-                },
-                {
-                  "$ref": "#/components/schemas/B"
-                }
+                {"$ref": "#/components/schemas/A"},
+                {"$ref": "#/components/schemas/B"}
               ],
-              "discriminator": {
-                "propertyName": "kind"
-              }
+              "discriminator": {"propertyName": "kind"}
             },
-            {
-              "type": "string"
-            }
+            {"type": "string"}
           ]
         }"##,
         A_AND_B,
@@ -311,9 +259,7 @@ fn union_of_one_member_is_the_member() {
     let forge = parse(&responding_with_schemas(
         r##"{
           "oneOf": [
-            {
-              "$ref": "#/components/schemas/A"
-            }
+            {"$ref": "#/components/schemas/A"}
           ]
         }"##,
         A_AND_B,
@@ -327,9 +273,7 @@ fn union_of_the_same_type_twice_is_the_type() {
     let forge = parse(&responding_with(
         r#"{
           "anyOf": [
-            {
-              "type": "string"
-            },
+            {"type": "string"},
             {
               "type": "string",
               "description": "Again."
@@ -346,17 +290,11 @@ fn union_member_that_is_a_union_is_flattened() {
     let forge = parse(&responding_with_schemas(
         r##"{
           "oneOf": [
-            {
-              "$ref": "#/components/schemas/A"
-            },
+            {"$ref": "#/components/schemas/A"},
             {
               "oneOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "$ref": "#/components/schemas/B"
-                }
+                {"type": "string"},
+                {"$ref": "#/components/schemas/B"}
               ]
             }
           ]
@@ -378,9 +316,7 @@ fn enum_members_are_merged() {
             {
               "enum": ["x", "y"]
             },
-            {
-              "type": "boolean"
-            },
+            {"type": "boolean"},
             {
               "enum": ["y", "z"]
             }
@@ -400,12 +336,8 @@ fn discriminator_mapping_gives_the_cases() {
     let forge = parse(&responding_with_schemas(
         r##"{
           "oneOf": [
-            {
-              "$ref": "#/components/schemas/A"
-            },
-            {
-              "$ref": "#/components/schemas/B"
-            }
+            {"$ref": "#/components/schemas/A"},
+            {"$ref": "#/components/schemas/B"}
           ],
           "discriminator": {
             "propertyName": "kind",
@@ -432,12 +364,8 @@ fn discriminator_mapping_can_be_a_schema_name() {
     let forge = parse(&responding_with_schemas(
         r##"{
           "oneOf": [
-            {
-              "$ref": "#/components/schemas/A"
-            },
-            {
-              "$ref": "#/components/schemas/B"
-            }
+            {"$ref": "#/components/schemas/A"},
+            {"$ref": "#/components/schemas/B"}
           ],
           "discriminator": {
             "propertyName": "kind",
@@ -462,16 +390,10 @@ fn discriminator_without_mapping_uses_schema_names() {
     let forge = parse(&responding_with_schemas(
         r##"{
           "oneOf": [
-            {
-              "$ref": "#/components/schemas/A"
-            },
-            {
-              "$ref": "#/components/schemas/B"
-            }
+            {"$ref": "#/components/schemas/A"},
+            {"$ref": "#/components/schemas/B"}
           ],
-          "discriminator": {
-            "propertyName": "kind"
-          }
+          "discriminator": {"propertyName": "kind"}
         }"##,
         A_AND_B,
     ));
@@ -488,16 +410,10 @@ fn discriminator_without_mapping_uses_the_one_value_of_an_enum() {
     let forge = parse(&responding_with_schemas(
         r##"{
           "oneOf": [
-            {
-              "$ref": "#/components/schemas/Cat"
-            },
-            {
-              "$ref": "#/components/schemas/Dog"
-            }
+            {"$ref": "#/components/schemas/Cat"},
+            {"$ref": "#/components/schemas/Dog"}
           ],
-          "discriminator": {
-            "propertyName": "kind"
-          }
+          "discriminator": {"propertyName": "kind"}
         }"##,
         r#"{
           "Cat": {
@@ -532,9 +448,7 @@ fn discriminator_without_mapping_uses_the_one_value_of_an_enum() {
 fn discriminator_of_members_written_in_place_uses_the_one_value_of_an_enum() {
     let forge = parse(&responding_with(
         r#"{
-          "discriminator": {
-            "propertyName": "type"
-          },
+          "discriminator": {"propertyName": "type"},
           "oneOf": [
             {
               "type": "object",
@@ -556,9 +470,7 @@ fn discriminator_of_members_written_in_place_uses_the_one_value_of_an_enum() {
                 },
                 "fields": {
                   "type": "array",
-                  "items": {
-                    "type": "string"
-                  }
+                  "items": {"type": "string"}
                 }
               }
             }
@@ -580,16 +492,10 @@ fn discriminator_is_named_by_x_forge_property_name() {
     let forge = parse(&responding_with_schemas(
         r##"{
           "oneOf": [
-            {
-              "$ref": "#/components/schemas/A"
-            },
-            {
-              "$ref": "#/components/schemas/B"
-            }
+            {"$ref": "#/components/schemas/A"},
+            {"$ref": "#/components/schemas/B"}
           ],
-          "discriminator": {
-            "propertyName": "kind"
-          }
+          "discriminator": {"propertyName": "kind"}
         }"##,
         r#"{
           "A": {
@@ -622,12 +528,8 @@ fn discriminator_of_any_of() {
     let forge = parse(&responding_with_schemas(
         r##"{
           "anyOf": [
-            {
-              "$ref": "#/components/schemas/A"
-            },
-            {
-              "$ref": "#/components/schemas/B"
-            }
+            {"$ref": "#/components/schemas/A"},
+            {"$ref": "#/components/schemas/B"}
           ],
           "discriminator": {
             "propertyName": "kind",
@@ -668,18 +570,12 @@ fn discriminator_default_mapping_is_the_default() {
                       "application/json": {
                         "schema": {
                           "oneOf": [
-                            {
-                              "$ref": "#/components/schemas/A"
-                            },
-                            {
-                              "$ref": "#/components/schemas/B"
-                            }
+                            {"$ref": "#/components/schemas/A"},
+                            {"$ref": "#/components/schemas/B"}
                           ],
                           "discriminator": {
                             "propertyName": "kind",
-                            "mapping": {
-                              "a": "#/components/schemas/A"
-                            },
+                            "mapping": {"a": "#/components/schemas/A"},
                             "defaultMapping": "#/components/schemas/B"
                           }
                         }
@@ -695,17 +591,13 @@ fn discriminator_default_mapping_is_the_default() {
               "A": {
                 "type": "object",
                 "properties": {
-                  "kind": {
-                    "type": "string"
-                  }
+                  "kind": {"type": "string"}
                 }
               },
               "B": {
                 "type": "object",
                 "properties": {
-                  "kind": {
-                    "type": "string"
-                  }
+                  "kind": {"type": "string"}
                 }
               }
             }
@@ -724,20 +616,12 @@ fn discriminated_union_is_a_member_of_another_union() {
           "oneOf": [
             {
               "oneOf": [
-                {
-                  "$ref": "#/components/schemas/A"
-                },
-                {
-                  "$ref": "#/components/schemas/B"
-                }
+                {"$ref": "#/components/schemas/A"},
+                {"$ref": "#/components/schemas/B"}
               ],
-              "discriminator": {
-                "propertyName": "kind"
-              }
+              "discriminator": {"propertyName": "kind"}
             },
-            {
-              "type": "string"
-            }
+            {"type": "string"}
           ]
         }"##,
         A_AND_B,
@@ -755,16 +639,10 @@ fn nullable_discriminated_union_is_a_member_of_a_union_with_null() {
     let forge = parse(&responding_with_schemas(
         r##"{
           "oneOf": [
-            {
-              "$ref": "#/components/schemas/A"
-            },
-            {
-              "$ref": "#/components/schemas/B"
-            }
+            {"$ref": "#/components/schemas/A"},
+            {"$ref": "#/components/schemas/B"}
           ],
-          "discriminator": {
-            "propertyName": "kind"
-          },
+          "discriminator": {"propertyName": "kind"},
           "nullable": true
         }"##,
         A_AND_B,
@@ -781,12 +659,8 @@ fn members_with_only_required_are_dropped() {
         r#"{
           "type": "object",
           "properties": {
-            "appeals": {
-              "type": "string"
-            },
-            "type": {
-              "type": "string"
-            }
+            "appeals": {"type": "string"},
+            "type": {"type": "string"}
           },
           "oneOf": [
             {
@@ -811,12 +685,8 @@ fn member_with_only_constraints_is_dropped() {
     let forge = parse(&responding_with_schemas(
         r##"{
           "anyOf": [
-            {
-              "$ref": "#/components/schemas/A"
-            },
-            {
-              "$ref": "#/components/schemas/B"
-            },
+            {"$ref": "#/components/schemas/A"},
+            {"$ref": "#/components/schemas/B"},
             {
               "not": {
                 "required": ["a", "b"]
@@ -835,12 +705,8 @@ fn object_member_without_properties_allows_any_keys() {
     let forge = parse(&responding_with(
         r#"{
           "oneOf": [
-            {
-              "type": "object"
-            },
-            {
-              "type": "string"
-            }
+            {"type": "object"},
+            {"type": "string"}
           ]
         }"#,
     ));
@@ -858,12 +724,8 @@ fn type_next_to_a_union_is_dropped() {
         r##"{
           "type": "object",
           "anyOf": [
-            {
-              "$ref": "#/components/schemas/A"
-            },
-            {
-              "$ref": "#/components/schemas/B"
-            }
+            {"$ref": "#/components/schemas/A"},
+            {"$ref": "#/components/schemas/B"}
           ]
         }"##,
         A_AND_B,
@@ -878,17 +740,11 @@ fn properties_next_to_a_union_are_intersected_with_it() {
         r##"{
           "type": "object",
           "properties": {
-            "id": {
-              "type": "string"
-            }
+            "id": {"type": "string"}
           },
           "oneOf": [
-            {
-              "$ref": "#/components/schemas/A"
-            },
-            {
-              "$ref": "#/components/schemas/B"
-            }
+            {"$ref": "#/components/schemas/A"},
+            {"$ref": "#/components/schemas/B"}
           ]
         }"##,
         A_AND_B,

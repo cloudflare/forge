@@ -101,9 +101,7 @@ fn const_is_an_enum_of_one_value() {
                     "description": "ok",
                     "content": {
                       "application/json": {
-                        "schema": {
-                          "const": "a"
-                        }
+                        "schema": {"const": "a"}
                       }
                     }
                   }

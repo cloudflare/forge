@@ -23,9 +23,7 @@ fn response_model_is_placed_in_its_group() {
                     "description": "OK",
                     "content": {
                       "application/json": {
-                        "schema": {
-                          "$ref": "#/components/schemas/Zone"
-                        }
+                        "schema": {"$ref": "#/components/schemas/Zone"}
                       }
                     }
                   }
@@ -38,9 +36,7 @@ fn response_model_is_placed_in_its_group() {
               "Zone": {
                 "type": "object",
                 "properties": {
-                  "id": {
-                    "type": "string"
-                  }
+                  "id": {"type": "string"}
                 }
               }
             }
@@ -70,9 +66,7 @@ fn model_used_in_sibling_groups_is_in_their_parent() {
                     "description": "ok",
                     "content": {
                       "application/json": {
-                        "schema": {
-                          "$ref": "#/components/schemas/M"
-                        }
+                        "schema": {"$ref": "#/components/schemas/M"}
                       }
                     }
                   }
@@ -88,9 +82,7 @@ fn model_used_in_sibling_groups_is_in_their_parent() {
                     "description": "ok",
                     "content": {
                       "application/json": {
-                        "schema": {
-                          "$ref": "#/components/schemas/M"
-                        }
+                        "schema": {"$ref": "#/components/schemas/M"}
                       }
                     }
                   }
@@ -103,9 +95,7 @@ fn model_used_in_sibling_groups_is_in_their_parent() {
               "M": {
                 "type": "object",
                 "properties": {
-                  "id": {
-                    "type": "string"
-                  }
+                  "id": {"type": "string"}
                 }
               }
             }
@@ -135,9 +125,7 @@ fn model_used_in_a_group_and_its_subgroup_is_in_the_group() {
                     "description": "ok",
                     "content": {
                       "application/json": {
-                        "schema": {
-                          "$ref": "#/components/schemas/M"
-                        }
+                        "schema": {"$ref": "#/components/schemas/M"}
                       }
                     }
                   }
@@ -153,9 +141,7 @@ fn model_used_in_a_group_and_its_subgroup_is_in_the_group() {
                     "description": "ok",
                     "content": {
                       "application/json": {
-                        "schema": {
-                          "$ref": "#/components/schemas/M"
-                        }
+                        "schema": {"$ref": "#/components/schemas/M"}
                       }
                     }
                   }
@@ -168,9 +154,7 @@ fn model_used_in_a_group_and_its_subgroup_is_in_the_group() {
               "M": {
                 "type": "object",
                 "properties": {
-                  "id": {
-                    "type": "string"
-                  }
+                  "id": {"type": "string"}
                 }
               }
             }
@@ -200,9 +184,7 @@ fn model_used_in_top_level_groups_is_at_the_top_level() {
                     "description": "ok",
                     "content": {
                       "application/json": {
-                        "schema": {
-                          "$ref": "#/components/schemas/M"
-                        }
+                        "schema": {"$ref": "#/components/schemas/M"}
                       }
                     }
                   }
@@ -218,9 +200,7 @@ fn model_used_in_top_level_groups_is_at_the_top_level() {
                     "description": "ok",
                     "content": {
                       "application/json": {
-                        "schema": {
-                          "$ref": "#/components/schemas/M"
-                        }
+                        "schema": {"$ref": "#/components/schemas/M"}
                       }
                     }
                   }
@@ -233,9 +213,7 @@ fn model_used_in_top_level_groups_is_at_the_top_level() {
               "M": {
                 "type": "object",
                 "properties": {
-                  "id": {
-                    "type": "string"
-                  }
+                  "id": {"type": "string"}
                 }
               }
             }
@@ -267,9 +245,7 @@ fn model_used_by_a_method_at_the_top_level_is_at_the_top_level() {
                     "description": "ok",
                     "content": {
                       "application/json": {
-                        "schema": {
-                          "$ref": "#/components/schemas/M"
-                        }
+                        "schema": {"$ref": "#/components/schemas/M"}
                       }
                     }
                   }
@@ -284,9 +260,7 @@ fn model_used_by_a_method_at_the_top_level_is_at_the_top_level() {
                     "description": "ok",
                     "content": {
                       "application/json": {
-                        "schema": {
-                          "$ref": "#/components/schemas/M"
-                        }
+                        "schema": {"$ref": "#/components/schemas/M"}
                       }
                     }
                   }
@@ -299,9 +273,7 @@ fn model_used_by_a_method_at_the_top_level_is_at_the_top_level() {
               "M": {
                 "type": "object",
                 "properties": {
-                  "id": {
-                    "type": "string"
-                  }
+                  "id": {"type": "string"}
                 }
               }
             }
@@ -333,9 +305,7 @@ fn model_used_through_another_model_is_placed_by_every_use() {
                     "description": "ok",
                     "content": {
                       "application/json": {
-                        "schema": {
-                          "$ref": "#/components/schemas/Outer"
-                        }
+                        "schema": {"$ref": "#/components/schemas/Outer"}
                       }
                     }
                   }
@@ -351,9 +321,7 @@ fn model_used_through_another_model_is_placed_by_every_use() {
                     "description": "ok",
                     "content": {
                       "application/json": {
-                        "schema": {
-                          "$ref": "#/components/schemas/Inner"
-                        }
+                        "schema": {"$ref": "#/components/schemas/Inner"}
                       }
                     }
                   }
@@ -366,17 +334,13 @@ fn model_used_through_another_model_is_placed_by_every_use() {
               "Outer": {
                 "type": "object",
                 "properties": {
-                  "inner": {
-                    "$ref": "#/components/schemas/Inner"
-                  }
+                  "inner": {"$ref": "#/components/schemas/Inner"}
                 }
               },
               "Inner": {
                 "type": "object",
                 "properties": {
-                  "id": {
-                    "type": "string"
-                  }
+                  "id": {"type": "string"}
                 }
               }
             }
@@ -406,17 +370,13 @@ fn params_bodies_and_errors_use_models() {
                   {
                     "name": "filter",
                     "in": "query",
-                    "schema": {
-                      "$ref": "#/components/schemas/Filter"
-                    }
+                    "schema": {"$ref": "#/components/schemas/Filter"}
                   }
                 ],
                 "requestBody": {
                   "content": {
                     "application/json": {
-                      "schema": {
-                        "$ref": "#/components/schemas/Input"
-                      }
+                      "schema": {"$ref": "#/components/schemas/Input"}
                     }
                   }
                 },
@@ -425,9 +385,7 @@ fn params_bodies_and_errors_use_models() {
                     "description": "no",
                     "content": {
                       "application/json": {
-                        "schema": {
-                          "$ref": "#/components/schemas/Failure"
-                        }
+                        "schema": {"$ref": "#/components/schemas/Failure"}
                       }
                     }
                   }
@@ -437,23 +395,17 @@ fn params_bodies_and_errors_use_models() {
           },
           "components": {
             "schemas": {
-              "Filter": {
-                "type": "string"
-              },
+              "Filter": {"type": "string"},
               "Input": {
                 "type": "object",
                 "properties": {
-                  "name": {
-                    "type": "string"
-                  }
+                  "name": {"type": "string"}
                 }
               },
               "Failure": {
                 "type": "object",
                 "properties": {
-                  "message": {
-                    "type": "string"
-                  }
+                  "message": {"type": "string"}
                 }
               }
             }
@@ -486,9 +438,7 @@ fn schema_no_method_uses_is_not_a_model() {
                     "description": "ok",
                     "content": {
                       "application/json": {
-                        "schema": {
-                          "$ref": "#/components/schemas/Used"
-                        }
+                        "schema": {"$ref": "#/components/schemas/Used"}
                       }
                     }
                   }
@@ -505,9 +455,7 @@ fn schema_no_method_uses_is_not_a_model() {
                     "description": "ok",
                     "content": {
                       "application/json": {
-                        "schema": {
-                          "$ref": "#/components/schemas/Skipped"
-                        }
+                        "schema": {"$ref": "#/components/schemas/Skipped"}
                       }
                     }
                   }
@@ -522,9 +470,7 @@ fn schema_no_method_uses_is_not_a_model() {
                     "description": "ok",
                     "content": {
                       "application/json": {
-                        "schema": {
-                          "$ref": "#/components/schemas/Ungrouped"
-                        }
+                        "schema": {"$ref": "#/components/schemas/Ungrouped"}
                       }
                     }
                   }
@@ -534,18 +480,10 @@ fn schema_no_method_uses_is_not_a_model() {
           },
           "components": {
             "schemas": {
-              "Used": {
-                "type": "string"
-              },
-              "Skipped": {
-                "type": "string"
-              },
-              "Ungrouped": {
-                "type": "string"
-              },
-              "Unused": {
-                "type": "string"
-              }
+              "Used": {"type": "string"},
+              "Skipped": {"type": "string"},
+              "Ungrouped": {"type": "string"},
+              "Unused": {"type": "string"}
             }
           }
         }"##,
@@ -557,16 +495,12 @@ fn schema_no_method_uses_is_not_a_model() {
 #[test]
 fn model_can_refer_to_itself() {
     let forge = parse(&responding_with_schemas(
-        r##"{
-          "$ref": "#/components/schemas/Node"
-        }"##,
+        r##"{"$ref": "#/components/schemas/Node"}"##,
         r##"{
           "Node": {
             "type": "object",
             "properties": {
-              "next": {
-                "$ref": "#/components/schemas/Node"
-              }
+              "next": {"$ref": "#/components/schemas/Node"}
             }
           }
         }"##,
@@ -580,13 +514,9 @@ fn model_can_refer_to_itself() {
 #[test]
 fn model_is_named_after_its_schema() {
     let forge = parse(&responding_with_schemas(
-        r##"{
-          "$ref": "#/components/schemas/zone_settings"
-        }"##,
+        r##"{"$ref": "#/components/schemas/zone_settings"}"##,
         r#"{
-          "zone_settings": {
-            "type": "string"
-          }
+          "zone_settings": {"type": "string"}
         }"#,
     ));
 
@@ -596,9 +526,7 @@ fn model_is_named_after_its_schema() {
 #[test]
 fn model_is_named_by_x_forge_model_name() {
     let forge = parse(&responding_with_schemas(
-        r##"{
-          "$ref": "#/components/schemas/not_found"
-        }"##,
+        r##"{"$ref": "#/components/schemas/not_found"}"##,
         r#"{
           "not_found": {
             "type": "object",
@@ -613,9 +541,7 @@ fn model_is_named_by_x_forge_model_name() {
 #[test]
 fn vendor_model_name_is_not_read() {
     let forge = parse(&responding_with_schemas(
-        r##"{
-          "$ref": "#/components/schemas/not_found"
-        }"##,
+        r##"{"$ref": "#/components/schemas/not_found"}"##,
         r#"{
           "not_found": {
             "type": "object",
@@ -632,12 +558,8 @@ fn model_description_is_its_description_or_else_title() {
     let forge = parse(&responding_with_schemas(
         r##"{
           "anyOf": [
-            {
-              "$ref": "#/components/schemas/Described"
-            },
-            {
-              "$ref": "#/components/schemas/Titled"
-            }
+            {"$ref": "#/components/schemas/Described"},
+            {"$ref": "#/components/schemas/Titled"}
           ]
         }"##,
         r#"{
@@ -660,9 +582,7 @@ fn model_description_is_its_description_or_else_title() {
 #[test]
 fn model_can_be_deprecated() {
     let forge = parse(&responding_with_schemas(
-        r##"{
-          "$ref": "#/components/schemas/Old"
-        }"##,
+        r##"{"$ref": "#/components/schemas/Old"}"##,
         r#"{
           "Old": {
             "type": "string",
@@ -693,9 +613,7 @@ fn schema_in_defs_is_a_model() {
                     "description": "ok",
                     "content": {
                       "application/json": {
-                        "schema": {
-                          "$ref": "#/components/schemas/Tree/$defs/Node"
-                        }
+                        "schema": {"$ref": "#/components/schemas/Tree/$defs/Node"}
                       }
                     }
                   }
@@ -708,9 +626,7 @@ fn schema_in_defs_is_a_model() {
               "Tree": {
                 "type": "object",
                 "$defs": {
-                  "Node": {
-                    "type": "string"
-                  }
+                  "Node": {"type": "string"}
                 }
               }
             }
@@ -727,16 +643,10 @@ fn schema_in_defs_is_a_model() {
 #[test]
 fn model_that_is_a_ref_is_the_other_model() {
     let forge = parse(&responding_with_schemas(
+        r##"{"$ref": "#/components/schemas/Alias"}"##,
         r##"{
-          "$ref": "#/components/schemas/Alias"
-        }"##,
-        r##"{
-          "Alias": {
-            "$ref": "#/components/schemas/Base"
-          },
-          "Base": {
-            "type": "string"
-          }
+          "Alias": {"$ref": "#/components/schemas/Base"},
+          "Base": {"type": "string"}
         }"##,
     ));
 
@@ -763,9 +673,7 @@ fn schema_used_only_by_content_that_is_not_json_is_a_model() {
                 "requestBody": {
                   "content": {
                     "multipart/form-data": {
-                      "schema": {
-                        "$ref": "#/components/schemas/Upload"
-                      }
+                      "schema": {"$ref": "#/components/schemas/Upload"}
                     }
                   }
                 },
@@ -774,9 +682,7 @@ fn schema_used_only_by_content_that_is_not_json_is_a_model() {
                     "description": "ok",
                     "content": {
                       "text/csv": {
-                        "schema": {
-                          "$ref": "#/components/schemas/Report"
-                        }
+                        "schema": {"$ref": "#/components/schemas/Report"}
                       }
                     }
                   }
@@ -795,9 +701,7 @@ fn schema_used_only_by_content_that_is_not_json_is_a_model() {
                   }
                 }
               },
-              "Report": {
-                "type": "string"
-              }
+              "Report": {"type": "string"}
             }
           }
         }"##,
@@ -837,9 +741,7 @@ fn use_by_content_that_is_not_json_places_a_model() {
                     "description": "ok",
                     "content": {
                       "application/json": {
-                        "schema": {
-                          "$ref": "#/components/schemas/M"
-                        }
+                        "schema": {"$ref": "#/components/schemas/M"}
                       }
                     }
                   }
@@ -856,18 +758,14 @@ fn use_by_content_that_is_not_json_places_a_model() {
                       "schema": {
                         "type": "object",
                         "properties": {
-                          "meta": {
-                            "$ref": "#/components/schemas/M"
-                          }
+                          "meta": {"$ref": "#/components/schemas/M"}
                         }
                       }
                     }
                   }
                 },
                 "responses": {
-                  "204": {
-                    "description": "ok"
-                  }
+                  "204": {"description": "ok"}
                 }
               }
             }
@@ -877,9 +775,7 @@ fn use_by_content_that_is_not_json_places_a_model() {
               "M": {
                 "type": "object",
                 "properties": {
-                  "id": {
-                    "type": "string"
-                  }
+                  "id": {"type": "string"}
                 }
               }
             }
@@ -908,9 +804,7 @@ fn schema_used_only_in_a_response_header_is_not_a_model() {
                   {
                     "name": "X-Trace",
                     "in": "header",
-                    "schema": {
-                      "$ref": "#/components/schemas/Trace"
-                    }
+                    "schema": {"$ref": "#/components/schemas/Trace"}
                   }
                 ],
                 "responses": {
@@ -918,9 +812,7 @@ fn schema_used_only_in_a_response_header_is_not_a_model() {
                     "description": "ok",
                     "headers": {
                       "X-Rate-Limit": {
-                        "schema": {
-                          "$ref": "#/components/schemas/RateLimit"
-                        }
+                        "schema": {"$ref": "#/components/schemas/RateLimit"}
                       }
                     }
                   }
@@ -930,12 +822,8 @@ fn schema_used_only_in_a_response_header_is_not_a_model() {
           },
           "components": {
             "schemas": {
-              "Trace": {
-                "type": "string"
-              },
-              "RateLimit": {
-                "type": "integer"
-              }
+              "Trace": {"type": "string"},
+              "RateLimit": {"type": "integer"}
             }
           }
         }"##,

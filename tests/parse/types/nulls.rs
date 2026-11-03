@@ -30,11 +30,7 @@ fn nullable_false_is_not_a_union() {
 
 #[test]
 fn nullable_unknown_is_unknown() {
-    let forge = parse(&responding_with(
-        r#"{
-          "nullable": true
-        }"#,
-    ));
+    let forge = parse(&responding_with(r#"{"nullable": true}"#));
 
     assert_eq!(scalar(response_type(&forge, "a.get")), Scalar::Unknown);
 }
@@ -85,12 +81,8 @@ fn nullable_union_has_null_as_a_member() {
         r#"{
           "nullable": true,
           "oneOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "boolean"
-            }
+            {"type": "string"},
+            {"type": "boolean"}
           ]
         }"#,
     ));
@@ -107,9 +99,7 @@ fn nullable_member_of_a_union_is_null_in_the_union() {
               "type": "string",
               "nullable": true
             },
-            {
-              "type": "boolean"
-            }
+            {"type": "boolean"}
           ]
         }"#,
     ));
@@ -122,9 +112,7 @@ fn null_enum_member_of_a_union_is_null() {
     let forge = parse(&responding_with(
         r#"{
           "anyOf": [
-            {
-              "type": "string"
-            },
+            {"type": "string"},
             {
               "enum": [null]
             }
@@ -140,16 +128,12 @@ fn nullable_all_of_is_a_union_with_null() {
     let forge = parse(&responding_with_schemas(
         r##"{
           "allOf": [
-            {
-              "$ref": "#/components/schemas/Reason"
-            }
+            {"$ref": "#/components/schemas/Reason"}
           ],
           "nullable": true
         }"##,
         r#"{
-          "Reason": {
-            "type": "string"
-          }
+          "Reason": {"type": "string"}
         }"#,
     ));
 
@@ -249,9 +233,7 @@ fn null_type_is_null() {
                     "description": "ok",
                     "content": {
                       "application/json": {
-                        "schema": {
-                          "type": "null"
-                        }
+                        "schema": {"type": "null"}
                       }
                     }
                   }
@@ -284,9 +266,7 @@ fn const_null_is_null() {
                     "description": "ok",
                     "content": {
                       "application/json": {
-                        "schema": {
-                          "const": null
-                        }
+                        "schema": {"const": null}
                       }
                     }
                   }

@@ -7,30 +7,10 @@ use crate::common::{
 #[test]
 fn primitive_types() {
     for (schema, want) in [
-        (
-            r#"{
-              "type": "string"
-            }"#,
-            Scalar::String,
-        ),
-        (
-            r#"{
-              "type": "boolean"
-            }"#,
-            Scalar::Boolean,
-        ),
-        (
-            r#"{
-              "type": "integer"
-            }"#,
-            Scalar::Number(Number::Int),
-        ),
-        (
-            r#"{
-              "type": "number"
-            }"#,
-            Scalar::Number(Number::Double),
-        ),
+        (r#"{"type": "string"}"#, Scalar::String),
+        (r#"{"type": "boolean"}"#, Scalar::Boolean),
+        (r#"{"type": "integer"}"#, Scalar::Number(Number::Int)),
+        (r#"{"type": "number"}"#, Scalar::Number(Number::Double)),
     ] {
         let forge = parse(&responding_with(schema));
 
@@ -224,12 +204,8 @@ fn uuid_references_and_plain_strings_keep_their_own_scalar_types() {
         r##"{
           "type": "object",
           "properties": {
-            "id": {
-              "$ref": "#/components/schemas/ID"
-            },
-            "plain": {
-              "type": "string"
-            },
+            "id": {"$ref": "#/components/schemas/ID"},
+            "plain": {"type": "string"},
             "empty": {
               "type": "string",
               "format": ""
@@ -268,9 +244,7 @@ fn union_deduplication_keeps_uuids_distinct_from_plain_strings() {
               "type": "string",
               "format": "uuid"
             },
-            {
-              "type": "string"
-            },
+            {"type": "string"},
             {
               "type": "string",
               "format": "uuid"
@@ -465,9 +439,7 @@ fn true_schema_is_unknown() {
                   "200": {
                     "description": "ok",
                     "content": {
-                      "application/json": {
-                        "schema": true
-                      }
+                      "application/json": {"schema": true}
                     }
                   }
                 }

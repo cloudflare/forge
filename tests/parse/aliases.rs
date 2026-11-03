@@ -27,9 +27,7 @@ fn aliased(aliases: &str, fields: &str) -> String {
                     "name": "id",
                     "in": "path",
                     "required": true,
-                    "schema": {{
-                      "type": "string"
-                    }}
+                    "schema": {{"type": "string"}}
                   }}
                 ],
                 "requestBody": {{
@@ -38,9 +36,7 @@ fn aliased(aliases: &str, fields: &str) -> String {
                       "schema": {{
                         "type": "object",
                         "properties": {{
-                          "status": {{
-                            "type": "string"
-                          }}
+                          "status": {{"type": "string"}}
                         }}
                       }}
                     }}
@@ -51,15 +47,11 @@ fn aliased(aliases: &str, fields: &str) -> String {
                     "description": "ok",
                     "content": {{
                       "application/json": {{
-                        "schema": {{
-                          "type": "boolean"
-                        }}
+                        "schema": {{"type": "boolean"}}
                       }}
                     }}
                   }},
-                  "404": {{
-                    "description": "missing"
-                  }}
+                  "404": {{"description": "missing"}}
                 }}
               }}
             }}
@@ -234,12 +226,8 @@ fn alias_without_a_group_or_name_is_not_a_method() {
             "x-forge-group-name": "a",
             "x-forge-method-name": "pause"
           },
-          {
-            "x-forge-group-name": "a"
-          },
-          {
-            "x-forge-method-name": "resume"
-          },
+          {"x-forge-group-name": "a"},
+          {"x-forge-method-name": "resume"},
           {
             "x-forge-group-name": [],
             "x-forge-method-name": "restart"
@@ -306,9 +294,7 @@ fn alias_and_another_method_with_equal_names_are_an_error() {
                 "x-forge-group-name": "a",
                 "x-forge-method-name": "pause",
                 "responses": {
-                  "204": {
-                    "description": "ok"
-                  }
+                  "204": {"description": "ok"}
                 }
               }
             },
@@ -325,9 +311,7 @@ fn alias_and_another_method_with_equal_names_are_an_error() {
                   }
                 ],
                 "responses": {
-                  "204": {
-                    "description": "ok"
-                  }
+                  "204": {"description": "ok"}
                 }
               }
             }
@@ -505,9 +489,7 @@ fn operation_without_aliases_keeps_its_own_method() {
                 "x-forge-group-name": "a",
                 "x-forge-method-name": "get",
                 "responses": {
-                  "204": {
-                    "description": "ok"
-                  }
+                  "204": {"description": "ok"}
                 }
               }
             }
@@ -547,9 +529,7 @@ fn model_used_by_aliases_in_two_top_level_groups_is_at_the_top_level() {
                     "description": "ok",
                     "content": {
                       "application/json": {
-                        "schema": {
-                          "$ref": "#/components/schemas/M"
-                        }
+                        "schema": {"$ref": "#/components/schemas/M"}
                       }
                     }
                   }
@@ -562,9 +542,7 @@ fn model_used_by_aliases_in_two_top_level_groups_is_at_the_top_level() {
               "M": {
                 "type": "object",
                 "properties": {
-                  "id": {
-                    "type": "string"
-                  }
+                  "id": {"type": "string"}
                 }
               }
             }
@@ -606,9 +584,7 @@ fn model_used_by_aliases_in_one_group_is_in_that_group() {
                     "description": "ok",
                     "content": {
                       "application/json": {
-                        "schema": {
-                          "$ref": "#/components/schemas/M"
-                        }
+                        "schema": {"$ref": "#/components/schemas/M"}
                       }
                     }
                   }
@@ -621,9 +597,7 @@ fn model_used_by_aliases_in_one_group_is_in_that_group() {
               "M": {
                 "type": "object",
                 "properties": {
-                  "id": {
-                    "type": "string"
-                  }
+                  "id": {"type": "string"}
                 }
               }
             }
@@ -638,9 +612,7 @@ fn model_used_by_aliases_in_one_group_is_in_that_group() {
 fn alias_is_named_by_its_operation_id() {
     let forge = parse(&aliased(
         r#"[
-          {
-            "operationId": "a.pause"
-          },
+          {"operationId": "a.pause"},
           {
             "operationId": "b.c.resume",
             "x-a": 1
@@ -690,9 +662,7 @@ fn alias_with_one_forge_name_falls_back_to_its_operation_id() {
 fn alias_does_not_take_the_operation_id_of_the_operation() {
     let forge = parse(&aliased(
         r#"[
-          {
-            "x-forge-group-name": "a"
-          },
+          {"x-forge-group-name": "a"},
           {},
           {
             "x-forge-group-name": "a",
@@ -709,9 +679,7 @@ fn alias_does_not_take_the_operation_id_of_the_operation() {
 fn alias_operation_id_without_a_dot_is_a_method_at_the_top_level() {
     let forge = parse(&aliased(
         r#"[
-          {
-            "operationId": "pause"
-          }
+          {"operationId": "pause"}
         ]"#,
         "",
     ));
@@ -727,9 +695,7 @@ fn skipped_alias_with_an_operation_id_is_not_a_method() {
             "operationId": "a.pause",
             "x-forge-skip": true
           },
-          {
-            "operationId": "a.resume"
-          }
+          {"operationId": "a.resume"}
         ]"#,
         "",
     ));
@@ -741,12 +707,8 @@ fn skipped_alias_with_an_operation_id_is_not_a_method() {
 fn alias_operation_id_name_without_letters_is_an_error_naming_the_alias() {
     let err = parse_err(&aliased(
         r#"[
-          {
-            "operationId": "a."
-          },
-          {
-            "operationId": "a..pause"
-          }
+          {"operationId": "a."},
+          {"operationId": "a..pause"}
         ]"#,
         "",
     ));
@@ -773,9 +735,7 @@ fn alias_operation_id_and_forge_alias_with_equal_names_are_an_error() {
             "x-forge-group-name": "a",
             "x-forge-method-name": "pause"
           },
-          {
-            "operationId": "a.pause"
-          }
+          {"operationId": "a.pause"}
         ]"#,
         "",
     ));

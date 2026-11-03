@@ -7,17 +7,13 @@ const A_AND_B: &str = r#"{
   "A": {
     "type": "object",
     "properties": {
-      "a": {
-        "type": "string"
-      }
+      "a": {"type": "string"}
     }
   },
   "B": {
     "type": "object",
     "properties": {
-      "b": {
-        "type": "string"
-      }
+      "b": {"type": "string"}
     }
   }
 }"#;
@@ -27,12 +23,8 @@ fn all_of_is_an_intersection() {
     let forge = parse(&responding_with_schemas(
         r##"{
           "allOf": [
-            {
-              "$ref": "#/components/schemas/A"
-            },
-            {
-              "$ref": "#/components/schemas/B"
-            }
+            {"$ref": "#/components/schemas/A"},
+            {"$ref": "#/components/schemas/B"}
           ]
         }"##,
         A_AND_B,
@@ -46,9 +38,7 @@ fn all_of_one_member_is_the_member() {
     let forge = parse(&responding_with_schemas(
         r##"{
           "allOf": [
-            {
-              "$ref": "#/components/schemas/A"
-            }
+            {"$ref": "#/components/schemas/A"}
           ]
         }"##,
         A_AND_B,
@@ -62,19 +52,11 @@ fn members_without_a_shape_are_dropped() {
     let forge = parse(&responding_with_schemas(
         r##"{
           "allOf": [
-            {
-              "$ref": "#/components/schemas/A"
-            },
-            {
-              "type": "object"
-            },
+            {"$ref": "#/components/schemas/A"},
+            {"type": "object"},
             {},
-            {
-              "description": "Described."
-            },
-            {
-              "$ref": "#/components/schemas/B"
-            }
+            {"description": "Described."},
+            {"$ref": "#/components/schemas/B"}
           ]
         }"##,
         A_AND_B,
@@ -104,13 +86,9 @@ fn true_member_is_dropped() {
                       "application/json": {
                         "schema": {
                           "allOf": [
-                            {
-                              "$ref": "#/components/schemas/A"
-                            },
+                            {"$ref": "#/components/schemas/A"},
                             true,
-                            {
-                              "$ref": "#/components/schemas/B"
-                            }
+                            {"$ref": "#/components/schemas/B"}
                           ]
                         }
                       }
@@ -125,17 +103,13 @@ fn true_member_is_dropped() {
               "A": {
                 "type": "object",
                 "properties": {
-                  "a": {
-                    "type": "string"
-                  }
+                  "a": {"type": "string"}
                 }
               },
               "B": {
                 "type": "object",
                 "properties": {
-                  "b": {
-                    "type": "string"
-                  }
+                  "b": {"type": "string"}
                 }
               }
             }
@@ -151,12 +125,8 @@ fn member_left_after_dropping_is_the_type() {
     let forge = parse(&responding_with_schemas(
         r##"{
           "allOf": [
-            {
-              "description": "Described."
-            },
-            {
-              "$ref": "#/components/schemas/A"
-            }
+            {"description": "Described."},
+            {"$ref": "#/components/schemas/A"}
           ]
         }"##,
         A_AND_B,
@@ -171,9 +141,7 @@ fn type_next_to_all_of_is_dropped() {
         r##"{
           "type": "string",
           "allOf": [
-            {
-              "$ref": "#/components/schemas/Reason"
-            }
+            {"$ref": "#/components/schemas/Reason"}
           ]
         }"##,
         r#"{
@@ -193,14 +161,10 @@ fn properties_next_to_all_of_are_a_member() {
         r##"{
           "type": "object",
           "properties": {
-            "id": {
-              "type": "string"
-            }
+            "id": {"type": "string"}
           },
           "allOf": [
-            {
-              "$ref": "#/components/schemas/A"
-            }
+            {"$ref": "#/components/schemas/A"}
           ]
         }"##,
         A_AND_B,
@@ -214,20 +178,14 @@ fn all_of_member_that_is_an_all_of_is_flattened() {
     let forge = parse(&responding_with_schemas(
         r##"{
           "allOf": [
-            {
-              "$ref": "#/components/schemas/A"
-            },
+            {"$ref": "#/components/schemas/A"},
             {
               "allOf": [
-                {
-                  "$ref": "#/components/schemas/B"
-                },
+                {"$ref": "#/components/schemas/B"},
                 {
                   "type": "object",
                   "properties": {
-                    "c": {
-                      "type": "string"
-                    }
+                    "c": {"type": "string"}
                   }
                 }
               ]
@@ -251,12 +209,8 @@ fn required_member_makes_sibling_fields_required() {
             {
               "type": "object",
               "properties": {
-                "name": {
-                  "type": "string"
-                },
-                "note": {
-                  "type": "string"
-                }
+                "name": {"type": "string"},
+                "note": {"type": "string"}
               }
             },
             {
@@ -277,9 +231,7 @@ fn required_member_copies_the_fields_of_a_model() {
     let forge = parse(&responding_with_schemas(
         r##"{
           "allOf": [
-            {
-              "$ref": "#/components/schemas/Rule"
-            },
+            {"$ref": "#/components/schemas/Rule"},
             {
               "required": ["name"]
             }
@@ -289,12 +241,8 @@ fn required_member_copies_the_fields_of_a_model() {
           "Rule": {
             "type": "object",
             "properties": {
-              "name": {
-                "type": "string"
-              },
-              "note": {
-                "type": "string"
-              }
+              "name": {"type": "string"},
+              "note": {"type": "string"}
             }
           }
         }"#,
@@ -326,13 +274,9 @@ fn unevaluated_properties_is_an_object_member() {
                       "application/json": {
                         "schema": {
                           "allOf": [
-                            {
-                              "$ref": "#/components/schemas/A"
-                            }
+                            {"$ref": "#/components/schemas/A"}
                           ],
-                          "unevaluatedProperties": {
-                            "type": "string"
-                          }
+                          "unevaluatedProperties": {"type": "string"}
                         }
                       }
                     }
@@ -346,9 +290,7 @@ fn unevaluated_properties_is_an_object_member() {
               "A": {
                 "type": "object",
                 "properties": {
-                  "a": {
-                    "type": "string"
-                  }
+                  "a": {"type": "string"}
                 }
               }
             }
@@ -371,13 +313,9 @@ fn array_next_to_all_of_is_dropped() {
     let forge = parse(&responding_with_schemas(
         r##"{
           "type": "array",
-          "items": {
-            "type": "object"
-          },
+          "items": {"type": "object"},
           "allOf": [
-            {
-              "$ref": "#/components/schemas/Messages"
-            }
+            {"$ref": "#/components/schemas/Messages"}
           ]
         }"##,
         r#"{
@@ -386,9 +324,7 @@ fn array_next_to_all_of_is_dropped() {
             "items": {
               "type": "object",
               "properties": {
-                "code": {
-                  "type": "integer"
-                }
+                "code": {"type": "integer"}
               }
             }
           }

@@ -61,12 +61,8 @@ fn base_url_is_the_first_server() {
             "version": "1"
           },
           "servers": [
-            {
-              "url": "https://a.example.com/v1"
-            },
-            {
-              "url": "https://b.example.com"
-            }
+            {"url": "https://a.example.com/v1"},
+            {"url": "https://b.example.com"}
           ],
           "paths": {}
         }"#,
@@ -92,9 +88,7 @@ fn base_url_substitutes_server_variables() {
                   "default": "eu",
                   "enum": ["eu", "us"]
                 },
-                "version": {
-                  "default": "v4"
-                }
+                "version": {"default": "v4"}
               }
             }
           ],
@@ -131,9 +125,7 @@ fn undefined_server_variable_is_an_error() {
             "version": "1"
           },
           "servers": [
-            {
-              "url": "https://{region}.example.com"
-            }
+            {"url": "https://{region}.example.com"}
           ],
           "paths": {}
         }"#,
@@ -152,9 +144,7 @@ fn unclosed_server_variable_is_an_error() {
             "version": "1"
           },
           "servers": [
-            {
-              "url": "https://{region.example.com"
-            }
+            {"url": "https://{region.example.com"}
           ],
           "paths": {}
         }"#,
@@ -181,9 +171,7 @@ fn every_version_of_3_0_3_1_and_3_2_is_read() {
                     "x-forge-group-name": "a",
                     "x-forge-method-name": "get",
                     "responses": {{
-                      "204": {{
-                        "description": "ok"
-                      }}
+                      "204": {{"description": "ok"}}
                     }}
                   }}
                 }}
@@ -205,9 +193,7 @@ fn errors_are_reported_together() {
             "version": "1"
           },
           "servers": [
-            {
-              "url": "https://{region}.example.com"
-            }
+            {"url": "https://{region}.example.com"}
           ],
           "paths": {
             "/a": {
@@ -215,9 +201,7 @@ fn errors_are_reported_together() {
                 "x-forge-group-name": ["a", "", "b"],
                 "x-forge-method-name": "get",
                 "responses": {
-                  "204": {
-                    "description": "ok"
-                  }
+                  "204": {"description": "ok"}
                 }
               }
             }

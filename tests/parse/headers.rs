@@ -40,15 +40,11 @@ fn header_param_is_a_field() {
                   {
                     "name": "If-None-Match",
                     "in": "header",
-                    "schema": {
-                      "type": "string"
-                    }
+                    "schema": {"type": "string"}
                   }
                 ],
                 "responses": {
-                  "204": {
-                    "description": "ok"
-                  }
+                  "204": {"description": "ok"}
                 }
               }
             }
@@ -86,15 +82,11 @@ fn header_field_is_named_by_x_forge_parameter_name() {
                     "name": "cf-r2-jurisdiction",
                     "in": "header",
                     "x-forge-parameter-name": "jurisdiction",
-                    "schema": {
-                      "type": "string"
-                    }
+                    "schema": {"type": "string"}
                   }
                 ],
                 "responses": {
-                  "204": {
-                    "description": "ok"
-                  }
+                  "204": {"description": "ok"}
                 }
               }
             }
@@ -125,16 +117,12 @@ fn header_description_is_the_params_or_else_its_schemas() {
                     "name": "X-Own",
                     "in": "header",
                     "description": "Param.",
-                    "schema": {
-                      "$ref": "#/components/schemas/Id"
-                    }
+                    "schema": {"$ref": "#/components/schemas/Id"}
                   },
                   {
                     "name": "X-Inherited",
                     "in": "header",
-                    "schema": {
-                      "$ref": "#/components/schemas/Id"
-                    }
+                    "schema": {"$ref": "#/components/schemas/Id"}
                   },
                   {
                     "name": "X-Titled",
@@ -146,9 +134,7 @@ fn header_description_is_the_params_or_else_its_schemas() {
                   }
                 ],
                 "responses": {
-                  "204": {
-                    "description": "ok"
-                  }
+                  "204": {"description": "ok"}
                 }
               }
             }
@@ -189,15 +175,11 @@ fn deprecated_header_is_a_deprecated_field() {
                     "name": "X-Old",
                     "in": "header",
                     "deprecated": true,
-                    "schema": {
-                      "type": "string"
-                    }
+                    "schema": {"type": "string"}
                   }
                 ],
                 "responses": {
-                  "204": {
-                    "description": "ok"
-                  }
+                  "204": {"description": "ok"}
                 }
               }
             }
@@ -235,22 +217,16 @@ fn header_is_sensitive_when_its_schema_is_and_never_read_only() {
                   {
                     "name": "X-Auth-Token",
                     "in": "header",
-                    "schema": {
-                      "$ref": "#/components/schemas/Token"
-                    }
+                    "schema": {"$ref": "#/components/schemas/Token"}
                   },
                   {
                     "name": "X-Trace",
                     "in": "header",
-                    "schema": {
-                      "type": "string"
-                    }
+                    "schema": {"type": "string"}
                   }
                 ],
                 "responses": {
-                  "204": {
-                    "description": "ok"
-                  }
+                  "204": {"description": "ok"}
                 }
               }
             }
@@ -301,22 +277,16 @@ fn header_has_the_default_of_its_schema() {
                   {
                     "name": "X-Retries",
                     "in": "header",
-                    "schema": {
-                      "$ref": "#/components/schemas/Retries"
-                    }
+                    "schema": {"$ref": "#/components/schemas/Retries"}
                   },
                   {
                     "name": "X-Trace",
                     "in": "header",
-                    "schema": {
-                      "type": "string"
-                    }
+                    "schema": {"type": "string"}
                   }
                 ],
                 "responses": {
-                  "204": {
-                    "description": "ok"
-                  }
+                  "204": {"description": "ok"}
                 }
               }
             }
@@ -356,14 +326,10 @@ fn header_param_ref_is_followed() {
                 "x-forge-group-name": "a",
                 "x-forge-method-name": "create",
                 "parameters": [
-                  {
-                    "$ref": "#/components/parameters/IdempotencyKey"
-                  }
+                  {"$ref": "#/components/parameters/IdempotencyKey"}
                 ],
                 "responses": {
-                  "204": {
-                    "description": "ok"
-                  }
+                  "204": {"description": "ok"}
                 }
               }
             }
@@ -374,9 +340,7 @@ fn header_param_ref_is_followed() {
                 "name": "Idempotency-Key",
                 "in": "header",
                 "description": "Makes retries safe.",
-                "schema": {
-                  "type": "string"
-                }
+                "schema": {"type": "string"}
               }
             }
           }
@@ -402,27 +366,21 @@ fn path_item_headers_belong_to_each_operation() {
                 {
                   "name": "X-Account",
                   "in": "header",
-                  "schema": {
-                    "type": "string"
-                  }
+                  "schema": {"type": "string"}
                 }
               ],
               "get": {
                 "x-forge-group-name": "a",
                 "x-forge-method-name": "get",
                 "responses": {
-                  "204": {
-                    "description": "ok"
-                  }
+                  "204": {"description": "ok"}
                 }
               },
               "delete": {
                 "x-forge-group-name": "a",
                 "x-forge-method-name": "delete",
                 "responses": {
-                  "204": {
-                    "description": "ok"
-                  }
+                  "204": {"description": "ok"}
                 }
               }
             }
@@ -450,9 +408,7 @@ fn operation_header_replaces_the_path_item_header() {
                 {
                   "name": "X-Limit",
                   "in": "header",
-                  "schema": {
-                    "type": "string"
-                  }
+                  "schema": {"type": "string"}
                 }
               ],
               "get": {
@@ -463,15 +419,11 @@ fn operation_header_replaces_the_path_item_header() {
                     "name": "X-Limit",
                     "in": "header",
                     "required": true,
-                    "schema": {
-                      "type": "integer"
-                    }
+                    "schema": {"type": "integer"}
                   }
                 ],
                 "responses": {
-                  "204": {
-                    "description": "ok"
-                  }
+                  "204": {"description": "ok"}
                 }
               }
             }
@@ -501,9 +453,7 @@ fn operation_header_replaces_the_path_item_header_ignoring_case() {
                 {
                   "name": "X-Request-ID",
                   "in": "header",
-                  "schema": {
-                    "type": "string"
-                  }
+                  "schema": {"type": "string"}
                 }
               ],
               "get": {
@@ -513,15 +463,11 @@ fn operation_header_replaces_the_path_item_header_ignoring_case() {
                   {
                     "name": "x-request-id",
                     "in": "header",
-                    "schema": {
-                      "type": "integer"
-                    }
+                    "schema": {"type": "integer"}
                   }
                 ],
                 "responses": {
-                  "204": {
-                    "description": "ok"
-                  }
+                  "204": {"description": "ok"}
                 }
               }
             }
@@ -549,9 +495,7 @@ fn query_param_does_not_replace_a_header_with_its_name() {
                 {
                   "name": "version",
                   "in": "header",
-                  "schema": {
-                    "type": "string"
-                  }
+                  "schema": {"type": "string"}
                 }
               ],
               "get": {
@@ -561,15 +505,11 @@ fn query_param_does_not_replace_a_header_with_its_name() {
                   {
                     "name": "version",
                     "in": "query",
-                    "schema": {
-                      "type": "string"
-                    }
+                    "schema": {"type": "string"}
                   }
                 ],
                 "responses": {
-                  "204": {
-                    "description": "ok"
-                  }
+                  "204": {"description": "ok"}
                 }
               }
             }
@@ -597,16 +537,12 @@ fn headers_are_in_declared_order_the_path_items_first() {
                 {
                   "name": "X-First",
                   "in": "header",
-                  "schema": {
-                    "type": "string"
-                  }
+                  "schema": {"type": "string"}
                 },
                 {
                   "name": "X-Second",
                   "in": "header",
-                  "schema": {
-                    "type": "string"
-                  }
+                  "schema": {"type": "string"}
                 }
               ],
               "get": {
@@ -616,22 +552,16 @@ fn headers_are_in_declared_order_the_path_items_first() {
                   {
                     "name": "X-Third",
                     "in": "header",
-                    "schema": {
-                      "type": "string"
-                    }
+                    "schema": {"type": "string"}
                   },
                   {
                     "name": "x-first",
                     "in": "header",
-                    "schema": {
-                      "type": "string"
-                    }
+                    "schema": {"type": "string"}
                   }
                 ],
                 "responses": {
-                  "204": {
-                    "description": "ok"
-                  }
+                  "204": {"description": "ok"}
                 }
               }
             }
@@ -663,22 +593,16 @@ fn headers_with_equal_names_are_an_error() {
                   {
                     "name": "X-Rate-Limit",
                     "in": "header",
-                    "schema": {
-                      "type": "string"
-                    }
+                    "schema": {"type": "string"}
                   },
                   {
                     "name": "X_Rate_Limit",
                     "in": "header",
-                    "schema": {
-                      "type": "string"
-                    }
+                    "schema": {"type": "string"}
                   }
                 ],
                 "responses": {
-                  "204": {
-                    "description": "ok"
-                  }
+                  "204": {"description": "ok"}
                 }
               }
             }
@@ -707,25 +631,19 @@ fn path_item_headers_differing_in_case_are_an_error() {
                 {
                   "name": "X-A",
                   "in": "header",
-                  "schema": {
-                    "type": "string"
-                  }
+                  "schema": {"type": "string"}
                 },
                 {
                   "name": "x-a",
                   "in": "header",
-                  "schema": {
-                    "type": "string"
-                  }
+                  "schema": {"type": "string"}
                 }
               ],
               "get": {
                 "x-forge-group-name": "a",
                 "x-forge-method-name": "get",
                 "responses": {
-                  "204": {
-                    "description": "ok"
-                  }
+                  "204": {"description": "ok"}
                 }
               }
             }
@@ -755,22 +673,16 @@ fn header_and_param_with_equal_names_are_not_an_error() {
                     "name": "account_id",
                     "in": "path",
                     "required": true,
-                    "schema": {
-                      "type": "string"
-                    }
+                    "schema": {"type": "string"}
                   },
                   {
                     "name": "Account-Id",
                     "in": "header",
-                    "schema": {
-                      "type": "string"
-                    }
+                    "schema": {"type": "string"}
                   }
                 ],
                 "responses": {
-                  "204": {
-                    "description": "ok"
-                  }
+                  "204": {"description": "ok"}
                 }
               }
             }
@@ -799,22 +711,16 @@ fn cookie_params_are_not_headers() {
                   {
                     "name": "session",
                     "in": "cookie",
-                    "schema": {
-                      "type": "string"
-                    }
+                    "schema": {"type": "string"}
                   },
                   {
                     "name": "X-Trace",
                     "in": "header",
-                    "schema": {
-                      "type": "string"
-                    }
+                    "schema": {"type": "string"}
                   }
                 ],
                 "responses": {
-                  "204": {
-                    "description": "ok"
-                  }
+                  "204": {"description": "ok"}
                 }
               }
             }
@@ -843,15 +749,11 @@ fn method_with_only_cookie_params_has_no_headers() {
                   {
                     "name": "session",
                     "in": "cookie",
-                    "schema": {
-                      "type": "string"
-                    }
+                    "schema": {"type": "string"}
                   }
                 ],
                 "responses": {
-                  "204": {
-                    "description": "ok"
-                  }
+                  "204": {"description": "ok"}
                 }
               }
             }
@@ -881,30 +783,22 @@ fn accept_content_type_and_authorization_headers_are_kept() {
                     "name": "Content-Type",
                     "in": "header",
                     "required": true,
-                    "schema": {
-                      "type": "string"
-                    }
+                    "schema": {"type": "string"}
                   },
                   {
                     "name": "Content-Length",
                     "in": "header",
-                    "schema": {
-                      "type": "integer"
-                    }
+                    "schema": {"type": "integer"}
                   },
                   {
                     "name": "Accept",
                     "in": "header",
-                    "schema": {
-                      "type": "string"
-                    }
+                    "schema": {"type": "string"}
                   },
                   {
                     "name": "Authorization",
                     "in": "header",
-                    "schema": {
-                      "type": "string"
-                    }
+                    "schema": {"type": "string"}
                   }
                 ],
                 "requestBody": {
@@ -918,9 +812,7 @@ fn accept_content_type_and_authorization_headers_are_kept() {
                   }
                 },
                 "responses": {
-                  "204": {
-                    "description": "ok"
-                  }
+                  "204": {"description": "ok"}
                 }
               }
             }
@@ -954,15 +846,11 @@ fn method_without_header_params_has_no_headers() {
                   {
                     "name": "page",
                     "in": "query",
-                    "schema": {
-                      "type": "integer"
-                    }
+                    "schema": {"type": "integer"}
                   }
                 ],
                 "responses": {
-                  "204": {
-                    "description": "ok"
-                  }
+                  "204": {"description": "ok"}
                 }
               }
             }
@@ -992,16 +880,12 @@ fn headers_are_not_in_the_request() {
                   {
                     "name": "page",
                     "in": "query",
-                    "schema": {
-                      "type": "integer"
-                    }
+                    "schema": {"type": "integer"}
                   },
                   {
                     "name": "X-Trace",
                     "in": "header",
-                    "schema": {
-                      "type": "string"
-                    }
+                    "schema": {"type": "string"}
                   }
                 ],
                 "requestBody": {
@@ -1009,17 +893,13 @@ fn headers_are_not_in_the_request() {
                     "application/json": {
                       "schema": {
                         "type": "array",
-                        "items": {
-                          "type": "string"
-                        }
+                        "items": {"type": "string"}
                       }
                     }
                   }
                 },
                 "responses": {
-                  "204": {
-                    "description": "ok"
-                  }
+                  "204": {"description": "ok"}
                 }
               }
             }
@@ -1050,15 +930,11 @@ fn method_with_only_headers_has_no_request() {
                   {
                     "name": "X-Trace",
                     "in": "header",
-                    "schema": {
-                      "type": "string"
-                    }
+                    "schema": {"type": "string"}
                   }
                 ],
                 "responses": {
-                  "204": {
-                    "description": "ok"
-                  }
+                  "204": {"description": "ok"}
                 }
               }
             }
@@ -1089,15 +965,11 @@ fn model_used_only_by_a_header_is_a_model() {
                   {
                     "name": "cf-r2-storage-class",
                     "in": "header",
-                    "schema": {
-                      "$ref": "#/components/schemas/StorageClass"
-                    }
+                    "schema": {"$ref": "#/components/schemas/StorageClass"}
                   }
                 ],
                 "responses": {
-                  "204": {
-                    "description": "ok"
-                  }
+                  "204": {"description": "ok"}
                 }
               }
             }
@@ -1143,9 +1015,7 @@ fn header_with_content_is_an_error() {
                         "schema": {
                           "type": "object",
                           "properties": {
-                            "status": {
-                              "type": "string"
-                            }
+                            "status": {"type": "string"}
                           }
                         }
                       }
@@ -1153,9 +1023,7 @@ fn header_with_content_is_an_error() {
                   }
                 ],
                 "responses": {
-                  "204": {
-                    "description": "ok"
-                  }
+                  "204": {"description": "ok"}
                 }
               }
             }
@@ -1190,16 +1058,12 @@ fn header_style_other_than_simple_is_an_error() {
                     "style": "form",
                     "schema": {
                       "type": "array",
-                      "items": {
-                        "type": "string"
-                      }
+                      "items": {"type": "string"}
                     }
                   }
                 ],
                 "responses": {
-                  "204": {
-                    "description": "ok"
-                  }
+                  "204": {"description": "ok"}
                 }
               }
             }

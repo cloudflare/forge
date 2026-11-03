@@ -32,9 +32,7 @@ pub fn responding_with(schema: &str) -> String {
                   "200": {{
                     "description": "ok",
                     "content": {{
-                      "application/json": {{
-                        "schema": {schema}
-                      }}
+                      "application/json": {{"schema": {schema}}}
                     }}
                   }}
                 }}
@@ -64,18 +62,14 @@ pub fn responding_with_schemas(schema: &str, schemas: &str) -> String {
                   "200": {{
                     "description": "ok",
                     "content": {{
-                      "application/json": {{
-                        "schema": {schema}
-                      }}
+                      "application/json": {{"schema": {schema}}}
                     }}
                   }}
                 }}
               }}
             }}
           }},
-          "components": {{
-            "schemas": {schemas}
-          }}
+          "components": {{"schemas": {schemas}}}
         }}"#
     )
 }

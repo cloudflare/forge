@@ -17,9 +17,7 @@ fn string_group_name_splits_on_dots() {
                 "x-forge-group-name": "accounts.members",
                 "x-forge-method-name": "list",
                 "responses": {
-                  "204": {
-                    "description": "ok"
-                  }
+                  "204": {"description": "ok"}
                 }
               }
             }
@@ -46,9 +44,7 @@ fn group_name_that_is_neither_a_string_nor_an_array_is_an_error() {
                 "x-forge-group-name": 1,
                 "x-forge-method-name": "list",
                 "responses": {
-                  "204": {
-                    "description": "ok"
-                  }
+                  "204": {"description": "ok"}
                 }
               }
             }
@@ -74,9 +70,7 @@ fn array_group_name_has_a_group_per_element() {
                 "x-forge-group-name": ["accounts", "members"],
                 "x-forge-method-name": "list",
                 "responses": {
-                  "204": {
-                    "description": "ok"
-                  }
+                  "204": {"description": "ok"}
                 }
               }
             }
@@ -103,9 +97,7 @@ fn array_element_with_a_dot_is_one_group() {
                 "x-forge-group-name": ["zones.settings"],
                 "x-forge-method-name": "get",
                 "responses": {
-                  "204": {
-                    "description": "ok"
-                  }
+                  "204": {"description": "ok"}
                 }
               }
             }
@@ -137,9 +129,7 @@ fn method_in(group: &str) -> String {
                 "x-forge-group-name": {group},
                 "x-forge-method-name": "get",
                 "responses": {{
-                  "204": {{
-                    "description": "ok"
-                  }}
+                  "204": {{"description": "ok"}}
                 }}
               }}
             }}
@@ -210,9 +200,7 @@ fn groups_with_equal_names_are_one_group() {
                 "x-forge-group-name": "abuse-reports",
                 "x-forge-method-name": "list",
                 "responses": {
-                  "204": {
-                    "description": "ok"
-                  }
+                  "204": {"description": "ok"}
                 }
               }
             },
@@ -221,9 +209,7 @@ fn groups_with_equal_names_are_one_group() {
                 "x-forge-group-name": ["abuse_reports"],
                 "x-forge-method-name": "get",
                 "responses": {
-                  "204": {
-                    "description": "ok"
-                  }
+                  "204": {"description": "ok"}
                 }
               }
             }
@@ -250,9 +236,7 @@ fn subgroup_and_method_can_share_a_name() {
                 "x-forge-group-name": "members",
                 "x-forge-method-name": "delete",
                 "responses": {
-                  "204": {
-                    "description": "ok"
-                  }
+                  "204": {"description": "ok"}
                 }
               }
             },
@@ -261,9 +245,7 @@ fn subgroup_and_method_can_share_a_name() {
                 "x-forge-group-name": ["members", "delete"],
                 "x-forge-method-name": "bulk",
                 "responses": {
-                  "204": {
-                    "description": "ok"
-                  }
+                  "204": {"description": "ok"}
                 }
               }
             }
@@ -289,9 +271,7 @@ fn operation_without_a_group_is_not_a_method() {
               "get": {
                 "x-forge-method-name": "get",
                 "responses": {
-                  "204": {
-                    "description": "ok"
-                  }
+                  "204": {"description": "ok"}
                 }
               }
             }
@@ -317,9 +297,7 @@ fn vendor_group_and_method_names_do_not_make_a_method() {
                 "x-fern-sdk-group-name": "a",
                 "x-fern-sdk-method-name": "get",
                 "responses": {
-                  "204": {
-                    "description": "ok"
-                  }
+                  "204": {"description": "ok"}
                 }
               }
             }
@@ -346,9 +324,7 @@ fn empty_group_name_is_no_group() {
                     "x-forge-group-name": {group},
                     "x-forge-method-name": "get",
                     "responses": {{
-                      "204": {{
-                        "description": "ok"
-                      }}
+                      "204": {{"description": "ok"}}
                     }}
                   }}
                 }}
@@ -374,9 +350,7 @@ fn operation_without_a_method_name_is_not_a_method() {
               "get": {
                 "x-forge-group-name": "a",
                 "responses": {
-                  "204": {
-                    "description": "ok"
-                  }
+                  "204": {"description": "ok"}
                 }
               }
             }
@@ -402,9 +376,7 @@ fn empty_method_name_is_not_a_method() {
                 "x-forge-group-name": "a",
                 "x-forge-method-name": "",
                 "responses": {
-                  "204": {
-                    "description": "ok"
-                  }
+                  "204": {"description": "ok"}
                 }
               }
             }
@@ -430,9 +402,7 @@ fn skipped_operation_is_not_a_method() {
                 "x-forge-group-name": "a",
                 "x-forge-method-name": "list",
                 "responses": {
-                  "204": {
-                    "description": "ok"
-                  }
+                  "204": {"description": "ok"}
                 }
               },
               "post": {
@@ -440,9 +410,7 @@ fn skipped_operation_is_not_a_method() {
                 "x-forge-method-name": "create",
                 "x-forge-skip": true,
                 "responses": {
-                  "204": {
-                    "description": "ok"
-                  }
+                  "204": {"description": "ok"}
                 }
               }
             }
@@ -476,9 +444,7 @@ fn group_name_without_letters_is_an_error() {
                     "x-forge-group-name": {group},
                     "x-forge-method-name": "list",
                     "responses": {{
-                      "204": {{
-                        "description": "ok"
-                      }}
+                      "204": {{"description": "ok"}}
                     }}
                   }}
                 }}
@@ -508,9 +474,7 @@ fn duplicate_method_in_a_group_is_an_error() {
                 "x-forge-group-name": "a",
                 "x-forge-method-name": "list",
                 "responses": {
-                  "204": {
-                    "description": "ok"
-                  }
+                  "204": {"description": "ok"}
                 }
               }
             },
@@ -519,9 +483,7 @@ fn duplicate_method_in_a_group_is_an_error() {
                 "x-forge-group-name": "a",
                 "x-forge-method-name": "list",
                 "responses": {
-                  "204": {
-                    "description": "ok"
-                  }
+                  "204": {"description": "ok"}
                 }
               }
             }
@@ -547,9 +509,7 @@ fn method_names_are_equal_as_names() {
                 "x-forge-group-name": "a",
                 "x-forge-method-name": "list_all",
                 "responses": {
-                  "204": {
-                    "description": "ok"
-                  }
+                  "204": {"description": "ok"}
                 }
               }
             },
@@ -558,9 +518,7 @@ fn method_names_are_equal_as_names() {
                 "x-forge-group-name": "a",
                 "x-forge-method-name": "listAll",
                 "responses": {
-                  "204": {
-                    "description": "ok"
-                  }
+                  "204": {"description": "ok"}
                 }
               }
             }
@@ -586,9 +544,7 @@ fn groups_are_depth_first() {
                 "x-forge-group-name": ["a", "b", "c"],
                 "x-forge-method-name": "get",
                 "responses": {
-                  "204": {
-                    "description": "ok"
-                  }
+                  "204": {"description": "ok"}
                 }
               }
             },
@@ -597,9 +553,7 @@ fn groups_are_depth_first() {
                 "x-forge-group-name": "x",
                 "x-forge-method-name": "get",
                 "responses": {
-                  "204": {
-                    "description": "ok"
-                  }
+                  "204": {"description": "ok"}
                 }
               }
             },
@@ -608,9 +562,7 @@ fn groups_are_depth_first() {
                 "x-forge-group-name": ["a", "d"],
                 "x-forge-method-name": "get",
                 "responses": {
-                  "204": {
-                    "description": "ok"
-                  }
+                  "204": {"description": "ok"}
                 }
               }
             }
@@ -652,17 +604,13 @@ fn group_description_comes_from_x_forge_commands() {
                 "x-forge-group-name": "accounts",
                 "x-forge-method-name": "list",
                 "responses": {
-                  "204": {
-                    "description": "ok"
-                  }
+                  "204": {"description": "ok"}
                 }
               }
             }
           },
           "x-forge-commands": {
-            "accounts": {
-              "description": "Accounts."
-            }
+            "accounts": {"description": "Accounts."}
           }
         }"#,
     );
@@ -685,9 +633,7 @@ fn subgroup_description_is_in_its_parents_command() {
                 "x-forge-group-name": ["accounts", "members"],
                 "x-forge-method-name": "list",
                 "responses": {
-                  "204": {
-                    "description": "ok"
-                  }
+                  "204": {"description": "ok"}
                 }
               }
             }
@@ -695,9 +641,7 @@ fn subgroup_description_is_in_its_parents_command() {
           "x-forge-commands": {
             "accounts": {
               "groups": {
-                "members": {
-                  "description": "Members."
-                }
+                "members": {"description": "Members."}
               }
             }
           }
@@ -726,9 +670,7 @@ fn with_commands(groups: &[&str], commands: &str) -> String {
                       "x-forge-group-name": [{group}],
                       "x-forge-method-name": "list",
                       "responses": {{
-                        "204": {{
-                          "description": "ok"
-                        }}
+                        "204": {{"description": "ok"}}
                       }}
                     }}
                   }}"#
@@ -742,9 +684,7 @@ fn with_commands(groups: &[&str], commands: &str) -> String {
             "title": "t",
             "version": "1"
           }},
-          "paths": {{
-            {}
-          }},
+          "paths": {{{}}},
           "x-forge-commands": {commands}
         }}"#,
         paths.join(", ")
@@ -758,12 +698,8 @@ fn dotted_group_key_describes_a_subgroup() {
         r#"{
           "ai": {
             "groups": {
-              "dynamic-routing": {
-                "description": "Routes."
-              },
-              "dynamic-routing.deployments": {
-                "description": "Deployments."
-              }
+              "dynamic-routing": {"description": "Routes."},
+              "dynamic-routing.deployments": {"description": "Deployments."}
             }
           }
         }"#,
@@ -781,9 +717,7 @@ fn dotted_root_key_describes_a_subgroup() {
     let forge = parse(&with_commands(
         &["user.analytics"],
         r#"{
-          "user.analytics": {
-            "description": "Analytics."
-          }
+          "user.analytics": {"description": "Analytics."}
         }"#,
     ));
 
@@ -796,15 +730,11 @@ fn dotted_key_can_come_before_its_parents_entry() {
     let forge = parse(&with_commands(
         &["a.b.c", "a.b", "a"],
         r#"{
-          "a.b.c": {
-            "description": "C."
-          },
+          "a.b.c": {"description": "C."},
           "a": {
             "description": "A.",
             "groups": {
-              "b": {
-                "description": "B."
-              }
+              "b": {"description": "B."}
             }
           }
         }"#,
@@ -822,14 +752,10 @@ fn dotted_and_nested_entries_for_a_group_are_an_error() {
         r#"{
           "a": {
             "groups": {
-              "b": {
-                "description": "One."
-              }
+              "b": {"description": "One."}
             }
           },
-          "a.b": {
-            "description": "Two."
-          }
+          "a.b": {"description": "Two."}
         }"#,
     ));
 
@@ -854,17 +780,13 @@ fn command_matches_a_group_with_an_equal_name() {
                 "x-forge-group-name": "abuse_reports",
                 "x-forge-method-name": "list",
                 "responses": {
-                  "204": {
-                    "description": "ok"
-                  }
+                  "204": {"description": "ok"}
                 }
               }
             }
           },
           "x-forge-commands": {
-            "abuse-reports": {
-              "description": "Abuse reports."
-            }
+            "abuse-reports": {"description": "Abuse reports."}
           }
         }"#,
     );
@@ -887,17 +809,13 @@ fn group_without_a_command_has_no_description() {
                 "x-forge-group-name": "accounts",
                 "x-forge-method-name": "list",
                 "responses": {
-                  "204": {
-                    "description": "ok"
-                  }
+                  "204": {"description": "ok"}
                 }
               }
             }
           },
           "x-forge-commands": {
-            "zones": {
-              "description": "Zones."
-            }
+            "zones": {"description": "Zones."}
           }
         }"#,
     );
@@ -917,12 +835,8 @@ fn commands_with_equal_names_are_an_error() {
           },
           "paths": {},
           "x-forge-commands": {
-            "abuse-reports": {
-              "description": "One."
-            },
-            "abuse_reports": {
-              "description": "Two."
-            }
+            "abuse-reports": {"description": "One."},
+            "abuse_reports": {"description": "Two."}
           }
         }"#,
     );
@@ -945,9 +859,7 @@ fn groups_are_sorted_by_name() {
                 "x-forge-group-name": "zones",
                 "x-forge-method-name": "get",
                 "responses": {
-                  "204": {
-                    "description": "ok"
-                  }
+                  "204": {"description": "ok"}
                 }
               }
             },
@@ -956,9 +868,7 @@ fn groups_are_sorted_by_name() {
                 "x-forge-group-name": ["accounts", "members"],
                 "x-forge-method-name": "get",
                 "responses": {
-                  "204": {
-                    "description": "ok"
-                  }
+                  "204": {"description": "ok"}
                 }
               }
             },
@@ -967,9 +877,7 @@ fn groups_are_sorted_by_name() {
                 "x-forge-group-name": "dns",
                 "x-forge-method-name": "get",
                 "responses": {
-                  "204": {
-                    "description": "ok"
-                  }
+                  "204": {"description": "ok"}
                 }
               }
             },
@@ -978,9 +886,7 @@ fn groups_are_sorted_by_name() {
                 "x-forge-group-name": ["accounts", "billing"],
                 "x-forge-method-name": "get",
                 "responses": {
-                  "204": {
-                    "description": "ok"
-                  }
+                  "204": {"description": "ok"}
                 }
               }
             }
@@ -1013,27 +919,21 @@ fn methods_are_sorted_by_name() {
                 "x-forge-group-name": "a",
                 "x-forge-method-name": "list",
                 "responses": {
-                  "204": {
-                    "description": "ok"
-                  }
+                  "204": {"description": "ok"}
                 }
               },
               "post": {
                 "x-forge-group-name": "a",
                 "x-forge-method-name": "create",
                 "responses": {
-                  "204": {
-                    "description": "ok"
-                  }
+                  "204": {"description": "ok"}
                 }
               },
               "delete": {
                 "x-forge-group-name": "a",
                 "x-forge-method-name": "delete",
                 "responses": {
-                  "204": {
-                    "description": "ok"
-                  }
+                  "204": {"description": "ok"}
                 }
               }
             }

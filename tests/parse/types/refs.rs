@@ -8,13 +8,9 @@ use crate::common::{
 #[test]
 fn ref_to_a_schema_is_a_model_even_a_primitive() {
     let forge = parse(&responding_with_schemas(
-        r##"{
-          "$ref": "#/components/schemas/Id"
-        }"##,
+        r##"{"$ref": "#/components/schemas/Id"}"##,
         r#"{
-          "Id": {
-            "type": "string"
-          }
+          "Id": {"type": "string"}
         }"#,
     ));
 
@@ -26,16 +22,12 @@ fn ref_to_a_schema_is_a_model_even_a_primitive() {
 #[test]
 fn ref_into_a_schema_is_written_in_place() {
     let forge = parse(&responding_with_schemas(
-        r##"{
-          "$ref": "#/components/schemas/Account/properties/id"
-        }"##,
+        r##"{"$ref": "#/components/schemas/Account/properties/id"}"##,
         r#"{
           "Account": {
             "type": "object",
             "properties": {
-              "id": {
-                "type": "string"
-              }
+              "id": {"type": "string"}
             }
           }
         }"#,
@@ -48,9 +40,7 @@ fn ref_into_a_schema_is_written_in_place() {
 #[test]
 fn recursive_ref_written_in_place_is_an_error() {
     let err = parse_err(&responding_with_schemas(
-        r##"{
-          "$ref": "#/components/schemas/Tree/properties/node"
-        }"##,
+        r##"{"$ref": "#/components/schemas/Tree/properties/node"}"##,
         r##"{
           "Tree": {
             "type": "object",
@@ -58,9 +48,7 @@ fn recursive_ref_written_in_place_is_an_error() {
               "node": {
                 "type": "object",
                 "properties": {
-                  "next": {
-                    "$ref": "#/components/schemas/Tree/properties/node"
-                  }
+                  "next": {"$ref": "#/components/schemas/Tree/properties/node"}
                 }
               }
             }
@@ -74,9 +62,7 @@ fn recursive_ref_written_in_place_is_an_error() {
 #[test]
 fn external_ref_is_an_error() {
     let err = parse_err(&responding_with_schemas(
-        r#"{
-          "$ref": "other.json#/components/schemas/Zone"
-        }"#,
+        r#"{"$ref": "other.json#/components/schemas/Zone"}"#,
         "{}",
     ));
 
@@ -90,18 +76,14 @@ fn siblings_of_a_ref_are_ignored_in_3_0() {
           "$ref": "#/components/schemas/Zone",
           "nullable": true,
           "properties": {
-            "extra": {
-              "type": "string"
-            }
+            "extra": {"type": "string"}
           }
         }"##,
         r#"{
           "Zone": {
             "type": "object",
             "properties": {
-              "id": {
-                "type": "string"
-              }
+              "id": {"type": "string"}
             }
           }
         }"#,
@@ -146,9 +128,7 @@ fn annotations_next_to_a_ref_keep_the_model_in_3_1() {
               "Zone": {
                 "type": "object",
                 "properties": {
-                  "id": {
-                    "type": "string"
-                  }
+                  "id": {"type": "string"}
                 }
               }
             }
@@ -181,9 +161,7 @@ fn shape_next_to_a_ref_is_intersected_in_3_1() {
                         "schema": {
                           "$ref": "#/components/schemas/Zone",
                           "properties": {
-                            "extra": {
-                              "type": "string"
-                            }
+                            "extra": {"type": "string"}
                           }
                         }
                       }
@@ -198,9 +176,7 @@ fn shape_next_to_a_ref_is_intersected_in_3_1() {
               "Zone": {
                 "type": "object",
                 "properties": {
-                  "id": {
-                    "type": "string"
-                  }
+                  "id": {"type": "string"}
                 }
               }
             }
@@ -246,9 +222,7 @@ fn nullable_next_to_a_ref_is_a_union_with_null_in_3_1() {
               "Zone": {
                 "type": "object",
                 "properties": {
-                  "id": {
-                    "type": "string"
-                  }
+                  "id": {"type": "string"}
                 }
               }
             }
@@ -261,12 +235,7 @@ fn nullable_next_to_a_ref_is_a_union_with_null_in_3_1() {
 
 #[test]
 fn empty_ref_is_an_error() {
-    let err = parse_err(&responding_with_schemas(
-        r#"{
-          "$ref": ""
-        }"#,
-        "{}",
-    ));
+    let err = parse_err(&responding_with_schemas(r#"{"$ref": ""}"#, "{}"));
 
     assert!(err.contains(r#"$ref """#), "{err}");
 }
@@ -277,9 +246,7 @@ fn property_that_is_a_ref_has_the_description_of_its_schema() {
         r##"{
           "type": "object",
           "properties": {
-            "zone": {
-              "$ref": "#/components/schemas/Zone"
-            }
+            "zone": {"$ref": "#/components/schemas/Zone"}
           }
         }"##,
         r#"{
@@ -300,15 +267,11 @@ fn property_description_follows_a_chain_of_refs() {
         r##"{
           "type": "object",
           "properties": {
-            "id": {
-              "$ref": "#/components/schemas/Id"
-            }
+            "id": {"$ref": "#/components/schemas/Id"}
           }
         }"##,
         r##"{
-          "Id": {
-            "$ref": "#/components/schemas/Uuid"
-          },
+          "Id": {"$ref": "#/components/schemas/Uuid"},
           "Uuid": {
             "type": "string",
             "description": "A UUID."
@@ -326,9 +289,7 @@ fn property_description_is_never_the_title_of_its_schema() {
         r##"{
           "type": "object",
           "properties": {
-            "zone": {
-              "$ref": "#/components/schemas/Zone"
-            }
+            "zone": {"$ref": "#/components/schemas/Zone"}
           }
         }"##,
         r#"{
@@ -431,12 +392,8 @@ fn property_description_comes_from_an_all_of_member_in_3_1() {
           "properties": {
             "region": {
               "allOf": [
-                {
-                  "$ref": "#/components/schemas/Region"
-                },
-                {
-                  "default": "us"
-                }
+                {"$ref": "#/components/schemas/Region"},
+                {"default": "us"}
               ]
             },
             "until": {
@@ -445,9 +402,7 @@ fn property_description_comes_from_an_all_of_member_in_3_1() {
                   "type": "string",
                   "description": "The end."
                 },
-                {
-                  "$ref": "#/components/schemas/Region"
-                }
+                {"$ref": "#/components/schemas/Region"}
               ]
             }
           }
@@ -473,9 +428,7 @@ fn property_description_comes_from_a_one_member_all_of_in_3_1() {
           "properties": {
             "page": {
               "allOf": [
-                {
-                  "$ref": "#/components/schemas/Page"
-                }
+                {"$ref": "#/components/schemas/Page"}
               ]
             }
           }
@@ -500,17 +453,13 @@ fn property_description_follows_all_of_inside_a_ref_in_3_1() {
         r##"{
           "type": "object",
           "properties": {
-            "region": {
-              "$ref": "#/components/schemas/Region"
-            }
+            "region": {"$ref": "#/components/schemas/Region"}
           }
         }"##,
         r##"{
           "Region": {
             "allOf": [
-              {
-                "$ref": "#/components/schemas/Code"
-              }
+              {"$ref": "#/components/schemas/Code"}
             ]
           },
           "Code": {
@@ -535,9 +484,7 @@ fn own_description_comes_before_all_of_members_in_3_1() {
             "region": {
               "description": "Where.",
               "allOf": [
-                {
-                  "$ref": "#/components/schemas/Region"
-                }
+                {"$ref": "#/components/schemas/Region"}
               ]
             }
           }
@@ -565,9 +512,7 @@ fn ref_description_comes_before_all_of_members_in_3_1() {
             "region": {
               "$ref": "#/components/schemas/Region",
               "allOf": [
-                {
-                  "description": "Other."
-                }
+                {"description": "Other."}
               ]
             }
           }
@@ -598,9 +543,7 @@ fn property_description_never_comes_from_one_of_or_any_of_members() {
                   "type": "string",
                   "description": "A date."
                 },
-                {
-                  "type": "integer"
-                }
+                {"type": "integer"}
               ]
             },
             "until": {
@@ -609,9 +552,7 @@ fn property_description_never_comes_from_one_of_or_any_of_members() {
                   "type": "string",
                   "description": "A date."
                 },
-                {
-                  "type": "integer"
-                }
+                {"type": "integer"}
               ]
             }
           }
@@ -632,19 +573,13 @@ fn all_of_member_description_is_ignored_in_3_0() {
           "properties": {
             "region": {
               "allOf": [
-                {
-                  "$ref": "#/components/schemas/Region"
-                },
-                {
-                  "default": "us"
-                }
+                {"$ref": "#/components/schemas/Region"},
+                {"default": "us"}
               ]
             },
             "page": {
               "allOf": [
-                {
-                  "$ref": "#/components/schemas/Region"
-                }
+                {"$ref": "#/components/schemas/Region"}
               ]
             }
           }
@@ -668,32 +603,22 @@ fn all_of_that_leads_back_to_itself_has_no_description() {
         r##"{
           "type": "object",
           "properties": {
-            "a": {
-              "$ref": "#/components/schemas/A"
-            }
+            "a": {"$ref": "#/components/schemas/A"}
           }
         }"##,
         r##"{
           "A": {
             "type": "object",
             "allOf": [
-              {
-                "$ref": "#/components/schemas/B"
-              },
-              {
-                "$ref": "#/components/schemas/A"
-              }
+              {"$ref": "#/components/schemas/B"},
+              {"$ref": "#/components/schemas/A"}
             ]
           },
           "B": {
             "type": "object",
             "allOf": [
-              {
-                "$ref": "#/components/schemas/A"
-              },
-              {
-                "$ref": "#/components/schemas/B"
-              }
+              {"$ref": "#/components/schemas/A"},
+              {"$ref": "#/components/schemas/B"}
             ]
           }
         }"##,
@@ -708,9 +633,7 @@ fn property_that_is_a_ref_is_read_only_when_its_schema_is() {
         r##"{
           "type": "object",
           "properties": {
-            "id": {
-              "$ref": "#/components/schemas/Id"
-            }
+            "id": {"$ref": "#/components/schemas/Id"}
           }
         }"##,
         r#"{
@@ -730,15 +653,11 @@ fn property_read_only_follows_a_chain_of_refs() {
         r##"{
           "type": "object",
           "properties": {
-            "id": {
-              "$ref": "#/components/schemas/Id"
-            }
+            "id": {"$ref": "#/components/schemas/Id"}
           }
         }"##,
         r##"{
-          "Id": {
-            "$ref": "#/components/schemas/Uuid"
-          },
+          "Id": {"$ref": "#/components/schemas/Uuid"},
           "Uuid": {
             "type": "string",
             "readOnly": true
@@ -786,9 +705,7 @@ fn read_only_next_to_a_property_ref_counts_in_3_1() {
           },
           "components": {
             "schemas": {
-              "Id": {
-                "type": "string"
-              }
+              "Id": {"type": "string"}
             }
           }
         }"##,
@@ -810,9 +727,7 @@ fn read_only_next_to_a_property_ref_is_ignored_in_3_0() {
           }
         }"##,
         r#"{
-          "Id": {
-            "type": "string"
-          }
+          "Id": {"type": "string"}
         }"#,
     ));
 
@@ -874,15 +789,11 @@ fn property_that_is_a_ref_is_sensitive_when_its_schema_is() {
         r##"{
           "type": "object",
           "properties": {
-            "token": {
-              "$ref": "#/components/schemas/Token"
-            }
+            "token": {"$ref": "#/components/schemas/Token"}
           }
         }"##,
         r##"{
-          "Token": {
-            "$ref": "#/components/schemas/Secret"
-          },
+          "Token": {"$ref": "#/components/schemas/Secret"},
           "Secret": {
             "type": "string",
             "x-forge-sensitive": true
@@ -906,9 +817,7 @@ fn sensitive_next_to_a_property_ref_counts_in_3_0() {
           }
         }"##,
         r#"{
-          "Token": {
-            "type": "string"
-          }
+          "Token": {"type": "string"}
         }"#,
     ));
 
@@ -952,9 +861,7 @@ fn sensitive_next_to_a_property_ref_counts_in_3_1() {
           },
           "components": {
             "schemas": {
-              "Token": {
-                "type": "string"
-              }
+              "Token": {"type": "string"}
             }
           }
         }"##,
@@ -969,9 +876,7 @@ fn property_that_is_a_ref_has_the_default_of_its_schema() {
         r##"{
           "type": "object",
           "properties": {
-            "size": {
-              "$ref": "#/components/schemas/Size"
-            }
+            "size": {"$ref": "#/components/schemas/Size"}
           }
         }"##,
         r#"{
@@ -992,15 +897,11 @@ fn property_default_follows_a_chain_of_refs() {
         r##"{
           "type": "object",
           "properties": {
-            "size": {
-              "$ref": "#/components/schemas/Size"
-            }
+            "size": {"$ref": "#/components/schemas/Size"}
           }
         }"##,
         r##"{
-          "Size": {
-            "$ref": "#/components/schemas/Count"
-          },
+          "Size": {"$ref": "#/components/schemas/Count"},
           "Count": {
             "type": "integer",
             "default": 10
@@ -1034,9 +935,7 @@ fn property_default_is_the_first_along_a_chain_of_refs_in_3_1() {
                         "schema": {
                           "type": "object",
                           "properties": {
-                            "size": {
-                              "$ref": "#/components/schemas/Size"
-                            }
+                            "size": {"$ref": "#/components/schemas/Size"}
                           }
                         }
                       }
@@ -1071,15 +970,11 @@ fn property_that_is_a_ref_without_a_default_has_none() {
         r##"{
           "type": "object",
           "properties": {
-            "size": {
-              "$ref": "#/components/schemas/Size"
-            }
+            "size": {"$ref": "#/components/schemas/Size"}
           }
         }"##,
         r#"{
-          "Size": {
-            "type": "integer"
-          }
+          "Size": {"type": "integer"}
         }"#,
     ));
 
@@ -1162,9 +1057,7 @@ fn default_next_to_a_property_ref_is_ignored_in_3_0() {
             "type": "integer",
             "default": 10
           },
-          "Count": {
-            "type": "integer"
-          }
+          "Count": {"type": "integer"}
         }"#,
     ));
 

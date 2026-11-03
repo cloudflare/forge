@@ -19,9 +19,7 @@ fn operation_with(fields: &str) -> String {
                 "x-forge-group-name": "a",
                 "x-forge-method-name": "get",
                 "responses": {{
-                  "204": {{
-                    "description": "ok"
-                  }}
+                  "204": {{"description": "ok"}}
                 }}
               }}
             }}
@@ -187,9 +185,7 @@ fn extensions_forge_reads_are_still_read() {
                 "x-forge-method-name": "list",
                 "x-a": 1,
                 "responses": {
-                  "204": {
-                    "description": "ok"
-                  }
+                  "204": {"description": "ok"}
                 }
               },
               "post": {
@@ -198,9 +194,7 @@ fn extensions_forge_reads_are_still_read() {
                 "x-forge-skip": true,
                 "x-a": 1,
                 "responses": {
-                  "204": {
-                    "description": "ok"
-                  }
+                  "204": {"description": "ok"}
                 }
               }
             }
@@ -218,9 +212,7 @@ fn repeated_extension_has_the_last_value_in_the_place_of_the_first() {
         r#"
           "x-a": 1,
           "x-b": 2,
-          "x-a": {
-            "c": 3
-          },"#,
+          "x-a": {"c": 3},"#,
     ));
 
     let get = method(&forge, "a.get");
@@ -255,9 +247,7 @@ fn each_method_keeps_its_own_extensions() {
                 "x-forge-method-name": "get",
                 "x-a": "get",
                 "responses": {
-                  "204": {
-                    "description": "ok"
-                  }
+                  "204": {"description": "ok"}
                 }
               }
             },
@@ -266,9 +256,7 @@ fn each_method_keeps_its_own_extensions() {
                 "x-forge-group-name": "a",
                 "x-forge-method-name": "list",
                 "responses": {
-                  "204": {
-                    "description": "ok"
-                  }
+                  "204": {"description": "ok"}
                 }
               }
             },
@@ -279,9 +267,7 @@ fn each_method_keeps_its_own_extensions() {
                 "x-a": "create",
                 "x-b": [],
                 "responses": {
-                  "204": {
-                    "description": "ok"
-                  }
+                  "204": {"description": "ok"}
                 }
               }
             }
@@ -349,18 +335,14 @@ fn operation_of_a_referenced_path_item_keeps_its_extensions() {
             "version": "1"
           },
           "paths": {
-            "/a": {
-              "$ref": "#/components/pathItems/A"
-            },
+            "/a": {"$ref": "#/components/pathItems/A"},
             "/b": {
               "get": {
                 "x-forge-group-name": "b",
                 "x-forge-method-name": "get",
                 "x-b": 2,
                 "responses": {
-                  "204": {
-                    "description": "ok"
-                  }
+                  "204": {"description": "ok"}
                 }
               }
             }
@@ -373,9 +355,7 @@ fn operation_of_a_referenced_path_item_keeps_its_extensions() {
                   "x-forge-method-name": "get",
                   "x-a": 1,
                   "responses": {
-                    "204": {
-                      "description": "ok"
-                    }
+                    "204": {"description": "ok"}
                   }
                 }
               }

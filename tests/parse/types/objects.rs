@@ -8,9 +8,7 @@ fn properties_are_fields_and_allow_no_other_keys() {
         r#"{
           "type": "object",
           "properties": {
-            "id": {
-              "type": "string"
-            }
+            "id": {"type": "string"}
           }
         }"#,
     ));
@@ -27,12 +25,8 @@ fn required_fields_are_listed_in_required() {
           "type": "object",
           "required": ["id"],
           "properties": {
-            "id": {
-              "type": "string"
-            },
-            "name": {
-              "type": "string"
-            }
+            "id": {"type": "string"},
+            "name": {"type": "string"}
           }
         }"#,
     ));
@@ -49,9 +43,7 @@ fn required_names_without_a_property_are_ignored() {
           "type": "object",
           "required": ["port", "protocol"],
           "properties": {
-            "port": {
-              "type": "integer"
-            }
+            "port": {"type": "integer"}
           }
         }"#,
     ));
@@ -85,9 +77,7 @@ fn field_is_named_after_its_property() {
         r#"{
           "type": "object",
           "properties": {
-            "created_at": {
-              "type": "string"
-            }
+            "created_at": {"type": "string"}
           }
         }"#,
     ));
@@ -139,9 +129,7 @@ fn field_is_neither_read_only_nor_sensitive_by_default() {
         r#"{
           "type": "object",
           "properties": {
-            "name": {
-              "type": "string"
-            },
+            "name": {"type": "string"},
             "shown": {
               "type": "string",
               "readOnly": false,
@@ -231,9 +219,7 @@ fn properties_without_a_type_are_an_object() {
     let forge = parse(&responding_with(
         r#"{
           "properties": {
-            "id": {
-              "type": "string"
-            }
+            "id": {"type": "string"}
           }
         }"#,
     ));
@@ -243,11 +229,7 @@ fn properties_without_a_type_are_an_object() {
 
 #[test]
 fn object_without_properties_allows_any_keys() {
-    let forge = parse(&responding_with(
-        r#"{
-          "type": "object"
-        }"#,
-    ));
+    let forge = parse(&responding_with(r#"{"type": "object"}"#));
 
     let object = object(response_type(&forge, "a.get"));
     assert_eq!(object.fields().len(), 0);
@@ -260,9 +242,7 @@ fn additional_properties_true_allows_any_other_keys() {
         r#"{
           "type": "object",
           "properties": {
-            "id": {
-              "type": "string"
-            }
+            "id": {"type": "string"}
           },
           "additionalProperties": true
         }"#,
@@ -279,9 +259,7 @@ fn additional_properties_false_with_properties_allows_no_other_keys() {
         r#"{
           "type": "object",
           "properties": {
-            "id": {
-              "type": "string"
-            }
+            "id": {"type": "string"}
           },
           "additionalProperties": false
         }"#,
@@ -309,9 +287,7 @@ fn additional_properties_schema_is_the_type_of_other_keys() {
     let forge = parse(&responding_with(
         r#"{
           "type": "object",
-          "additionalProperties": {
-            "type": "integer"
-          }
+          "additionalProperties": {"type": "integer"}
         }"#,
     ));
 
@@ -357,14 +333,10 @@ fn pattern_properties_are_ignored() {
                         "schema": {
                           "type": "object",
                           "properties": {
-                            "id": {
-                              "type": "string"
-                            }
+                            "id": {"type": "string"}
                           },
                           "patternProperties": {
-                            "^x-": {
-                              "type": "string"
-                            }
+                            "^x-": {"type": "string"}
                           }
                         }
                       }
@@ -404,9 +376,7 @@ fn false_property_is_no_field() {
                         "schema": {
                           "type": "object",
                           "properties": {
-                            "id": {
-                              "type": "string"
-                            },
+                            "id": {"type": "string"},
                             "gone": false
                           }
                         }
@@ -429,9 +399,7 @@ fn property_skipped_by_x_forge_skip_is_no_field() {
         r#"{
           "type": "object",
           "properties": {
-            "id": {
-              "type": "string"
-            },
+            "id": {"type": "string"},
             "old_id": {
               "type": "string",
               "x-forge-skip": true
@@ -449,12 +417,8 @@ fn fields_with_equal_names_are_an_error() {
         r#"{
           "type": "object",
           "properties": {
-            "user_id": {
-              "type": "string"
-            },
-            "userId": {
-              "type": "string"
-            }
+            "user_id": {"type": "string"},
+            "userId": {"type": "string"}
           }
         }"#,
     ));
@@ -510,9 +474,7 @@ fn object_and_array_defaults_are_kept_as_written() {
             },
             "tags": {
               "type": "array",
-              "items": {
-                "type": "string"
-              },
+              "items": {"type": "string"},
               "default": ["x", "y"]
             }
           }
@@ -540,9 +502,7 @@ fn null_default_is_apart_from_no_default() {
               "nullable": true,
               "default": null
             },
-            "name": {
-              "type": "string"
-            }
+            "name": {"type": "string"}
           }
         }"#,
     ));

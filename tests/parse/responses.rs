@@ -17,18 +17,10 @@ fn responses_are_the_2xx_sorted_by_status() {
                 "x-forge-group-name": "a",
                 "x-forge-method-name": "create",
                 "responses": {
-                  "2XX": {
-                    "description": "ok"
-                  },
-                  "201": {
-                    "description": "ok"
-                  },
-                  "400": {
-                    "description": "no"
-                  },
-                  "200": {
-                    "description": "ok"
-                  }
+                  "2XX": {"description": "ok"},
+                  "201": {"description": "ok"},
+                  "400": {"description": "no"},
+                  "200": {"description": "ok"}
                 }
               }
             }
@@ -58,27 +50,13 @@ fn errors_are_the_rest_sorted_with_default_last() {
                 "x-forge-group-name": "a",
                 "x-forge-method-name": "get",
                 "responses": {
-                  "default": {
-                    "description": "no"
-                  },
-                  "500": {
-                    "description": "no"
-                  },
-                  "4XX": {
-                    "description": "no"
-                  },
-                  "404": {
-                    "description": "no"
-                  },
-                  "200": {
-                    "description": "ok"
-                  },
-                  "400": {
-                    "description": "no"
-                  },
-                  "304": {
-                    "description": "no"
-                  }
+                  "default": {"description": "no"},
+                  "500": {"description": "no"},
+                  "4XX": {"description": "no"},
+                  "404": {"description": "no"},
+                  "200": {"description": "ok"},
+                  "400": {"description": "no"},
+                  "304": {"description": "no"}
                 }
               }
             }
@@ -108,9 +86,7 @@ fn response_has_its_description() {
                 "x-forge-group-name": "a",
                 "x-forge-method-name": "get",
                 "responses": {
-                  "200": {
-                    "description": "The pet."
-                  }
+                  "200": {"description": "The pet."}
                 }
               }
             }
@@ -137,9 +113,7 @@ fn response_without_content_has_none() {
                 "x-forge-group-name": "a",
                 "x-forge-method-name": "delete",
                 "responses": {
-                  "204": {
-                    "description": "ok"
-                  }
+                  "204": {"description": "ok"}
                 }
               }
             }
@@ -167,9 +141,7 @@ fn response_ref_is_followed() {
                 "x-forge-group-name": "a",
                 "x-forge-method-name": "get",
                 "responses": {
-                  "4XX": {
-                    "$ref": "#/components/responses/Failure"
-                  }
+                  "4XX": {"$ref": "#/components/responses/Failure"}
                 }
               }
             }
@@ -180,9 +152,7 @@ fn response_ref_is_followed() {
                 "description": "Failed.",
                 "content": {
                   "application/json": {
-                    "schema": {
-                      "type": "string"
-                    }
+                    "schema": {"type": "string"}
                   }
                 }
               }
@@ -222,9 +192,7 @@ fn response_content_that_is_not_json_is_typed() {
                         }
                       },
                       "text/csv": {
-                        "schema": {
-                          "type": "string"
-                        }
+                        "schema": {"type": "string"}
                       }
                     }
                   }

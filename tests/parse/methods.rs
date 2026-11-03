@@ -19,9 +19,7 @@ fn operation_with(fields: &str) -> String {
                 "x-forge-group-name": "a",
                 "x-forge-method-name": "get",
                 "responses": {{
-                  "204": {{
-                    "description": "ok"
-                  }}
+                  "204": {{"description": "ok"}}
                 }}
               }}
             }}
@@ -45,72 +43,56 @@ fn each_operation_field_is_its_http_method() {
                 "x-forge-group-name": "a",
                 "x-forge-method-name": "get",
                 "responses": {
-                  "204": {
-                    "description": "ok"
-                  }
+                  "204": {"description": "ok"}
                 }
               },
               "put": {
                 "x-forge-group-name": "a",
                 "x-forge-method-name": "put",
                 "responses": {
-                  "204": {
-                    "description": "ok"
-                  }
+                  "204": {"description": "ok"}
                 }
               },
               "post": {
                 "x-forge-group-name": "a",
                 "x-forge-method-name": "post",
                 "responses": {
-                  "204": {
-                    "description": "ok"
-                  }
+                  "204": {"description": "ok"}
                 }
               },
               "delete": {
                 "x-forge-group-name": "a",
                 "x-forge-method-name": "delete",
                 "responses": {
-                  "204": {
-                    "description": "ok"
-                  }
+                  "204": {"description": "ok"}
                 }
               },
               "options": {
                 "x-forge-group-name": "a",
                 "x-forge-method-name": "options",
                 "responses": {
-                  "204": {
-                    "description": "ok"
-                  }
+                  "204": {"description": "ok"}
                 }
               },
               "head": {
                 "x-forge-group-name": "a",
                 "x-forge-method-name": "head",
                 "responses": {
-                  "204": {
-                    "description": "ok"
-                  }
+                  "204": {"description": "ok"}
                 }
               },
               "patch": {
                 "x-forge-group-name": "a",
                 "x-forge-method-name": "patch",
                 "responses": {
-                  "204": {
-                    "description": "ok"
-                  }
+                  "204": {"description": "ok"}
                 }
               },
               "trace": {
                 "x-forge-group-name": "a",
                 "x-forge-method-name": "trace",
                 "responses": {
-                  "204": {
-                    "description": "ok"
-                  }
+                  "204": {"description": "ok"}
                 }
               }
             }
@@ -149,9 +131,7 @@ fn query_operation_is_query() {
                 "x-forge-group-name": "a",
                 "x-forge-method-name": "search",
                 "responses": {
-                  "204": {
-                    "description": "ok"
-                  }
+                  "204": {"description": "ok"}
                 }
               }
             }
@@ -178,9 +158,7 @@ fn additional_operation_is_its_method_as_written() {
                   "x-forge-group-name": "a",
                   "x-forge-method-name": "copy",
                   "responses": {
-                    "204": {
-                      "description": "ok"
-                    }
+                    "204": {"description": "ok"}
                   }
                 }
               }
@@ -211,9 +189,7 @@ fn additional_operation_with_the_method_of_a_field_is_that_variant() {
                   "x-forge-group-name": "a",
                   "x-forge-method-name": "get",
                   "responses": {
-                    "204": {
-                      "description": "ok"
-                    }
+                    "204": {"description": "ok"}
                   }
                 }
               }
@@ -241,9 +217,7 @@ fn additional_operation_methods_are_case_sensitive() {
                   "x-forge-group-name": "a",
                   "x-forge-method-name": "get",
                   "responses": {
-                    "204": {
-                      "description": "ok"
-                    }
+                    "204": {"description": "ok"}
                   }
                 }
               }
@@ -276,9 +250,7 @@ fn method_has_the_summary_description_and_deprecation_of_its_operation() {
                 "description": "Gets an a.",
                 "deprecated": true,
                 "responses": {
-                  "204": {
-                    "description": "ok"
-                  }
+                  "204": {"description": "ok"}
                 }
               }
             }
@@ -307,9 +279,7 @@ fn method_without_docs_is_empty_and_not_deprecated() {
                 "x-forge-group-name": "a",
                 "x-forge-method-name": "get",
                 "responses": {
-                  "204": {
-                    "description": "ok"
-                  }
+                  "204": {"description": "ok"}
                 }
               }
             }
@@ -333,9 +303,7 @@ fn path_item_ref_is_followed() {
             "version": "1"
           },
           "paths": {
-            "/a": {
-              "$ref": "#/components/pathItems/A"
-            }
+            "/a": {"$ref": "#/components/pathItems/A"}
           },
           "components": {
             "pathItems": {
@@ -344,9 +312,7 @@ fn path_item_ref_is_followed() {
                   "x-forge-group-name": "a",
                   "x-forge-method-name": "get",
                   "responses": {
-                    "204": {
-                      "description": "ok"
-                    }
+                    "204": {"description": "ok"}
                   }
                 }
               }
@@ -373,25 +339,19 @@ fn extensions_in_paths_and_path_items_are_not_operations() {
                 "x-forge-group-name": "x",
                 "x-forge-method-name": "get",
                 "responses": {
-                  "204": {
-                    "description": "ok"
-                  }
+                  "204": {"description": "ok"}
                 }
               }
             },
             "/a": {
               "x-forge-commands": {
-                "a": {
-                  "description": "A."
-                }
+                "a": {"description": "A."}
               },
               "get": {
                 "x-forge-group-name": "a",
                 "x-forge-method-name": "get",
                 "responses": {
-                  "204": {
-                    "description": "ok"
-                  }
+                  "204": {"description": "ok"}
                 }
               }
             }
@@ -418,9 +378,7 @@ fn additional_operation_with_the_method_of_a_present_field_is_skipped() {
                 "x-forge-group-name": "a",
                 "x-forge-method-name": "get",
                 "responses": {
-                  "204": {
-                    "description": "ok"
-                  }
+                  "204": {"description": "ok"}
                 }
               },
               "additionalOperations": {
@@ -428,9 +386,7 @@ fn additional_operation_with_the_method_of_a_present_field_is_skipped() {
                   "x-forge-group-name": "a",
                   "x-forge-method-name": "shadowed",
                   "responses": {
-                    "204": {
-                      "description": "ok"
-                    }
+                    "204": {"description": "ok"}
                   }
                 }
               }
@@ -458,9 +414,7 @@ fn webhooks_are_not_methods() {
                 "x-forge-group-name": "pets",
                 "x-forge-method-name": "created",
                 "responses": {
-                  "204": {
-                    "description": "ok"
-                  }
+                  "204": {"description": "ok"}
                 }
               }
             }
@@ -492,18 +446,14 @@ fn callbacks_are_not_methods() {
                         "x-forge-group-name": "a",
                         "x-forge-method-name": "event",
                         "responses": {
-                          "204": {
-                            "description": "ok"
-                          }
+                          "204": {"description": "ok"}
                         }
                       }
                     }
                   }
                 },
                 "responses": {
-                  "204": {
-                    "description": "ok"
-                  }
+                  "204": {"description": "ok"}
                 }
               }
             }
@@ -625,9 +575,7 @@ fn availability_and_deprecation_are_apart() {
                 "deprecated": true,
                 "x-forge-availability": "generally-available",
                 "responses": {
-                  "204": {
-                    "description": "ok"
-                  }
+                  "204": {"description": "ok"}
                 }
               },
               "put": {
@@ -635,9 +583,7 @@ fn availability_and_deprecation_are_apart() {
                 "x-forge-method-name": "put",
                 "x-forge-availability": "deprecated",
                 "responses": {
-                  "204": {
-                    "description": "ok"
-                  }
+                  "204": {"description": "ok"}
                 }
               },
               "post": {
@@ -645,9 +591,7 @@ fn availability_and_deprecation_are_apart() {
                 "x-forge-method-name": "post",
                 "deprecated": true,
                 "responses": {
-                  "204": {
-                    "description": "ok"
-                  }
+                  "204": {"description": "ok"}
                 }
               }
             }
@@ -681,9 +625,7 @@ fn x_forge_method_without_name_is_not_a_method_name() {
                 "x-forge-group-name": ["a"],
                 "x-forge-method": "get",
                 "responses": {
-                  "204": {
-                    "description": "ok"
-                  }
+                  "204": {"description": "ok"}
                 }
               }
             }
@@ -709,9 +651,7 @@ fn named_by(fields: &str) -> String {
               "get": {{
                 {fields}
                 "responses": {{
-                  "204": {{
-                    "description": "ok"
-                  }}
+                  "204": {{"description": "ok"}}
                 }}
               }}
             }}
@@ -776,9 +716,7 @@ fn methods_at_the_top_level_are_sorted_by_name() {
               "get": {
                 "operationId": "zap",
                 "responses": {
-                  "204": {
-                    "description": "ok"
-                  }
+                  "204": {"description": "ok"}
                 }
               }
             },
@@ -786,9 +724,7 @@ fn methods_at_the_top_level_are_sorted_by_name() {
               "get": {
                 "operationId": "list",
                 "responses": {
-                  "204": {
-                    "description": "ok"
-                  }
+                  "204": {"description": "ok"}
                 }
               }
             },
@@ -796,9 +732,7 @@ fn methods_at_the_top_level_are_sorted_by_name() {
               "get": {
                 "operationId": "pets.list",
                 "responses": {
-                  "204": {
-                    "description": "ok"
-                  }
+                  "204": {"description": "ok"}
                 }
               }
             }
@@ -825,9 +759,7 @@ fn methods_at_the_top_level_with_equal_names_are_an_error() {
               "get": {
                 "operationId": "listPets",
                 "responses": {
-                  "204": {
-                    "description": "ok"
-                  }
+                  "204": {"description": "ok"}
                 }
               }
             },
@@ -835,9 +767,7 @@ fn methods_at_the_top_level_with_equal_names_are_an_error() {
               "get": {
                 "operationId": "list_pets",
                 "responses": {
-                  "204": {
-                    "description": "ok"
-                  }
+                  "204": {"description": "ok"}
                 }
               }
             }
@@ -944,9 +874,7 @@ fn forge_and_operation_id_methods_with_equal_names_are_an_error() {
                 "x-forge-group-name": "pets",
                 "x-forge-method-name": "list",
                 "responses": {
-                  "204": {
-                    "description": "ok"
-                  }
+                  "204": {"description": "ok"}
                 }
               }
             },
@@ -954,9 +882,7 @@ fn forge_and_operation_id_methods_with_equal_names_are_an_error() {
               "get": {
                 "operationId": "pets.list",
                 "responses": {
-                  "204": {
-                    "description": "ok"
-                  }
+                  "204": {"description": "ok"}
                 }
               }
             }
