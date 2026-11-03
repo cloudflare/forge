@@ -7,12 +7,7 @@ use std::io::{self, Read, Write};
 use std::path::{Path, PathBuf};
 
 use forge::Err;
-use forge::normalize::{Normalized, Options, Report, Sources, normalize};
-
-fn source(name: &str) -> Result<Sources, String> {
-    Sources::named(name)
-        .ok_or_else(|| format!("unknown compatibility source {name:?}; expected cloudflare, fern, or stainless"))
-}
+use forge::normalize::{Normalized, Options, Report, Source, normalize, sources};
 
 /// What `forge normalize` is given, which says what it does in `main.rs`.
 #[derive(clap::Args)]
@@ -34,7 +29,7 @@ pub struct Args {
     /// Rewrite only keys from cloudflare, fern, or stainless. May be repeated.
     /// Without it, keys from every source are rewritten.
     #[arg(long = "from", value_parser = source, value_name = "SOURCE")]
-    from: Vec<Sources>,
+    from: Vec<&'static dyn Source>,
     /// Say what would be rewritten, and write nothing. It fails if there is
     /// anything to rewrite, to check that documents are normalized.
     #[arg(long)]
@@ -64,17 +59,19 @@ struct Say {
 }
 
 pub fn run(args: Args) -> Result<(), Err> {
-    let sources = if args.from.is_empty() {
-        Sources::all()
-    } else {
-        args.from
-            .into_iter()
-            .reduce(Sources::union)
-            .expect("at least one source was given")
-    };
+    let mut selected: Vec<&dyn Source> = Vec::new();
+    for source in args.from {
+        if !selected.iter().any(|chosen| chosen.name() == source.name()) {
+            selected.push(source);
+        }
+    }
     let options = Options {
         leave_old_extensions: args.leave_old_extensions,
-        sources,
+        source: if selected.is_empty() {
+            &sources()
+        } else {
+            &selected.as_slice()
+        },
     };
     let say = Say {
         check: args.check,
@@ -143,6 +140,11 @@ pub fn run(args: Args) -> Result<(), Err> {
         );
     }
     Ok(())
+}
+
+fn source(name: &str) -> Result<&'static dyn Source, String> {
+    forge::normalize::source(name)
+        .ok_or_else(|| format!("unknown compatibility source {name:?}; expected cloudflare, fern, or stainless"))
 }
 
 /// Returns `one` if `n` is 1, and `many` if it is not.

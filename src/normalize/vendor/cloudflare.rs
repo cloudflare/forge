@@ -1,18 +1,20 @@
 //! The adapter for Cloudflare's compatibility extensions.
 
-use super::{Rename, Rule, Source};
+use std::borrow::Cow;
+
+use super::{Normalize, Source};
 
 pub(super) struct Cloudflare;
 
-static SENSITIVE: Rename = Rename::same("x-forge-sensitive");
-static SCHEMA: [Rule; 1] = [("x-sensitive", &SENSITIVE)];
-
 impl Source for Cloudflare {
-    fn name(&self) -> &'static str {
-        "cloudflare"
+    fn name(&self) -> Cow<'static, str> {
+        Cow::Borrowed("cloudflare")
     }
 
-    fn schema(&self) -> &'static [Rule] {
-        &SCHEMA
+    fn schema(&self, key: &str) -> Option<&dyn Normalize> {
+        match key {
+            "x-sensitive" => Some(&"x-forge-sensitive"),
+            _ => None,
+        }
     }
 }

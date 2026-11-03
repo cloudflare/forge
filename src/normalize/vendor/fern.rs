@@ -1,43 +1,38 @@
 //! The adapter for Fern's `x-fern-*` extensions.
 
-use super::{Rename, Rule, Source};
+use std::borrow::Cow;
+
+use super::{Group, Normalize, Source};
 
 pub(super) struct Fern;
 
-static METHOD_NAME: Rename = Rename::same("x-forge-method-name");
-static GROUP_NAME: Rename = Rename::group("x-forge-group-name");
-static SKIP: Rename = Rename::same("x-forge-skip");
-static AVAILABILITY: Rename = Rename::same("x-forge-availability");
-static PARAMETER_NAME: Rename = Rename::same("x-forge-parameter-name");
-static MODEL_NAME: Rename = Rename::same("x-forge-model-name");
-static PROPERTY_NAME: Rename = Rename::same("x-forge-property-name");
-
-static DEFINITION: [Rule; 4] = [
-    ("x-fern-sdk-method-name", &METHOD_NAME),
-    ("x-fern-sdk-group-name", &GROUP_NAME),
-    ("x-fern-ignore", &SKIP),
-    ("x-fern-availability", &AVAILABILITY),
-];
-static PARAMETER: [Rule; 1] = [("x-fern-parameter-name", &PARAMETER_NAME)];
-static SCHEMA: [Rule; 2] = [
-    ("x-fern-type-name", &MODEL_NAME),
-    ("x-fern-property-name", &PROPERTY_NAME),
-];
-
 impl Source for Fern {
-    fn name(&self) -> &'static str {
-        "fern"
+    fn name(&self) -> Cow<'static, str> {
+        Cow::Borrowed("fern")
     }
 
-    fn definition(&self) -> &'static [Rule] {
-        &DEFINITION
+    fn definition(&self, key: &str) -> Option<&dyn Normalize> {
+        match key {
+            "x-fern-sdk-method-name" => Some(&"x-forge-method-name"),
+            "x-fern-sdk-group-name" => Some(&Group("x-forge-group-name")),
+            "x-fern-ignore" => Some(&"x-forge-skip"),
+            "x-fern-availability" => Some(&"x-forge-availability"),
+            _ => None,
+        }
     }
 
-    fn parameter(&self) -> &'static [Rule] {
-        &PARAMETER
+    fn parameter(&self, key: &str) -> Option<&dyn Normalize> {
+        match key {
+            "x-fern-parameter-name" => Some(&"x-forge-parameter-name"),
+            _ => None,
+        }
     }
 
-    fn schema(&self) -> &'static [Rule] {
-        &SCHEMA
+    fn schema(&self, key: &str) -> Option<&dyn Normalize> {
+        match key {
+            "x-fern-type-name" => Some(&"x-forge-model-name"),
+            "x-fern-property-name" => Some(&"x-forge-property-name"),
+            _ => None,
+        }
     }
 }

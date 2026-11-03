@@ -1,7 +1,6 @@
 //! Tests for the private adapter registry.
 
 use super::*;
-use crate::normalize::{Options, Sources};
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 enum Level {
@@ -10,42 +9,40 @@ enum Level {
     Schema,
 }
 
-fn tables() -> Vec<(&'static dyn Source, Level, &'static str, &'static dyn Normalize)> {
-    let table = |source: &'static dyn Source, level: Level, table: &'static [Rule]| -> Vec<_> {
-        table
-            .iter()
-            .map(|&(name, normalize)| (source, level, name, normalize))
-            .collect()
-    };
-    ALL.iter()
-        .flat_map(|source| {
-            [
-                table(*source, Level::Definition, source.definition()),
-                table(*source, Level::Parameter, source.parameter()),
-                table(*source, Level::Schema, source.schema()),
-            ]
-            .concat()
-        })
-        .collect()
+/// Every compatibility key, with the source it is from and the level it is
+/// read at.
+const KEYS: [(&str, Level, &str); 9] = [
+    ("cloudflare", Level::Schema, "x-sensitive"),
+    ("fern", Level::Definition, "x-fern-sdk-method-name"),
+    ("fern", Level::Definition, "x-fern-sdk-group-name"),
+    ("fern", Level::Definition, "x-fern-ignore"),
+    ("fern", Level::Definition, "x-fern-availability"),
+    ("fern", Level::Parameter, "x-fern-parameter-name"),
+    ("fern", Level::Schema, "x-fern-type-name"),
+    ("fern", Level::Schema, "x-fern-property-name"),
+    ("stainless", Level::Schema, "x-stainless-skip"),
+];
+
+fn named(name: &str) -> &'static dyn Source {
+    crate::normalize::source(name).unwrap()
 }
 
-fn read(sources: &Sources, level: Level, key: &str) -> Option<&'static dyn Normalize> {
+fn read<'a>(source: &'a dyn Source, level: Level, key: &str) -> Option<&'a dyn Normalize> {
     match level {
-        Level::Definition => sources.definition(key),
-        Level::Parameter => sources.parameter(key),
-        Level::Schema => sources.schema(key),
+        Level::Definition => source.definition(key),
+        Level::Parameter => source.parameter(key),
+        Level::Schema => source.schema(key),
     }
 }
 
 #[test]
 fn a_key_is_read_only_at_its_level() {
-    for (source, level, name, _) in tables() {
-        let sources = Sources::named(source.name()).unwrap();
+    for (name, level, key) in KEYS {
         for other in [Level::Definition, Level::Parameter, Level::Schema] {
             assert_eq!(
-                read(&sources, other, name).is_some(),
+                read(named(name), other, key).is_some(),
                 other == level,
-                "{name} at {other:?}"
+                "{key} at {other:?}"
             );
         }
     }
@@ -53,14 +50,12 @@ fn a_key_is_read_only_at_its_level() {
 
 #[test]
 fn a_key_is_read_only_when_its_source_is_selected() {
-    for (source, level, name, _) in tables() {
+    for (name, level, key) in KEYS {
         for selected in ALL {
-            let sources = Sources::named(selected.name()).unwrap();
             assert_eq!(
-                read(&sources, level, name).is_some(),
-                selected.name() == source.name(),
-                "{name} from {}, with {} selected",
-                source.name(),
+                read(*selected, level, key).is_some(),
+                selected.name() == name,
+                "{key} from {name}, with {} selected",
                 selected.name()
             );
         }
@@ -69,39 +64,31 @@ fn a_key_is_read_only_when_its_source_is_selected() {
 
 #[test]
 fn every_adapter_is_in_all_sources() {
-    let sources = Sources::all();
-    for (source, level, name, _) in tables() {
-        assert!(read(&sources, level, name).is_some(), "{}: {name}", source.name());
+    for (name, level, key) in KEYS {
+        assert!(read(&ALL, level, key).is_some(), "{name}: {key}");
     }
 }
 
 #[test]
-fn every_rule_writes_a_native_key() {
-    for (_, _, original, normalize) in tables() {
-        let mut container = serde_json::Map::from_iter([(original.to_owned(), Value::Bool(true))]);
+fn every_normalizer_writes_a_native_key() {
+    for (_, level, original) in KEYS {
+        let normalizer = read(&ALL, level, original).unwrap();
+        let native = normalizer.normalize(&Value::Bool(true));
 
         assert!(
-            normalize
-                .normalize(&mut container, original, &Options::default())
-                .is_some()
-        );
-        assert!(!container.contains_key(original), "{original}");
-        assert!(
-            container.keys().all(|key| key.starts_with("x-forge-")),
-            "{original}: {container:?}"
+            native.is_some_and(|native| native.key.starts_with("x-forge-")),
+            "{original}"
         );
     }
 }
 
 #[test]
 fn only_the_stainless_skip_may_have_no_native_value() {
-    for (_, _, original, normalize) in tables() {
-        let mut container = serde_json::Map::from_iter([(original.to_owned(), serde_json::json!(["terraform"]))]);
+    for (_, level, original) in KEYS {
+        let normalizer = read(&ALL, level, original).unwrap();
 
         assert_eq!(
-            normalize
-                .normalize(&mut container, original, &Options::default())
-                .is_none(),
+            normalizer.normalize(&serde_json::json!(["terraform"])).is_none(),
             original == "x-stainless-skip",
             "{original}"
         );
@@ -110,7 +97,6 @@ fn only_the_stainless_skip_may_have_no_native_value() {
 
 #[test]
 fn the_other_extensions_of_these_tools_are_not_read() {
-    let sources = Sources::all();
     for key in [
         "x-fern-enum",
         "x-fern-audiences",
@@ -121,8 +107,13 @@ fn the_other_extensions_of_these_tools_are_not_read() {
         "x-forge-skip",
         "x-forge-method-name",
     ] {
-        assert!(sources.definition(key).is_none(), "{key}");
-        assert!(sources.parameter(key).is_none(), "{key}");
-        assert!(sources.schema(key).is_none(), "{key}");
+        assert!(ALL.definition(key).is_none(), "{key}");
+        assert!(ALL.parameter(key).is_none(), "{key}");
+        assert!(ALL.schema(key).is_none(), "{key}");
     }
+}
+
+#[test]
+fn sources_together_are_named_by_their_names_separated_by_commas() {
+    assert_eq!(ALL.name(), "cloudflare, fern, stainless");
 }

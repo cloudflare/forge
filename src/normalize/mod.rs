@@ -1,7 +1,7 @@
 //! Rewrites the extensions other tools' metadata is written with into the
 //! native `x-forge-*` ones, in a JSON document.
 //!
-//! The key a tool writes is found with the tables of [`vendor`], at the kinds
+//! The key a tool writes is found with the sources of [`vendor`], at the kinds
 //! of OpenAPI object where its native replacement belongs. A key elsewhere is
 //! left alone, since rewriting it would give it a meaning it did not have.
 //!
@@ -23,112 +23,35 @@ use serde::Serialize;
 use serde_json::Value;
 use serde_json::ser::PrettyFormatter;
 
-/// The sources of compatibility keys that [`normalize`] rewrites.
-#[derive(Clone)]
-pub struct Sources(Vec<&'static dyn vendor::Source>);
+use vendor::Detail;
+pub use vendor::{Change, Native, Normalize, Source};
 
-impl Sources {
-    /// Every compatibility source.
-    pub fn all() -> Sources {
-        Sources(vendor::ALL.to_vec())
-    }
-
-    /// Returns the source called `name`, if it exists.
-    pub fn named(name: &str) -> Option<Sources> {
-        vendor::ALL
-            .iter()
-            .find(|source| source.name() == name)
-            .map(|source| Sources(vec![*source]))
-    }
-
-    /// Returns these sources and `other` together.
-    pub fn union(mut self, other: Sources) -> Sources {
-        for source in other.0 {
-            if !self.0.iter().any(|selected| selected.name() == source.name()) {
-                self.0.push(source);
-            }
-        }
-        self
-    }
-
-    fn find(
-        &self,
-        key: &str,
-        rules: impl Fn(&dyn vendor::Source) -> &'static [vendor::Rule],
-    ) -> Option<&'static dyn vendor::Normalize> {
-        self.0
-            .iter()
-            .flat_map(|source| rules(*source))
-            .find(|(original, _)| *original == key)
-            .map(|(_, normalize)| *normalize)
-    }
-
-    fn definition(&self, key: &str) -> Option<&'static dyn vendor::Normalize> {
-        self.find(key, |source| source.definition())
-    }
-
-    fn parameter(&self, key: &str) -> Option<&'static dyn vendor::Normalize> {
-        self.find(key, |source| source.parameter())
-    }
-
-    fn schema(&self, key: &str) -> Option<&'static dyn vendor::Normalize> {
-        self.find(key, |source| source.schema())
-    }
+/// Every compatibility source. As a slice, they are a [`Source`] together.
+pub fn sources() -> &'static [&'static dyn Source] {
+    vendor::ALL
 }
 
-impl fmt::Debug for Sources {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_list()
-            .entries(self.0.iter().map(|source| source.name()))
-            .finish()
-    }
+/// Returns the compatibility source called `name`, if there is one.
+pub fn source(name: &str) -> Option<&'static dyn Source> {
+    vendor::ALL.iter().find(|source| source.name() == name).copied()
 }
 
 /// What [`normalize`] does.
-#[derive(Clone, Debug)]
-pub struct Options {
+#[derive(Clone, Copy, Debug)]
+pub struct Options<'a> {
     /// Keeps each key that is rewritten, beside the native key that replaces
     /// it, for what still reads the old one.
     pub leave_old_extensions: bool,
-    /// The compatibility sources to rewrite.
-    pub sources: Sources,
+    /// The compatibility source to rewrite, which may be several combined.
+    pub source: &'a dyn Source,
 }
 
-impl Default for Options {
-    fn default() -> Options {
+impl Default for Options<'_> {
+    fn default() -> Self {
         Options {
             leave_old_extensions: false,
-            sources: Sources::all(),
+            source: &vendor::ALL,
         }
-    }
-}
-
-/// An optional explanation of a normalization change.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
-struct Detail {
-    one: &'static str,
-    many: &'static str,
-}
-
-impl Detail {
-    const fn new(one: &'static str, many: &'static str) -> Detail {
-        Detail { one, many }
-    }
-}
-
-/// A change made by one normalizer.
-#[derive(Clone, Copy, Debug)]
-struct Change {
-    detail: Option<Detail>,
-}
-
-impl Change {
-    const fn plain() -> Change {
-        Change { detail: None }
-    }
-
-    const fn described(detail: Detail) -> Change {
-        Change { detail: Some(detail) }
     }
 }
 

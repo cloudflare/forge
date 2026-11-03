@@ -1,18 +1,20 @@
 //! The adapter for Stainless's `x-stainless-*` extensions.
 
-use super::{Rename, Rule, Source};
+use std::borrow::Cow;
+
+use super::{BoolOrTargets, Normalize, Source};
 
 pub(super) struct Stainless;
 
-static SKIP: Rename = Rename::bool_or_targets("x-forge-skip");
-static SCHEMA: [Rule; 1] = [("x-stainless-skip", &SKIP)];
-
 impl Source for Stainless {
-    fn name(&self) -> &'static str {
-        "stainless"
+    fn name(&self) -> Cow<'static, str> {
+        Cow::Borrowed("stainless")
     }
 
-    fn schema(&self) -> &'static [Rule] {
-        &SCHEMA
+    fn schema(&self, key: &str) -> Option<&dyn Normalize> {
+        match key {
+            "x-stainless-skip" => Some(&BoolOrTargets("x-forge-skip")),
+            _ => None,
+        }
     }
 }
