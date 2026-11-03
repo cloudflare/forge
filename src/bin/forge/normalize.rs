@@ -1,5 +1,10 @@
 //! `forge normalize`, which rewrites the extensions other tools' metadata is
-//! written with into the native ones, in the files it is given.
+//! written with into the native ones, in the files it is given. How one
+//! document is rewritten is in [`json`].
+
+mod json;
+mod vendor;
+mod walk;
 
 use std::collections::HashSet;
 use std::fs;
@@ -7,7 +12,9 @@ use std::io::{self, Read, Write};
 use std::path::{Path, PathBuf};
 
 use forge::Err;
-use forge::normalize::{Normalized, Options, Report, Source, normalize, sources};
+
+use json::{Normalized, Options, Report, normalize};
+use vendor::Source;
 
 /// What `forge normalize` is given, which says what it does in `main.rs`.
 #[derive(clap::Args)]
@@ -59,19 +66,9 @@ struct Say {
 }
 
 pub fn run(args: Args) -> Result<(), Err> {
-    let mut selected: Vec<&dyn Source> = Vec::new();
-    for source in args.from {
-        if !selected.iter().any(|chosen| chosen.name() == source.name()) {
-            selected.push(source);
-        }
-    }
     let options = Options {
         leave_old_extensions: args.leave_old_extensions,
-        source: if selected.is_empty() {
-            &sources()
-        } else {
-            &selected.as_slice()
-        },
+        sources: if args.from.is_empty() { vendor::ALL } else { &args.from },
     };
     let say = Say {
         check: args.check,
@@ -142,8 +139,9 @@ pub fn run(args: Args) -> Result<(), Err> {
     Ok(())
 }
 
+/// Returns the compatibility source called `name`.
 fn source(name: &str) -> Result<&'static dyn Source, String> {
-    forge::normalize::source(name)
+    vendor::named(name)
         .ok_or_else(|| format!("unknown compatibility source {name:?}; expected cloudflare, fern, or stainless"))
 }
 

@@ -23,10 +23,6 @@ const KEYS: [(&str, Level, &str); 9] = [
     ("stainless", Level::Schema, "x-stainless-skip"),
 ];
 
-fn named(name: &str) -> &'static dyn Source {
-    crate::normalize::source(name).unwrap()
-}
-
 fn read<'a>(source: &'a dyn Source, level: Level, key: &str) -> Option<&'a dyn Normalize> {
     match level {
         Level::Definition => source.definition(key),
@@ -35,12 +31,17 @@ fn read<'a>(source: &'a dyn Source, level: Level, key: &str) -> Option<&'a dyn N
     }
 }
 
+/// Reads `key` from every source, as the walk does when all are selected.
+fn read_all(level: Level, key: &str) -> Option<&'static dyn Normalize> {
+    ALL.iter().find_map(|source| read(*source, level, key))
+}
+
 #[test]
 fn a_key_is_read_only_at_its_level() {
     for (name, level, key) in KEYS {
         for other in [Level::Definition, Level::Parameter, Level::Schema] {
             assert_eq!(
-                read(named(name), other, key).is_some(),
+                read(named(name).unwrap(), other, key).is_some(),
                 other == level,
                 "{key} at {other:?}"
             );
@@ -65,14 +66,14 @@ fn a_key_is_read_only_when_its_source_is_selected() {
 #[test]
 fn every_adapter_is_in_all_sources() {
     for (name, level, key) in KEYS {
-        assert!(read(&ALL, level, key).is_some(), "{name}: {key}");
+        assert!(read_all(level, key).is_some(), "{name}: {key}");
     }
 }
 
 #[test]
 fn every_normalizer_writes_a_native_key() {
     for (_, level, original) in KEYS {
-        let normalizer = read(&ALL, level, original).unwrap();
+        let normalizer = read_all(level, original).unwrap();
         let native = normalizer.normalize(&Value::Bool(true));
 
         assert!(
@@ -85,7 +86,7 @@ fn every_normalizer_writes_a_native_key() {
 #[test]
 fn only_the_stainless_skip_may_have_no_native_value() {
     for (_, level, original) in KEYS {
-        let normalizer = read(&ALL, level, original).unwrap();
+        let normalizer = read_all(level, original).unwrap();
 
         assert_eq!(
             normalizer.normalize(&serde_json::json!(["terraform"])).is_none(),
@@ -107,13 +108,8 @@ fn the_other_extensions_of_these_tools_are_not_read() {
         "x-forge-skip",
         "x-forge-method-name",
     ] {
-        assert!(ALL.definition(key).is_none(), "{key}");
-        assert!(ALL.parameter(key).is_none(), "{key}");
-        assert!(ALL.schema(key).is_none(), "{key}");
+        for level in [Level::Definition, Level::Parameter, Level::Schema] {
+            assert!(read_all(level, key).is_none(), "{key} at {level:?}");
+        }
     }
-}
-
-#[test]
-fn sources_together_are_named_by_their_names_separated_by_commas() {
-    assert_eq!(ALL.name(), "cloudflare, fern, stainless");
 }

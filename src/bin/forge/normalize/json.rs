@@ -1,85 +1,62 @@
-//! Rewrites the extensions other tools' metadata is written with into the
-//! native `x-forge-*` ones, in a JSON document.
+//! Normalizes one JSON document.
 //!
-//! The key a tool writes is found with the sources of [`vendor`], at the kinds
-//! of OpenAPI object where its native replacement belongs. A key elsewhere is
-//! left alone, since rewriting it would give it a meaning it did not have.
+//! The key a tool writes is looked up in the sources of [`super::vendor`], at
+//! the kinds of OpenAPI object where its native replacement belongs. A key
+//! elsewhere is left alone, since rewriting it would give it a meaning it did
+//! not have.
 //!
 //! A native key is never replaced. When a document says the same thing with a
 //! native key and another, the native one is kept.
 //!
 //! The document is read with `serde_json` and written again, in the order its
 //! keys were in, with the indentation of its first indented line. That is
-//! simple, and it is not a minimal edit: what is lost is listed in the package
-//! README under "Known limitations".
-
-mod vendor;
-mod walk;
+//! simple, but it is not a minimal edit. The package README lists what is lost
+//! under "Known limitations".
 
 use std::collections::BTreeMap;
-use std::fmt;
 
 use serde::Serialize;
 use serde_json::Value;
 use serde_json::ser::PrettyFormatter;
 
-use vendor::Detail;
-pub use vendor::{Change, Native, Normalize, Source};
-
-/// Every compatibility source. As a slice, they are a [`Source`] together.
-pub fn sources() -> &'static [&'static dyn Source] {
-    vendor::ALL
-}
-
-/// Returns the compatibility source called `name`, if there is one.
-pub fn source(name: &str) -> Option<&'static dyn Source> {
-    vendor::ALL.iter().find(|source| source.name() == name).copied()
-}
+use super::vendor::{Change, Detail, Source};
+use super::walk;
 
 /// What [`normalize`] does.
-#[derive(Clone, Copy, Debug)]
-pub struct Options<'a> {
+#[derive(Clone, Copy)]
+pub(super) struct Options<'a> {
     /// Keeps each key that is rewritten, beside the native key that replaces
     /// it, for what still reads the old one.
-    pub leave_old_extensions: bool,
-    /// The compatibility source to rewrite, which may be several combined.
-    pub source: &'a dyn Source,
-}
-
-impl Default for Options<'_> {
-    fn default() -> Self {
-        Options {
-            leave_old_extensions: false,
-            source: &vendor::ALL,
-        }
-    }
+    pub(super) leave_old_extensions: bool,
+    /// The compatibility sources whose keys are rewritten.
+    pub(super) sources: &'a [&'static dyn Source],
 }
 
 /// What [`normalize`] did.
 #[derive(Debug, Default)]
-pub struct Report {
-    /// How many keys were rewritten, or removed for a native key that
-    /// already said it, by the name of the key.
-    pub migrated: BTreeMap<String, usize>,
+pub(super) struct Report {
+    /// How many times each key was rewritten, or removed because a native key
+    /// already said the same thing.
+    pub(super) migrated: BTreeMap<String, usize>,
     details: BTreeMap<Detail, usize>,
 }
 
 impl Report {
     /// Returns whether the document is different from what it was.
-    pub fn changed(&self) -> bool {
+    pub(super) fn changed(&self) -> bool {
         !self.migrated.is_empty()
     }
 
     /// Returns the additional descriptions of changes, and how many times
     /// each happened.
-    pub fn details(&self) -> impl Iterator<Item = (usize, &'static str)> + '_ {
+    pub(super) fn details(&self) -> impl Iterator<Item = (usize, &'static str)> + '_ {
         self.details.iter().map(|(detail, count)| {
             let description = if *count == 1 { detail.one } else { detail.many };
             (*count, description)
         })
     }
 
-    fn record(&mut self, original: &str, change: Change) {
+    pub(super) fn record(&mut self, original: &str, change: Change) {
         *self.migrated.entry(original.to_owned()).or_insert(0) += 1;
         if let Some(detail) = change.detail {
             *self.details.entry(detail).or_insert(0) += 1;
@@ -89,48 +66,30 @@ impl Report {
 
 /// A document after [`normalize`].
 #[derive(Debug)]
-pub struct Normalized {
+pub(super) struct Normalized {
     /// The document, if it is different from what was read.
-    pub json: Option<Vec<u8>>,
+    pub(super) json: Option<Vec<u8>>,
     /// What was done to it.
-    pub report: Report,
-}
-
-/// Why a document could not be normalized.
-#[derive(Debug)]
-pub struct Error(String);
-
-impl fmt::Display for Error {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str(&self.0)
-    }
-}
-
-impl std::error::Error for Error {}
-
-impl From<serde_json::Error> for Error {
-    fn from(err: serde_json::Error) -> Error {
-        Error(err.to_string())
-    }
+    pub(super) report: Report,
 }
 
 /// Rewrites the keys of the document `json` that a native key replaces.
-pub fn normalize(json: &[u8], options: &Options) -> Result<Normalized, Error> {
+pub(super) fn normalize(json: &[u8], options: &Options) -> Result<Normalized, serde_json::Error> {
     let mut document: Value = serde_json::from_slice(json)?;
     let report = walk::walk(&mut document, options);
     if !report.changed() {
         return Ok(Normalized { json: None, report });
     }
     Ok(Normalized {
-        json: Some(write(&document, json)),
+        json: Some(encode(&document, json)),
         report,
     })
 }
 
-/// Writes `document` as `original` was written, as far as it is known: with
+/// Encodes `document` as `original` was written, as far as that is known: with
 /// its indentation, which is that of the first line that is indented, on one
 /// line if it was, and with a newline at the end if it had one.
-fn write(document: &Value, original: &[u8]) -> Vec<u8> {
+fn encode(document: &Value, original: &[u8]) -> Vec<u8> {
     let mut out = Vec::with_capacity(original.len() + original.len() / 16);
     match indentation(original) {
         Some(indent) => {
@@ -174,7 +133,7 @@ mod tests {
     fn a_document_on_one_line_is_written_on_one_line() {
         assert_eq!(indentation(br#"{"a":1}"#), None);
         assert_eq!(
-            write(&serde_json::json!({"a": 1, "b": [1, 2]}), br#"{"a":1}"#),
+            encode(&serde_json::json!({"a": 1, "b": [1, 2]}), br#"{"a":1}"#),
             br#"{"a":1,"b":[1,2]}"#
         );
     }
@@ -192,7 +151,7 @@ mod tests {
     #[test]
     fn the_newline_at_the_end_is_kept_if_there_was_one() {
         let document = serde_json::json!({"a": 1});
-        assert!(write(&document, b"{\n  \"a\": 1\n}\n").ends_with(b"}\n"));
-        assert!(write(&document, b"{\n  \"a\": 1\n}").ends_with(b"}"));
+        assert!(encode(&document, b"{\n  \"a\": 1\n}\n").ends_with(b"}\n"));
+        assert!(encode(&document, b"{\n  \"a\": 1\n}").ends_with(b"}"));
     }
 }

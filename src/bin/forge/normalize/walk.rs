@@ -9,7 +9,8 @@
 
 use serde_json::{Map, Value};
 
-use super::{Change, Native, Options, Report};
+use super::json::{Options, Report};
+use super::vendor::{Change, Native};
 
 /// A kind of object that is read.
 #[derive(Clone, Copy)]
@@ -142,12 +143,13 @@ impl Walk<'_> {
             .keys()
             .filter(|key| key.starts_with("x-"))
             .filter_map(|key| {
-                let normalizer = match kind {
-                    Kind::Operation => self.options.source.definition(key),
-                    Kind::Parameter => self.options.source.parameter(key),
-                    Kind::Schema => self.options.source.schema(key),
+                // The first source with a normalizer for the key wins.
+                let normalizer = self.options.sources.iter().find_map(|source| match kind {
+                    Kind::Operation => source.definition(key),
+                    Kind::Parameter => source.parameter(key),
+                    Kind::Schema => source.schema(key),
                     Kind::Document | Kind::Components | Kind::PathItem | Kind::Alias | Kind::Body | Kind::Media => None,
-                };
+                });
                 normalizer.map(|normalizer| (key.clone(), normalizer))
             })
             .collect();

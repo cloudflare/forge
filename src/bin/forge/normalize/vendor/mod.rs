@@ -1,4 +1,4 @@
-//! Compatibility-source adapters for [`super::normalize`].
+//! Compatibility-source adapters for [`super::json::normalize`].
 //!
 //! A [`Source`] names the normalizers that apply to operations, parameters,
 //! and schemas. A key is listed only at the OpenAPI object kind where Forge
@@ -17,18 +17,20 @@ mod stainless;
 #[cfg(test)]
 mod tests;
 
-use std::borrow::Cow;
-use std::fmt;
-
 use serde_json::Value;
 
 /// Every available compatibility source.
 pub(super) static ALL: &[&dyn Source] = &[&cloudflare::Cloudflare, &fern::Fern, &stainless::Stainless];
 
+/// Returns the compatibility source called `name`, if there is one.
+pub(super) fn named(name: &str) -> Option<&'static dyn Source> {
+    ALL.iter().find(|source| source.name() == name).copied()
+}
+
 /// A source of compatibility extensions.
-pub trait Source: Sync {
+pub(super) trait Source: Sync {
     /// The name accepted by `--from`.
-    fn name(&self) -> Cow<'static, str>;
+    fn name(&self) -> &'static str;
 
     /// The normalizer for `key` on operations and aliases, if there is one.
     fn definition(&self, _key: &str) -> Option<&dyn Normalize> {
@@ -47,14 +49,14 @@ pub trait Source: Sync {
 }
 
 /// Normalizes one compatibility extension into its [`Native`] form.
-pub trait Normalize: Sync {
+pub(super) trait Normalize: Sync {
     /// The native form of an extension whose value is `value`, or none when
     /// it has no native form and the extension is left alone.
     fn normalize(&self, value: &Value) -> Option<Native>;
 }
 
 /// An extension in its native form.
-pub struct Native {
+pub(super) struct Native {
     /// The native key that replaces the compatibility key.
     pub(super) key: &'static str,
     /// The value in its native form, or none when it is kept as it is.
@@ -75,7 +77,7 @@ impl Native {
 
 /// A change made by one normalizer.
 #[derive(Clone, Copy, Debug)]
-pub struct Change {
+pub(super) struct Change {
     pub(super) detail: Option<Detail>,
 }
 
@@ -150,50 +152,4 @@ fn dotted(names: &[Value]) -> Option<String> {
         path.push_str(name);
     }
     Some(path)
-}
-
-/// Many sources combined into one: the first that has a normalizer for a key
-/// wins.
-impl<S: Source> Source for [S] {
-    /// The names of the sources, separated by commas.
-    fn name(&self) -> Cow<'static, str> {
-        Cow::Owned(self.iter().map(Source::name).collect::<Vec<_>>().join(", "))
-    }
-
-    fn definition(&self, key: &str) -> Option<&dyn Normalize> {
-        self.iter().find_map(|source| source.definition(key))
-    }
-
-    fn parameter(&self, key: &str) -> Option<&dyn Normalize> {
-        self.iter().find_map(|source| source.parameter(key))
-    }
-
-    fn schema(&self, key: &str) -> Option<&dyn Normalize> {
-        self.iter().find_map(|source| source.schema(key))
-    }
-}
-
-/// So that `[&dyn Source]`, a slice of different sources, is a `Source` too.
-impl<S: Source + ?Sized> Source for &S {
-    fn name(&self) -> Cow<'static, str> {
-        (**self).name()
-    }
-
-    fn definition(&self, key: &str) -> Option<&dyn Normalize> {
-        (**self).definition(key)
-    }
-
-    fn parameter(&self, key: &str) -> Option<&dyn Normalize> {
-        (**self).parameter(key)
-    }
-
-    fn schema(&self, key: &str) -> Option<&dyn Normalize> {
-        (**self).schema(key)
-    }
-}
-
-impl fmt::Debug for dyn Source + '_ {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str(&self.name())
-    }
 }

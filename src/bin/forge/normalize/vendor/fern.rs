@@ -1,14 +1,12 @@
 //! The adapter for Fern's `x-fern-*` extensions.
 
-use std::borrow::Cow;
-
 use super::{Group, Normalize, Source};
 
 pub(super) struct Fern;
 
 impl Source for Fern {
-    fn name(&self) -> Cow<'static, str> {
-        Cow::Borrowed("fern")
+    fn name(&self) -> &'static str {
+        "fern"
     }
 
     fn definition(&self, key: &str) -> Option<&dyn Normalize> {

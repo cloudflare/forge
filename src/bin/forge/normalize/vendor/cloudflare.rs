@@ -1,14 +1,12 @@
 //! The adapter for Cloudflare's compatibility extensions.
 
-use std::borrow::Cow;
-
 use super::{Normalize, Source};
 
 pub(super) struct Cloudflare;
 
 impl Source for Cloudflare {
-    fn name(&self) -> Cow<'static, str> {
-        Cow::Borrowed("cloudflare")
+    fn name(&self) -> &'static str {
+        "cloudflare"
     }
 
     fn schema(&self, key: &str) -> Option<&dyn Normalize> {
