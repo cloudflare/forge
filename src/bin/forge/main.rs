@@ -14,6 +14,7 @@ use std::process::ExitCode;
 
 use clap::Parser;
 use forge::{Err, Forge, Plugin};
+use strum::{EnumString, VariantNames};
 
 mod capnweb;
 mod normalize;
@@ -52,7 +53,8 @@ enum Command {
 }
 
 /// What forge generates an SDK with.
-#[derive(Clone)]
+#[derive(Clone, EnumString, VariantNames)]
+#[strum(serialize_all = "lowercase")]
 enum Target {
     /// The TypeScript generator.
     Ts,
@@ -60,18 +62,20 @@ enum Target {
     Capnweb,
     /// A plugin compiled to a WebAssembly component, at the path.
     #[cfg(feature = "wasm")]
+    #[strum(disabled, to_string = "wasm://PATH")]
     Wasm(PathBuf),
 }
 
 impl Target {
     fn parse(s: &str) -> Result<Target, String> {
-        match s {
-            "ts" => return Ok(Target::Ts),
-            "capnweb" => return Ok(Target::Capnweb),
-            _ => {}
+        if let Ok(target) = s.parse::<Target>() {
+            return Ok(target);
         }
         let Some(path) = s.strip_prefix("wasm://") else {
-            return Err("possible values: ts, capnweb, wasm://PATH".to_owned());
+            return Err(format!(
+                "unrecognized target {s}, possible values: {}",
+                Target::VARIANTS.join(", "),
+            ));
         };
         if path.is_empty() {
             return Err("wasm:// needs the path of a plugin, as in wasm://plugin.wasm".to_owned());
