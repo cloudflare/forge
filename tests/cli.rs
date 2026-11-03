@@ -41,7 +41,14 @@ fn flags_are_required() {
 fn unknown_target() {
     let err = failure(forge(&["-", "--target", "go", "--out", "sdk"], SPEC));
     assert!(err.contains("invalid value 'go'"), "{err}");
-    assert!(err.contains("possible values: ts, capnweb"), "{err}");
+    assert!(err.contains("possible values: ts, capnweb, or wasm://PATH\n"), "{err}");
+}
+
+#[cfg(not(feature = "wasm"))]
+#[test]
+fn wasm_target_without_wasm() {
+    let err = failure(forge(&["-", "--target", "wasm://plugin.wasm", "--out", "sdk"], SPEC));
+    assert!(err.contains("this forge was built without wasm plugins"), "{err}");
 }
 
 #[test]
