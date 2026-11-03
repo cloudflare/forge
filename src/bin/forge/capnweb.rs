@@ -111,6 +111,7 @@ fn api_ident(g: Group<'_>) -> Ident {
 /// Object.prototype, which it never follows, and the members of its stubs,
 /// which a client reads on the stub rather than calling.
 const RESERVED: [&str; 18] = [
+    // JavaScript reserved names
     "constructor",
     "hasOwnProperty",
     "isPrototypeOf",
