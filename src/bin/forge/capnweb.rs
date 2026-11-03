@@ -327,12 +327,12 @@ mod tests {
     fn generate_server() {
         let forge = build(&format!(
             r#"{{
-              "/projects/{{id}}": {{"get": {{"x-fern-sdk-group-name": "projects", "x-fern-sdk-method-name": "get", "summary": "Gets a project.", {ID}, {OK}}}}},
-              "/projects": {{"get": {{"x-fern-sdk-group-name": "projects", "x-fern-sdk-method-name": "list",
+              "/projects/{{id}}": {{"get": {{"x-forge-group-name": "projects", "x-forge-method-name": "get", "summary": "Gets a project.", {ID}, {OK}}}}},
+              "/projects": {{"get": {{"x-forge-group-name": "projects", "x-forge-method-name": "list",
                 "parameters": [{{"name": "cursor", "in": "query", "schema": {{"type": "string"}}}}], {OK}}}}},
-              "/projects/{{id}}/archive": {{"post": {{"x-fern-sdk-group-name": "projects", "x-fern-sdk-method-name": "archive", {ID}, {OK}}}}},
-              "/projects/{{id}}/members": {{"get": {{"x-fern-sdk-group-name": "projects.members", "x-fern-sdk-method-name": "list", {ID}, {OK}}}}},
-              "/projects/upload": {{"post": {{"x-fern-sdk-group-name": "projects", "x-fern-sdk-method-name": "upload",
+              "/projects/{{id}}/archive": {{"post": {{"x-forge-group-name": "projects", "x-forge-method-name": "archive", {ID}, {OK}}}}},
+              "/projects/{{id}}/members": {{"get": {{"x-forge-group-name": "projects.members", "x-forge-method-name": "list", {ID}, {OK}}}}},
+              "/projects/upload": {{"post": {{"x-forge-group-name": "projects", "x-forge-method-name": "upload",
                 "requestBody": {{"content": {{"application/octet-stream": {{"schema": {{"type": "string", "format": "binary"}}}}}}}}, {OK}}}}}
             }}"#
         ));
@@ -459,8 +459,8 @@ mod tests {
         // Cap'n Web never delivers a call to then or toString.
         let forge = build(&format!(
             r#"{{
-              "/a": {{"get": {{"x-fern-sdk-group-name": "a", "x-fern-sdk-method-name": "then", {OK}}}}},
-              "/b": {{"get": {{"x-fern-sdk-group-name": "to-string", "x-fern-sdk-method-name": "get", {OK}}}}}
+              "/a": {{"get": {{"x-forge-group-name": "a", "x-forge-method-name": "then", {OK}}}}},
+              "/b": {{"get": {{"x-forge-group-name": "to-string", "x-forge-method-name": "get", {OK}}}}}
             }}"#
         ));
         let root = Generator.generate(&forge).err().unwrap().to_string();
@@ -481,8 +481,8 @@ mod tests {
         // The SDK serves both as one property, which Cap'n Web can't type.
         let forge = build(&format!(
             r#"{{
-              "/projects/{{id}}/archive": {{"post": {{"x-fern-sdk-group-name": "projects", "x-fern-sdk-method-name": "archive", {ID}, {OK}}}}},
-              "/projects/{{id}}/archive/restore": {{"post": {{"x-fern-sdk-group-name": "projects.archive", "x-fern-sdk-method-name": "restore", {ID}, {OK}}}}}
+              "/projects/{{id}}/archive": {{"post": {{"x-forge-group-name": "projects", "x-forge-method-name": "archive", {ID}, {OK}}}}},
+              "/projects/{{id}}/archive/restore": {{"post": {{"x-forge-group-name": "projects.archive", "x-forge-method-name": "restore", {ID}, {OK}}}}}
             }}"#
         ));
         let projects = forge.groups().find(|g| g.name().camel() == "projects").unwrap();
