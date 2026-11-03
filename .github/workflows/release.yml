@@ -1,0 +1,142 @@
+# A v<version> tag publishes every native binary and the npm wrapper from one
+# build matrix. release-assets.mjs rejects a tag that differs from Cargo.toml or
+# packages/forge/package.json and writes the checksums attached to the release.
+
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build (${{ matrix.platform }})
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 60
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - platform: darwin-arm64
+            target: aarch64-apple-darwin
+            runner: macos-latest
+            exe: forge
+            runs: true
+          - platform: darwin-x64
+            target: x86_64-apple-darwin
+            runner: macos-latest
+            exe: forge
+            runs: false
+          - platform: linux-arm64
+            target: aarch64-unknown-linux-musl
+            runner: ubuntu-24.04-arm
+            exe: forge
+            runs: true
+          - platform: linux-x64
+            target: x86_64-unknown-linux-musl
+            runner: ubuntu-24.04
+            exe: forge
+            runs: true
+          - platform: win32-arm64
+            target: aarch64-pc-windows-msvc
+            runner: windows-latest
+            exe: forge.exe
+            runs: false
+          - platform: win32-x64
+            target: x86_64-pc-windows-msvc
+            runner: windows-latest
+            exe: forge.exe
+            runs: true
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install toolchain
+        uses: moonrepo/setup-rust@abb2d32350334249b178c401e5ec5836e0cd88d3 # v1.3.0
+        with:
+          targets: ${{ matrix.target }}
+          bins: just@1.58.0
+          cache-target: ${{ matrix.target }}/release
+          cache-base: main
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install musl-tools
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends musl-tools
+
+      - name: Build
+        env:
+          TARGET: ${{ matrix.target }}
+        run: just build "$TARGET"
+
+      - name: Smoke test
+        if: matrix.runs
+        env:
+          BIN: target/binaries/${{ matrix.target }}/release/${{ matrix.exe }}
+        run: '"$BIN" --version'
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: forge-${{ matrix.platform }}
+          path: target/binaries
+          if-no-files-found: error
+          retention-days: 7
+
+  publish:
+    name: Publish GitHub release
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: ./.github/actions/setup-workspace
+
+      - uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3 # v4.0.0
+        with:
+          just-version: 1.58.0
+
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: forge-*
+          merge-multiple: true
+          path: target/binaries
+
+      - name: Pack npm wrapper and native release assets
+        run: |
+          just pack
+          node packages/forge/scripts/release-assets.mjs --tag "$GITHUB_REF_NAME"
+
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          version="${TAG#v}"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" packages/forge/dist/release/* --clobber
+          else
+            gh release create "$TAG" packages/forge/dist/release/* \
+              --verify-tag \
+              --generate-notes \
+              --title "Forge $version"
+          fi

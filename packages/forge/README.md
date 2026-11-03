@@ -337,6 +337,10 @@ Redistributable.
 To run some other forge binary through this package, such as a local build,
 set `FORGE_BINARY` to its path.
 
+Services that do not use Node can install the executable directly. See
+[installing the native Forge binary](NATIVE.md) for checksum verification,
+Go-container usage, upgrades and migration from the npm preview package.
+
 ## Installing from a tarball
 
 The package is a single tarball, so you can install it without the
@@ -414,8 +418,10 @@ on an Apple silicon Mac, the x64 Linux build runs emulated, so it's slow.
 
 The images also trust any `.crt` files in `docker/certs/`, which is gitignored.
 
-CI builds each target with `just build` on a runner that builds it natively,
-in the publish-preview workflow, then packs them with `just pack`.
+CI builds each target with `just build` on a runner that builds it natively.
+The publish-preview workflow packs them for `pkg.pr.new`; a `v<version>` tag
+also publishes the six standalone archives, their checksums and the npm tarball
+in one GitHub release.
 
 The Windows binaries link the C runtime statically (see the `justfile`), so
 they don't need the Visual C++ Redistributable.
