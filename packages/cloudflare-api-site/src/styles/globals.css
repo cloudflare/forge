@@ -278,6 +278,10 @@ body {
 }
 
 /* ---- Scrollbar ---- */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in oklch, var(--nb-foreground) 20%, transparent) transparent;
+}
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
