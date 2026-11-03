@@ -8,26 +8,71 @@ use crate::common::{field_names, group, intersection, method, model, object, par
 fn aliased(aliases: &str, fields: &str) -> String {
     format!(
         r#"{{
-          "openapi": "3.0.3", "info": {{"title": "t", "version": "1"}},
-          "paths": {{"/a/{{id}}/status": {{"patch": {{{fields}
-            "x-forge-group-name": ["a", "status"], "x-forge-method-name": "edit",
-            "x-forge-aliases": {aliases},
-            "summary": "Edit status", "description": "Changes the status.",
-            "parameters": [{{"name": "id", "in": "path", "required": true, "schema": {{"type": "string"}}}}],
-            "requestBody": {{"content": {{"application/json": {{"schema": {{"type": "object",
-              "properties": {{"status": {{"type": "string"}}}}}}}}}}}},
-            "responses": {{
-              "200": {{"description": "ok", "content": {{"application/json": {{"schema": {{"type": "boolean"}}}}}}}},
-              "404": {{"description": "missing"}}
-            }}}}}}}}
+          "openapi": "3.0.3",
+          "info": {{
+            "title": "t",
+            "version": "1"
+          }},
+          "paths": {{
+            "/a/{{id}}/status": {{
+              "patch": {{
+                {fields}
+                "x-forge-group-name": ["a", "status"],
+                "x-forge-method-name": "edit",
+                "x-forge-aliases": {aliases},
+                "summary": "Edit status",
+                "description": "Changes the status.",
+                "parameters": [
+                  {{
+                    "name": "id",
+                    "in": "path",
+                    "required": true,
+                    "schema": {{
+                      "type": "string"
+                    }}
+                  }}
+                ],
+                "requestBody": {{
+                  "content": {{
+                    "application/json": {{
+                      "schema": {{
+                        "type": "object",
+                        "properties": {{
+                          "status": {{
+                            "type": "string"
+                          }}
+                        }}
+                      }}
+                    }}
+                  }}
+                }},
+                "responses": {{
+                  "200": {{
+                    "description": "ok",
+                    "content": {{
+                      "application/json": {{
+                        "schema": {{
+                          "type": "boolean"
+                        }}
+                      }}
+                    }}
+                  }},
+                  "404": {{
+                    "description": "missing"
+                  }}
+                }}
+              }}
+            }}
+          }}
         }}"#
     )
 }
 
 /// Returns every method, as its group path and name joined by dots in
-/// snake case, such as `a.pause`, in the order the groups are walked.
+/// snake case, such as `a.pause`: those at the top level, then those in
+/// groups, in the order the groups are walked.
 fn methods(forge: &Forge) -> Vec<String> {
-    let mut paths = Vec::new();
+    let mut paths: Vec<String> = forge.methods().map(|method| method.name().snake()).collect();
     for group in forge.groups() {
         for method in group.methods() {
             let mut path: Vec<String> = group.path().map(|name| name.snake()).collect();
@@ -405,10 +450,10 @@ fn alias_does_not_take_the_operation_id_of_the_operation() {
 }
 
 #[test]
-fn alias_operation_id_without_a_dot_is_not_a_method() {
+fn alias_operation_id_without_a_dot_is_a_method_at_the_top_level() {
     let forge = parse(&aliased(r#"[{"operationId": "pause"}]"#, ""));
 
-    assert_eq!(methods(&forge), Vec::<String>::new());
+    assert_eq!(methods(&forge), ["pause"]);
 }
 
 #[test]

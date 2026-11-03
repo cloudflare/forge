@@ -94,6 +94,26 @@ fn model_used_in_top_level_groups_is_at_the_top_level() {
 }
 
 #[test]
+fn model_used_by_a_method_at_the_top_level_is_at_the_top_level() {
+    let forge = parse(
+        r##"{
+          "openapi": "3.0.3", "info": {"title": "t", "version": "1"},
+          "paths": {
+            "/a": {"get": {"x-forge-group-name": "a", "x-forge-method-name": "get",
+              "responses": {"200": {"description": "ok", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/M"}}}}}}},
+            "/b": {"get": {"operationId": "getM",
+              "responses": {"200": {"description": "ok", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/M"}}}}}}}
+          },
+          "components": {"schemas": {"M": {"type": "object", "properties": {"id": {"type": "string"}}}}}
+        }"##,
+    );
+
+    let m = model(&forge, "M");
+    assert_eq!(m.group(), None);
+    assert_eq!(forge.models().collect::<Vec<_>>(), [m]);
+}
+
+#[test]
 fn model_used_through_another_model_is_placed_by_every_use() {
     let forge = parse(
         r##"{

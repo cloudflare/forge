@@ -49,6 +49,8 @@ pub struct Forge {
     top: Vec<GroupId>,
     /// Every method, indexed by `MethodId`.
     methods: Vec<MethodData>,
+    /// The methods at the top level, in no group.
+    top_methods: Vec<MethodId>,
     /// Every model, indexed by `ModelId`.
     models: Vec<ModelData>,
     /// The models at the top level, in no group.
@@ -82,9 +84,15 @@ impl Forge {
         self.depth_first(&self.top)
     }
 
+    /// Returns the methods at the top level, which are in no group, sorted
+    /// by name. See [`Method::group`] for which methods these are.
+    pub fn methods(&self) -> impl ExactSizeIterator<Item = Method<'_>> {
+        self.top_methods.iter().map(|&id| self.method(id))
+    }
+
     /// Returns the models at the top level, which are in no group, in an
     /// unspecified order. These are the models used by methods in more than
-    /// one top-level group.
+    /// one top-level group, or by a method at the top level.
     pub fn models(&self) -> impl ExactSizeIterator<Item = Model<'_>> {
         self.top_models.iter().map(|&id| self.model(id))
     }
@@ -253,7 +261,8 @@ pub struct Method<'f> {
 }
 
 impl<'f> Method<'f> {
-    /// Returns the name of the method, which is unique within its group.
+    /// Returns the name of the method, which is unique within its group, or
+    /// among the methods at the top level.
     ///
     /// An operation, or an alias the method comes from, is named in one of
     /// two ways:
@@ -261,23 +270,26 @@ impl<'f> Method<'f> {
     /// 1. With both the `x-forge-group-name` and the `x-forge-method-name`
     ///    extensions, neither empty. The name is the
     ///    `x-forge-method-name`.
-    /// 2. Without both, with an `operationId` of the form
-    ///    `<group path>.<method name>`, split at the last dot. The name is
-    ///    the part after it: `pets.list` is the method `list` in the group
-    ///    `pets`, and `accounts.members.list` is the method `list` in the
-    ///    group `members` inside `accounts`.
+    /// 2. Without both, with an `operationId`, split at the last dot into
+    ///    `<group path>.<method name>`. The name is the part after it:
+    ///    `pets.list` is the method `list` in the group `pets`, and
+    ///    `accounts.members.list` is the method `list` in the group
+    ///    `members` inside `accounts`. An `operationId` with no dot, such
+    ///    as `listPets`, is the name of a method at the top level, in no
+    ///    group.
     ///
-    /// An operation or alias named in neither way, such as one whose
-    /// `operationId` has no dot, like `listPets`, is not a method, and is
+    /// An operation or alias named in neither way, without both extensions
+    /// and with no `operationId` or an empty one, is not a method, and is
     /// not an error. A name with no letters or digits, as in the
-    /// `operationId` `pets.`, is an error. Two methods in a group with
-    /// equal names are an error, however they are named, and whether they
-    /// are aliases or not.
+    /// `operationId` `pets.`, is an error. Two methods in a group, or at
+    /// the top level, with equal names are an error, however they are
+    /// named, and whether they are aliases or not.
     pub fn name(self) -> &'f Name {
         &self.data().name
     }
 
-    /// Returns the group the method is in.
+    /// Returns the group the method is in, or `None` if it is at the top
+    /// level.
     ///
     /// Corresponds to the `x-forge-group-name` extension of the operation,
     /// or of the alias the method comes from, when the method is named by
@@ -286,13 +298,15 @@ impl<'f> Method<'f> {
     /// dots, such as `accounts.members`, or an array with one group name
     /// per element, top level first, whose elements are not split.
     /// Otherwise it is the part of the `operationId` before the last dot,
-    /// with group names separated by dots the same way.
+    /// with group names separated by dots the same way, and an
+    /// `operationId` with no dot puts the method at the top level, in
+    /// [`Forge::methods`].
     ///
     /// An operation or alias with `x-forge-skip: true` is not a method,
     /// however it is named. A group name with no letters or digits, as in
     /// the `operationId` `a..b.list` or `.list`, is an error.
-    pub fn group(self) -> Group<'f> {
-        self.forge.group(self.data().group)
+    pub fn group(self) -> Option<Group<'f>> {
+        Some(self.forge.group(self.data().group?))
     }
 
     /// Returns the HTTP method the operation is sent with.
@@ -559,7 +573,7 @@ impl std::hash::Hash for Method<'_> {
 impl std::fmt::Debug for Method<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Method")
-            .field("group", &self.group().path().collect::<Vec<_>>())
+            .field("group", &self.group().map(|group| group.path().collect::<Vec<_>>()))
             .field("name", self.name())
             .field("http_method", self.http_method())
             .field("path", &self.path())
@@ -685,7 +699,8 @@ impl<'f> Model<'f> {
     /// A model is placed in the deepest group shared by every method that
     /// uses it, directly or through other models: a model used in `a.b.c`
     /// and `a.b.d` is in `a.b`, one used only in `a.b.e` is in `a.b.e`, and
-    /// one used in `a` and `x` is at the top level.
+    /// one used in `a` and `x`, or by a method at the top level, is at the
+    /// top level.
     pub fn group(self) -> Option<Group<'f>> {
         Some(self.forge.group(self.data().group?))
     }
@@ -788,8 +803,8 @@ impl MethodId {
 /// What a [`Forge`] stores for each method.
 struct MethodData {
     name: Name,
-    /// The group the method is in.
-    group: GroupId,
+    /// The group the method is in, or none for the top level.
+    group: Option<GroupId>,
     http_method: HttpMethod,
     /// The path template, such as `/accounts/{account_id}`.
     path: Str,

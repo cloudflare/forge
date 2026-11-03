@@ -59,16 +59,16 @@ pub fn group<'f>(forge: &'f Forge, path: &str) -> Group<'f> {
 }
 
 /// Returns the method at `path`: its group's path, a dot and its name,
-/// such as `zones.get`.
+/// such as `zones.get`, or its name alone for a method at the top level.
 #[track_caller]
 pub fn method<'f>(forge: &'f Forge, path: &str) -> Method<'f> {
-    let Some((group_path, name)) = path.rsplit_once('.') else {
-        panic!("method path {path:?} is not group.method");
+    let (methods, name): (Vec<Method<'f>>, &str) = match path.rsplit_once('.') {
+        Some((group_path, name)) => (group(forge, group_path).methods().collect(), name),
+        None => (forge.methods().collect(), path),
     };
-    let group = group(forge, group_path);
     let name = Name::new(name);
-    let Some(method) = group.methods().find(|method| *method.name() == name) else {
-        panic!("no method {path:?} in {:?}", group.methods().collect::<Vec<_>>());
+    let Some(&method) = methods.iter().find(|method| *method.name() == name) else {
+        panic!("no method {path:?} in {methods:?}");
     };
     method
 }

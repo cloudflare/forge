@@ -125,6 +125,7 @@ pub struct Forge {
     pub base_url: String,
 
     groups: OnceLock<Vec<u32>>,
+    top_methods: OnceLock<Vec<u32>>,
     top_models: OnceLock<Vec<u32>>,
 
     group_data: Vec<OnceLock<GroupData>>,
@@ -148,6 +149,7 @@ impl Forge {
             description: info.description,
             base_url: info.base_url,
             groups: OnceLock::new(),
+            top_methods: OnceLock::new(),
             top_models: OnceLock::new(),
             group_data: slots(counts.groups),
             method_data: slots(counts.methods),
@@ -158,6 +160,13 @@ impl Forge {
 
     pub fn groups(&self) -> impl Iterator<Item = Group<'_>> {
         self.groups.get_or_init(host::groups).iter().map(|&id| self.group(id))
+    }
+
+    pub fn methods(&self) -> impl ExactSizeIterator<Item = Method<'_>> {
+        self.top_methods
+            .get_or_init(host::methods)
+            .iter()
+            .map(|&id| self.method(id))
     }
 
     pub fn models(&self) -> impl ExactSizeIterator<Item = Model<'_>> {
@@ -373,7 +382,7 @@ struct GroupData {
 
 struct MethodData {
     name: Name,
-    group: u32,
+    group: Option<u32>,
     http_method: HttpMethod,
     path: String,
     summary: String,
@@ -559,8 +568,8 @@ impl<'f> Method<'f> {
         &self.data().name
     }
 
-    pub fn group(self) -> Group<'f> {
-        self.forge.group(self.data().group)
+    pub fn group(self) -> Option<Group<'f>> {
+        Some(self.forge.group(self.data().group?))
     }
 
     pub fn http_method(self) -> &'f HttpMethod {
@@ -669,7 +678,7 @@ impl std::hash::Hash for Method<'_> {
 impl fmt::Debug for Method<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("Method")
-            .field("group", &self.group().path().collect::<Vec<_>>())
+            .field("group", &self.group().map(|group| group.path().collect::<Vec<_>>()))
             .field("name", self.name())
             .field("http_method", self.http_method())
             .field("path", &self.path())

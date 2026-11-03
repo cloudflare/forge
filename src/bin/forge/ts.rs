@@ -110,11 +110,11 @@ impl<'f> Node<'f> {
         }
     }
 
-    /// Returns the methods directly in the node, sorted by name. The root
-    /// has none.
+    /// Returns the methods directly in the node, sorted by name: for the
+    /// root, those at the top level.
     pub(crate) fn methods(self) -> Vec<Method<'f>> {
         match self {
-            Node::Root(_) => Vec::new(),
+            Node::Root(forge) => forge.methods().collect(),
             Node::Group(group) => group.methods().collect(),
         }
     }
