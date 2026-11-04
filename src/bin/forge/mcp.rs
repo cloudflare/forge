@@ -4,18 +4,20 @@
 //! each server lists and calls the tools in its own way.
 //!
 //! Every group with tools gets a `tools.ts` in its directory: the tools of
-//! its methods, each with the JSON Schema of its arguments, its hints, the
-//! JSON Schemas of its response bodies, its output schema, and a `request`
-//! function that builds its API request. Response schemas are for the
-//! server, to check responses against; `tools/list` doesn't send them. The
-//! output schema is the schema of a successful response's JSON body, which
-//! `listTools` sends only when asked. A group's `schemas.ts` and
-//! `outputs.ts` hold the schemas of the models placed in it. The root gets
-//! an `index.ts` with every tool and the runtime, a `README.md` that lists
-//! the methods without a tool and why, the top-level models' schemas, and
-//! the runtime itself in `_/tool.ts`: the tool type, listing tools, and
-//! building a call's request as plain data. The runtime imports nothing, so
-//! a server can load the tools anywhere.
+//! its methods, each MCP's Tool, with the JSON Schema of its arguments, its
+//! output schema and its hints, as `tools/list` sends it. Under the runtime's
+//! `OPERATION` symbol, which `JSON.stringify` leaves out, each holds what only
+//! the server needs, as data: the API method, its path template, its query
+//! parameters, headers and body media types, and the JSON Schemas of its
+//! response bodies, to check responses against. The output schema is the
+//! schema of a successful response's JSON body. A group's `schemas.ts` and
+//! `outputs.ts` hold the schemas of the models placed in it. The root gets an
+//! `index.ts` with every tool, `operation`, which reads a tool's operation,
+//! and `registerTools`, which registers the tools on an `McpServer`, for the
+//! SDK to validate each call's arguments against the input schema, and builds
+//! each call's request from the operation; the top-level models' schemas;
+//! and the runtime itself in `_/tool.ts`, which imports the SDK's
+//! `fromJsonSchema`.
 //!
 //! Each group's files depend only on the group, so they are generated in
 //! parallel with [`Plugin::generate_group`]. A tool is named after its
@@ -27,7 +29,6 @@
 
 use std::borrow::Cow;
 use std::collections::HashSet;
-use std::fmt::Write as _;
 
 use forge::ts::{self, Ident, Module, PREAMBLE, p};
 use forge::{Availability, Content, Err, Field, Forge, Group, HttpMethod, Location, Method, Model, Name, Plugin, Type};
@@ -43,31 +44,16 @@ pub struct Generator;
 impl Plugin for Generator {
     type File = File;
 
-    /// Returns the files of the root: `index.ts` with every tool,
-    /// `README.md`, the runtime, and the schemas of the top-level models.
+    /// Returns the files of the root: `index.ts` with every tool, the
+    /// runtime, and the schemas of the top-level models.
     fn generate(&self, forge: &Forge) -> Result<impl Iterator<Item = File>, Err> {
-        let mut groups = Vec::new();
-        let mut count = 0;
-        let mut skipped = Vec::new();
-        for group in forge.groups() {
-            let before = count;
-            for (m, verdict) in verdicts(group) {
-                match verdict {
-                    Ok(_) => count += 1,
-                    Err(reason) => skipped.push((m, reason)),
-                }
-            }
-            if count > before {
-                groups.push(group);
-            }
-        }
+        let groups: Vec<Group<'_>> = forge
+            .groups()
+            .filter(|&group| verdicts(group).iter().any(|(_, name)| name.is_some()))
+            .collect();
 
         let mut files = model_files(Module::ROOT, forge.models(), forge.groups());
         files.push(File::Ts(index(forge, &groups)));
-        files.push(File::Text {
-            path: "README.md".to_owned(),
-            content: readme(count, groups.len(), &skipped),
-        });
         files.extend(RUNTIME.iter().map(|&(path, source)| File::Text {
             path: RUNTIME_DIR.sub(path).as_str().to_owned(),
             content: format!("{PREAMBLE}{source}"),
@@ -79,8 +65,8 @@ impl Plugin for Generator {
     /// methods, and the schemas of the models placed in it.
     fn generate_group(&self, group: Group<'_>) -> Result<impl Iterator<Item = File>, Err> {
         let mut tools = Vec::new();
-        for (m, verdict) in verdicts(group) {
-            if let Ok(name) = verdict {
+        for (m, name) in verdicts(group) {
+            if let Some(name) = name {
                 tools.push(Tool::new(m, name)?);
             }
         }
@@ -129,6 +115,9 @@ const RUNTIME_DIR: Module = Module::new("_");
 /// tool type, listing tools, and building their requests.
 const RUNTIME_TOOL: Module = Module::new("_/tool.ts");
 
+/// The MCP TypeScript SDK, whose types the generated files use.
+const MCP_SDK: Module = Module::new("@modelcontextprotocol/server");
+
 /// The sources of the runtime library, by path in lib/src.
 const RUNTIME: [(&str, &str); 1] = [("tool.ts", include_str!("mcp/lib/src/tool.ts"))];
 
@@ -136,40 +125,28 @@ const RUNTIME: [(&str, &str); 1] = [("tool.ts", include_str!("mcp/lib/src/tool.t
 const MAX_NAME_LENGTH: usize = 128;
 
 /// Returns each method of `group` that isn't deprecated, with the name of
-/// its tool, or why it has none. Deprecated methods are left out silently.
+/// its tool, or `None` for a method without one.
 ///
 /// Forge keeps the names of a group's methods unique, but two can still
 /// have the same camelCase spelling, since a digit belongs to the word
 /// before it: `x1b` and `x_1b`. The first method by name keeps the tool
 /// name. Groups whose paths have the same spelling share a directory, which
 /// [`forge::write`] refuses.
-fn verdicts(group: Group<'_>) -> Vec<(Method<'_>, Result<String, String>)> {
+fn verdicts(group: Group<'_>) -> Vec<(Method<'_>, Option<String>)> {
     let mut names = HashSet::new();
     group
         .methods()
         .filter(|m| !m.is_deprecated())
-        .map(|m| {
-            let verdict = check(m).and_then(|name| {
-                if names.insert(name.clone()) {
-                    Ok(name)
-                } else {
-                    Err(format!("another method has the tool name {name}"))
-                }
-            });
-            (m, verdict)
-        })
+        .map(|m| (m, check(m).filter(|name| names.insert(name.clone()))))
         .collect()
 }
 
-/// Returns the name of the tool of `m`, or why it can't have one, without
-/// building its schemas.
-fn check(m: Method<'_>) -> Result<String, String> {
+/// Returns the name of the tool of `m`, without building its schemas, or
+/// `None` for a name over MCP's limit or a path parameter without an
+/// argument.
+fn check(m: Method<'_>) -> Option<String> {
     let name = tool_name(m);
-    if name.len() > MAX_NAME_LENGTH {
-        return Err(format!("the tool name is over {MAX_NAME_LENGTH} characters"));
-    }
-    segments(m.path(), &path_names(m))?;
-    Ok(name)
+    (name.len() <= MAX_NAME_LENGTH && check_path(m.path(), &path_names(m))).then_some(name)
 }
 
 /// Returns the wire names of the path parameters of `m`.
@@ -218,8 +195,6 @@ struct Tool<'f> {
     required: Vec<String>,
     /// The models in the input schema's `$defs`, by key.
     defs: std::collections::BTreeMap<String, Model<'f>>,
-    /// The path template, split into text and the parameters that fill it.
-    path: Vec<Segment>,
     /// Each query parameter's wire name, and whether it is exploded.
     query: Vec<(String, bool)>,
     /// Each header parameter's wire name.
@@ -236,13 +211,6 @@ struct Tool<'f> {
     output: Option<Value>,
     /// The models in the output schema's `$defs`, by key.
     output_defs: std::collections::BTreeMap<String, Model<'f>>,
-}
-
-/// A part of a path template.
-enum Segment {
-    Text(String),
-    /// A path parameter, by wire name.
-    Param(String),
 }
 
 /// The parameters of a tool in one place, `path`, `query` or `headers`: the
@@ -358,7 +326,6 @@ impl<'f> Tool<'f> {
             body = Some(contents.iter().map(|c| c.media_type().to_owned()).collect());
         }
 
-        let path = segments(m.path(), &path_names(m))?;
         let mut response_refs = Refs::new();
         let mut success_refs = Refs::new();
         let mut successes = Vec::new();
@@ -391,7 +358,6 @@ impl<'f> Tool<'f> {
             properties: Value::Object(properties),
             required,
             defs: Schemas::INPUT.defs(&refs),
-            path,
             query,
             headers,
             body,
@@ -458,29 +424,21 @@ fn parameters(request: Option<Type<'_>>) -> Vec<Field<'_>> {
     }
 }
 
-/// Returns `template` split into text and the path parameters that fill
-/// it, given their wire names.
-fn segments(template: &str, names: &[&str]) -> Result<Vec<Segment>, String> {
-    let mut segments = Vec::new();
+/// Reports whether each parameter in `template`, such as `{zone_id}`, is one
+/// of the path parameters, by wire name, so the runtime can fill it in from
+/// the `path` argument.
+fn check_path(template: &str, names: &[&str]) -> bool {
     let mut rest = template;
     while let Some(start) = rest.find('{') {
         let Some(len) = rest[start..].find('}') else {
             break;
         };
-        let wire = &rest[start + 1..start + len];
-        if !names.contains(&wire) {
-            return Err(format!("the path parameter {wire} has no argument"));
+        if !names.contains(&&rest[start + 1..start + len]) {
+            return false;
         }
-        if start > 0 {
-            segments.push(Segment::Text(rest[..start].to_owned()));
-        }
-        segments.push(Segment::Param(wire.to_owned()));
         rest = &rest[start + len + 1..];
     }
-    if !rest.is_empty() {
-        segments.push(Segment::Text(rest.to_owned()));
-    }
-    Ok(segments)
+    true
 }
 
 /// Returns the name of the tool of `m`: the names of its groups and its
@@ -600,8 +558,8 @@ fn model_files<'f>(
     let mut inputs = Refs::new();
     let mut outputs = Refs::new();
     for group in groups {
-        for (m, verdict) in verdicts(group) {
-            if verdict.is_err() {
+        for (m, name) in verdicts(group) {
+            if name.is_none() {
                 continue;
             }
             for t in input_types(m) {
@@ -628,7 +586,7 @@ fn model_files<'f>(
 /// are placed in its directory.
 fn schema_file(module: Module, models: &[Model<'_>], kind: SchemaFile) -> ts::File {
     let mut f = ts::File::new(module);
-    let schema_type = RUNTIME_TOOL.ident("JsonSchema").ty();
+    let schema_type = MCP_SDK.ident("JSONObject").ty();
     let doc = match kind {
         SchemaFile::Input => "",
         SchemaFile::Output => " in responses",
@@ -712,8 +670,7 @@ const RESERVED: &[&str] = &[
 fn tools_file(group: Group<'_>, tools: &[Tool<'_>]) -> ts::File {
     let mut f = ts::File::new(Module::group(group).sub("tools.ts"));
     let tool = RUNTIME_TOOL.ident("Tool").ty();
-    let path_param = RUNTIME_TOOL.ident("pathParam");
-    let param = RUNTIME_TOOL.ident("param");
+    let operation = RUNTIME_TOOL.ident("OPERATION");
     let dotted: Vec<String> = group.path().map(Name::camel).collect();
     f.doc(&format!("The tools of `{}`.", dotted.join(".")));
     p!(f, "export const tools: readonly ", tool, "[] = [");
@@ -766,110 +723,9 @@ fn tools_file(group: Group<'_>, tools: &[Tool<'_>]) -> ts::File {
                     p!(f, "},");
                 }
                 json_property(f, "annotations", &t.annotations());
-                p!(f, "method: ", string(m.http_method().as_str()), ",");
-                p!(f, "path: ", string(m.path()), ",");
-                let extensions: Map<String, Value> = m
-                    .extensions()
-                    .map(|(name, value)| (name.to_owned(), schema::value(value)))
-                    .collect();
-                if !extensions.is_empty() {
-                    json_property(f, "extensions", &Value::Object(extensions));
-                }
-                if !t.responses.is_empty() {
-                    p!(f, "responses: {");
-                    f.indent(|f| {
-                        let by_status: Map<String, Value> = t
-                            .responses
-                            .iter()
-                            .map(|(status, schema)| (status.clone(), schema.clone().unwrap_or(Value::Null)))
-                            .collect();
-                        json_property(f, "schemas", &Value::Object(by_status));
-                        if !t.response_defs.is_empty() {
-                            p!(f, "$defs: {");
-                            f.indent(|f| {
-                                for (key, model) in &t.response_defs {
-                                    p!(f, string(key), ": ", model_ident(*model, SchemaFile::Output), ",");
-                                }
-                            });
-                            p!(f, "},");
-                        }
-                    });
-                    p!(f, "},");
-                }
-                let args = if t.query.is_empty()
-                    && t.headers.is_empty()
-                    && t.body.is_none()
-                    && !t.path.iter().any(|s| matches!(s, Segment::Param(_)))
-                {
-                    "_args"
-                } else {
-                    "args"
-                };
-                p!(f, "request: (", args, ") => ({");
-                f.indent(|f| {
-                    let mut parts: Vec<Box<dyn ts::Print>> = vec![Box::new("path: `".to_owned())];
-                    for segment in &t.path {
-                        match segment {
-                            Segment::Text(text) => parts.push(Box::new(template_text(text))),
-                            Segment::Param(wire) => {
-                                parts.push(Box::new("${".to_owned()));
-                                parts.push(Box::new(path_param.clone()));
-                                parts.push(Box::new(format!("(args, {})}}", string(wire))));
-                            }
-                        }
-                    }
-                    parts.push(Box::new("`,".to_owned()));
-                    let parts: Vec<&dyn ts::Print> = parts.iter().map(AsRef::as_ref).collect();
-                    f.line(&parts);
-                    if !t.query.is_empty() {
-                        p!(f, "query: [");
-                        f.indent(|f| {
-                            for (wire, explode) in &t.query {
-                                p!(
-                                    f,
-                                    "[",
-                                    string(wire),
-                                    ", ",
-                                    param.clone(),
-                                    "(args, \"query\", ",
-                                    string(wire),
-                                    "), ",
-                                    explode.to_string(),
-                                    "],"
-                                );
-                            }
-                        });
-                        p!(f, "],");
-                    }
-                    if !t.headers.is_empty() {
-                        p!(f, "headers: [");
-                        f.indent(|f| {
-                            for wire in &t.headers {
-                                p!(
-                                    f,
-                                    "[",
-                                    string(wire),
-                                    ", ",
-                                    param.clone(),
-                                    "(args, \"headers\", ",
-                                    string(wire),
-                                    ")],"
-                                );
-                            }
-                        });
-                        p!(f, "],");
-                    }
-                    if let Some(media_types) = &t.body {
-                        let types: Vec<String> = media_types.iter().map(|t| string(t)).collect();
-                        p!(
-                            f,
-                            "body: { value: args[\"body\"], mediaTypes: [",
-                            types.join(", "),
-                            "] },"
-                        );
-                    }
-                });
-                p!(f, "}),");
+                p!(f, "[", operation.clone(), "]: {");
+                f.indent(|f| operation_fields(f, t));
+                p!(f, "},");
             });
             p!(f, "},");
         }
@@ -878,12 +734,65 @@ fn tools_file(group: Group<'_>, tools: &[Tool<'_>]) -> ts::File {
     f
 }
 
+/// Prints what the server needs to call the API method of `t`, which the tool
+/// holds under the runtime's `OPERATION` symbol so that clients never see it.
+fn operation_fields(f: &mut ts::File, t: &Tool<'_>) {
+    let m = t.method;
+    p!(f, "method: ", string(m.http_method().as_str()), ",");
+    p!(f, "path: ", string(m.path()), ",");
+    if !t.query.is_empty() {
+        p!(f, "query: [");
+        f.indent(|f| {
+            for (wire, explode) in &t.query {
+                p!(f, "{ name: ", string(wire), ", explode: ", explode.to_string(), " },");
+            }
+        });
+        p!(f, "],");
+    }
+    if !t.headers.is_empty() {
+        let names: Vec<String> = t.headers.iter().map(|name| string(name)).collect();
+        p!(f, "headers: [", names.join(", "), "],");
+    }
+    if let Some(media_types) = &t.body {
+        let types: Vec<String> = media_types.iter().map(|t| string(t)).collect();
+        p!(f, "body: { mediaTypes: [", types.join(", "), "] },");
+    }
+    let extensions: Map<String, Value> = m
+        .extensions()
+        .map(|(name, value)| (name.to_owned(), schema::value(value)))
+        .collect();
+    if !extensions.is_empty() {
+        json_property(f, "extensions", &Value::Object(extensions));
+    }
+    if !t.responses.is_empty() {
+        p!(f, "responses: {");
+        f.indent(|f| {
+            let by_status: Map<String, Value> = t
+                .responses
+                .iter()
+                .map(|(status, schema)| (status.clone(), schema.clone().unwrap_or(Value::Null)))
+                .collect();
+            json_property(f, "schemas", &Value::Object(by_status));
+            if !t.response_defs.is_empty() {
+                p!(f, "$defs: {");
+                f.indent(|f| {
+                    for (key, model) in &t.response_defs {
+                        p!(f, string(key), ": ", model_ident(*model, SchemaFile::Output), ",");
+                    }
+                });
+                p!(f, "},");
+            }
+        });
+        p!(f, "},");
+    }
+}
+
 /// Returns the `index.ts` of the root: the API, and every tool of `groups`,
 /// the groups with tools.
 fn index(forge: &Forge, groups: &[Group<'_>]) -> ts::File {
     let mut f = ts::File::new(Module::ROOT.sub("index.ts"));
     let tool = RUNTIME_TOOL.ident("Tool").ty();
-    p!(f, "export * from './_/tool.js';");
+    p!(f, "export { operation, registerTools } from './_/tool.js';");
     p!(f, "");
     f.doc("The API the tools call.");
     p!(f, "export const api = {");
@@ -908,32 +817,6 @@ fn index(forge: &Forge, groups: &[Group<'_>]) -> ts::File {
     });
     p!(f, "];");
     f
-}
-
-/// Returns the README.md of the server: how many tools it has, in how many
-/// groups, and each method without one and why.
-fn readme(count: usize, groups: usize, skipped: &[(Method<'_>, String)]) -> String {
-    let mut out = String::from("<!-- Code generated by forge. DO NOT EDIT. -->\n\n# MCP tools\n\n");
-    let _ = writeln!(
-        out,
-        "{count} tools in {groups} groups. `index.ts` exports them as `tools`, with the runtime in `_/tool.ts` that lists them and builds their requests."
-    );
-    if !skipped.is_empty() {
-        let _ = writeln!(
-            out,
-            "\n## Methods without a tool\n\n| Method | Path | Why |\n| --- | --- | --- |"
-        );
-        for (m, reason) in skipped {
-            let _ = writeln!(
-                out,
-                "| `{}` | `{}` | {} |",
-                m.http_method().as_str(),
-                m.path(),
-                reason.replace('|', "\\|")
-            );
-        }
-    }
-    out
 }
 
 /// Prints the property `key` with the value `value`, as JSON over as many
@@ -964,11 +847,6 @@ fn sorted(value: &Value) -> Value {
 /// Returns `s` as a TypeScript string literal.
 fn string(s: &str) -> String {
     serde_json::to_string(s).unwrap_or_else(|_| "\"\"".to_owned())
-}
-
-/// Returns `text` escaped for the inside of a template literal.
-fn template_text(text: &str) -> String {
-    text.replace('\\', "\\\\").replace('`', "\\`").replace("${", "\\${")
 }
 
 /// Returns `s` with every character that can't be in an identifier replaced
@@ -1075,7 +953,6 @@ mod tests {
         assert_eq!(
             paths,
             [
-                "README.md",
                 "_/tool.ts",
                 "index.ts",
                 "pets/outputs.ts",
@@ -1095,26 +972,35 @@ mod tests {
         );
         assert!(index.contains(r#"baseUrl: "https://api.example.com/v1","#), "{index}");
         assert!(index.contains("...petsTools,"), "{index}");
-        assert!(index.contains("export * from './_/tool.js';"), "{index}");
+        assert!(
+            index.contains("export { operation, registerTools } from './_/tool.js';"),
+            "only what a server calls: {index}"
+        );
+        assert!(!index.contains("export *"), "{index}");
     }
 
     #[test]
     fn parameters() {
         let tools = file(&generate(PETS), "pets/tools.ts");
+        assert!(
+            tools.contains(r#"import { OPERATION, type Tool } from "../_/tool.js";"#),
+            "{tools}"
+        );
         assert!(tools.contains(r#"name: "pets_list","#), "{tools}");
         assert!(tools.contains(r#"title: "List pets","#), "{tools}");
-        assert!(
-            tools.contains(r#"path: `/stores/${pathParam(args, "store_id")}/pets`,"#),
-            "{tools}"
-        );
-        assert!(
-            tools.contains(r#"["tag", param(args, "query", "tag"), false],"#),
-            "{tools}"
-        );
-        assert!(
-            tools.contains(r#"["x-trace", param(args, "headers", "x-trace")],"#),
-            "header names in lower case: {tools}"
-        );
+        let list = &tools[tools.find(r#"name: "pets_list","#).unwrap()..];
+        let operation = &list[list.find("    [OPERATION]: {\n").unwrap()..];
+        for field in [
+            "      method: \"GET\",\n",
+            "      path: \"/stores/{store_id}/pets\",\n",
+            "      query: [\n        { name: \"tag\", explode: false },\n      ],\n",
+            "      headers: [\"x-trace\"],\n",
+            "      extensions: {\n",
+            "      responses: {\n",
+        ] {
+            assert!(operation.contains(field), "{field} under the operation: {operation}");
+        }
+        assert!(!tools.contains("request: ("), "the request is data, not code: {tools}");
         let list = &tools[tools.find(r#"name: "pets_list","#).unwrap()..];
         let input = &list[list.find("inputSchema: {").unwrap()..list.find("outputSchema").unwrap()];
         for place in [r#""path": {"#, r#""query": {"#, r#""headers": {"#] {
@@ -1138,7 +1024,7 @@ mod tests {
         let files = generate(PETS);
         let tools = file(&files, "pets/tools.ts");
         assert!(
-            tools.contains(r#"body: { value: args["body"], mediaTypes: ["application/json"] },"#),
+            tools.contains(r#"body: { mediaTypes: ["application/json"] },"#),
             "{tools}"
         );
         assert!(tools.contains(r#""Pet": Pet,"#), "{tools}");
@@ -1147,7 +1033,11 @@ mod tests {
             "{tools}"
         );
         let schemas = file(&files, "pets/schemas.ts");
-        assert!(schemas.contains("export const Pet: JsonSchema = {"), "{schemas}");
+        assert!(
+            schemas.contains(r#"import type { JSONObject } from "@modelcontextprotocol/server";"#),
+            "{schemas}"
+        );
+        assert!(schemas.contains("export const Pet: JSONObject = {"), "{schemas}");
         assert!(schemas.contains(r##""$ref": "#/$defs/Pet""##), "{schemas}");
         assert!(!schemas.contains(r#""id""#), "read-only fields are left out: {schemas}");
     }
@@ -1164,7 +1054,7 @@ mod tests {
         assert!(tools.contains(r##""$ref": "#/$defs/Pet""##), "{tools}");
         assert!(tools.contains(r#""Pet": Pet,"#), "{tools}");
         let outputs = file(&files, "pets/outputs.ts");
-        assert!(outputs.contains("export const Pet: JsonSchema = {"), "{outputs}");
+        assert!(outputs.contains("export const Pet: JSONObject = {"), "{outputs}");
         assert!(
             outputs.contains(r#""id""#),
             "responses keep read-only fields: {outputs}"
@@ -1184,13 +1074,13 @@ mod tests {
     fn output_schema() {
         let tools = file(&generate(PETS), "pets/tools.ts");
         let list = &tools[tools.find(r#"name: "pets_list","#).unwrap()..];
-        let list = &list[..list.find("request: ").unwrap()];
+        let list = &list[..list.find("[OPERATION]: {").unwrap()];
         assert!(
             list.contains("outputSchema: {\n      \"items\": {\n        \"$ref\": \"#/$defs/Pet\"\n      },\n      \"type\": \"array\",\n      $defs: {\n        \"Pet\": Pet,\n      },\n    },"),
             "the 200 body, with its models: {list}"
         );
         let create = &tools[tools.find(r#"name: "pets_create","#).unwrap()..];
-        let create = &create[..create.find("request: ").unwrap()];
+        let create = &create[..create.find("[OPERATION]: {").unwrap()];
         assert!(
             !create.contains("outputSchema"),
             "a successful response without a JSON body: {create}"
@@ -1224,12 +1114,14 @@ mod tests {
             !tools.contains("pets_replace"),
             "deprecated methods have no tool: {tools}"
         );
-        let readme = file(&files, "README.md");
-        assert!(readme.contains("4 tools in 2 groups."), "{readme}");
+        assert_eq!(tools.matches("\n    name: ").count(), 3, "{tools}");
+        let photos = file(&files, "pets/photos/tools.ts");
         assert!(
-            !readme.contains("photos"),
-            "a body in any media type gets a tool: {readme}"
+            photos.contains(r#"name: "pets_photos_upload","#),
+            "a body in any media type gets a tool: {photos}"
         );
+        let index = file(&files, "index.ts");
+        assert!(index.contains("...pets_photosTools,"), "{index}");
     }
 
     /// A body in several media types is in the one the `content-type` header
@@ -1278,15 +1170,15 @@ mod tests {
             "the media types, in the spec's order: {tools}"
         );
         assert!(
-            tools.contains(r#"["content-type", param(args, "headers", "content-type")],"#),
+            tools.contains(r#"headers: ["content-type"],"#),
             "sent as a header: {tools}"
         );
         assert!(
-            tools.contains(r#"body: { value: args["body"], mediaTypes: ["application/json", "text/plain"] },"#),
+            tools.contains(r#"body: { mediaTypes: ["application/json", "text/plain"] },"#),
             "{tools}"
         );
         assert!(
-            tools.contains(r#"body: { value: args["body"], mediaTypes: ["text/plain"] },"#),
+            tools.contains(r#"body: { mediaTypes: ["text/plain"] },"#),
             "one media type: {tools}"
         );
         assert_eq!(
@@ -1312,7 +1204,6 @@ mod tests {
         assert!(file(&files, "a/b/tools.ts").contains(r#"name: "a_b_c","#));
         assert!(file(&files, "a/tools.ts").contains(r#"name: "a_bC","#));
         assert!(file(&files, "webAssets/discovery/tools.ts").contains(r#"name: "webAssets_discovery_bulkEdit","#));
-        assert!(!file(&files, "README.md").contains("Methods without a tool"));
     }
 
     /// Two names of methods in a group can have the same camelCase
@@ -1329,10 +1220,8 @@ mod tests {
                 }}"#,
         );
         let tools = file(&files, "a/tools.ts");
-        assert_eq!(tools.matches(r#"name: "a_x1b","#).count(), 1, "{tools}");
-        let readme = file(&files, "README.md");
-        assert!(readme.contains("1 tools in 1 groups."), "{readme}");
-        assert!(readme.contains("another method has the tool name a_x1b"), "{readme}");
+        assert_eq!(tools.matches("\n    name: ").count(), 1, "one tool for both: {tools}");
+        assert!(tools.contains(r#"name: "a_x1b","#), "{tools}");
     }
 
     /// A model is a constant in the group it's placed in, which tools of
@@ -1394,9 +1283,9 @@ mod tests {
                     "2fa": {"type": "array"}}}}"##,
         );
         let schemas = file(&files, "a/schemas.ts");
-        assert!(schemas.contains("export const logs$$list: JsonSchema = {"), "{schemas}");
-        assert!(schemas.contains("export const logs_list: JsonSchema = {"), "{schemas}");
-        assert!(schemas.contains("export const $_2fa: JsonSchema = {"), "{schemas}");
+        assert!(schemas.contains("export const logs$$list: JSONObject = {"), "{schemas}");
+        assert!(schemas.contains("export const logs_list: JSONObject = {"), "{schemas}");
+        assert!(schemas.contains("export const $_2fa: JSONObject = {"), "{schemas}");
         let tools = file(&files, "a/tools.ts");
         assert!(tools.contains(r#""logs-list": logs$$list,"#), "{tools}");
         assert!(tools.contains(r#""logs_list": logs_list,"#), "{tools}");
@@ -1460,10 +1349,5 @@ mod tests {
         paths.sort();
         let embedded: Vec<&str> = super::RUNTIME.iter().map(|&(path, _)| path).collect();
         assert_eq!(paths, embedded);
-    }
-
-    #[test]
-    fn template_text() {
-        assert_eq!(super::template_text("/a`b${c}\\"), "/a\\`b\\${c}\\\\");
     }
 }

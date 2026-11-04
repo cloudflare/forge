@@ -1,4 +1,4 @@
-import { param, pathParam, type Tool } from '../src/tool.js';
+import { OPERATION, type Tool } from '../src/tool.js';
 
 /** Tools as the generator writes them. */
 export const tools: readonly Tool[] = [
@@ -9,11 +9,21 @@ export const tools: readonly Tool[] = [
     inputSchema: {
       type: 'object',
       properties: {
-        path: { type: 'object', properties: { store_id: { type: 'string' } }, required: ['store_id'] },
-        query: { type: 'object', properties: { tag: { type: 'array' }, sort: { type: 'object' } } },
-        headers: { type: 'object', properties: { 'x-trace': { type: 'string' } } },
+        path: {
+          type: 'object',
+          properties: { store_id: { type: 'string' } },
+          required: ['store_id'],
+          additionalProperties: false,
+        },
+        query: {
+          type: 'object',
+          properties: { tag: { type: 'array' }, sort: { type: 'object' } },
+          additionalProperties: false,
+        },
+        headers: { type: 'object', properties: { 'x-trace': { type: 'string' } }, additionalProperties: false },
       },
       required: ['path'],
+      additionalProperties: false,
     },
     outputSchema: {
       type: 'array',
@@ -21,21 +31,20 @@ export const tools: readonly Tool[] = [
       $defs: { Pet: { type: 'object', properties: { id: { type: 'string' } } } },
     },
     annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: true },
-    method: 'GET',
-    path: '/stores/{store_id}/pets',
-    extensions: { 'x-api-token-group': ['Pets Read'] },
-    responses: {
-      schemas: { '200': { type: 'array', items: { $ref: '#/$defs/Pet' } }, '4XX': null },
-      $defs: { Pet: { type: 'object', properties: { id: { type: 'string' } } } },
-    },
-    request: (args) => ({
-      path: `/stores/${pathParam(args, 'store_id')}/pets`,
+    [OPERATION]: {
+      method: 'GET',
+      path: '/stores/{store_id}/pets',
       query: [
-        ['tag', param(args, 'query', 'tag'), true],
-        ['sort', param(args, 'query', 'sort'), false],
+        { name: 'tag', explode: true },
+        { name: 'sort', explode: false },
       ],
-      headers: [['x-trace', param(args, 'headers', 'x-trace')]],
-    }),
+      headers: ['x-trace'],
+      extensions: { 'x-api-token-group': ['Pets Read'] },
+      responses: {
+        schemas: { '200': { type: 'array', items: { $ref: '#/$defs/Pet' } }, '4XX': null },
+        $defs: { Pet: { type: 'object', properties: { id: { type: 'string' } } } },
+      },
+    },
   },
   {
     name: 'pets_create',
@@ -43,19 +52,29 @@ export const tools: readonly Tool[] = [
     inputSchema: {
       type: 'object',
       properties: {
-        path: { type: 'object', properties: { store_id: { type: 'string' } }, required: ['store_id'] },
-        query: { type: 'object', properties: { dry_run: { type: 'boolean' } }, required: ['dry_run'] },
+        path: {
+          type: 'object',
+          properties: { store_id: { type: 'string' } },
+          required: ['store_id'],
+          additionalProperties: false,
+        },
+        query: {
+          type: 'object',
+          properties: { dry_run: { type: 'boolean' } },
+          required: ['dry_run'],
+          additionalProperties: false,
+        },
         body: {},
       },
       required: ['path', 'query', 'body'],
+      additionalProperties: false,
     },
     annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: true },
-    method: 'POST',
-    path: '/stores/{store_id}/pets',
-    request: (args) => ({
-      path: `/stores/${pathParam(args, 'store_id')}/pets`,
-      query: [['dry_run', param(args, 'query', 'dry_run'), true]],
-      body: { value: args['body'], mediaTypes: ['application/json'] },
-    }),
+    [OPERATION]: {
+      method: 'POST',
+      path: '/stores/{store_id}/pets',
+      query: [{ name: 'dry_run', explode: true }],
+      body: { mediaTypes: ['application/json'] },
+    },
   },
 ];

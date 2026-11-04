@@ -1,7 +1,9 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { buildRequest, InvalidArguments, listTools, param, toolsByName } from '../src/tool.js';
+import type { CallToolResult, McpServer, StandardSchemaWithJSON } from '@modelcontextprotocol/server';
+
+import { buildRequest, OPERATION, operation, registerTools } from '../src/tool.js';
 import { tools } from './fixtures.js';
 
 const [list, create] = tools as [(typeof tools)[0], (typeof tools)[0]];
@@ -58,61 +60,120 @@ test('is plain data that fetch sends as it is', async () => {
   assert.deepEqual(await sent.json(), { name: 'Rex' });
 });
 
-test('refuses missing required arguments and values that are not scalars', () => {
-  assert.throws(() => buildRequest(create, { path: { store_id: 's' }, query: {} }, 'https://x'), {
-    name: 'InvalidArguments',
-    message: 'Missing required arguments: body, query.dry_run',
+test('refuses an empty path parameter and values a query parameter cannot be', () => {
+  assert.throws(() => buildRequest(list, { path: { store_id: '' } }, 'https://x'), {
+    message: 'Missing path parameter: store_id',
   });
-  assert.throws(() => buildRequest(create, {}, 'https://x'), {
-    message: 'Missing required arguments: path, query, body',
-  });
-  assert.throws(() => buildRequest(list, { path: { store_id: '' } }, 'https://x'), InvalidArguments);
   assert.throws(() => buildRequest(list, { path: { store_id: 's' }, query: { tag: [{}] } }, 'https://x'), {
     message: 'tag must be a string, number or boolean',
   });
 });
 
-test('refuses an argument the tool does not take, saying where a parameter goes', () => {
-  assert.throws(() => buildRequest(list, { store_id: 's', tag: ['x'], verbose: true }, 'https://x'), {
-    name: 'InvalidArguments',
-    message:
-      'Unknown arguments for pets_list: store_id goes in path: { "path": { "store_id": … } }; ' +
-      'tag goes in query: { "query": { "tag": … } }; verbose is not an argument. It takes path, query, headers.',
+test('sends a tool as MCP Tool, without the operation it calls', () => {
+  const sent = JSON.parse(JSON.stringify(list)) as Record<string, unknown>;
+  assert.deepEqual(Object.keys(sent).toSorted(), [
+    'annotations',
+    'description',
+    'inputSchema',
+    'name',
+    'outputSchema',
+    'title',
+  ]);
+  assert.deepEqual(sent['outputSchema'], list.outputSchema);
+  assert.equal('outputSchema' in JSON.parse(JSON.stringify(create)), false, 'a tool without one');
+  assert.equal(operation(list).path, '/stores/{store_id}/pets');
+  assert.equal(operation({ ...list, description: 'Changed.' }), operation(list), 'a changed copy keeps it');
+});
+
+/** What `registerTools` passes to `registerTool` for a tool. */
+interface Registered {
+  readonly config: {
+    readonly title?: string;
+    readonly description?: string;
+    readonly inputSchema: StandardSchemaWithJSON;
+    readonly outputSchema?: StandardSchemaWithJSON;
+    readonly annotations?: object;
+  };
+  readonly callback: (args: Record<string, unknown>) => Promise<CallToolResult>;
+}
+
+/** Registers the tools with `options` on a server that records them, and returns them by name. */
+function register(options: Parameters<typeof registerTools>[2]): ReadonlyMap<string, Registered> {
+  const registered = new Map<string, Registered>();
+  const server = {
+    registerTool: (name: string, config: Registered['config'], callback: Registered['callback']) => {
+      registered.set(name, { config, callback });
+    },
+  };
+  registerTools(server as unknown as McpServer, tools, options);
+  return registered;
+}
+
+/** The JSON Schema a registered schema is listed as. */
+function listed(schema: StandardSchemaWithJSON | undefined): unknown {
+  return schema?.['~standard'].jsonSchema.input({ target: 'draft-2020-12' });
+}
+
+test('registers each tool as tools/list sends it, for the SDK to validate its arguments', async () => {
+  const registered = register({ baseUrl: 'https://x' });
+  assert.deepEqual([...registered.keys()], ['pets_list', 'pets_create']);
+  const { config } = registered.get('pets_list')!;
+  assert.equal(config.title, list.title);
+  assert.equal(config.description, list.description);
+  assert.deepEqual(config.annotations, list.annotations);
+  assert.deepEqual(listed(config.inputSchema), list.inputSchema);
+  assert.deepEqual(listed(config.outputSchema), list.outputSchema);
+  assert.equal(registered.get('pets_create')!.config.outputSchema, undefined, 'a tool without one');
+
+  const valid = { path: { store_id: 's' }, query: { tag: ['x'] }, headers: { 'x-trace': 't' } };
+  assert.deepEqual(await config.inputSchema['~standard'].validate(valid), { value: valid });
+  for (const args of [
+    { store_id: 's' },
+    { path: { store_id: 's' }, query: { tagz: ['x'] } },
+    { path: {} },
+    { path: 's' },
+    { path: { store_id: 1 } },
+    { path: { store_id: 's' }, headers: { 'X-Trace': 't' } },
+  ]) {
+    const result = await config.inputSchema['~standard'].validate(args);
+    assert.ok(result.issues?.length, `refuses ${JSON.stringify(args)}`);
+  }
+  assert.deepEqual(
+    await config.outputSchema!['~standard'].validate('any'),
+    { value: 'any' },
+    'results are the client’s to check',
+  );
+});
+
+test('calls the API for a tool and returns the body', async () => {
+  const sent: Request[] = [];
+  const { callback } = register({
+    baseUrl: 'https://x/',
+    fetch: async (input) => {
+      sent.push(new Request(input));
+      return Response.json([{ id: 'p1' }]);
+    },
+  }).get('pets_list')!;
+  const result = await callback({ path: { store_id: 's' }, query: { tag: ['a', 'b'] } });
+  assert.equal(sent[0]!.method, 'GET');
+  assert.equal(sent[0]!.url, 'https://x/stores/s/pets?tag=a&tag=b');
+  assert.deepEqual(result, {
+    content: [{ type: 'text', text: '[{"id":"p1"}]' }],
+    structuredContent: [{ id: 'p1' }],
   });
 });
 
-test('refuses a misspelled parameter inside a place, listing what it takes', () => {
-  assert.throws(() => buildRequest(list, { path: { store_id: 's' }, query: { tagz: ['x'] } }, 'https://x'), {
-    name: 'InvalidArguments',
-    message:
-      'Unknown arguments for pets_list: query.tagz is not an argument; query takes tag, sort. It takes path, query, headers.',
+test('returns a refusal as an error result, and throws for a request it cannot build', async () => {
+  const { callback } = register({
+    baseUrl: 'https://x',
+    fetch: async () => Response.json({ errors: ['forbidden'] }, { status: 403 }),
+  }).get('pets_list')!;
+  assert.deepEqual(await callback({ path: { store_id: 's' } }), {
+    content: [{ type: 'text', text: 'HTTP 403: {"errors":["forbidden"]}' }],
+    isError: true,
   });
-});
-
-test('refuses a place that is not an object', () => {
-  assert.throws(() => buildRequest(list, { path: 's' }, 'https://x'), {
-    name: 'InvalidArguments',
-    message: 'path must be an object',
-  });
-  assert.throws(() => buildRequest(list, { path: { store_id: 's' }, query: ['tag'] }, 'https://x'), {
-    message: 'query must be an object',
-  });
-});
-
-test('lists the tools without their request code, once', () => {
-  const listing = listTools(tools);
-  assert.equal(listing, listTools(tools));
-  assert.deepEqual(Object.keys(listing[0]!).toSorted(), ['annotations', 'description', 'inputSchema', 'name', 'title']);
-  assert.equal(toolsByName(tools).get('pets_create'), create);
-});
-
-test('lists the output schemas only when asked, once', () => {
-  const listing = listTools(tools, { outputSchema: true });
-  assert.equal(listing, listTools(tools, { outputSchema: true }));
-  assert.notEqual(listing, listTools(tools));
-  assert.deepEqual(listing[0]!.outputSchema, list.outputSchema);
-  assert.equal('outputSchema' in listing[1]!, false, 'a tool without one');
-  assert.equal('outputSchema' in listTools(tools)[0]!, false);
+  // McpServer returns what a callback throws as an error result.
+  await assert.rejects(callback({ path: { store_id: '' } }), { message: 'Missing path parameter: store_id' });
 });
 
 /** A tool whose body is in the media type its `content-type` argument names, as the generator writes one. */
@@ -128,16 +189,14 @@ const upload: (typeof tools)[0] = {
     required: ['body'],
   },
   annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: true },
-  method: 'PUT',
-  path: '/files',
-  request: (args) => ({
+  [OPERATION]: {
+    method: 'PUT',
     path: '/files',
-    headers: [['content-type', param(args, 'headers', 'content-type')]],
+    headers: ['content-type'],
     body: {
-      value: args['body'],
       mediaTypes: ['application/octet-stream', 'multipart/form-data', 'text/csv', 'application/x-www-form-urlencoded'],
     },
-  }),
+  },
 };
 
 test('sends a string body as it is, in the media type the content-type argument names', () => {
@@ -186,8 +245,8 @@ test('sends a file part with its name and media type, as FormData.append(name, b
   assert.equal(await file.text(), 'export default {}');
 });
 
-test('takes a header argument in any case, and its content-type over the default', () => {
-  const request = buildRequest(upload, { headers: { 'Content-Type': 'text/plain' }, body: 'hi' }, 'https://x');
+test('sends the content-type a header argument names over the default', () => {
+  const request = buildRequest(upload, { headers: { 'content-type': 'text/plain' }, body: 'hi' }, 'https://x');
   assert.equal(request.headers['content-type'], 'text/plain');
 });
 
