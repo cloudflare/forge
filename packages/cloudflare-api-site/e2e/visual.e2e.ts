@@ -5,7 +5,7 @@ const pages = {
   product: '/api/zero-trust/',
   resource: '/api/zero-trust/devices/ip-profiles/',
   operation: '/api/zero-trust/devices/ip-profiles/methods/list/',
-  'operation-typescript': '/api/zero-trust/devices/ip-profiles/methods/list/?lang=typescript',
+  'operation-curl': '/api/zero-trust/devices/ip-profiles/methods/list/?lang=curl',
   tooling: '/api/tooling/',
   'not-found': '/api/nope.txt',
 };

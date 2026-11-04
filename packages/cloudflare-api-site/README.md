@@ -97,7 +97,7 @@ snapshot:
 ```text
 /api/zero-trust/devices/ip-profiles/
 /api/zero-trust/devices/ip-profiles/methods/list/
-/api/zero-trust/devices/ip-profiles/methods/list/?lang=typescript
+/api/zero-trust/devices/ip-profiles/methods/list/?lang=curl
 ```
 
 Omitting `version` selects the configured default version; omitting `lang`
@@ -130,9 +130,9 @@ Agent routes use the same query policy and are rendered on demand:
 ```text
 /api/llms.txt
 /api/zero-trust/llms.txt
-/api/zero-trust/llms.txt?lang=typescript
+/api/zero-trust/llms.txt?lang=curl
 /api/zero-trust/devices/ip-profiles/methods/list.md
-/api/zero-trust/devices/ip-profiles/methods/list.md?lang=typescript
+/api/zero-trust/devices/ip-profiles/methods/list.md?lang=curl
 ```
 
 Canonical human pages link to aggregate Markdown; a selected execution target

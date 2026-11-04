@@ -229,12 +229,9 @@ test('optional request bodies remain present in examples when the endpoint decla
   };
   const snippets = cloudflareSnippetsByTarget(optionalInput);
   const curl = snippets.get('curl');
-  const ts = snippets.get('typescript');
-  assert.ok(curl && ts);
+  assert.ok(curl);
   assert.match(curl, /Content-Type: application\/json/);
   assert.match(curl, /-d /);
-  assert.match(ts, /name: "<name>"/);
-  assert.match(ts, /type: "A"/);
 });
 
 test('curl shell-quotes apostrophes in request media types and JSON bodies', () => {
@@ -293,7 +290,6 @@ test('curl uses file input for raw bodies and does not fabricate required multip
   const rawSnippets = cloudflareSnippetsByTarget(raw);
   assert.match(rawSnippets.get('curl') ?? '', /Content-Type: application\/octet-stream/);
   assert.match(rawSnippets.get('curl') ?? '', /--data-binary @request-body/);
-  for (const target of ['typescript', 'python', 'ruby']) assert.equal(rawSnippets.get(target), null);
   assert.equal(cloudflareSnippetsByTarget(multipart).get('curl'), null);
 });
 
@@ -306,31 +302,21 @@ test('curl: includes required query params and omits optional query params', () 
 
 test('dated versions intentionally retain version-neutral snippets while upstream does not enforce versions', () => {
   const snippets = cloudflareSnippetsByTarget({ ...listInput, snapshotId: '2027-01-01.air' });
-  for (const target of ['curl', 'cf', 'typescript', 'python', 'ruby']) {
+  for (const target of ['curl', 'cf']) {
     assert.equal(typeof snippets.get(target), 'string');
     assert.doesNotMatch(snippets.get(target) ?? '', /api-version/);
   }
 });
 
-test('nested body values remain structured in curl and SDK samples', () => {
-  const snippets = cloudflareSnippetsByTarget(nestedCreateInput);
-  const curl = snippets.get('curl');
-  const ts = snippets.get('typescript');
-  const py = snippets.get('python');
-  const rb = snippets.get('ruby');
-  assert.ok(curl && ts && py && rb);
+test('nested body values remain structured in curl samples', () => {
+  const curl = cloudflareSnippetsByTarget(nestedCreateInput).get('curl');
+  assert.ok(curl);
   const payload = curl.match(/-d '(.+)'/)?.[1];
   assert.ok(payload);
   assert.deepEqual(JSON.parse(payload), { settings: { enabled: true }, rules: [{ action: 'block' }] });
-  assert.match(ts, /settings: {"enabled":true}/);
-  assert.match(ts, /rules: \[{"action":"block"}\]/);
-  assert.match(py, /settings={"enabled": True}/);
-  assert.match(py, /rules=\[{"action": "block"}\]/);
-  assert.match(rb, /settings: {"enabled" => true}/);
-  assert.match(rb, /rules: \[{"action" => "block"}\]/);
 });
 
-test('SDK property aliases resolve argument collisions without changing HTTP wire fields', () => {
+test('SDK property aliases do not change HTTP wire fields', () => {
   const input: SnippetInput = {
     accessorPath: ['accounts'],
     methodName: 'create',
@@ -377,17 +363,14 @@ test('SDK property aliases resolve argument collisions without changing HTTP wir
       },
     },
   };
-  const snippets = cloudflareSnippetsByTarget(input);
-  const curlPayload = snippets.get('curl')?.match(/-d '(.+)'/)?.[1];
-  const ts = snippets.get('typescript');
-  assert.ok(curlPayload && ts);
+  const curlPayload = cloudflareSnippetsByTarget(input)
+    .get('curl')
+    ?.match(/-d '(.+)'/)?.[1];
+  assert.ok(curlPayload);
   assert.deepEqual(JSON.parse(curlPayload), { account_id: 0, settings: { account_id: 0 } });
-  assert.match(ts, /account_id: "<account_id>"/);
-  assert.match(ts, /account_id_body: 0/);
-  assert.match(ts, /settings: {"nested_account_id":0}/);
 });
 
-test('root array and union bodies render structurally in curl and suppress unsupported SDK samples', () => {
+test('root array and union bodies render structurally in curl', () => {
   const arraySnippets = cloudflareSnippetsByTarget(rootArrayCreateInput);
   const unionSnippets = cloudflareSnippetsByTarget(rootUnionCreateInput);
   const arrayPayload = arraySnippets.get('curl')?.match(/-d '(.+)'/)?.[1];
@@ -395,42 +378,6 @@ test('root array and union bodies render structurally in curl and suppress unsup
   assert.ok(arrayPayload && unionPayload);
   assert.deepEqual(JSON.parse(arrayPayload), [{ id: '<id>' }]);
   assert.deepEqual(JSON.parse(unionPayload), { source: '<source>' });
-  for (const target of ['typescript', 'python', 'ruby']) {
-    assert.equal(arraySnippets.get(target), null);
-    assert.equal(unionSnippets.get(target), null);
-  }
-});
-
-test('typescript: builds the accessor chain and required-arg object', () => {
-  const ts = cloudflareSnippetsByTarget(listInput).get('typescript');
-  assert.ok(ts);
-  const target = CLOUDFLARE_TARGETS.find((candidate) => candidate.id === 'typescript');
-  assert.ok(target?.packageName);
-  assert.ok(ts.includes(`from "${target.packageName}"`));
-  assert.match(ts, /new CloudflareApiClient\(\)/);
-  assert.match(ts, /await client\.dns\.records\.list\(/);
-  assert.match(ts, /zone_id: "<zone_id>"/);
-});
-
-test('SDKs include required query params and omit optional query params', () => {
-  const snippets = cloudflareSnippetsByTarget(queryInput);
-  const ts = snippets.get('typescript');
-  const py = snippets.get('python');
-  const rb = snippets.get('ruby');
-  assert.ok(ts && py && rb);
-  assert.match(ts, /type: "A"/);
-  assert.match(py, /type="A"/);
-  assert.match(rb, /type: "A"/);
-  for (const snippet of [ts, py, rb]) assert.doesNotMatch(snippet, /page[=:]/);
-});
-
-test('typescript: normalizes hyphenated Fern group and method names to lower camel case', () => {
-  const ts = cloudflareSnippetsByTarget({
-    ...listInput,
-    accessorPath: ['dns', 'zone-transfers', 'primary-zones'],
-    methodName: 'force-notify',
-  }).get('typescript');
-  assert.match(ts ?? '', /client\.dns\.zoneTransfers\.primaryZones\.forceNotify\(/);
 });
 
 // The cf samples come from the metadata of the cf package the site depends on.
@@ -486,34 +433,20 @@ test('cf: renders the command named like the operation when several send it', ()
   assert.match(cloudflareSnippetsByTarget(status('pause')).get('cf') ?? '', /^cf workflows instances pause /);
 });
 
-test('python: snake_cased accessor with keyword args', () => {
-  const py = cloudflareSnippetsByTarget(listInput).get('python');
-  assert.ok(py);
-  assert.match(py, /from cloudflare import Cloudflare/);
-  assert.match(py, /result = client\.dns\.records\.list\(/);
-  assert.match(py, /zone_id="<zone_id>"/);
-});
-
-test('ruby: snake_cased accessor with hash args', () => {
-  const rb = cloudflareSnippetsByTarget(listInput).get('ruby');
-  assert.ok(rb);
-  assert.match(rb, /Cloudflare::Client\.new/);
-  assert.match(rb, /result = client\.dns\.records\.list\(/);
-  assert.match(rb, /zone_id: "<zone_id>"/);
-});
-
-test('provider renders every target in tab order; go/terraform are coming-soon', () => {
+test('provider renders every target in tab order with cf CLI first; terraform is coming-soon', () => {
   const snippets = cloudflareSnippets(listInput);
   assert.deepEqual(
     snippets.map((snippet) => snippet.targetId),
     CLOUDFLARE_TARGETS.map((target) => target.id),
   );
-  for (const target of ['curl', 'cf', 'typescript', 'python', 'ruby']) {
+  assert.deepEqual(
+    CLOUDFLARE_TARGETS.map((target) => target.id),
+    ['cf', 'curl', 'terraform'],
+  );
+  for (const target of ['cf', 'curl']) {
     assert.equal(typeof snippets.find((snippet) => snippet.targetId === target)?.code, 'string');
   }
-  for (const target of ['go', 'terraform']) {
-    assert.equal(snippets.find((snippet) => snippet.targetId === target)?.code, null);
-  }
+  assert.equal(snippets.find((snippet) => snippet.targetId === 'terraform')?.code, null);
 });
 
 test('formatIdentifier is acronym-aware and title-cases the rest', () => {
