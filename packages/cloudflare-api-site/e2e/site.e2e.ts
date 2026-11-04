@@ -8,10 +8,10 @@ test.describe('routes', () => {
     ['/api/zero-trust/', 200, 'text/html'],
     ['/api/zero-trust/devices/ip-profiles/', 200, 'text/html'],
     [operation, 200, 'text/html'],
-    [`${operation}?lang=typescript`, 200, 'text/html'],
+    [`${operation}?lang=curl`, 200, 'text/html'],
     [`${operation}?lang=nope`, 404, 'text/plain'],
     ['/api/zero-trust/devices/ip-profiles/methods/list.md', 200, 'text/markdown'],
-    ['/api/zero-trust/devices/ip-profiles/methods/list.md?lang=typescript', 200, 'text/markdown'],
+    ['/api/zero-trust/devices/ip-profiles/methods/list.md?lang=curl', 200, 'text/markdown'],
     ['/api/llms.txt', 200, 'text/markdown'],
     ['/api/zero-trust/llms.txt', 200, 'text/markdown'],
     ['/api/tooling/', 200, 'text/html'],
@@ -42,18 +42,21 @@ test('operation page renders the operation and its samples', async ({ page }) =>
   await expect(page.locator('h1')).toHaveText('List IP profiles');
   await expect(page.locator('.forge-verb')).toHaveText('GET');
   await expect(page.locator('.forge-sample-code code.language-bash').first()).toContainText(
-    'https://api.cloudflare.com/client/v4/accounts/',
+    'cf zero-trust devices ip-profiles list',
   );
 });
 
 test('execution target selector switches the code sample', async ({ page }) => {
   await page.goto(operation);
   const target = page.locator('select[data-forge-target]');
-  await expect(target).toHaveValue('curl');
-  await target.selectOption('typescript');
-  await expect(page).toHaveURL(/[?&]lang=typescript\b/);
-  await expect(page.locator('select[data-forge-target]')).toHaveValue('typescript');
-  await expect(page.locator('.forge-sample-code code.language-bash')).toHaveCount(0);
+  await expect(target).toHaveValue('cf');
+  await expect(target.locator('option')).toHaveText(['cf CLI', 'curl', 'Terraform']);
+  await target.selectOption('curl');
+  await expect(page).toHaveURL(/[?&]lang=curl\b/);
+  await expect(page.locator('select[data-forge-target]')).toHaveValue('curl');
+  await expect(page.locator('.forge-sample-code code.language-bash').first()).toContainText(
+    'https://api.cloudflare.com/client/v4/accounts/',
+  );
 });
 
 test('operation links its agent Markdown', async ({ page, request }) => {
