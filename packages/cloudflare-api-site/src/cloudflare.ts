@@ -10,6 +10,7 @@
  * This module has no Astro/runtime dependencies, so its behaviour is unit-tested
  * with `node --experimental-strip-types --test` (see `cloudflare.test.ts`).
  */
+import { cliCommandFor } from './cli-arguments.ts';
 import {
   createSnippetProvider,
   type FernOperationRoutingPreferenceContext,
@@ -233,10 +234,21 @@ const renderCurl: SnippetRenderer = ({ op }) => {
   return args.join(' \\\n    ');
 };
 
+// The sample is the cf command that sends the operation, with the positionals
+// and options it requires, as the cf CLI's own metadata lists them.
 const renderCf: SnippetRenderer = ({ accessorPath, methodName, op }) => {
-  if (op.requestBody || op.queryParams.some((param) => param.required)) return null;
-  const positionals = op.pathParams.map((param) => `<${param.name}>`).join(' ');
-  return ['cf', ...accessorPath, methodName, positionals].filter(Boolean).join(' ');
+  const command = cliCommandFor(op.method, op.path, [...accessorPath, methodName]);
+  if (!command) return null;
+  const head = [command.command];
+  for (const positional of [...(command.arguments ?? [])].sort((a, b) => (a.position ?? 0) - (b.position ?? 0))) {
+    if (positional.required) head.push(`<${positional.name}>`);
+  }
+  const lines = [head.join(' ')];
+  for (const option of command.options ?? []) {
+    if (option.required)
+      lines.push(option.type === 'boolean' ? `--${option.name}` : `--${option.name} <${option.name}>`);
+  }
+  return lines.join(' \\\n    ');
 };
 
 const renderTypeScript: SnippetRenderer = ({ op, accessorPath, methodName }) => {

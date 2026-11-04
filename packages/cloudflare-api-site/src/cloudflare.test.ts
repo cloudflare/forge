@@ -229,10 +229,8 @@ test('optional request bodies remain present in examples when the endpoint decla
   };
   const snippets = cloudflareSnippetsByTarget(optionalInput);
   const curl = snippets.get('curl');
-  const cf = snippets.get('cf');
   const ts = snippets.get('typescript');
   assert.ok(curl && ts);
-  assert.equal(cf, null);
   assert.match(curl, /Content-Type: application\/json/);
   assert.match(curl, /-d /);
   assert.match(ts, /name: "<name>"/);
@@ -295,7 +293,7 @@ test('curl uses file input for raw bodies and does not fabricate required multip
   const rawSnippets = cloudflareSnippetsByTarget(raw);
   assert.match(rawSnippets.get('curl') ?? '', /Content-Type: application\/octet-stream/);
   assert.match(rawSnippets.get('curl') ?? '', /--data-binary @request-body/);
-  for (const target of ['cf', 'typescript', 'python', 'ruby']) assert.equal(rawSnippets.get(target), null);
+  for (const target of ['typescript', 'python', 'ruby']) assert.equal(rawSnippets.get(target), null);
   assert.equal(cloudflareSnippetsByTarget(multipart).get('curl'), null);
 });
 
@@ -435,13 +433,57 @@ test('typescript: normalizes hyphenated Fern group and method names to lower cam
   assert.match(ts ?? '', /client\.dns\.zoneTransfers\.primaryZones\.forceNotify\(/);
 });
 
-test('cf: positionals are the path params', () => {
-  assert.equal(cloudflareSnippetsByTarget(listInput).get('cf'), 'cf dns records list <zone_id>');
+// The cf samples come from the metadata of the cf package the site depends on.
+
+test('cf: renders the command with the positionals and options it requires', () => {
+  const recall: SnippetInput = {
+    op: op({
+      path: '/accounts/{account_id}/agent-memory/namespaces/{namespace_name}/profiles/{profile_name}/recall',
+      method: 'post',
+    }),
+    accessorPath: ['agent-memory'],
+    methodName: 'recall',
+  };
+  assert.equal(
+    cloudflareSnippetsByTarget(recall).get('cf'),
+    ['cf agent-memory recall <profile-name>', '--namespace-name <namespace-name>', '--query <query>'].join(' \\\n    '),
+  );
+  // The zone is passed with the global --zone option, which samples leave out.
+  assert.equal(cloudflareSnippetsByTarget(listInput).get('cf'), 'cf dns records list');
 });
 
-test('cf: omits commands that require unsupported flags or request bodies', () => {
-  assert.equal(cloudflareSnippetsByTarget(queryInput).get('cf'), null);
-  assert.equal(cloudflareSnippetsByTarget(createInput).get('cf'), null);
+test('cf: renders required boolean options without a value', () => {
+  const edit: SnippetInput = {
+    op: op({ path: '/zones/{zone_id}/acm/total_tls', method: 'post' }),
+    accessorPath: ['acm', 'total-tls'],
+    methodName: 'edit',
+  };
+  assert.equal(cloudflareSnippetsByTarget(edit).get('cf'), 'cf acm total-tls edit \\\n    --enabled');
+});
+
+test('cf: renders nothing for operations without a generated cf command', () => {
+  const unknown: SnippetInput = { ...listInput, op: op({ path: '/zones/{zone_id}/unknown' }) };
+  assert.equal(cloudflareSnippetsByTarget(unknown).get('cf'), null);
+  // `cf ai run` is hand-written: the site documents hand-written commands separately.
+  const aiRun: SnippetInput = {
+    op: op({ path: '/accounts/{account_id}/ai/run', method: 'post' }),
+    accessorPath: ['ai'],
+    methodName: 'run',
+  };
+  assert.equal(cloudflareSnippetsByTarget(aiRun).get('cf'), null);
+});
+
+test('cf: renders the command named like the operation when several send it', () => {
+  const status = (methodName: string): SnippetInput => ({
+    op: op({
+      path: '/accounts/{account_id}/workflows/{workflow_name}/instances/{instance_id}/status',
+      method: 'patch',
+    }),
+    accessorPath: ['workflows', 'instances'],
+    methodName,
+  });
+  assert.match(cloudflareSnippetsByTarget(status('terminate')).get('cf') ?? '', /^cf workflows instances terminate /);
+  assert.match(cloudflareSnippetsByTarget(status('pause')).get('cf') ?? '', /^cf workflows instances pause /);
 });
 
 test('python: snake_cased accessor with keyword args', () => {
