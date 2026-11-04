@@ -23,7 +23,7 @@
     "@iconify-json/simple-icons": "^1.2.99",
     "astro": "^7.4.1",
     "astro-fern": "workspace:*",
-    "cf": "1.0.0-beta.19",
+    "cf": "1.0.0-beta.27",
     "clsx": "^2.1.1",
     "fern-forge": "workspace:*",
     "hast-util-sanitize": "^5.0.2",
