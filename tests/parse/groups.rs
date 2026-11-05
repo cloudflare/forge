@@ -6,9 +6,22 @@ use crate::common::{group, method, parse, parse_err};
 fn string_group_name_splits_on_dots() {
     let forge = parse(
         r#"{
-          "openapi": "3.0.3", "info": {"title": "t", "version": "1"},
-          "paths": {"/a": {"get": {"x-forge-group-name": "accounts.members", "x-forge-method-name": "list",
-            "responses": {"204": {"description": "ok"}}}}}
+          "openapi": "3.0.3",
+          "info": {
+            "title": "t",
+            "version": "1"
+          },
+          "paths": {
+            "/a": {
+              "get": {
+                "x-forge-group-name": "accounts.members",
+                "x-forge-method-name": "list",
+                "responses": {
+                  "204": {"description": "ok"}
+                }
+              }
+            }
+          }
         }"#,
     );
 
@@ -20,9 +33,22 @@ fn string_group_name_splits_on_dots() {
 fn group_name_that_is_neither_a_string_nor_an_array_is_an_error() {
     let err = parse_err(
         r#"{
-          "openapi": "3.0.3", "info": {"title": "t", "version": "1"},
-          "paths": {"/a": {"get": {"x-forge-group-name": 1, "x-forge-method-name": "list",
-            "responses": {"204": {"description": "ok"}}}}}
+          "openapi": "3.0.3",
+          "info": {
+            "title": "t",
+            "version": "1"
+          },
+          "paths": {
+            "/a": {
+              "get": {
+                "x-forge-group-name": 1,
+                "x-forge-method-name": "list",
+                "responses": {
+                  "204": {"description": "ok"}
+                }
+              }
+            }
+          }
         }"#,
     );
 
@@ -33,9 +59,22 @@ fn group_name_that_is_neither_a_string_nor_an_array_is_an_error() {
 fn array_group_name_has_a_group_per_element() {
     let forge = parse(
         r#"{
-          "openapi": "3.0.3", "info": {"title": "t", "version": "1"},
-          "paths": {"/a": {"get": {"x-forge-group-name": ["accounts", "members"], "x-forge-method-name": "list",
-            "responses": {"204": {"description": "ok"}}}}}
+          "openapi": "3.0.3",
+          "info": {
+            "title": "t",
+            "version": "1"
+          },
+          "paths": {
+            "/a": {
+              "get": {
+                "x-forge-group-name": ["accounts", "members"],
+                "x-forge-method-name": "list",
+                "responses": {
+                  "204": {"description": "ok"}
+                }
+              }
+            }
+          }
         }"#,
     );
 
@@ -47,9 +86,22 @@ fn array_group_name_has_a_group_per_element() {
 fn array_element_with_a_dot_is_one_group() {
     let forge = parse(
         r#"{
-          "openapi": "3.0.3", "info": {"title": "t", "version": "1"},
-          "paths": {"/a": {"get": {"x-forge-group-name": ["zones.settings"], "x-forge-method-name": "get",
-            "responses": {"204": {"description": "ok"}}}}}
+          "openapi": "3.0.3",
+          "info": {
+            "title": "t",
+            "version": "1"
+          },
+          "paths": {
+            "/a": {
+              "get": {
+                "x-forge-group-name": ["zones.settings"],
+                "x-forge-method-name": "get",
+                "responses": {
+                  "204": {"description": "ok"}
+                }
+              }
+            }
+          }
         }"#,
     );
 
@@ -66,9 +118,22 @@ fn array_element_with_a_dot_is_one_group() {
 fn method_in(group: &str) -> String {
     format!(
         r#"{{
-          "openapi": "3.0.3", "info": {{"title": "t", "version": "1"}},
-          "paths": {{"/a": {{"get": {{"x-forge-group-name": {group}, "x-forge-method-name": "get",
-            "responses": {{"204": {{"description": "ok"}}}}}}}}}}
+          "openapi": "3.0.3",
+          "info": {{
+            "title": "t",
+            "version": "1"
+          }},
+          "paths": {{
+            "/a": {{
+              "get": {{
+                "x-forge-group-name": {group},
+                "x-forge-method-name": "get",
+                "responses": {{
+                  "204": {{"description": "ok"}}
+                }}
+              }}
+            }}
+          }}
         }}"#
     )
 }
@@ -124,12 +189,30 @@ fn a_dotted_string_and_an_array_with_that_name_are_different_groups() {
 fn groups_with_equal_names_are_one_group() {
     let forge = parse(
         r#"{
-          "openapi": "3.0.3", "info": {"title": "t", "version": "1"},
+          "openapi": "3.0.3",
+          "info": {
+            "title": "t",
+            "version": "1"
+          },
           "paths": {
-            "/a": {"get": {"x-forge-group-name": "abuse-reports", "x-forge-method-name": "list",
-              "responses": {"204": {"description": "ok"}}}},
-            "/b": {"get": {"x-forge-group-name": ["abuse_reports"], "x-forge-method-name": "get",
-              "responses": {"204": {"description": "ok"}}}}
+            "/a": {
+              "get": {
+                "x-forge-group-name": "abuse-reports",
+                "x-forge-method-name": "list",
+                "responses": {
+                  "204": {"description": "ok"}
+                }
+              }
+            },
+            "/b": {
+              "get": {
+                "x-forge-group-name": ["abuse_reports"],
+                "x-forge-method-name": "get",
+                "responses": {
+                  "204": {"description": "ok"}
+                }
+              }
+            }
           }
         }"#,
     );
@@ -142,12 +225,30 @@ fn groups_with_equal_names_are_one_group() {
 fn subgroup_and_method_can_share_a_name() {
     let forge = parse(
         r#"{
-          "openapi": "3.0.3", "info": {"title": "t", "version": "1"},
+          "openapi": "3.0.3",
+          "info": {
+            "title": "t",
+            "version": "1"
+          },
           "paths": {
-            "/a": {"delete": {"x-forge-group-name": "members", "x-forge-method-name": "delete",
-              "responses": {"204": {"description": "ok"}}}},
-            "/b": {"post": {"x-forge-group-name": ["members", "delete"], "x-forge-method-name": "bulk",
-              "responses": {"204": {"description": "ok"}}}}
+            "/a": {
+              "delete": {
+                "x-forge-group-name": "members",
+                "x-forge-method-name": "delete",
+                "responses": {
+                  "204": {"description": "ok"}
+                }
+              }
+            },
+            "/b": {
+              "post": {
+                "x-forge-group-name": ["members", "delete"],
+                "x-forge-method-name": "bulk",
+                "responses": {
+                  "204": {"description": "ok"}
+                }
+              }
+            }
           }
         }"#,
     );
@@ -160,9 +261,21 @@ fn subgroup_and_method_can_share_a_name() {
 fn operation_without_a_group_is_not_a_method() {
     let forge = parse(
         r#"{
-          "openapi": "3.0.3", "info": {"title": "t", "version": "1"},
-          "paths": {"/a": {"get": {"x-forge-method-name": "get",
-            "responses": {"204": {"description": "ok"}}}}}
+          "openapi": "3.0.3",
+          "info": {
+            "title": "t",
+            "version": "1"
+          },
+          "paths": {
+            "/a": {
+              "get": {
+                "x-forge-method-name": "get",
+                "responses": {
+                  "204": {"description": "ok"}
+                }
+              }
+            }
+          }
         }"#,
     );
 
@@ -173,10 +286,22 @@ fn operation_without_a_group_is_not_a_method() {
 fn vendor_group_and_method_names_do_not_make_a_method() {
     let forge = parse(
         r#"{
-          "openapi": "3.0.3", "info": {"title": "t", "version": "1"},
-          "paths": {"/a": {"get": {
-            "x-fern-sdk-group-name": "a", "x-fern-sdk-method-name": "get",
-            "responses": {"204": {"description": "ok"}}}}}
+          "openapi": "3.0.3",
+          "info": {
+            "title": "t",
+            "version": "1"
+          },
+          "paths": {
+            "/a": {
+              "get": {
+                "x-fern-sdk-group-name": "a",
+                "x-fern-sdk-method-name": "get",
+                "responses": {
+                  "204": {"description": "ok"}
+                }
+              }
+            }
+          }
         }"#,
     );
 
@@ -188,9 +313,22 @@ fn empty_group_name_is_no_group() {
     for group in [r#""""#, "[]"] {
         let forge = parse(&format!(
             r#"{{
-              "openapi": "3.0.3", "info": {{"title": "t", "version": "1"}},
-              "paths": {{"/a": {{"get": {{"x-forge-group-name": {group}, "x-forge-method-name": "get",
-                "responses": {{"204": {{"description": "ok"}}}}}}}}}}
+              "openapi": "3.0.3",
+              "info": {{
+                "title": "t",
+                "version": "1"
+              }},
+              "paths": {{
+                "/a": {{
+                  "get": {{
+                    "x-forge-group-name": {group},
+                    "x-forge-method-name": "get",
+                    "responses": {{
+                      "204": {{"description": "ok"}}
+                    }}
+                  }}
+                }}
+              }}
             }}"#
         ));
 
@@ -202,9 +340,21 @@ fn empty_group_name_is_no_group() {
 fn operation_without_a_method_name_is_not_a_method() {
     let forge = parse(
         r#"{
-          "openapi": "3.0.3", "info": {"title": "t", "version": "1"},
-          "paths": {"/a": {"get": {"x-forge-group-name": "a",
-            "responses": {"204": {"description": "ok"}}}}}
+          "openapi": "3.0.3",
+          "info": {
+            "title": "t",
+            "version": "1"
+          },
+          "paths": {
+            "/a": {
+              "get": {
+                "x-forge-group-name": "a",
+                "responses": {
+                  "204": {"description": "ok"}
+                }
+              }
+            }
+          }
         }"#,
     );
 
@@ -215,9 +365,22 @@ fn operation_without_a_method_name_is_not_a_method() {
 fn empty_method_name_is_not_a_method() {
     let forge = parse(
         r#"{
-          "openapi": "3.0.3", "info": {"title": "t", "version": "1"},
-          "paths": {"/a": {"get": {"x-forge-group-name": "a", "x-forge-method-name": "",
-            "responses": {"204": {"description": "ok"}}}}}
+          "openapi": "3.0.3",
+          "info": {
+            "title": "t",
+            "version": "1"
+          },
+          "paths": {
+            "/a": {
+              "get": {
+                "x-forge-group-name": "a",
+                "x-forge-method-name": "",
+                "responses": {
+                  "204": {"description": "ok"}
+                }
+              }
+            }
+          }
         }"#,
     );
 
@@ -228,13 +391,30 @@ fn empty_method_name_is_not_a_method() {
 fn skipped_operation_is_not_a_method() {
     let forge = parse(
         r#"{
-          "openapi": "3.0.3", "info": {"title": "t", "version": "1"},
-          "paths": {"/a": {
-            "get": {"x-forge-group-name": "a", "x-forge-method-name": "list",
-              "responses": {"204": {"description": "ok"}}},
-            "post": {"x-forge-group-name": "a", "x-forge-method-name": "create", "x-forge-skip": true,
-              "responses": {"204": {"description": "ok"}}}
-          }}
+          "openapi": "3.0.3",
+          "info": {
+            "title": "t",
+            "version": "1"
+          },
+          "paths": {
+            "/a": {
+              "get": {
+                "x-forge-group-name": "a",
+                "x-forge-method-name": "list",
+                "responses": {
+                  "204": {"description": "ok"}
+                }
+              },
+              "post": {
+                "x-forge-group-name": "a",
+                "x-forge-method-name": "create",
+                "x-forge-skip": true,
+                "responses": {
+                  "204": {"description": "ok"}
+                }
+              }
+            }
+          }
         }"#,
     );
 
@@ -253,9 +433,22 @@ fn group_name_without_letters_is_an_error() {
     ] {
         let err = parse_err(&format!(
             r#"{{
-              "openapi": "3.0.3", "info": {{"title": "t", "version": "1"}},
-              "paths": {{"/a": {{"get": {{"x-forge-group-name": {group}, "x-forge-method-name": "list",
-                "responses": {{"204": {{"description": "ok"}}}}}}}}}}
+              "openapi": "3.0.3",
+              "info": {{
+                "title": "t",
+                "version": "1"
+              }},
+              "paths": {{
+                "/a": {{
+                  "get": {{
+                    "x-forge-group-name": {group},
+                    "x-forge-method-name": "list",
+                    "responses": {{
+                      "204": {{"description": "ok"}}
+                    }}
+                  }}
+                }}
+              }}
             }}"#
         ));
 
@@ -270,12 +463,30 @@ fn group_name_without_letters_is_an_error() {
 fn duplicate_method_in_a_group_is_an_error() {
     let err = parse_err(
         r#"{
-          "openapi": "3.0.3", "info": {"title": "t", "version": "1"},
+          "openapi": "3.0.3",
+          "info": {
+            "title": "t",
+            "version": "1"
+          },
           "paths": {
-            "/a": {"get": {"x-forge-group-name": "a", "x-forge-method-name": "list",
-              "responses": {"204": {"description": "ok"}}}},
-            "/b": {"get": {"x-forge-group-name": "a", "x-forge-method-name": "list",
-              "responses": {"204": {"description": "ok"}}}}
+            "/a": {
+              "get": {
+                "x-forge-group-name": "a",
+                "x-forge-method-name": "list",
+                "responses": {
+                  "204": {"description": "ok"}
+                }
+              }
+            },
+            "/b": {
+              "get": {
+                "x-forge-group-name": "a",
+                "x-forge-method-name": "list",
+                "responses": {
+                  "204": {"description": "ok"}
+                }
+              }
+            }
           }
         }"#,
     );
@@ -287,12 +498,30 @@ fn duplicate_method_in_a_group_is_an_error() {
 fn method_names_are_equal_as_names() {
     let err = parse_err(
         r#"{
-          "openapi": "3.0.3", "info": {"title": "t", "version": "1"},
+          "openapi": "3.0.3",
+          "info": {
+            "title": "t",
+            "version": "1"
+          },
           "paths": {
-            "/a": {"get": {"x-forge-group-name": "a", "x-forge-method-name": "list_all",
-              "responses": {"204": {"description": "ok"}}}},
-            "/b": {"get": {"x-forge-group-name": "a", "x-forge-method-name": "listAll",
-              "responses": {"204": {"description": "ok"}}}}
+            "/a": {
+              "get": {
+                "x-forge-group-name": "a",
+                "x-forge-method-name": "list_all",
+                "responses": {
+                  "204": {"description": "ok"}
+                }
+              }
+            },
+            "/b": {
+              "get": {
+                "x-forge-group-name": "a",
+                "x-forge-method-name": "listAll",
+                "responses": {
+                  "204": {"description": "ok"}
+                }
+              }
+            }
           }
         }"#,
     );
@@ -304,14 +533,39 @@ fn method_names_are_equal_as_names() {
 fn groups_are_depth_first() {
     let forge = parse(
         r#"{
-          "openapi": "3.0.3", "info": {"title": "t", "version": "1"},
+          "openapi": "3.0.3",
+          "info": {
+            "title": "t",
+            "version": "1"
+          },
           "paths": {
-            "/a": {"get": {"x-forge-group-name": ["a", "b", "c"], "x-forge-method-name": "get",
-              "responses": {"204": {"description": "ok"}}}},
-            "/b": {"get": {"x-forge-group-name": "x", "x-forge-method-name": "get",
-              "responses": {"204": {"description": "ok"}}}},
-            "/c": {"get": {"x-forge-group-name": ["a", "d"], "x-forge-method-name": "get",
-              "responses": {"204": {"description": "ok"}}}}
+            "/a": {
+              "get": {
+                "x-forge-group-name": ["a", "b", "c"],
+                "x-forge-method-name": "get",
+                "responses": {
+                  "204": {"description": "ok"}
+                }
+              }
+            },
+            "/b": {
+              "get": {
+                "x-forge-group-name": "x",
+                "x-forge-method-name": "get",
+                "responses": {
+                  "204": {"description": "ok"}
+                }
+              }
+            },
+            "/c": {
+              "get": {
+                "x-forge-group-name": ["a", "d"],
+                "x-forge-method-name": "get",
+                "responses": {
+                  "204": {"description": "ok"}
+                }
+              }
+            }
           }
         }"#,
     );
@@ -339,10 +593,25 @@ fn iter_parents(group: Group<'_>) -> impl Iterator<Item = Group<'_>> {
 fn group_description_comes_from_x_forge_commands() {
     let forge = parse(
         r#"{
-          "openapi": "3.0.3", "info": {"title": "t", "version": "1"},
-          "paths": {"/a": {"get": {"x-forge-group-name": "accounts", "x-forge-method-name": "list",
-            "responses": {"204": {"description": "ok"}}}}},
-          "x-forge-commands": {"accounts": {"description": "Accounts."}}
+          "openapi": "3.0.3",
+          "info": {
+            "title": "t",
+            "version": "1"
+          },
+          "paths": {
+            "/a": {
+              "get": {
+                "x-forge-group-name": "accounts",
+                "x-forge-method-name": "list",
+                "responses": {
+                  "204": {"description": "ok"}
+                }
+              }
+            }
+          },
+          "x-forge-commands": {
+            "accounts": {"description": "Accounts."}
+          }
         }"#,
     );
 
@@ -353,10 +622,29 @@ fn group_description_comes_from_x_forge_commands() {
 fn subgroup_description_is_in_its_parents_command() {
     let forge = parse(
         r#"{
-          "openapi": "3.0.3", "info": {"title": "t", "version": "1"},
-          "paths": {"/a": {"get": {"x-forge-group-name": ["accounts", "members"], "x-forge-method-name": "list",
-            "responses": {"204": {"description": "ok"}}}}},
-          "x-forge-commands": {"accounts": {"groups": {"members": {"description": "Members."}}}}
+          "openapi": "3.0.3",
+          "info": {
+            "title": "t",
+            "version": "1"
+          },
+          "paths": {
+            "/a": {
+              "get": {
+                "x-forge-group-name": ["accounts", "members"],
+                "x-forge-method-name": "list",
+                "responses": {
+                  "204": {"description": "ok"}
+                }
+              }
+            }
+          },
+          "x-forge-commands": {
+            "accounts": {
+              "groups": {
+                "members": {"description": "Members."}
+              }
+            }
+          }
         }"#,
     );
 
@@ -376,14 +664,29 @@ fn with_commands(groups: &[&str], commands: &str) -> String {
                 .collect::<Vec<_>>()
                 .join(", ");
             format!(
-                r#""/{i}": {{"get": {{"x-forge-group-name": [{group}], "x-forge-method-name": "list",
-                  "responses": {{"204": {{"description": "ok"}}}}}}}}"#
+                r#"
+                  "/{i}": {{
+                    "get": {{
+                      "x-forge-group-name": [{group}],
+                      "x-forge-method-name": "list",
+                      "responses": {{
+                        "204": {{"description": "ok"}}
+                      }}
+                    }}
+                  }}"#
             )
         })
         .collect();
     format!(
-        r#"{{"openapi": "3.0.3", "info": {{"title": "t", "version": "1"}},
-          "paths": {{{}}}, "x-forge-commands": {commands}}}"#,
+        r#"{{
+          "openapi": "3.0.3",
+          "info": {{
+            "title": "t",
+            "version": "1"
+          }},
+          "paths": {{{}}},
+          "x-forge-commands": {commands}
+        }}"#,
         paths.join(", ")
     )
 }
@@ -392,9 +695,14 @@ fn with_commands(groups: &[&str], commands: &str) -> String {
 fn dotted_group_key_describes_a_subgroup() {
     let forge = parse(&with_commands(
         &["ai.dynamic-routing.deployments", "ai.dynamic-routing"],
-        r#"{"ai": {"groups": {
-          "dynamic-routing": {"description": "Routes."},
-          "dynamic-routing.deployments": {"description": "Deployments."}}}}"#,
+        r#"{
+          "ai": {
+            "groups": {
+              "dynamic-routing": {"description": "Routes."},
+              "dynamic-routing.deployments": {"description": "Deployments."}
+            }
+          }
+        }"#,
     ));
 
     assert_eq!(group(&forge, "ai.dynamic_routing").description(), "Routes.");
@@ -408,7 +716,9 @@ fn dotted_group_key_describes_a_subgroup() {
 fn dotted_root_key_describes_a_subgroup() {
     let forge = parse(&with_commands(
         &["user.analytics"],
-        r#"{"user.analytics": {"description": "Analytics."}}"#,
+        r#"{
+          "user.analytics": {"description": "Analytics."}
+        }"#,
     ));
 
     assert_eq!(group(&forge, "user").description(), "");
@@ -419,7 +729,15 @@ fn dotted_root_key_describes_a_subgroup() {
 fn dotted_key_can_come_before_its_parents_entry() {
     let forge = parse(&with_commands(
         &["a.b.c", "a.b", "a"],
-        r#"{"a.b.c": {"description": "C."}, "a": {"description": "A.", "groups": {"b": {"description": "B."}}}}"#,
+        r#"{
+          "a.b.c": {"description": "C."},
+          "a": {
+            "description": "A.",
+            "groups": {
+              "b": {"description": "B."}
+            }
+          }
+        }"#,
     ));
 
     assert_eq!(group(&forge, "a").description(), "A.");
@@ -431,7 +749,14 @@ fn dotted_key_can_come_before_its_parents_entry() {
 fn dotted_and_nested_entries_for_a_group_are_an_error() {
     let err = parse_err(&with_commands(
         &["a.b"],
-        r#"{"a": {"groups": {"b": {"description": "One."}}}, "a.b": {"description": "Two."}}"#,
+        r#"{
+          "a": {
+            "groups": {
+              "b": {"description": "One."}
+            }
+          },
+          "a.b": {"description": "Two."}
+        }"#,
     ));
 
     assert!(
@@ -444,10 +769,25 @@ fn dotted_and_nested_entries_for_a_group_are_an_error() {
 fn command_matches_a_group_with_an_equal_name() {
     let forge = parse(
         r#"{
-          "openapi": "3.0.3", "info": {"title": "t", "version": "1"},
-          "paths": {"/a": {"get": {"x-forge-group-name": "abuse_reports", "x-forge-method-name": "list",
-            "responses": {"204": {"description": "ok"}}}}},
-          "x-forge-commands": {"abuse-reports": {"description": "Abuse reports."}}
+          "openapi": "3.0.3",
+          "info": {
+            "title": "t",
+            "version": "1"
+          },
+          "paths": {
+            "/a": {
+              "get": {
+                "x-forge-group-name": "abuse_reports",
+                "x-forge-method-name": "list",
+                "responses": {
+                  "204": {"description": "ok"}
+                }
+              }
+            }
+          },
+          "x-forge-commands": {
+            "abuse-reports": {"description": "Abuse reports."}
+          }
         }"#,
     );
 
@@ -458,10 +798,25 @@ fn command_matches_a_group_with_an_equal_name() {
 fn group_without_a_command_has_no_description() {
     let forge = parse(
         r#"{
-          "openapi": "3.0.3", "info": {"title": "t", "version": "1"},
-          "paths": {"/a": {"get": {"x-forge-group-name": "accounts", "x-forge-method-name": "list",
-            "responses": {"204": {"description": "ok"}}}}},
-          "x-forge-commands": {"zones": {"description": "Zones."}}
+          "openapi": "3.0.3",
+          "info": {
+            "title": "t",
+            "version": "1"
+          },
+          "paths": {
+            "/a": {
+              "get": {
+                "x-forge-group-name": "accounts",
+                "x-forge-method-name": "list",
+                "responses": {
+                  "204": {"description": "ok"}
+                }
+              }
+            }
+          },
+          "x-forge-commands": {
+            "zones": {"description": "Zones."}
+          }
         }"#,
     );
 
@@ -473,9 +828,16 @@ fn group_without_a_command_has_no_description() {
 fn commands_with_equal_names_are_an_error() {
     let err = parse_err(
         r#"{
-          "openapi": "3.0.3", "info": {"title": "t", "version": "1"},
+          "openapi": "3.0.3",
+          "info": {
+            "title": "t",
+            "version": "1"
+          },
           "paths": {},
-          "x-forge-commands": {"abuse-reports": {"description": "One."}, "abuse_reports": {"description": "Two."}}
+          "x-forge-commands": {
+            "abuse-reports": {"description": "One."},
+            "abuse_reports": {"description": "Two."}
+          }
         }"#,
     );
 
@@ -486,16 +848,48 @@ fn commands_with_equal_names_are_an_error() {
 fn groups_are_sorted_by_name() {
     let forge = parse(
         r#"{
-          "openapi": "3.0.3", "info": {"title": "t", "version": "1"},
+          "openapi": "3.0.3",
+          "info": {
+            "title": "t",
+            "version": "1"
+          },
           "paths": {
-            "/a": {"get": {"x-forge-group-name": "zones", "x-forge-method-name": "get",
-              "responses": {"204": {"description": "ok"}}}},
-            "/b": {"get": {"x-forge-group-name": ["accounts", "members"], "x-forge-method-name": "get",
-              "responses": {"204": {"description": "ok"}}}},
-            "/c": {"get": {"x-forge-group-name": "dns", "x-forge-method-name": "get",
-              "responses": {"204": {"description": "ok"}}}},
-            "/d": {"get": {"x-forge-group-name": ["accounts", "billing"], "x-forge-method-name": "get",
-              "responses": {"204": {"description": "ok"}}}}
+            "/a": {
+              "get": {
+                "x-forge-group-name": "zones",
+                "x-forge-method-name": "get",
+                "responses": {
+                  "204": {"description": "ok"}
+                }
+              }
+            },
+            "/b": {
+              "get": {
+                "x-forge-group-name": ["accounts", "members"],
+                "x-forge-method-name": "get",
+                "responses": {
+                  "204": {"description": "ok"}
+                }
+              }
+            },
+            "/c": {
+              "get": {
+                "x-forge-group-name": "dns",
+                "x-forge-method-name": "get",
+                "responses": {
+                  "204": {"description": "ok"}
+                }
+              }
+            },
+            "/d": {
+              "get": {
+                "x-forge-group-name": ["accounts", "billing"],
+                "x-forge-method-name": "get",
+                "responses": {
+                  "204": {"description": "ok"}
+                }
+              }
+            }
           }
         }"#,
     );
@@ -514,15 +908,36 @@ fn groups_are_sorted_by_name() {
 fn methods_are_sorted_by_name() {
     let forge = parse(
         r#"{
-          "openapi": "3.0.3", "info": {"title": "t", "version": "1"},
-          "paths": {"/a": {
-            "get": {"x-forge-group-name": "a", "x-forge-method-name": "list",
-              "responses": {"204": {"description": "ok"}}},
-            "post": {"x-forge-group-name": "a", "x-forge-method-name": "create",
-              "responses": {"204": {"description": "ok"}}},
-            "delete": {"x-forge-group-name": "a", "x-forge-method-name": "delete",
-              "responses": {"204": {"description": "ok"}}}
-          }}
+          "openapi": "3.0.3",
+          "info": {
+            "title": "t",
+            "version": "1"
+          },
+          "paths": {
+            "/a": {
+              "get": {
+                "x-forge-group-name": "a",
+                "x-forge-method-name": "list",
+                "responses": {
+                  "204": {"description": "ok"}
+                }
+              },
+              "post": {
+                "x-forge-group-name": "a",
+                "x-forge-method-name": "create",
+                "responses": {
+                  "204": {"description": "ok"}
+                }
+              },
+              "delete": {
+                "x-forge-group-name": "a",
+                "x-forge-method-name": "delete",
+                "responses": {
+                  "204": {"description": "ok"}
+                }
+              }
+            }
+          }
         }"#,
     );
 

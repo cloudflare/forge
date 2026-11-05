@@ -60,7 +60,7 @@ macro_rules! wit {
 
 wit!(
     r#"
-package forge:plugin@0.3.0;
+package forge:plugin@0.4.0;
 
 /// Read-only access to the forge a plugin runs on, which the host keeps.
 /// Each id is an index the host gave out. An id the host never gave out
@@ -150,7 +150,8 @@ interface forge {
 
     record method-info {
         name: name,
-        group: group-id,
+        /// The group the method is in, or none at the top level.
+        group: option<group-id>,
         http-method: http-method,
         path: string,
         summary: string,
@@ -254,6 +255,8 @@ interface forge {
     counts: func() -> forge-counts;
     /// Every group, depth first.
     groups: func() -> list<group-id>;
+    /// The methods at the top level, in no group, sorted by name.
+    methods: func() -> list<method-id>;
     /// The models at the top level, in no group.
     models: func() -> list<model-id>;
     get-group: func(id: group-id) -> group-info;
@@ -501,6 +504,10 @@ impl wit::Host for State {
         Ok(self.forge()?.groups().map(|group| group.id.0).collect())
     }
 
+    fn methods(&mut self) -> wasmtime::Result<Vec<u32>> {
+        Ok(self.forge()?.top_methods.iter().map(|id| id.0).collect())
+    }
+
     fn models(&mut self) -> wasmtime::Result<Vec<u32>> {
         Ok(self.forge()?.top_models.iter().map(|id| id.0).collect())
     }
@@ -524,7 +531,7 @@ impl wit::Host for State {
         let s = |s: Str| forge.strings.get(s).to_owned();
         Ok(wit::MethodInfo {
             name: words(&data.name),
-            group: data.group.0,
+            group: data.group.map(|id| id.0),
             http_method: match &data.http_method {
                 HttpMethod::Get => wit::HttpMethod::Get,
                 HttpMethod::Put => wit::HttpMethod::Put,

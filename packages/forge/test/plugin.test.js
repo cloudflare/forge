@@ -7,7 +7,7 @@ import { test } from 'node:test';
 const hooks = registerHooks({
   resolve(specifier, context, nextResolve) {
     return nextResolve(
-      specifier === 'forge:plugin/forge@0.3.0'
+      specifier === 'forge:plugin/forge@0.4.0'
         ? new URL('./fixtures/metadata-host.js', import.meta.url).href
         : specifier,
       context,
@@ -47,6 +47,21 @@ test('UUIDs are a distinct scalar through the plugin API', () => {
           { kind: 'scalar', scalar: 'number', number: 'int32' },
         ],
       );
+      return [];
+    },
+  }).generate();
+});
+
+test('methods in no group are at the top level through the plugin API', () => {
+  definePlugin({
+    generate(forge) {
+      assert.deepEqual(
+        forge.methods.map((method) => method.name.camel()),
+        ['pause'],
+      );
+      assert.equal(forge.methods[0].group, undefined);
+      const [pets] = forge.groups;
+      assert.equal(pets.methods[0].group, pets);
       return [];
     },
   }).generate();

@@ -32,8 +32,8 @@
 // classes behind them stay private, so the bindings never show in
 // index.d.ts.
 
-import * as host from 'forge:plugin/forge@0.3.0';
-import type * as hostPlugin from 'forge:plugin/plugin@0.3.0';
+import * as host from 'forge:plugin/forge@0.4.0';
+import type * as hostPlugin from 'forge:plugin/plugin@0.4.0';
 
 // ---------------------------------------------------------------------------
 // The API.
@@ -104,7 +104,9 @@ export interface Forge {
   readonly baseUrl: string;
   /** Every group, depth first. Siblings are sorted by name. */
   readonly groups: readonly Group[];
-  /** The models in no group: those methods in more than one top-level group use. */
+  /** The methods in no group, sorted by name: those named by an `operationId` with no dot. */
+  readonly methods: readonly Method[];
+  /** The models in no group: those methods in more than one top-level group, or a method in no group, use. */
   readonly models: readonly Model[];
 }
 
@@ -129,9 +131,10 @@ export interface Group {
 
 /** An operation an SDK exposes as a function. */
 export interface Method {
-  /** Unique within its group. */
+  /** Unique within its group, or among the methods in no group. */
   readonly name: Name;
-  readonly group: Group;
+  /** The group it is in, or undefined at the top level. */
+  readonly group: Group | undefined;
   /** As it is sent, such as `GET`. */
   readonly httpMethod: string;
   /** The path template, such as `/accounts/{account_id}`. */
@@ -561,6 +564,7 @@ class ForgeImpl implements Forge {
   private readonly modelCache: (ModelImpl | undefined)[] = [];
   private readonly typeCache: (Type | undefined)[] = [];
   private readonly allGroups = lazy(() => ids(host.groups()).map((id) => this.group(id)));
+  private readonly topMethods = lazy(() => ids(host.methods()).map((id) => this.method(id)));
   private readonly topModels = lazy(() => ids(host.models()).map((id) => this.model(id)));
 
   get version(): string {
@@ -577,6 +581,10 @@ class ForgeImpl implements Forge {
 
   get groups(): readonly Group[] {
     return this.allGroups();
+  }
+
+  get methods(): readonly Method[] {
+    return this.topMethods();
   }
 
   get models(): readonly Model[] {
@@ -685,7 +693,7 @@ const httpMethods: Record<Exclude<host.HttpMethod['tag'], 'other'>, string> = {
 class MethodImpl implements Method {
   private readonly info: () => {
     name: Name;
-    group: host.GroupId;
+    group: host.GroupId | undefined;
     httpMethod: string;
     path: string;
     summary: string;
@@ -711,7 +719,7 @@ class MethodImpl implements Method {
       const body = opt(m.body);
       return {
         name: new NameImpl(m.name),
-        group: m.group,
+        group: opt(m.group),
         httpMethod: m.httpMethod.tag === 'other' ? m.httpMethod.val : httpMethods[m.httpMethod.tag],
         path: m.path,
         summary: m.summary,
@@ -738,8 +746,9 @@ class MethodImpl implements Method {
     return this.info().name;
   }
 
-  get group(): Group {
-    return this.forge.group(this.info().group);
+  get group(): Group | undefined {
+    const group = this.info().group;
+    return group === undefined ? undefined : this.forge.group(group);
   }
 
   get httpMethod(): string {

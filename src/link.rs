@@ -41,7 +41,11 @@ use openapi::{
 ///
 /// The methods come from the operations under `paths`, including those in
 /// `additionalOperations` and in path items reached by `$ref`, and from
-/// their aliases, as [`Method`](crate::Method) says. Webhooks, callbacks,
+/// their aliases, as [`Method`](crate::Method) says. Each is named by its
+/// `x-forge-group-name` and `x-forge-method-name`, or, without both,
+/// by an `operationId` such as `pets.list`, or `listPets` for a method at
+/// the top level, as
+/// [`Method::name`](crate::Method::name) says. Webhooks, callbacks,
 /// response headers, cookie parameters, security, and extensions these
 /// docs do not mention are ignored, except that those of an operation or
 /// alias are kept for [`Method::extensions`](crate::Method::extensions).
@@ -102,6 +106,7 @@ fn build(mut doc: Doc) -> Result<Forge, Vec<String>> {
         mut groups,
         mut top,
         methods,
+        mut top_methods,
         models,
         types,
         errors,
@@ -115,7 +120,7 @@ fn build(mut doc: Doc) -> Result<Forge, Vec<String>> {
     if !errors.is_empty() {
         return Err(errors);
     }
-    sort(&mut groups, &mut top, &methods);
+    sort(&mut groups, &mut top, &mut top_methods, &methods);
     describe(&mut groups, &top, &mut commands);
     let mut names = vec![Name::default(); name_ids.len()];
     for (name, id) in name_ids {
@@ -128,6 +133,7 @@ fn build(mut doc: Doc) -> Result<Forge, Vec<String>> {
         groups,
         top,
         methods,
+        top_methods,
         models,
         top_models: Vec::new(),
         types,
@@ -186,11 +192,12 @@ fn base_url(server: &Server) -> Result<String, String> {
     Ok(url)
 }
 
-/// Sorts the top-level groups `top`, and the subgroups and methods of each
-/// group, by name. Only the lists of IDs are sorted, so every ID stays the
-/// same.
-fn sort(groups: &mut [GroupData], top: &mut [GroupId], methods: &[MethodData]) {
+/// Sorts the top-level groups `top`, the top-level methods `top_methods`,
+/// and the subgroups and methods of each group, by name. Only the lists of
+/// IDs are sorted, so every ID stays the same.
+fn sort(groups: &mut [GroupData], top: &mut [GroupId], top_methods: &mut [MethodId], methods: &[MethodData]) {
     top.sort_by(|a, b| groups[a.index()].name.cmp(&groups[b.index()].name));
+    top_methods.sort_by(|a, b| methods[a.index()].name.cmp(&methods[b.index()].name));
     for i in 0..groups.len() {
         // Moved out while sorted, since the names are in the same slice.
         let mut children = mem::take(&mut groups[i].groups);
@@ -250,7 +257,10 @@ fn place_models(forge: &mut Forge) -> Vec<ModelId> {
     let mut stack = Vec::new();
     for (i, method) in methods.iter().enumerate() {
         method_models(&types, method, &mut stack, &mut walk);
-        let path = &groups[method.group.index()].path;
+        let path: &[GroupId] = match method.group {
+            Some(group) => &groups[group.index()].path,
+            None => &[],
+        };
         while let Some(id) = stack.pop() {
             let m = id.index();
             if reached_by[m] == i {
@@ -264,7 +274,7 @@ fn place_models(forge: &mut Forge) -> Vec<ModelId> {
                 }
                 shared.truncate(len);
             } else {
-                shared[m] = Some(path.clone());
+                shared[m] = Some(path.to_vec());
             }
             stack.extend_from_slice(&uses[m]);
         }
@@ -400,8 +410,10 @@ struct Builder<'d> {
     /// Each group by its parent, or none for a top-level group, and name.
     group_index: HashMap<(Option<GroupId>, Name), GroupId>,
     methods: Vec<MethodData>,
-    /// Each method by group and name.
-    method_index: HashMap<(GroupId, Name), MethodId>,
+    /// The methods at the top level, in no group.
+    top_methods: Vec<MethodId>,
+    /// Each method by group, or none for the top level, and name.
+    method_index: HashMap<(Option<GroupId>, Name), MethodId>,
     types: Vec<TypeData>,
     /// The type of each scalar, which every use shares.
     scalars: Vec<(Scalar, TypeId)>,
@@ -459,6 +471,7 @@ impl<'d> Builder<'d> {
             top: Vec::new(),
             group_index: HashMap::new(),
             methods: Vec::new(),
+            top_methods: Vec::new(),
             method_index: HashMap::new(),
             types: Vec::new(),
             scalars: Vec::new(),
@@ -566,23 +579,39 @@ impl<'d> Builder<'d> {
         if definition.skip {
             return;
         }
-        if definition.method_name.is_empty() {
-            return;
-        }
-        let group_names = doc.list(definition.group_names);
-        if group_names.is_empty() {
-            return;
-        }
-        let group_names: Vec<Name> = group_names.iter().map(|&name| Name::new(doc.str(name))).collect();
-        for name in &group_names {
-            if name.is_empty() {
-                self.error("x-forge-group-name has a group name with no letters or digits");
+        // `x-forge-group-name` and `x-forge-method-name` together name the
+        // method, or else an `operationId` does, as the group path and the
+        // name, or as the name alone when it has no dot.
+        let forge_groups = doc.list(definition.group_names);
+        let (group_names, name, group_error, name_error): (Vec<Name>, Name, &str, &str) =
+            if !definition.method_name.is_empty() && !forge_groups.is_empty() {
+                (
+                    forge_groups.iter().map(|&name| Name::new(doc.str(name))).collect(),
+                    Name::new(doc.str(definition.method_name)),
+                    "x-forge-group-name has a group name with no letters or digits",
+                    "x-forge-method-name has no letters or digits",
+                )
+            } else if !definition.operation_id.is_empty() {
+                let operation_id = doc.str(definition.operation_id);
+                let (groups, name) = match operation_id.rsplit_once('.') {
+                    Some((groups, name)) => (groups.split('.').map(Name::new).collect(), name),
+                    None => (Vec::new(), operation_id),
+                };
+                (
+                    groups,
+                    Name::new(name),
+                    "operationId has a group name with no letters or digits",
+                    "operationId has a method name with no letters or digits",
+                )
+            } else {
                 return;
-            }
+            };
+        if group_names.iter().any(Name::is_empty) {
+            self.error(group_error);
+            return;
         }
-        let name = Name::new(doc.str(definition.method_name));
         if name.is_empty() {
-            self.error("x-forge-method-name has no letters or digits");
+            self.error(name_error);
             return;
         }
         let mut availability = None;
@@ -599,18 +628,20 @@ impl<'d> Builder<'d> {
         for group_name in group_names {
             group = Some(self.child(group, group_name));
         }
-        let Some(group) = group else {
-            return;
-        };
         let id = MethodId(u32::try_from(self.methods.len()).expect("fewer than 2^32 methods"));
         match self.method_index.entry((group, name.clone())) {
             Entry::Occupied(entry) => {
                 let other = &self.methods[entry.get().index()];
                 let message = format!(
-                    "method {:?} is also {} {} in the same group",
+                    "method {:?} is also {} {} {}",
                     name.words().join(" "),
                     other.http_method.as_str(),
-                    self.strings.get(other.path)
+                    self.strings.get(other.path),
+                    if group.is_some() {
+                        "in the same group"
+                    } else {
+                        "at the top level"
+                    },
                 );
                 self.error(message);
                 return;
@@ -673,7 +704,10 @@ impl<'d> Builder<'d> {
         }
         let (responses, errors) = self.responses(operation);
 
-        self.groups[group.index()].methods.push(id);
+        match group {
+            Some(group) => self.groups[group.index()].methods.push(id),
+            None => self.top_methods.push(id),
+        }
         self.methods.push(MethodData {
             name,
             group,

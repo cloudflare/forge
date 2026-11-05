@@ -30,8 +30,8 @@ mod bin {
     pub mod ts;
 }
 
-/// A document with nested groups, path and query parameters, bodies,
-/// errors, and models that are enums, unions with a discriminator,
+/// A document with nested groups, a method at the top level, path and
+/// query parameters, bodies, errors, and models that are enums, unions with a discriminator,
 /// intersections, maps and nullable, and that refer to each other in a
 /// cycle.
 const SPEC: &str = r##"{
@@ -73,6 +73,12 @@ const SPEC: &str = r##"{
         "parameters": [{"name": "pet_id", "in": "path", "required": true, "schema": {"type": "string"}}],
         "requestBody": {"content": {"application/octet-stream": {"schema": {"type": "string", "format": "binary"}}}},
         "responses": {"204": {"description": "done"}}
+      }
+    },
+    "/ping": {
+      "get": {
+        "operationId": "ping",
+        "responses": {"200": {"description": "ok", "content": {"application/json": {"schema": {"type": "boolean"}}}}}
       }
     },
     "/owners": {
@@ -126,7 +132,7 @@ const SPEC: &str = r##"{
 
 /// A document with everything forge reads that the TypeScript generator
 /// doesn't use: header parameters, availability, hidden methods,
-/// confirmations, aliases, extensions of every JSON type, read-only,
+/// confirmations, aliases, methods at the top level, extensions of every JSON type, read-only,
 /// sensitive and defaulted fields, limits on arrays, binary content,
 /// descriptions of content, unions that are not exclusive, and groups
 /// described with dotted keys.
@@ -158,6 +164,12 @@ const FEATURES: &str = r##"{
         ],
         "parameters": [{"name": "id", "in": "path", "required": true, "schema": {"type": "string"}}],
         "responses": {"204": {"description": "gone"}}
+      }
+    },
+    "/health": {
+      "get": {
+        "operationId": "checkHealth", "x-health": true,
+        "responses": {"200": {"description": "ok", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Owner"}}}}}
       }
     },
     "/pets/{id}/photo": {
@@ -233,6 +245,7 @@ fn reads_all_of_the_forge() {
                 "union exclusive false",
                 "union exclusive true",
                 "Pets, for admins.",
+                "method \"check health\" GET \"/health\" in None",
             ] {
                 assert!(native.contains(seen), "the dump has no {seen:?}:\n{native}");
             }

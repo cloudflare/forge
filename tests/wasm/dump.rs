@@ -17,6 +17,9 @@ pub fn dump(forge: &Forge) -> String {
     for model in forge.models() {
         self::model(o, 0, model);
     }
+    for method in forge.methods() {
+        self::method(o, method);
+    }
     for group in forge.groups() {
         self::group(o, group);
     }
@@ -75,7 +78,7 @@ fn method(o: &mut String, method: Method<'_>) {
             name(method.name()),
             method.http_method().as_str(),
             method.path(),
-            name(method.group().name()),
+            method.group().map(|group| name(group.name())),
         ),
     );
     line(

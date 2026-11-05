@@ -20,6 +20,47 @@ export function models() {
   return types.map((_, id) => id);
 }
 
+// A method in no group, as QuickJS gives its missing group, and one in a
+// group.
+const methodInfo = [
+  { name: ['pause'], group: null },
+  { name: ['list'], group: 0 },
+];
+
+export function groups() {
+  return [0];
+}
+
+export function methods() {
+  return [0];
+}
+
+export function getGroup() {
+  return { name: ['pets'], description: '', path: [0], children: [], methods: [1], models: [] };
+}
+
+export function getMethod(id) {
+  const { name, group } = methodInfo[id];
+  return {
+    name,
+    group,
+    httpMethod: { tag: 'get' },
+    path: '/',
+    summary: '',
+    description: '',
+    deprecated: false,
+    availability: null,
+    hidden: false,
+    confirmation: null,
+    request: null,
+    headers: null,
+    body: null,
+    responses: [],
+    errors: [],
+    extensions: [],
+  };
+}
+
 export function getModel(id) {
   return { schemaName: `Type${id}`, name: [`type${id}`], description: '', deprecated: false, group: undefined, ty: id };
 }
