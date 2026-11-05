@@ -362,6 +362,88 @@ fn read_only_false_next_to_a_ref_does_not_undo_its_schemas_in_3_1() {
 }
 
 #[test]
+fn read_only_in_an_all_of_member_counts() {
+    let forge = parse(&responding_with_schemas(
+        r##"{"type": "object", "properties": {"id": {"allOf": [{"$ref": "#/components/schemas/Id"}, {"readOnly": true}]}}}"##,
+        r#"{"Id": {"type": "string"}}"#,
+    ));
+
+    assert!(field(object(response_type(&forge, "a.get")), "id").is_read_only());
+}
+
+#[test]
+fn read_only_follows_refs_and_all_of_members() {
+    let forge = parse(&responding_with_schemas(
+        r##"{"type": "object", "properties": {"id": {"$ref": "#/components/schemas/Id"}}}"##,
+        r##"{
+          "Id": {"allOf": [{"$ref": "#/components/schemas/Uuid"}]},
+          "Uuid": {"$ref": "#/components/schemas/ServerSet"},
+          "ServerSet": {"type": "string", "readOnly": true}
+        }"##,
+    ));
+
+    assert!(field(object(response_type(&forge, "a.get")), "id").is_read_only());
+}
+
+#[test]
+fn all_of_next_to_a_property_ref_is_ignored_in_3_0() {
+    let forge = parse(&responding_with_schemas(
+        r##"{"type": "object", "properties": {"id": {"$ref": "#/components/schemas/Id", "allOf": [{"readOnly": true}]}}}"##,
+        r#"{"Id": {"type": "string"}}"#,
+    ));
+
+    assert!(!field(object(response_type(&forge, "a.get")), "id").is_read_only());
+}
+
+#[test]
+fn all_of_next_to_a_property_ref_counts_in_3_1() {
+    let forge = parse(&responding_with_schemas_3_1(
+        r##"{"type": "object", "properties": {"id": {"$ref": "#/components/schemas/Id", "allOf": [{"readOnly": true}]}}}"##,
+        r#"{"Id": {"type": "string"}}"#,
+    ));
+
+    assert!(field(object(response_type(&forge, "a.get")), "id").is_read_only());
+}
+
+#[test]
+fn read_only_in_an_any_of_or_one_of_member_does_not_count() {
+    let forge = parse(&responding_with_schemas(
+        r##"{"type": "object", "properties": {
+          "a": {"anyOf": [{"$ref": "#/components/schemas/Id"}, {"type": "string", "readOnly": true}]},
+          "b": {"oneOf": [{"$ref": "#/components/schemas/Id"}, {"type": "integer", "readOnly": true}]}
+        }}"##,
+        r#"{"Id": {"type": "string"}}"#,
+    ));
+
+    let ty = object(response_type(&forge, "a.get"));
+    assert!(!field(ty, "a").is_read_only());
+    assert!(!field(ty, "b").is_read_only());
+}
+
+#[test]
+fn all_of_that_leads_back_to_itself_is_not_read_only() {
+    let forge = parse(&responding_with_schemas(
+        r##"{"type": "object", "properties": {"a": {"$ref": "#/components/schemas/A"}}}"##,
+        r##"{
+          "A": {"type": "object", "allOf": [{"$ref": "#/components/schemas/B"}, {"$ref": "#/components/schemas/A"}]},
+          "B": {"type": "object", "allOf": [{"$ref": "#/components/schemas/A"}, {"$ref": "#/components/schemas/B"}]}
+        }"##,
+    ));
+
+    assert!(!field(object(response_type(&forge, "a.get")), "a").is_read_only());
+}
+
+#[test]
+fn sensitive_in_an_all_of_member_counts() {
+    let forge = parse(&responding_with_schemas(
+        r##"{"type": "object", "properties": {"token": {"allOf": [{"$ref": "#/components/schemas/Token"}, {"x-forge-sensitive": true}]}}}"##,
+        r#"{"Token": {"type": "string"}}"#,
+    ));
+
+    assert!(field(object(response_type(&forge, "a.get")), "token").is_sensitive());
+}
+
+#[test]
 fn property_that_is_a_ref_is_sensitive_when_its_schema_is() {
     let forge = parse(&responding_with_schemas(
         r##"{"type": "object", "properties": {"token": {"$ref": "#/components/schemas/Token"}}}"##,
