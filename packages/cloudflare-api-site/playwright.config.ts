@@ -16,5 +16,10 @@ export default defineConfig({
   use: { baseURL, trace: 'retain-on-failure' },
   webServer: process.env.VISUAL_BASE_URL
     ? undefined
-    : { command: 'astro preview --port 8788', url: `${baseURL}/api/`, reuseExistingServer: true, timeout: 120_000 },
+    : {
+        command: 'astro preview --port 8788 --ignore-lock',
+        url: `${baseURL}/api/`,
+        reuseExistingServer: true,
+        timeout: 120_000,
+      },
 });

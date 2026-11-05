@@ -3,7 +3,7 @@ import cloudflare from '@astrojs/cloudflare';
 import nimbus, { defineConfig as defineNimbusConfig } from '@cloudflare/nimbus-docs';
 import tailwindcss from '@tailwindcss/vite';
 import { defineConfig } from 'astro/config';
-import astroFern from 'astro-fern';
+import { forgeApi } from './src/forge-api.ts';
 
 const site = 'https://docs.experiments.devprod.cloudflare.dev';
 
@@ -17,6 +17,8 @@ if (internalSiteDomain) {
   allowedDomains.push({ protocol: 'https', hostname: internalSiteDomain });
 }
 
+const api = await forgeApi();
+
 const nimbusConfig = defineNimbusConfig({
   site,
   title: 'Cloudflare API',
@@ -24,9 +26,8 @@ const nimbusConfig = defineNimbusConfig({
   locale: 'en',
   github: null,
   search: false,
-  // Authored pages read the API catalog and the selected version at request
-  // time, so the docs collection renders on demand like the API pages.
   rendering: { default: 'request' },
+  api: [api],
 });
 
 export default defineConfig({
@@ -37,21 +38,37 @@ export default defineConfig({
   security: { allowedDomains },
   vite: {
     plugins: [tailwindcss()],
-    // astro-fern builds operation artifact URLs from `site`, and in dev the
-    // Cloudflare Vite plugin forwards ASSETS fetches to this server with that
-    // host. Allow it so Vite's host check doesn't reject them with a 403.
-    server: { allowedHosts: [new URL(site).hostname] },
   },
   integrations: [
     nimbus(nimbusConfig, {
+      icons: {
+        include: {
+          ph: [
+            'caret-down',
+            'caret-right',
+            'check',
+            'clock',
+            'copy',
+            'git-branch',
+            'info',
+            'lightbulb',
+            'list',
+            'markdown-logo',
+            'moon',
+            'pencil-simple',
+            'sun',
+            'warning',
+            'warning-circle',
+            'x',
+          ],
+          'simple-icons': ['go', 'python', 'terraform', 'typescript'],
+        },
+      },
+      validateMdx: false,
       rules: {
         'nimbus/frontmatter-shape': 'error',
         'nimbus/internal-link': 'error',
       },
-    }),
-    astroFern({
-      routing: { base: '/', target: 'hash' },
-      agents: { injectRoutes: false, markdown: false, llms: false },
     }),
   ],
 });

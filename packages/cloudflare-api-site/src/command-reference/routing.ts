@@ -42,31 +42,17 @@ export function commandPath(command: Pick<CommandMetadata, 'fullPath'>): string 
   return command.fullPath.map(encodeURIComponent).join('/');
 }
 
+/** The API and the command pages share one base, so no product or operation may take a `tooling` segment. */
 export function assertToolingRouteNamespace(
-  products: readonly {
-    id: string;
-    slug: string;
-    snapshots?: readonly { pages: readonly { pathname: string }[] }[];
-  }[],
-  apiBase: string,
-  commandBase: string,
+  products: readonly CommandProductRoute[],
+  operationSlugs: readonly string[],
 ): void {
-  const toolingNamespace = toolingPath(commandBase);
   const conflict = products.find((product) => product.slug === TOOLING_SEGMENT);
-  if (toolingPath(apiBase) === toolingNamespace && conflict) {
-    throw new Error(`API product "${conflict.id}" conflicts with the ${toolingNamespace}/ route`);
-  }
-  if (normalizePathname(apiBase) !== normalizePathname(commandBase)) return;
-
+  if (conflict) throw new Error(`API product "${conflict.id}" conflicts with the /${TOOLING_SEGMENT}/ route`);
   for (const product of products) {
-    const productToolingPath = `${normalizePathname(apiBase)}/${product.slug}/${TOOLING_SEGMENT}`.replace('//', '/');
-    const route = product.snapshots
-      ?.flatMap((snapshot) => snapshot.pages)
-      .find((page) => {
-        const pathname = normalizePathname(page.pathname);
-        return pathname === productToolingPath || pathname.startsWith(`${productToolingPath}/`);
-      });
-    if (route) throw new Error(`API route "${route.pathname}" conflicts with the ${productToolingPath}/ route`);
+    const prefix = `${product.slug}/${TOOLING_SEGMENT}`;
+    const route = operationSlugs.find((slug) => slug === prefix || slug.startsWith(`${prefix}/`));
+    if (route) throw new Error(`API route "${route}" conflicts with the /${prefix}/ route`);
   }
 }
 
@@ -102,10 +88,6 @@ export class CommandRouter {
       return `${productPath}${nestedPath ? `/${nestedPath}` : ''}/`;
     }
     return `${this.#basePath}/${commandPath(command)}/`;
-  }
-
-  commandsForProduct(productId: string): readonly CommandMetadata[] {
-    return this.commands.filter((command) => command.fullPath[0] === productId);
   }
 
   resolve(url: URL | string, products: readonly CommandProductRoute[] = []): CommandMetadata | undefined {

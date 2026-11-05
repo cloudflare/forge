@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { keepPlaceholders, renderDescription } from './description-markdown.ts';
+import { keepDroppedHtml, renderDescription } from './description-markdown.ts';
 
 const ASTRO_FERN_PROBE = '<i data-astro-fern-probe></i> [probe](javascript:probe)';
 
@@ -19,13 +19,13 @@ test('placeholders inside code are left alone', () => {
     '~~~\nmetadata.<key>\n~~~',
     'Para\n\n    metadata.<key>\n\nafter',
   ]) {
-    assert.equal(keepPlaceholders(markdown), markdown);
+    assert.equal(keepDroppedHtml(markdown), markdown);
   }
 });
 
-test('a leading indent or blank lines are trimmed, as Nimbus does, so the placeholder is escaped', () => {
-  assert.equal(keepPlaceholders('    metadata.<key> leading indent'), 'metadata.&lt;key> leading indent');
-  assert.equal(keepPlaceholders('\n\nmetadata.<key> after blank lines'), 'metadata.&lt;key> after blank lines');
+test('a leading indent or blank lines are trimmed, as Nimbus does, so the comment is escaped', () => {
+  assert.equal(keepDroppedHtml('    <!--sse--> leading indent'), '&lt;!--sse--> leading indent');
+  assert.equal(keepDroppedHtml('\n\n<!--sse--> after blank lines'), '&lt;!--sse--> after blank lines');
 });
 
 test('escaped backticks around a placeholder still escape it', () => {
@@ -38,7 +38,7 @@ test('already-escaped placeholders, autolinks and angle-bracket links are unchan
     'Autolink <https://www.cloudflare.com/learning/dns/dns-records/dns-txt-record/> ok',
     'Link [a](<https://x>) ok',
   ]) {
-    assert.equal(keepPlaceholders(markdown), markdown);
+    assert.equal(keepDroppedHtml(markdown), markdown);
   }
   assert.match(
     renderDescription('<https://www.cloudflare.com/learning/dns/dns-records/dns-txt-record/>'),
@@ -62,8 +62,8 @@ test('allowed tags still render, including a placeholder named like one', () => 
   assert.equal(renderDescription('metadata.<b>bold</b>'), '<p>metadata.<b>bold</b></p>\n');
 });
 
-test('offsets count string characters, so text before a placeholder can be non-ASCII', () => {
-  assert.equal(keepPlaceholders('Ünïcödé — “quotes” then metadata.<key>'), 'Ünïcödé — “quotes” then metadata.&lt;key>');
+test('offsets count string characters, so text before a comment can be non-ASCII', () => {
+  assert.equal(keepDroppedHtml('Ünïcödé — “quotes” then <!--sse-->'), 'Ünïcödé — “quotes” then &lt;!--sse-->');
 });
 
 test('unsafe HTML and links stay inert', () => {

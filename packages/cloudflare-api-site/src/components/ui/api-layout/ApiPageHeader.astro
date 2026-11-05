@@ -1,0 +1,93 @@
+---
+import { Aside } from "@/components/ui/aside";
+import { Badge } from "@/components/ui/badge";
+import { Banner } from "@/components/ui/banner";
+import { Breadcrumbs } from "@/components/ui/breadcrumbs";
+import { PageActions } from "@/components/ui/page-actions";
+import ApiEndpointCard from "./ApiEndpointCard.astro";
+import { withBase } from "@cloudflare/nimbus-docs/runtime";
+import { config } from "virtual:nimbus/config";
+import type { ApiPageProps } from "@cloudflare/nimbus-docs/api";
+import type { ApiHome as ApiHomeView } from "@cloudflare/nimbus-docs/runtime";
+
+interface Props {
+  page: ApiPageProps;
+  home?: ApiHomeView;
+}
+
+const { page, home } = Astro.props;
+const homeChunk = page.kind === "api" && home && home.part.number > 1 ? home.part : undefined;
+const title = homeChunk ? `${page.title}: endpoints ${homeChunk.start}–${homeChunk.end}` : page.title;
+const markdownUrl = page.markdownHref;
+const isHome = page.kind === "api";
+const subtitle = isHome && !homeChunk ? config.description : undefined;
+
+// Cloudflare notices, from the Forge extensions the prepared spec keeps.
+const extensions = page.kind === "operation" ? page.extensions : undefined;
+const rawAvailability = extensions?.["x-fern-availability"];
+const availability = typeof rawAvailability === "string" ? { status: rawAvailability } : rawAvailability;
+const availabilityNote = !page.deprecated && availability?.message ? availability : undefined;
+const AVAILABILITY: Record<string, { text: string; variant: "info" | "success" | "caution" | "default" }> = {
+  alpha: { text: "Alpha", variant: "info" },
+  beta: { text: "Beta", variant: "info" },
+  preview: { text: "Preview", variant: "info" },
+  "generally-available": { text: "Generally Available", variant: "success" },
+  deprecated: { text: "Deprecated", variant: "caution" },
+  legacy: { text: "Legacy", variant: "default" },
+};
+const availabilityStatus = page.kind === "operation" && page.deprecated ? "deprecated" : availability?.status;
+const availabilityBadge = availabilityStatus
+  ? (AVAILABILITY[availabilityStatus] ?? { text: availabilityStatus.replaceAll("-", " "), variant: "default" as const })
+  : undefined;
+const requireConfirmation = extensions?.["x-forge-require-confirmation"];
+// Deprecation notice, built as sanitized HTML for the shared Banner (which takes
+// a content string, mirroring DocsLayout's version-deprecation banner).
+const esc = (s: string): string =>
+  s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+const deprecationDetails = page.deprecated
+  ? [
+      availability?.message && ` ${esc(availability.message)}`,
+      page.deprecation?.successor &&
+        ` Use <a href="${esc(withBase(page.deprecation.successor.href, import.meta.env.BASE_URL))}">${esc(page.deprecation.successor.label)}</a> instead.`,
+      page.deprecation?.migrationHref && ` See the <a href="${esc(withBase(page.deprecation.migrationHref, import.meta.env.BASE_URL))}">migration guide</a>.`,
+    ].filter(Boolean)
+  : [];
+const deprecationHtml = !page.deprecated
+  ? null
+  : deprecationDetails.length > 0
+    ? `<strong>Deprecated.</strong>${deprecationDetails.join("")}`
+    : "This operation is deprecated.";
+---
+
+<div data-pagefind-ignore class="max-w-(--api-header-measure)">
+  <Breadcrumbs items={page.breadcrumbs} endsAtCurrentPage={false} class="pb-2" />
+  {deprecationHtml && <Banner variant="caution" content={deprecationHtml} />}
+  {availabilityNote && (
+    <Aside type="note" title={availabilityNote.status.replaceAll("-", " ")}>
+      <p>{availabilityNote.message}</p>
+    </Aside>
+  )}
+  {requireConfirmation && (
+    <Aside type="danger" title="Destructive operation">
+      <p>{requireConfirmation}</p>
+    </Aside>
+  )}
+</div>
+
+{/* Header order (locked): title → endpoint → page actions. The page's
+    description opens the body, where long ones don't push the endpoint down;
+    the API home's subtitle is the site description. */}
+<div data-slot="page-header" class="mt-6 flex flex-col gap-4">
+  <div class="flex flex-wrap items-center gap-3">
+    <h1 class="mb-0 leading-tight text-foreground [text-wrap:balance]" style="font-size:var(--nb-h1-size);font-weight:var(--nb-h1-weight);letter-spacing:var(--nb-h1-tracking)">{title}</h1>
+    {availabilityBadge && <Badge text={availabilityBadge.text} variant={availabilityBadge.variant} size="medium" />}
+  </div>
+
+  {subtitle && <p data-slot="page-description" class="m-0 text-lg text-muted-foreground">{subtitle}</p>}
+
+  {page.kind === "operation" && (
+    <ApiEndpointCard class="max-w-(--api-header-measure)" method={page.method} path={page.path} server={page.server} isWebhook={page.isWebhook} />
+  )}
+
+  {!homeChunk && <PageActions markdownUrl={markdownUrl} />}
+</div>

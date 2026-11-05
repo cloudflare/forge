@@ -39,7 +39,6 @@ const links = [
 
   .cloudflare-site-title {
     min-width: 0;
-    gap: 1rem;
   }
 
   .cloudflare-brand {
@@ -117,6 +116,15 @@ const links = [
   }
 
   @media (min-width: 64rem) {
+    .cloudflare-site-title {
+      display: grid;
+      grid-template-columns: calc(var(--nb-sidebar-width) - var(--site-header-inset)) auto;
+    }
+
+    .cloudflare-brand {
+      justify-self: start;
+    }
+
     nav {
       display: flex;
     }
