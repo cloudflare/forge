@@ -113,6 +113,8 @@ test('operation links its agent Markdown, which carries the cURL sample', async 
   expect(response.status()).toBe(200);
   const markdown = await response.text();
   expect(markdown).toContain('title: "List IP profiles"');
+  expect(markdown.split('\n---\n')[0]).not.toContain('description:');
+  expect(markdown).toContain('Lists WARP Device IP profiles.');
   expect(markdown).toContain('```bash');
   expect(markdown).toContain('/accounts/{account_id}/devices/ip-profiles');
 });
