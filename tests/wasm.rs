@@ -41,87 +41,161 @@ const SPEC: &str = r##"{
   "paths": {
     "/pets": {
       "get": {
-        "x-forge-group-name": ["pets"], "x-forge-method-name": "list", "summary": "Lists pets.",
+        "x-forge-group-name": ["pets"],
+        "x-forge-method-name": "list",
+        "summary": "Lists pets.",
         "parameters": [
           {"name": "limit", "in": "query", "schema": {"type": "integer", "format": "int32"}},
-          {"name": "tags", "in": "query", "explode": false, "schema": {"type": "array", "items": {"type": "string"}}}
+          {
+            "name": "tags",
+            "in": "query",
+            "explode": false,
+            "schema": {"type": "array", "items": {"type": "string"}}
+          }
         ],
         "responses": {
-          "200": {"description": "ok", "content": {"application/json": {"schema": {"type": "array", "items": {"$ref": "#/components/schemas/Pet"}}}}},
-          "default": {"description": "error", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}
+          "200": {
+            "description": "ok",
+            "content": {
+              "application/json": {"schema": {"type": "array", "items": {"$ref": "#/components/schemas/Pet"}}}
+            }
+          },
+          "default": {
+            "description": "error",
+            "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}
+          }
         }
       },
       "post": {
-        "x-forge-group-name": ["pets"], "x-forge-method-name": "create", "deprecated": true,
-        "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/NewPet"}}}},
-        "responses": {"201": {"description": "created", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Pet"}}}}}
+        "x-forge-group-name": ["pets"],
+        "x-forge-method-name": "create",
+        "deprecated": true,
+        "requestBody": {
+          "required": true,
+          "content": {"application/json": {"schema": {"$ref": "#/components/schemas/NewPet"}}}
+        },
+        "responses": {"201": {
+          "description": "created",
+          "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Pet"}}}
+        }}
       }
     },
     "/pets/{pet_id}": {
       "get": {
-        "x-forge-group-name": ["pets"], "x-forge-method-name": "get",
-        "parameters": [{"name": "pet_id", "in": "path", "required": true, "schema": {"type": "string", "format": "uuid"}}],
+        "x-forge-group-name": ["pets"],
+        "x-forge-method-name": "get",
+        "parameters": [
+          {
+            "name": "pet_id",
+            "in": "path",
+            "required": true,
+            "schema": {"type": "string", "format": "uuid"}
+          }
+        ],
         "responses": {
-          "200": {"description": "ok", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Pet"}}}},
-          "404": {"description": "missing", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}
+          "200": {
+            "description": "ok",
+            "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Pet"}}}
+          },
+          "404": {
+            "description": "missing",
+            "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}
+          }
         }
       }
     },
     "/pets/{pet_id}/photos": {
       "put": {
-        "x-forge-group-name": ["pets", "photos"], "x-forge-method-name": "upload",
-        "parameters": [{"name": "pet_id", "in": "path", "required": true, "schema": {"type": "string"}}],
-        "requestBody": {"content": {"application/octet-stream": {"schema": {"type": "string", "format": "binary"}}}},
+        "x-forge-group-name": ["pets", "photos"],
+        "x-forge-method-name": "upload",
+        "parameters": [
+          {"name": "pet_id", "in": "path", "required": true, "schema": {"type": "string"}}
+        ],
+        "requestBody": {
+          "content": {"application/octet-stream": {"schema": {"type": "string", "format": "binary"}}}
+        },
         "responses": {"204": {"description": "done"}}
       }
     },
     "/owners": {
       "get": {
-        "x-forge-group-name": ["owners"], "x-forge-method-name": "list",
-        "responses": {"200": {"description": "ok", "content": {"application/json": {"schema": {
-          "type": "object",
-          "properties": {
-            "owners": {"type": "array", "items": {"$ref": "#/components/schemas/Owner"}},
-            "next": {"type": ["string", "null"]}
-          },
-          "required": ["owners"]
-        }}}}}
+        "x-forge-group-name": ["owners"],
+        "x-forge-method-name": "list",
+        "responses": {"200": {
+          "description": "ok",
+          "content": {"application/json": {"schema": {
+            "type": "object",
+            "properties": {
+              "owners": {"type": "array", "items": {"$ref": "#/components/schemas/Owner"}},
+              "next": {"type": ["string", "null"]}
+            },
+            "required": ["owners"]
+          }}}
+        }}
       }
     }
   },
-  "components": {"schemas": {
-    "Pet": {"description": "A pet.", "allOf": [
-      {"$ref": "#/components/schemas/NewPet"},
-      {"type": "object", "properties": {
-        "id": {"type": "string", "format": "uuid"},
-        "created_at": {"type": "string", "format": "date-time"},
-        "owner": {"$ref": "#/components/schemas/Owner"}
-      }, "required": ["id"]}
-    ]},
-    "NewPet": {"type": "object", "properties": {
-      "name": {"type": "string", "description": "The name."},
-      "kind": {"$ref": "#/components/schemas/Kind"},
-      "tags": {"type": "object", "additionalProperties": {"type": "string"}},
-      "weight": {"type": "number", "format": "float", "deprecated": true}
-    }, "required": ["name", "kind"]},
-    "Kind": {
-      "oneOf": [{"$ref": "#/components/schemas/Cat"}, {"$ref": "#/components/schemas/Dog"}],
-      "discriminator": {"propertyName": "type", "mapping": {"cat": "#/components/schemas/Cat", "dog": "#/components/schemas/Dog"}}
-    },
-    "Cat": {"type": "object", "properties": {"type": {"type": "string", "enum": ["cat"]}, "lives": {"type": "integer"}}, "required": ["type"]},
-    "Dog": {"type": "object", "properties": {"type": {"type": "string", "enum": ["dog"]}, "good": {"type": "boolean"}}, "required": ["type"]},
-    "Owner": {"type": "object", "properties": {
-      "name": {"type": "string"},
-      "status": {"type": "string", "enum": ["active", "away"]},
-      "pets": {"type": "array", "items": {"$ref": "#/components/schemas/Pet"}},
-      "birthday": {"type": "string", "format": "date"},
-      "avatar": {"type": "string", "format": "byte"}
-    }},
-    "Error": {"type": "object", "properties": {
-      "code": {"type": "integer", "format": "int64"},
-      "message": {"type": "string"}
-    }, "required": ["message"]}
-  }}
+  "components": {
+    "schemas": {
+      "Pet": {
+        "description": "A pet.",
+        "allOf": [
+          {"$ref": "#/components/schemas/NewPet"},
+          {
+            "type": "object",
+            "properties": {
+              "id": {"type": "string", "format": "uuid"},
+              "created_at": {"type": "string", "format": "date-time"},
+              "owner": {"$ref": "#/components/schemas/Owner"}
+            },
+            "required": ["id"]
+          }
+        ]
+      },
+      "NewPet": {
+        "type": "object",
+        "properties": {
+          "name": {"type": "string", "description": "The name."},
+          "kind": {"$ref": "#/components/schemas/Kind"},
+          "tags": {"type": "object", "additionalProperties": {"type": "string"}},
+          "weight": {"type": "number", "format": "float", "deprecated": true}
+        },
+        "required": ["name", "kind"]
+      },
+      "Kind": {
+        "oneOf": [{"$ref": "#/components/schemas/Cat"}, {"$ref": "#/components/schemas/Dog"}],
+        "discriminator": {
+          "propertyName": "type",
+          "mapping": {"cat": "#/components/schemas/Cat", "dog": "#/components/schemas/Dog"}
+        }
+      },
+      "Cat": {
+        "type": "object",
+        "properties": {"type": {"type": "string", "enum": ["cat"]}, "lives": {"type": "integer"}},
+        "required": ["type"]
+      },
+      "Dog": {
+        "type": "object",
+        "properties": {"type": {"type": "string", "enum": ["dog"]}, "good": {"type": "boolean"}},
+        "required": ["type"]
+      },
+      "Owner": {
+        "type": "object",
+        "properties": {
+          "name": {"type": "string"},
+          "status": {"type": "string", "enum": ["active", "away"]},
+          "pets": {"type": "array", "items": {"$ref": "#/components/schemas/Pet"}},
+          "birthday": {"type": "string", "format": "date"},
+          "avatar": {"type": "string", "format": "byte"}
+        }
+      },
+      "Error": {
+        "type": "object",
+        "properties": {"code": {"type": "integer", "format": "int64"}, "message": {"type": "string"}},
+        "required": ["message"]
+      }
+    }
+  }
 }"##;
 
 /// A document with everything forge reads that the TypeScript generator
@@ -133,74 +207,144 @@ const SPEC: &str = r##"{
 const FEATURES: &str = r##"{
   "openapi": "3.1.0",
   "info": {"title": "Features", "version": "3"},
-  "x-forge-commands": {"pets": {"description": "Pets."}, "admin.pets": {"description": "Pets, for admins."}},
+  "x-forge-commands": {
+    "pets": {"description": "Pets."},
+    "admin.pets": {"description": "Pets, for admins."}
+  },
   "paths": {
     "/pets/{id}": {
-      "parameters": [{"name": "X-Trace", "in": "header", "schema": {"type": "string"}}],
+      "parameters": [
+        {"name": "X-Trace", "in": "header", "schema": {"type": "string"}}
+      ],
       "get": {
-        "x-forge-group-name": ["pets"], "x-forge-method-name": "get",
-        "x-forge-availability": "beta", "x-forge-hidden": true,
+        "x-forge-group-name": ["pets"],
+        "x-forge-method-name": "get",
+        "x-forge-availability": "beta",
+        "x-forge-hidden": true,
         "x-custom": {"b": 1, "a": [1.5, "two \"quoted\"\n", null, true, {}], "b": 2},
-        "x-flag": false, "x-count": 9007199254740993, "x-text": "é 😀",
+        "x-flag": false,
+        "x-count": 9007199254740993,
+        "x-text": "é 😀",
         "parameters": [
           {"name": "id", "in": "path", "required": true, "schema": {"type": "string"}},
           {"name": "limit", "in": "query", "schema": {"type": "integer", "default": 10}},
-          {"name": "x-trace", "in": "header", "required": true, "description": "Traces the call.", "schema": {"type": "string"}},
-          {"name": "Authorization", "in": "header", "schema": {"type": "string", "x-forge-sensitive": true}}
+          {
+            "name": "x-trace",
+            "in": "header",
+            "required": true,
+            "description": "Traces the call.",
+            "schema": {"type": "string"}
+          },
+          {
+            "name": "Authorization",
+            "in": "header",
+            "schema": {"type": "string", "x-forge-sensitive": true}
+          }
         ],
-        "responses": {"200": {"description": "ok", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Pet"}}}}}
+        "responses": {"200": {
+          "description": "ok",
+          "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Pet"}}}
+        }}
       },
       "delete": {
         "x-forge-aliases": [
-          {"x-forge-group-name": ["pets"], "x-forge-method-name": "remove", "x-forge-availability": "deprecated",
-            "x-forge-require-confirmation": "This deletes the pet.", "x-alias": [1]},
-          {"x-forge-group-name": ["admin", "pets"], "x-forge-method-name": "delete", "x-forge-require-confirmation": ""}
+          {
+            "x-forge-group-name": ["pets"],
+            "x-forge-method-name": "remove",
+            "x-forge-availability": "deprecated",
+            "x-forge-require-confirmation": "This deletes the pet.",
+            "x-alias": [1]
+          },
+          {
+            "x-forge-group-name": ["admin", "pets"],
+            "x-forge-method-name": "delete",
+            "x-forge-require-confirmation": ""
+          }
         ],
-        "parameters": [{"name": "id", "in": "path", "required": true, "schema": {"type": "string"}}],
+        "parameters": [
+          {"name": "id", "in": "path", "required": true, "schema": {"type": "string"}}
+        ],
         "responses": {"204": {"description": "gone"}}
       }
     },
     "/pets/{id}/photo": {
       "put": {
-        "x-forge-group-name": ["pets", "photos"], "x-forge-method-name": "upload",
-        "parameters": [{"name": "id", "in": "path", "required": true, "schema": {"type": "string"}}],
-        "requestBody": {"required": true, "content": {
-          "application/octet-stream": {"schema": {"type": "string", "format": "binary", "description": "The photo."}},
-          "multipart/form-data": {"schema": {"type": "object", "properties": {
-            "file": {"type": "string", "format": "binary"},
-            "caption": {"type": "string", "default": "A pet."}
-          }, "required": ["file"]}}
-        }},
+        "x-forge-group-name": ["pets", "photos"],
+        "x-forge-method-name": "upload",
+        "parameters": [
+          {"name": "id", "in": "path", "required": true, "schema": {"type": "string"}}
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/octet-stream": {
+              "schema": {"type": "string", "format": "binary", "description": "The photo."}
+            },
+            "multipart/form-data": {"schema": {
+              "type": "object",
+              "properties": {
+                "file": {"type": "string", "format": "binary"},
+                "caption": {"type": "string", "default": "A pet."}
+              },
+              "required": ["file"]
+            }}
+          }
+        },
         "responses": {"204": {"description": "done"}}
       }
     }
   },
-  "components": {"schemas": {
-    "Pet": {"type": "object", "properties": {
-      "id": {"type": "string", "readOnly": true},
-      "password": {"type": "string", "x-forge-sensitive": true},
-      "tags": {"type": "array", "items": {"type": "string"}, "minItems": 0, "maxItems": 3},
-      "dataset_scope": {"oneOf": [
-        {"type": "object", "properties": {"type": {"const": "default"}}, "required": ["type"], "additionalProperties": false},
-        {"type": "object", "properties": {
-          "type": {"const": "datasets"},
-          "dataset_ids": {"$ref": "#/components/schemas/DatasetIDs"}
-        }, "required": ["type", "dataset_ids"], "additionalProperties": false}
-      ]},
-      "empty_format": {"type": "string", "format": ""},
-      "custom_format": {"type": "string", "format": "custom-ID"},
-      "kind": {"type": "string", "enum": ["cat", "dog"], "default": "cat"},
-      "meta": {"type": "object", "additionalProperties": true, "default": {"z": 1, "a": [true, null]}},
-      "owner": {"$ref": "#/components/schemas/Owner", "description": "Who has the pet."},
-      "nickname": {"anyOf": [{"type": "string"}, {"type": "integer"}]},
-      "age": {"oneOf": [{"type": "string"}, {"type": "integer"}]}
-    }, "required": ["id"]},
-    "DatasetIDs": {"type": "array", "minItems": 1, "maxItems": 50, "items": {"$ref": "#/components/schemas/ID"}},
-    "ID": {"type": "string", "format": "uuid"},
-    "Owner": {"type": "object", "description": "A person.", "properties": {
-      "pets": {"type": "array", "items": {"$ref": "#/components/schemas/Pet"}}
-    }}
-  }}
+  "components": {
+    "schemas": {
+      "Pet": {
+        "type": "object",
+        "properties": {
+          "id": {"type": "string", "readOnly": true},
+          "password": {"type": "string", "x-forge-sensitive": true},
+          "tags": {"type": "array", "items": {"type": "string"}, "minItems": 0, "maxItems": 3},
+          "dataset_scope": {
+            "oneOf": [
+              {
+                "type": "object",
+                "properties": {"type": {"const": "default"}},
+                "required": ["type"],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "type": {"const": "datasets"},
+                  "dataset_ids": {"$ref": "#/components/schemas/DatasetIDs"}
+                },
+                "required": ["type", "dataset_ids"],
+                "additionalProperties": false
+              }
+            ]
+          },
+          "empty_format": {"type": "string", "format": ""},
+          "custom_format": {"type": "string", "format": "custom-ID"},
+          "kind": {"type": "string", "enum": ["cat", "dog"], "default": "cat"},
+          "meta": {"type": "object", "additionalProperties": true, "default": {"z": 1, "a": [true, null]}},
+          "owner": {"$ref": "#/components/schemas/Owner", "description": "Who has the pet."},
+          "nickname": {"anyOf": [{"type": "string"}, {"type": "integer"}]},
+          "age": {"oneOf": [{"type": "string"}, {"type": "integer"}]}
+        },
+        "required": ["id"]
+      },
+      "DatasetIDs": {
+        "type": "array",
+        "minItems": 1,
+        "maxItems": 50,
+        "items": {"$ref": "#/components/schemas/ID"}
+      },
+      "ID": {"type": "string", "format": "uuid"},
+      "Owner": {
+        "type": "object",
+        "description": "A person.",
+        "properties": {"pets": {"type": "array", "items": {"$ref": "#/components/schemas/Pet"}}}
+      }
+    }
+  }
 }"##;
 
 /// The plugin reads, through the WIT, everything forge's API gives: the
