@@ -53,6 +53,8 @@ interface Operation {
   readonly method: string;
   /** The path template, such as `/zones/{zone_id}`, each parameter of which the `path` argument fills by name. */
   readonly path: string;
+  /** Returns the path with each parameter filled in from the `path` argument, percent-encoded, as {@link encodePath} does. */
+  readonly pathOf: (path: Readonly<Record<string, unknown>>) => string;
   /** Each query parameter by wire name, and whether an array or object value is exploded: `a=1&a=2`, not `a=1,2`. */
   readonly query?: readonly { readonly name: string; readonly explode: boolean }[];
   /** The name of each header parameter, in lower case. */
@@ -96,12 +98,23 @@ function param(args: Args, location: ParamLocation, name: string): unknown {
 }
 
 /**
- * Returns the path parameter `name`, percent-encoded. A schema can't say that
- * a path parameter isn't empty, so an empty one, which would leave a segment of
- * the path out, is an error here.
+ * Returns the function that fills in a path template written as a tagged
+ * template, with the name of each path parameter where it goes, such as
+ * ``encodePath`/zones/${'zone_id'}` ``: the text as it is, and each parameter
+ * from the `path` argument, percent-encoded. A schema can't say that a path
+ * parameter isn't empty, so an empty one, which would leave a segment of the
+ * path out, is an error here.
  */
-function pathParam(args: Args, name: string): string {
-  const value = param(args, 'path', name);
+export function encodePath(
+  text: TemplateStringsArray,
+  ...names: string[]
+): (path: Readonly<Record<string, unknown>>) => string {
+  return (path) => names.reduce((out, name, i) => out + pathParam(path, name) + text[i + 1], text[0]!);
+}
+
+/** Returns the path parameter `name` in `path`, percent-encoded. Throws if it is missing or empty. */
+function pathParam(path: Readonly<Record<string, unknown>>, name: string): string {
+  const value = path[name];
   if (value === undefined || value === null || value === '') {
     throw new Error(`Missing path parameter: ${name}`);
   }
@@ -119,8 +132,8 @@ function pathParam(args: Args, name: string): string {
  */
 export function buildRequest(tool: Tool, args: Args, baseUrl: string): HttpRequest {
   const op = tool[OPERATION];
-  const path = op.path.replace(/\{([^}]*)\}/g, (_, name: string) => pathParam(args, name));
-  const url = new URL(withoutTrailingSlashes(baseUrl) + path);
+  const path = (args['path'] ?? {}) as Readonly<Record<string, unknown>>;
+  const url = new URL(withoutTrailingSlashes(baseUrl) + op.pathOf(path));
   for (const { name, explode } of op.query ?? []) {
     appendQuery(url.searchParams, name, param(args, 'query', name), explode);
   }

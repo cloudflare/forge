@@ -671,6 +671,7 @@ fn tools_file(group: Group<'_>, tools: &[Tool<'_>]) -> ts::File {
     let mut f = ts::File::new(Module::group(group).sub("tools.ts"));
     let tool = RUNTIME_TOOL.ident("Tool").ty();
     let operation = RUNTIME_TOOL.ident("OPERATION");
+    let encode_path = RUNTIME_TOOL.ident("encodePath");
     let dotted: Vec<String> = group.path().map(Name::camel).collect();
     f.doc(&format!("The tools of `{}`.", dotted.join(".")));
     p!(f, "export const tools: readonly ", tool, "[] = [");
@@ -724,7 +725,7 @@ fn tools_file(group: Group<'_>, tools: &[Tool<'_>]) -> ts::File {
                 }
                 json_property(f, "annotations", &t.annotations());
                 p!(f, "[", operation.clone(), "]: {");
-                f.indent(|f| operation_fields(f, t));
+                f.indent(|f| operation_fields(f, t, &encode_path));
                 p!(f, "},");
             });
             p!(f, "},");
@@ -736,10 +737,11 @@ fn tools_file(group: Group<'_>, tools: &[Tool<'_>]) -> ts::File {
 
 /// Prints what the server needs to call the API method of `t`, which the tool
 /// holds under the runtime's `OPERATION` symbol so that clients never see it.
-fn operation_fields(f: &mut ts::File, t: &Tool<'_>) {
+fn operation_fields(f: &mut ts::File, t: &Tool<'_>, encode_path: &Ident) {
     let m = t.method;
     p!(f, "method: ", string(m.http_method().as_str()), ",");
     p!(f, "path: ", string(m.path()), ",");
+    p!(f, "pathOf: ", encode_path.clone(), "`", path_template(m.path()), "`,");
     if !t.query.is_empty() {
         p!(f, "query: [");
         f.indent(|f| {
@@ -847,6 +849,30 @@ fn sorted(value: &Value) -> Value {
 /// Returns `s` as a TypeScript string literal.
 fn string(s: &str) -> String {
     serde_json::to_string(s).unwrap_or_else(|_| "\"\"".to_owned())
+}
+
+/// Returns the path template `template` as the inside of the template literal
+/// that the runtime's `encodePath` tags: its text, escaped, and the name of
+/// each parameter where it goes, such as `/zones/${"zone_id"}`. [`check`] has
+/// accepted the template.
+fn path_template(template: &str) -> String {
+    let mut out = String::new();
+    let mut rest = template;
+    while let Some(start) = rest.find('{') {
+        let Some(len) = rest[start..].find('}') else {
+            break;
+        };
+        out.push_str(&template_text(&rest[..start]));
+        out.push_str(&format!("${{{}}}", string(&rest[start + 1..start + len])));
+        rest = &rest[start + len + 1..];
+    }
+    out.push_str(&template_text(rest));
+    out
+}
+
+/// Returns `text` escaped for the inside of a template literal.
+fn template_text(text: &str) -> String {
+    text.replace('\\', "\\\\").replace('`', "\\`").replace("${", "\\${")
 }
 
 /// Returns `s` with every character that can't be in an identifier replaced
@@ -983,7 +1009,7 @@ mod tests {
     fn parameters() {
         let tools = file(&generate(PETS), "pets/tools.ts");
         assert!(
-            tools.contains(r#"import { OPERATION, type Tool } from "../_/tool.js";"#),
+            tools.contains(r#"import { OPERATION, type Tool, encodePath } from "../_/tool.js";"#),
             "{tools}"
         );
         assert!(tools.contains(r#"name: "pets_list","#), "{tools}");
@@ -993,6 +1019,7 @@ mod tests {
         for field in [
             "      method: \"GET\",\n",
             "      path: \"/stores/{store_id}/pets\",\n",
+            "      pathOf: encodePath`/stores/${\"store_id\"}/pets`,\n",
             "      query: [\n        { name: \"tag\", explode: false },\n      ],\n",
             "      headers: [\"x-trace\"],\n",
             "      extensions: {\n",
@@ -1349,5 +1376,16 @@ mod tests {
         paths.sort();
         let embedded: Vec<&str> = super::RUNTIME.iter().map(|&(path, _)| path).collect();
         assert_eq!(paths, embedded);
+    }
+
+    #[test]
+    fn path_template() {
+        assert_eq!(
+            super::path_template("/zones/{zone_id}/dns_records/{id}"),
+            r#"/zones/${"zone_id"}/dns_records/${"id"}"#
+        );
+        assert_eq!(super::path_template("/zones"), "/zones");
+        assert_eq!(super::path_template("/a`b\\c$/{d}"), r#"/a\`b\\c$/${"d"}"#);
+        assert_eq!(super::path_template("/x${d}"), r#"/x$${"d"}"#, "a $ before a parameter");
     }
 }

@@ -3,7 +3,7 @@ import { test } from 'node:test';
 
 import type { CallToolResult, McpServer, StandardSchemaWithJSON } from '@modelcontextprotocol/server';
 
-import { buildRequest, OPERATION, operation, registerTools } from '../src/tool.js';
+import { buildRequest, encodePath, OPERATION, operation, registerTools } from '../src/tool.js';
 import { tools } from './fixtures.js';
 
 const [list, create] = tools as [(typeof tools)[0], (typeof tools)[0]];
@@ -58,6 +58,13 @@ test('is plain data that fetch sends as it is', async () => {
   assert.equal(sent.method, 'POST');
   assert.equal(sent.headers.get('Content-Type'), 'application/json');
   assert.deepEqual(await sent.json(), { name: 'Rex' });
+});
+
+test('fills in a path template written as a tagged template', () => {
+  const pathOf = encodePath`/a/${'x'}/b/${'y'}`;
+  assert.equal(pathOf({ x: 'a b/c', y: 7 }), '/a/a%20b%2Fc/b/7');
+  assert.equal(encodePath`/zones`({}), '/zones');
+  assert.throws(() => pathOf({ x: 'x' }), { message: 'Missing path parameter: y' });
 });
 
 test('refuses an empty path parameter and values a query parameter cannot be', () => {
@@ -192,6 +199,7 @@ const upload: (typeof tools)[0] = {
   [OPERATION]: {
     method: 'PUT',
     path: '/files',
+    pathOf: encodePath`/files`,
     headers: ['content-type'],
     body: {
       mediaTypes: ['application/octet-stream', 'multipart/form-data', 'text/csv', 'application/x-www-form-urlencoded'],

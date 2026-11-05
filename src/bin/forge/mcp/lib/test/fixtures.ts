@@ -1,4 +1,4 @@
-import { OPERATION, type Tool } from '../src/tool.js';
+import { encodePath, OPERATION, type Tool } from '../src/tool.js';
 
 /** Tools as the generator writes them. */
 export const tools: readonly Tool[] = [
@@ -34,6 +34,7 @@ export const tools: readonly Tool[] = [
     [OPERATION]: {
       method: 'GET',
       path: '/stores/{store_id}/pets',
+      pathOf: encodePath`/stores/${'store_id'}/pets`,
       query: [
         { name: 'tag', explode: true },
         { name: 'sort', explode: false },
@@ -73,6 +74,7 @@ export const tools: readonly Tool[] = [
     [OPERATION]: {
       method: 'POST',
       path: '/stores/{store_id}/pets',
+      pathOf: encodePath`/stores/${'store_id'}/pets`,
       query: [{ name: 'dry_run', explode: true }],
       body: { mediaTypes: ['application/json'] },
     },
