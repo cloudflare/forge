@@ -86,11 +86,29 @@ test('operation page renders the operation, its samples, its response example an
   await expect(page.locator('main nav[aria-label="Breadcrumb"] a').first()).toHaveText('API Reference');
   await expect(page.locator('[data-nb-api-coderail]')).toContainText('https://api.cloudflare.com/client/v4/accounts/');
   await expect(page.locator('[data-nb-api-coderail] [data-nb-sample-lang="curl"]').first()).toBeAttached();
-  await expect(page.locator('[data-nb-api-coderail] [data-nb-sample-lang="go"]').first()).toBeAttached();
+  await expect(page.locator('[data-nb-api-coderail] [data-nb-sample-lang="cf"]').first()).toBeVisible();
+  await expect(page.locator('[data-nb-api-coderail] [data-nb-sample-lang="cf"]').first()).toContainText(
+    'cf zero-trust devices ip-profiles list',
+  );
   await expect(page.locator('[data-nb-api-coderail]')).toContainText('Response example');
   await expect(page.locator('header [data-slot="version-switcher"]')).toContainText('2026-11-30 (Air)');
   const groupRow = page.locator('[data-nb-api-nav] details > summary').first();
   expect(await groupRow.evaluate((el) => getComputedStyle(el).listStyleType)).toBe('none');
+});
+
+test('code sample picker defaults to the cf CLI and switches samples', async ({ page }) => {
+  await page.goto(operation);
+  const picker = page.locator('[data-nb-api-coderail] select[data-nb-lang-select]').first();
+  await expect(picker).toHaveValue('cf');
+  await expect(picker.locator('option')).toHaveText([
+    'cf CLI',
+    'curl',
+    'data cloudflare_zero_trust_device_ip_profile',
+    'data cloudflare_zero_trust_device_ip_profiles',
+  ]);
+  await picker.selectOption('curl');
+  await expect(page).toHaveURL(/[?&]lang=curl\b/);
+  await expect(page.locator('[data-nb-api-coderail] [data-nb-sample-lang="curl"]').first()).toBeVisible();
 });
 
 test('operation links its agent Markdown, which carries the cURL sample', async ({ page, request }) => {

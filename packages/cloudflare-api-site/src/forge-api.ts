@@ -28,7 +28,6 @@ const HTTP_METHODS = ['get', 'put', 'post', 'delete', 'options', 'head', 'patch'
 /** Product slugs Nimbus keeps for its own pages → the slug the product publishes under; the old URLs redirect. */
 const MOVED_PRODUCT_SLUGS: Record<string, string> = { tags: 'tagging' };
 const SLUG_SEGMENT = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
-const COMMENT: Record<string, string> = { typescript: '//', go: '//' };
 /** SDK method names that lead a resource's operations, in reading order; the rest follow in spec order. */
 const LIFECYCLE = ['list', 'get', 'create', 'update', 'edit', 'delete'];
 
@@ -242,7 +241,7 @@ export function prepareForgeApi(
           {
             lang,
             label: target.label,
-            source: `${COMMENT[target.language] ?? '#'} A ${target.label} example is not available yet.`,
+            source: `# A ${target.label} example is not available yet.`,
           },
         ];
       });

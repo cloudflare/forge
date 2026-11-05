@@ -17,6 +17,10 @@ API documentation site for Forge OpenAPI specs, built on Astro.
 - **Tests**: Node-native test runner via `pnpm test` (or `pnpm -r run test`).
 - **RFCs**: Design proposals and specifications live in `rfcs/`.
 
+## Public Repository
+
+Never publish links to Cloudflare-internal systems (anything behind Cloudflare's network or login) in files, commits, branch names, or PR and issue text. Bare ticket IDs (`FORGE-1`) are fine. A pushed link stays in history even after a later commit removes it: tell the maintainers.
+
 ## Commands
 
 ```bash

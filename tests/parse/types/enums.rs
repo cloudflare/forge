@@ -59,7 +59,7 @@ fn const_is_an_enum_of_one_value() {
     let forge = parse(
         r#"{
           "openapi": "3.1.0", "info": {"title": "t", "version": "1"},
-          "paths": {"/a": {"get": {"x-fern-sdk-group-name": "a", "x-fern-sdk-method-name": "get",
+          "paths": {"/a": {"get": {"x-forge-group-name": "a", "x-forge-method-name": "get",
             "responses": {"200": {"description": "ok", "content": {"application/json": {"schema": {
               "const": "a"
             }}}}}}}}

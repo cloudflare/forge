@@ -544,7 +544,7 @@ impl<'d> Builder<'d> {
             return;
         };
         // The operation's own definition makes no method, so its
-        // `x-fern-ignore` does not stop its aliases.
+        // `x-forge-skip` does not stop its aliases.
         for (i, alias) in doc.list(aliases).iter().enumerate() {
             self.context = Context::Alias(method, path, i);
             self.add_method(path, item, operation, alias, http_method.clone());
@@ -563,7 +563,7 @@ impl<'d> Builder<'d> {
         http_method: HttpMethod,
     ) {
         let doc = self.doc;
-        if definition.ignore {
+        if definition.skip {
             return;
         }
         if definition.method_name.is_empty() {
@@ -576,13 +576,13 @@ impl<'d> Builder<'d> {
         let group_names: Vec<Name> = group_names.iter().map(|&name| Name::new(doc.str(name))).collect();
         for name in &group_names {
             if name.is_empty() {
-                self.error("x-fern-sdk-group-name has a group name with no letters or digits");
+                self.error("x-forge-group-name has a group name with no letters or digits");
                 return;
             }
         }
         let name = Name::new(doc.str(definition.method_name));
         if name.is_empty() {
-            self.error("x-fern-sdk-method-name has no letters or digits");
+            self.error("x-forge-method-name has no letters or digits");
             return;
         }
         let mut availability = None;
@@ -591,7 +591,7 @@ impl<'d> Builder<'d> {
             availability = parse_availability(value);
             if availability.is_none() {
                 self.error(format_args!(
-                    "x-fern-availability {value:?} is not alpha, beta, preview, generally-available or deprecated"
+                    "x-forge-availability {value:?} is not alpha, beta, preview, generally-available or deprecated"
                 ));
             }
         }
@@ -950,7 +950,7 @@ impl<'d> Builder<'d> {
     }
 
     /// Returns the name of the field of a property or parameter written as
-    /// `wire_name`, whose name extension, such as `x-fern-property-name`,
+    /// `wire_name`, whose name extension, such as `x-forge-property-name`,
     /// is `extension`. The extension gives the name if it has letters or
     /// digits.
     fn field_name(&mut self, extension: Str, wire_name: &'d str) -> NameId {
@@ -1267,7 +1267,7 @@ fn fixed_method(method: &str) -> Option<HttpMethod> {
     }
 }
 
-/// Returns the availability `value` is as `x-fern-availability` writes
+/// Returns the availability `value` is as `x-forge-availability` writes
 /// it, such as `beta`, or `None` if it is none of them. Case matters.
 fn parse_availability(value: &str) -> Option<Availability> {
     match value {
@@ -2006,11 +2006,11 @@ impl<'d> Builder<'d> {
 
     /// Returns whether `schema` is read-only and sensitive, as a field
     /// gives them: whether it or any schema along its chain of `$ref`s has
-    /// `readOnly: true`, and `x-sensitive: true`.
+    /// `readOnly: true`, and `x-forge-sensitive: true`.
     ///
     /// A `readOnly` next to a `$ref` counts from OpenAPI 3.1, and is
     /// ignored in 3.0, as every keyword next to a `$ref` is. An
-    /// `x-sensitive` next to a `$ref` counts in every version, since tools
+    /// `x-forge-sensitive` next to a `$ref` counts in every version, since tools
     /// commonly honour extensions there. The chain stops at a `$ref` that
     /// does not point to a schema, which reading the schema's type
     /// reports, and after 32 `$ref`s, which lead back to themselves.
@@ -2162,7 +2162,7 @@ fn item(list: &[Schema], index: &str) -> Option<Schema> {
     list.get(index.parse::<usize>().ok()?).copied()
 }
 
-/// Returns the name an extension such as `x-fern-type-name` gives, or
+/// Returns the name an extension such as `x-forge-model-name` gives, or
 /// `None` if there is none, or it has no letters or digits.
 fn name_of(doc: &Doc, extension: Str) -> Option<Name> {
     if extension.is_empty() {
@@ -2212,7 +2212,7 @@ fn decode(segment: &str) -> Cow<'_, str> {
     Cow::Owned(decoded.replace("~1", "/").replace("~0", "~"))
 }
 
-/// Returns the name of a model without `x-fern-type-name`: its schema
+/// Returns the name of a model without `x-forge-model-name`: its schema
 /// name without `$defs`.
 fn model_name(schema_name: &str) -> Name {
     let mut words = String::with_capacity(schema_name.len());

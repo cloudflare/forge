@@ -336,17 +336,12 @@ test('samples cover every target, with placeholders, HCL per declaration with an
   assert.deepEqual(
     samples.map((sample) => [sample.lang, sample.label]),
     [
-      ['curl', 'curl'],
       ['cf', 'cf CLI'],
-      ['typescript', 'TypeScript'],
-      ['python', 'Python'],
-      ['ruby', 'Ruby'],
-      ['go', 'Go'],
+      ['curl', 'curl'],
       ['hcl', 'resource cloudflare_zone'],
     ],
   );
-  assert.match(samples[0]!.source, /curl .*\/beta\/zones/s);
-  assert.equal(samples[5]!.source, '// A Go example is not available yet.');
+  assert.match(samples[1]!.source, /curl .*\/beta\/zones/s);
   assert.equal(samples.at(-1)!.source, 'resource "cloudflare_zone" "x" {}');
   const extension = create[TERRAFORM_EXTENSION] as { declarations: unknown[] };
   assert.equal(extension.declarations.length, 2);
@@ -354,7 +349,7 @@ test('samples cover every target, with placeholders, HCL per declaration with an
   const listSamples = list['x-codeSamples'] as { lang: string; source: string }[];
   assert.deepEqual(
     listSamples.map((sample) => sample.lang),
-    ['curl', 'cf', 'typescript', 'python', 'ruby', 'go', 'hcl'],
+    ['cf', 'curl', 'hcl'],
   );
   assert.equal(listSamples.at(-1)!.source, '# A Terraform example is not available yet.');
   assert.equal(list[TERRAFORM_EXTENSION], undefined);

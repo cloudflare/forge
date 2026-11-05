@@ -223,7 +223,7 @@ impl std::fmt::Debug for Group<'_> {
 /// own group and name, with the `x-forge-aliases` extension: an array of
 /// objects, each an alias that is a method of the operation. The
 /// operation's own group and name then make no method, and its own
-/// `x-fern-ignore` does not stop its aliases. An empty array makes no
+/// `x-forge-skip` does not stop its aliases. An empty array makes no
 /// method, an element that is not an object is ignored, and a value that
 /// is not an array is an error. Aliases do not nest: an `x-forge-aliases`
 /// in an alias is ignored, as are its keys that are not extensions.
@@ -233,7 +233,7 @@ impl std::fmt::Debug for Group<'_> {
 /// [`availability`](Method::availability), whether it is
 /// [hidden](Method::is_hidden), its [`confirmation`](Method::confirmation)
 /// and its [`extensions`](Method::extensions), and whether it is ignored
-/// with `x-fern-ignore`. None of these come from the operation: an alias
+/// with `x-forge-skip`. None of these come from the operation: an alias
 /// without an extension does not have the operation's. The rest, from the
 /// HTTP method and path to the responses, is the operation's, and every
 /// alias has it. Each alias is a method of its own group, so a model one
@@ -250,7 +250,7 @@ pub struct Method<'f> {
 impl<'f> Method<'f> {
     /// Returns the name of the method, which is unique within its group.
     ///
-    /// Corresponds to the `x-fern-sdk-method-name` extension of the
+    /// Corresponds to the `x-forge-method-name` extension of the
     /// operation, or of the alias the method comes from. An operation or
     /// alias without one, or with an empty one, is not a method, and one
     /// with no letters or digits is an error. Two methods in a group with
@@ -261,12 +261,13 @@ impl<'f> Method<'f> {
 
     /// Returns the group the method is in.
     ///
-    /// Corresponds to the `x-fern-sdk-group-name` extension of the
-    /// operation, or of the alias the method comes from: a string of group
-    /// names separated by dots, such as `accounts.members`, or an array
-    /// with one group name per element, top level first. An operation or
-    /// alias without one, with an empty one, or with `x-fern-ignore: true`
-    /// is not a method. A group name with no letters or digits is an error.
+    /// Corresponds to the `x-forge-group-name` extension of the operation, or
+    /// of the alias the method comes from: a string of group names
+    /// separated by dots, such as `accounts.members`, or an array with one
+    /// group name per element, top level first, whose elements are not
+    /// split. An operation or alias without one, with an empty one, or
+    /// with `x-forge-skip: true` is not a method. A group name with no
+    /// letters or digits is an error.
     pub fn group(self) -> Group<'f> {
         self.forge.group(self.data().group)
     }
@@ -314,7 +315,7 @@ impl<'f> Method<'f> {
     /// Returns the stage of the API the method is in, such as
     /// [`Availability::Beta`], or `None` if the operation does not say.
     ///
-    /// Corresponds to the `x-fern-availability` extension of the
+    /// Corresponds to the `x-forge-availability` extension of the
     /// operation, a string that is one of `alpha`, `beta`, `preview`,
     /// `generally-available` and `deprecated`, as [`Availability`] lists.
     /// Any other value, including one that differs only in case, is an
@@ -323,7 +324,7 @@ impl<'f> Method<'f> {
     ///
     /// It is apart from [`is_deprecated`](Method::is_deprecated), which
     /// comes from OpenAPI's own `deprecated`: an operation with
-    /// `x-fern-availability: deprecated` and without `deprecated: true` is
+    /// `x-forge-availability: deprecated` and without `deprecated: true` is
     /// [`Availability::Deprecated`] but not deprecated, and one with
     /// `deprecated: true` has whatever availability it says, or none.
     pub fn availability(self) -> Option<Availability> {
@@ -335,7 +336,7 @@ impl<'f> Method<'f> {
     ///
     /// Corresponds to the `x-forge-hidden` extension of the operation, a
     /// boolean, which is false without it. A value that is not a boolean
-    /// is an error, as for `x-fern-ignore`. Unlike `x-fern-ignore`, a
+    /// is an error, as for `x-forge-skip`. Unlike `x-forge-skip`, a
     /// hidden operation is still a method.
     pub fn is_hidden(self) -> bool {
         self.data().hidden
@@ -384,7 +385,7 @@ impl<'f> Method<'f> {
     /// client sends the fields that [`Field::is_read_only`] reports. A
     /// parameter's field is never read-only.
     ///
-    /// A parameter's field is named after the `x-fern-parameter-name`
+    /// A parameter's field is named after the `x-forge-parameter-name`
     /// extension of the parameter, or else its wire name. Its description
     /// is the parameter's, or else its schema's, following `$ref`s, as
     /// [`Field::description`] says; from OpenAPI 3.1, the `description` of
@@ -494,11 +495,13 @@ impl<'f> Method<'f> {
     ///
     /// An extension is a key of the
     /// [Operation Object](https://spec.openapis.org/oas/latest.html#operation-object)
-    /// that starts with `x-`. Those forge reads, `x-fern-sdk-method-name`,
-    /// `x-fern-sdk-group-name`, `x-fern-ignore`, `x-fern-availability`,
+    /// that starts with `x-`. Those forge reads, `x-forge-method-name`,
+    /// `x-forge-group-name`, `x-forge-skip`, `x-forge-availability`,
     /// `x-forge-hidden`, `x-forge-require-confirmation` and
-    /// `x-forge-aliases`, are left out, and other keys forge does not read
-    /// are not kept. An extension written more than once is there once,
+    /// `x-forge-aliases`, are left out. Other keys forge does not read, such as
+    /// the extensions other tools write, are kept, and `forge normalize` is
+    /// what rewrites those it knows into the ones forge reads. An extension
+    /// written more than once is there once,
     /// with the last value written, in the place of the first, as with
     /// `JSON.parse`. Extensions of the path item, the parameters, the body,
     /// the responses and the schemas are not kept.
@@ -588,7 +591,7 @@ impl HttpMethod {
 /// The stage of the API a [`Method`] is in, as
 /// [`Method::availability`] gives it.
 ///
-/// Corresponds to the value of the `x-fern-availability` extension of an
+/// Corresponds to the value of the `x-forge-availability` extension of an
 /// operation, which each variant names.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum Availability {
@@ -606,7 +609,7 @@ pub enum Availability {
 }
 
 impl Availability {
-    /// Returns the availability as `x-fern-availability` writes it, such
+    /// Returns the availability as `x-forge-availability` writes it, such
     /// as `generally-available`.
     pub fn as_str(self) -> &'static str {
         match self {
@@ -646,7 +649,7 @@ impl<'f> Model<'f> {
 
     /// Returns the name of the model.
     ///
-    /// Corresponds to the `x-fern-type-name` extension of the schema. A
+    /// Corresponds to the `x-forge-model-name` extension of the schema. A
     /// schema without one is named after its schema name, leaving out
     /// `$defs`, so `Tree/$defs/Node` has the name `Tree Node`.
     pub fn name(self) -> &'f Name {

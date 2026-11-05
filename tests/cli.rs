@@ -6,7 +6,7 @@ use std::process::{Command, Output, Stdio};
 /// A document with one method, `a.get`.
 const SPEC: &str = r#"{
   "openapi": "3.0.3", "info": {"title": "t", "version": "1"},
-  "paths": {"/a": {"get": {"x-fern-sdk-group-name": "a", "x-fern-sdk-method-name": "get",
+  "paths": {"/a": {"get": {"x-forge-group-name": ["a"], "x-forge-method-name": "get",
     "responses": {"200": {"description": "ok"}}}}}
 }"#;
 
@@ -41,7 +41,7 @@ fn flags_are_required() {
 fn unknown_target() {
     let err = failure(forge(&["-", "--target", "go", "--out", "sdk"], SPEC));
     assert!(err.contains("invalid value 'go'"), "{err}");
-    assert!(err.contains("possible values: ts"), "{err}");
+    assert!(err.contains("possible values: ts, capnweb"), "{err}");
 }
 
 #[test]
@@ -76,6 +76,23 @@ fn ts() {
     assert!(
         client.contains("get(request?: GetRequest, options?: RequestOptions): Promise<GetResponse>;"),
         "{client}"
+    );
+    std::fs::remove_dir_all(&out).unwrap();
+}
+
+#[test]
+fn capnweb() {
+    let out = std::env::temp_dir().join(format!("forge-cli-capnweb-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&out);
+    let result = forge(&["-", "--target", "capnweb", "--out", out.to_str().unwrap()], SPEC);
+    assert!(result.status.success(), "{}", String::from_utf8_lossy(&result.stderr));
+    for name in ["index.ts", "options.ts", "server.ts", "a/index.ts", "a/server.ts"] {
+        assert!(out.join(name).is_file(), "{name} is missing");
+    }
+    let server = std::fs::read_to_string(out.join("a/server.ts")).unwrap();
+    assert!(
+        server.contains("get(request?: GetRequest, options?: Options): Promise<GetResponse> {"),
+        "{server}"
     );
     std::fs::remove_dir_all(&out).unwrap();
 }

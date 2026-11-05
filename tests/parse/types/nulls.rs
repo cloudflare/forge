@@ -95,7 +95,7 @@ fn nullable_is_read_in_3_1() {
     let forge = parse(
         r#"{
           "openapi": "3.1.0", "info": {"title": "t", "version": "1"},
-          "paths": {"/a": {"get": {"x-fern-sdk-group-name": "a", "x-fern-sdk-method-name": "get",
+          "paths": {"/a": {"get": {"x-forge-group-name": "a", "x-forge-method-name": "get",
             "responses": {"200": {"description": "ok", "content": {"application/json": {"schema": {
               "type": "string", "nullable": true
             }}}}}}}}
@@ -110,7 +110,7 @@ fn null_in_a_type_array_is_a_union_with_null() {
     let forge = parse(
         r#"{
           "openapi": "3.1.0", "info": {"title": "t", "version": "1"},
-          "paths": {"/a": {"get": {"x-fern-sdk-group-name": "a", "x-fern-sdk-method-name": "get",
+          "paths": {"/a": {"get": {"x-forge-group-name": "a", "x-forge-method-name": "get",
             "responses": {"200": {"description": "ok", "content": {"application/json": {"schema": {
               "type": ["string", "null"]
             }}}}}}}}
@@ -125,7 +125,7 @@ fn null_type_is_null() {
     let forge = parse(
         r#"{
           "openapi": "3.1.0", "info": {"title": "t", "version": "1"},
-          "paths": {"/a": {"get": {"x-fern-sdk-group-name": "a", "x-fern-sdk-method-name": "get",
+          "paths": {"/a": {"get": {"x-forge-group-name": "a", "x-forge-method-name": "get",
             "responses": {"200": {"description": "ok", "content": {"application/json": {"schema": {
               "type": "null"
             }}}}}}}}
@@ -140,7 +140,7 @@ fn const_null_is_null() {
     let forge = parse(
         r#"{
           "openapi": "3.1.0", "info": {"title": "t", "version": "1"},
-          "paths": {"/a": {"get": {"x-fern-sdk-group-name": "a", "x-fern-sdk-method-name": "get",
+          "paths": {"/a": {"get": {"x-forge-group-name": "a", "x-forge-method-name": "get",
             "responses": {"200": {"description": "ok", "content": {"application/json": {"schema": {
               "const": null
             }}}}}}}}

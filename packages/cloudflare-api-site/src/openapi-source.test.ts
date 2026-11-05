@@ -5,21 +5,21 @@ import { join } from 'node:path';
 import { test } from 'node:test';
 import { fetchForgeOpenApi, forgeOpenApiUrl, loadForgeOpenApi } from './openapi-source.ts';
 
-test('uses the latest Forge OpenAPI release by default', () => {
+test('uses the latest cloudflare/api-schemas main spec by default', () => {
   assert.equal(
     forgeOpenApiUrl(undefined).href,
-    'https://github.com/cloudflare/forge/releases/latest/download/openapi.forge.json',
+    'https://raw.githubusercontent.com/cloudflare/api-schemas/main/openapi.json',
   );
 });
 
-test('uses an exact encoded Forge OpenAPI release when pinned', () => {
+test('uses an exact cloudflare/api-schemas revision when pinned', () => {
   assert.equal(
     forgeOpenApiUrl('openapi@8c827d1b18fec9aa686debf894580f0b302f6f94').href,
-    'https://github.com/cloudflare/forge/releases/download/openapi%408c827d1b18fec9aa686debf894580f0b302f6f94/openapi.forge.json',
+    'https://raw.githubusercontent.com/cloudflare/api-schemas/8c827d1b18fec9aa686debf894580f0b302f6f94/openapi.json',
   );
 });
 
-test('fetches and parses the Forge OpenAPI release asset', async () => {
+test('fetches and parses the Forge OpenAPI asset', async () => {
   let requestedUrl: string | undefined;
   const fetcher = async (input: string | URL | Request) => {
     requestedUrl = String(input);
@@ -28,7 +28,7 @@ test('fetches and parses the Forge OpenAPI release asset', async () => {
 
   const { document, lastModified } = await fetchForgeOpenApi('openapi@test', fetcher);
 
-  assert.equal(requestedUrl, 'https://github.com/cloudflare/forge/releases/download/openapi%40test/openapi.forge.json');
+  assert.equal(requestedUrl, 'https://raw.githubusercontent.com/cloudflare/api-schemas/test/openapi.json');
   assert.deepEqual(document, { openapi: '3.0.3' });
   assert.equal(lastModified?.toISOString(), '2026-10-21T07:28:00.000Z');
 });
@@ -36,13 +36,13 @@ test('fetches and parses the Forge OpenAPI release asset', async () => {
 test('reports release asset download failures', async () => {
   const fetcher = async () => new Response(null, { status: 404, statusText: 'Not Found' });
 
-  await assert.rejects(() => fetchForgeOpenApi('missing', fetcher), /404 Not Found.*openapi\.forge\.json/);
+  await assert.rejects(() => fetchForgeOpenApi('missing', fetcher), /404 Not Found.*openapi\.json/);
 });
 
 test('reports malformed release assets', async () => {
   const fetcher = async () => new Response('{', { headers: { 'content-type': 'application/json' } });
 
-  await assert.rejects(() => fetchForgeOpenApi('malformed', fetcher), /Could not parse.*openapi\.forge\.json/);
+  await assert.rejects(() => fetchForgeOpenApi('malformed', fetcher), /Could not parse.*openapi\.json/);
 });
 
 test('ignores a Last-Modified header that is not a date', async () => {

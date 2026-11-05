@@ -1,7 +1,7 @@
 import { readFile, stat } from 'node:fs/promises';
 
-const FORGE_RELEASES_URL = new URL('https://github.com/cloudflare/forge/releases/');
-const FORGE_OPENAPI_ASSET = 'openapi.forge.json';
+const API_SCHEMAS_RAW_URL = new URL('https://raw.githubusercontent.com/cloudflare/api-schemas/');
+const FORGE_OPENAPI_ASSET = 'openapi.json';
 
 export interface ForgeOpenApiSource {
   document: unknown;
@@ -23,11 +23,8 @@ function parseForgeOpenApi(source: string, location: string): unknown {
 }
 
 export function forgeOpenApiUrl(release = process.env['FORGE_OPENAPI_RELEASE']): URL {
-  const revision = release?.trim();
-  const assetPath = revision
-    ? `download/${encodeURIComponent(revision)}/${FORGE_OPENAPI_ASSET}`
-    : `latest/download/${FORGE_OPENAPI_ASSET}`;
-  return new URL(assetPath, FORGE_RELEASES_URL);
+  const revision = release?.trim().replace(/^openapi@/, '') || 'main';
+  return new URL(`${encodeURIComponent(revision)}/${FORGE_OPENAPI_ASSET}`, API_SCHEMAS_RAW_URL);
 }
 
 export async function fetchForgeOpenApi(

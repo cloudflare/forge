@@ -1,6 +1,7 @@
 packages:
   - packages/*
   - src/bin/forge/ts/lib
+  - src/bin/forge/mcp/lib
 allowBuilds:
   esbuild: true
   workerd: true
