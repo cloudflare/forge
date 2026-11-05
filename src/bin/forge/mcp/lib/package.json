@@ -1,0 +1,25 @@
+{
+  "name": "@internal/mcp-lib",
+  "version": "0.1.0",
+  "private": true,
+  "description": "The runtime that the generated MCP servers import.",
+  "type": "module",
+  "exports": {
+    ".": "./src/tool.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json && tsc -p tsconfig.test.json",
+    "test": "node --import ./test/register.ts --test \"test/**/*.test.ts\""
+  },
+  "devDependencies": {
+    "@modelcontextprotocol/server": "2.3.1",
+    "@types/node": "24.19.0",
+    "typescript": "7.0.2"
+  },
+  "peerDependencies": {
+    "@modelcontextprotocol/server": "^2.3.1"
+  },
+  "engines": {
+    "node": ">=26"
+  }
+}

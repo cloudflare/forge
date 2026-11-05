@@ -1,0 +1,423 @@
+import {
+  type CallToolRequestParams,
+  type CallToolResult,
+  fromJsonSchema,
+  type JSONObject,
+  type McpServer,
+  type StandardSchemaWithJSON,
+  type Tool as McpTool,
+} from '@modelcontextprotocol/server';
+
+/**
+ * The arguments of a tool call, as the client sent them: the parameters by
+ * where they go, `path`, `query` and `headers`, each an object keyed by the
+ * parameters' names on the wire, and the JSON body as `body`.
+ */
+type Args = Readonly<NonNullable<CallToolRequestParams['arguments']>>;
+
+/** Where a parameter goes: the argument that holds it. */
+type ParamLocation = 'path' | 'query' | 'headers';
+
+/**
+ * The JSON Schemas of a method's response bodies, for the server to check
+ * responses against. `tools/list` doesn't send them.
+ */
+interface ToolResponses {
+  /**
+   * The schema of each response's JSON body, by status as the API declares it:
+   * a code such as `200`, a range such as `4XX`, or `default`. `null` is a
+   * response without a JSON body.
+   */
+  readonly schemas: { readonly [status: string]: JSONObject | null };
+  /** The models the schemas refer to as `#/$defs/<key>`. */
+  readonly $defs?: { readonly [key: string]: JSONObject };
+}
+
+/**
+ * An HTTP request as plain data, so it crosses RPC or `postMessage` as it is.
+ * `fetch(request.url, request)` sends it. Header names are lower case.
+ */
+interface HttpRequest {
+  readonly method: string;
+  readonly url: string;
+  readonly headers: Readonly<Record<string, string>>;
+  readonly body?: string;
+}
+
+/**
+ * The API method a tool calls, as data: what the server needs, which clients
+ * never see. A call's request is built from it and the call's arguments.
+ */
+interface Operation {
+  /** The HTTP method, such as `GET`. */
+  readonly method: string;
+  /** The path template, such as `/zones/{zone_id}`, each parameter of which the `path` argument fills by name. */
+  readonly path: string;
+  /** Returns the path with each parameter filled in from the `path` argument, percent-encoded, as {@link encodePath} does. */
+  readonly pathOf: (path: Readonly<Record<string, unknown>>) => string;
+  /** Each query parameter by wire name, and whether an array or object value is exploded: `a=1&a=2`, not `a=1,2`. */
+  readonly query?: readonly { readonly name: string; readonly explode: boolean }[];
+  /** The name of each header parameter, in lower case. */
+  readonly headers?: readonly string[];
+  /** The media types the API takes the `body` argument in. */
+  readonly body?: { readonly mediaTypes: readonly string[] };
+  /** The OpenAPI extensions of the operation that forge doesn't read itself, such as `x-api-token-group`. */
+  readonly extensions?: JSONObject;
+  /** The JSON Schemas of the response bodies. */
+  readonly responses?: ToolResponses;
+}
+
+/**
+ * The key a tool holds its {@link Operation} under. A symbol, so that
+ * `JSON.stringify` leaves the operation out and a tool is sent as MCP's Tool as
+ * it is; `Symbol.for`, so that every copy of the runtime has the same one.
+ * `structuredClone` leaves it out too, so a copied tool can be listed but not
+ * called. Servers read it with {@link operation}.
+ */
+export const OPERATION: unique symbol = Symbol.for('@cloudflare/forge/mcp/operation');
+
+/**
+ * A generated tool: MCP's Tool, as `tools/list` sends it, and the API method
+ * it calls under {@link OPERATION}. A
+ * tool's `outputSchema` is the JSON Schema of the JSON body of a successful
+ * response, with the models it refers to in `$defs`; a tool without one has a
+ * successful response with no JSON body.
+ */
+export interface Tool extends Readonly<McpTool> {
+  readonly [OPERATION]: Operation;
+}
+
+/** Returns the API method `tool` calls. */
+export function operation(tool: Tool): Operation {
+  return tool[OPERATION];
+}
+
+/** Returns the parameter `name` in the `location` argument, which the SDK has checked is an object, if any. */
+function param(args: Args, location: ParamLocation, name: string): unknown {
+  return (args[location] as Readonly<Record<string, unknown>> | undefined)?.[name];
+}
+
+/**
+ * Returns the function that fills in a path template written as a tagged
+ * template, with the name of each path parameter where it goes, such as
+ * ``encodePath`/zones/${'zone_id'}` ``: the text as it is, and each parameter
+ * from the `path` argument, percent-encoded. A schema can't say that a path
+ * parameter isn't empty, so an empty one, which would leave a segment of the
+ * path out, is an error here.
+ */
+export function encodePath(
+  text: TemplateStringsArray,
+  ...names: string[]
+): (path: Readonly<Record<string, unknown>>) => string {
+  return (path) => names.reduce((out, name, i) => out + pathParam(path, name) + text[i + 1], text[0]!);
+}
+
+/** Returns the path parameter `name` in `path`, percent-encoded. Throws if it is missing or empty. */
+function pathParam(path: Readonly<Record<string, unknown>>, name: string): string {
+  const value = path[name];
+  if (value === undefined || value === null || value === '') {
+    throw new Error(`Missing path parameter: ${name}`);
+  }
+  return encodeURIComponent(scalar(name, value));
+}
+
+/**
+ * Returns the HTTP request that calling `tool` with `args`, which the SDK has
+ * validated against the tool's input schema, makes at `baseUrl`: its
+ * operation's path filled in from the `path` argument, and the query
+ * parameters, headers and body it takes from the others. Query parameters are
+ * serialized in OpenAPI's default `form` style, and those and headers that are
+ * `undefined` or `null` are left out. Throws for an empty path parameter, or a
+ * value a query parameter or header can't be.
+ */
+export function buildRequest(tool: Tool, args: Args, baseUrl: string): HttpRequest {
+  const op = tool[OPERATION];
+  const path = (args['path'] ?? {}) as Readonly<Record<string, unknown>>;
+  const url = new URL(withoutTrailingSlashes(baseUrl) + op.pathOf(path));
+  for (const { name, explode } of op.query ?? []) {
+    appendQuery(url.searchParams, name, param(args, 'query', name), explode);
+  }
+  const headers = new Headers({ Accept: 'application/json' });
+  for (const name of op.headers ?? []) {
+    const value = param(args, 'headers', name);
+    if (value !== undefined && value !== null) {
+      headers.set(name, Array.isArray(value) ? value.map((item) => scalar(name, item)).join(',') : scalar(name, value));
+    }
+  }
+  let body: string | undefined;
+  const given = args['body'];
+  if (op.body && given !== undefined) {
+    // A content-type header argument names the media type, as with fetch.
+    const encoded = encodeBody(given, headers.get('Content-Type') ?? mediaTypeOf(given, op.body.mediaTypes));
+    headers.set('Content-Type', encoded.contentType);
+    body = encoded.body;
+  }
+  return {
+    method: op.method,
+    url: url.href,
+    headers: Object.fromEntries(headers),
+    ...(body !== undefined && { body }),
+  };
+}
+
+/**
+ * Encodes a body in `mediaType` as `fetch` would: JSON as JSON; an object as
+ * the parts of `multipart/form-data` (a {@link File} as a file part, another
+ * object as a JSON part, anything else as text), or the pairs of
+ * `application/x-www-form-urlencoded`; and any other string as it is. A
+ * string sent as `multipart/form-data` is a body already encoded, whose first
+ * line names its boundary unless the media type does.
+ */
+function encodeBody(value: unknown, mediaType: string): { body: string; contentType: string } {
+  const type = baseType(mediaType);
+  // A file as the whole body is its contents, as a Blob is to fetch.
+  if (isFile(value)) {
+    value = value.content;
+  }
+  if (isJsonType(type)) {
+    return { body: JSON.stringify(value), contentType: mediaType };
+  }
+  if (typeof value === 'string') {
+    const boundary =
+      type === 'multipart/form-data' && !/boundary=/i.test(mediaType) && /^--([^\r\n]+)/.exec(value)?.[1];
+    return { body: value, contentType: boundary ? `${mediaType}; boundary=${boundary}` : mediaType };
+  }
+  const fields =
+    value !== null && typeof value === 'object' && !Array.isArray(value) ? Object.entries(value) : undefined;
+  if (fields && type === 'multipart/form-data') {
+    const boundary = `forge-${crypto.randomUUID()}`;
+    const parts = fields.flatMap(([name, field]) =>
+      (Array.isArray(field) ? field : [field]).map((item) => [name, item] as const),
+    );
+    const body = parts
+      .filter(([, item]) => item !== undefined && item !== null)
+      .map(([name, item]) => {
+        const quoted = (text: string) => `"${text.replace(/["\r\n]/g, encodeURIComponent)}"`;
+        let disposition = `form-data; name=${quoted(name)}`;
+        let type: string | undefined;
+        let content: string;
+        if (isFile(item)) {
+          if (item.filename !== undefined) {
+            disposition += `; filename=${quoted(item.filename)}`;
+          }
+          type = item.contentType;
+          content = item.content;
+        } else if (typeof item === 'object') {
+          type = 'application/json';
+          content = JSON.stringify(item);
+        } else {
+          content = String(item);
+        }
+        const headers = `Content-Disposition: ${disposition}\r\n${type ? `Content-Type: ${type}\r\n` : ''}`;
+        return `--${boundary}\r\n${headers}\r\n${content}\r\n`;
+      })
+      .join('');
+    return { body: `${body}--${boundary}--\r\n`, contentType: `multipart/form-data; boundary=${boundary}` };
+  }
+  if (fields && type === 'application/x-www-form-urlencoded') {
+    const pairs = fields
+      .filter(([, field]) => field !== undefined && field !== null)
+      .map(([name, field]) => [name, typeof field === 'object' ? JSON.stringify(field) : String(field)]);
+    return { body: new URLSearchParams(pairs).toString(), contentType: mediaType };
+  }
+  return { body: JSON.stringify(value), contentType: mediaType };
+}
+
+/**
+ * The media type to send `value` in when no `content-type` argument names
+ * one, as `fetch` picks one from its body: a file's own type; for a string or
+ * file, the first of `mediaTypes` that is neither JSON nor a form; for any
+ * other value, the first JSON one, else `multipart/form-data` or
+ * `application/x-www-form-urlencoded` for an object; else the first.
+ */
+function mediaTypeOf(value: unknown, mediaTypes: readonly string[]): string {
+  const first = mediaTypes[0] ?? 'application/json';
+  if (isFile(value) && value.contentType !== undefined) {
+    return value.contentType;
+  }
+  const form = (type: string) => ['multipart/form-data', 'application/x-www-form-urlencoded'].includes(baseType(type));
+  if (typeof value === 'string' || isFile(value)) {
+    return mediaTypes.find((type) => !isJsonType(baseType(type)) && !form(type)) ?? first;
+  }
+  const object = value !== null && typeof value === 'object' && !Array.isArray(value);
+  return (
+    mediaTypes.find((type) => isJsonType(baseType(type))) ??
+    (object
+      ? (mediaTypes.find((type) => baseType(type) === 'multipart/form-data') ?? mediaTypes.find(form))
+      : undefined) ??
+    first
+  );
+}
+
+/** The media type without parameters, in lower case. */
+function baseType(mediaType: string): string {
+  return mediaType.split(';', 1)[0]!.trim().toLowerCase();
+}
+
+/** Whether `type`, without parameters, is JSON: `application/json` or a `+json` type. */
+function isJsonType(type: string): boolean {
+  return type === 'application/json' || type.endsWith('+json');
+}
+
+/** A file in a `multipart/form-data` body, as a `format: binary` argument takes one. */
+interface File {
+  readonly content: string;
+  readonly filename?: string;
+  readonly contentType?: string;
+}
+
+/** Whether `value` is a {@link File}: `content`, and maybe `filename` and `contentType`, all strings. */
+function isFile(value: unknown): value is File {
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) {
+    return false;
+  }
+  const entries = Object.entries(value);
+  return (
+    typeof (value as { content?: unknown }).content === 'string' &&
+    entries.every(([key, item]) => ['content', 'filename', 'contentType'].includes(key) && typeof item === 'string')
+  );
+}
+
+/**
+ * Returns `url` without the `/`s it ends with. A loop rather than a regular
+ * expression, which would take quadratic time on many `/`s.
+ */
+function withoutTrailingSlashes(url: string): string {
+  let end = url.length;
+  while (end > 0 && url[end - 1] === '/') {
+    end--;
+  }
+  return url.slice(0, end);
+}
+
+/** Appends a query parameter in the `form` style: `a=1&a=2` exploded, `a=1,2` not. */
+function appendQuery(query: URLSearchParams, name: string, value: unknown, explode: boolean): void {
+  if (value === undefined || value === null) {
+    return;
+  }
+  if (Array.isArray(value)) {
+    const items = value.map((item) => scalar(name, item));
+    if (explode) {
+      for (const item of items) {
+        query.append(name, item);
+      }
+    } else {
+      query.append(name, items.join(','));
+    }
+    return;
+  }
+  if (typeof value === 'object') {
+    const entries = Object.entries(value).filter(([, item]) => item !== undefined && item !== null);
+    if (explode) {
+      for (const [key, item] of entries) {
+        query.append(key, scalar(name, item));
+      }
+    } else {
+      query.append(name, entries.flatMap(([key, item]) => [key, scalar(name, item)]).join(','));
+    }
+    return;
+  }
+  query.append(name, scalar(name, value));
+}
+
+function scalar(name: string, value: unknown): string {
+  if (typeof value === 'string') {
+    return value;
+  }
+  if (typeof value === 'number' || typeof value === 'boolean' || typeof value === 'bigint') {
+    return String(value);
+  }
+  throw new Error(`${name} must be a string, number or boolean`);
+}
+
+/** How {@link registerTools} calls the API. */
+interface RegisterOptions {
+  /** The API's base URL, such as `api.baseUrl`. */
+  readonly baseUrl: string;
+  /**
+   * Sends the request and returns the API's response; `fetch` by default. A
+   * server passes its own to add a credential, retry, or observe responses.
+   */
+  readonly fetch?: typeof globalThis.fetch;
+}
+
+/**
+ * Registers each of `tools` on `server`, listed as `tools/list` sends it. The
+ * SDK validates a call's arguments against the tool's input schema, and the
+ * callback builds the request, sends it, and returns the response as the
+ * result, with the body as its text. A response that isn't 2xx is an error
+ * result that starts with the status, so the model reads what the API said. A
+ * successful JSON body is also the result's `structuredContent` when the tool
+ * has an output schema.
+ */
+export function registerTools(server: McpServer, tools: readonly Tool[], options: RegisterOptions): void {
+  for (const tool of tools) {
+    server.registerTool(
+      tool.name,
+      {
+        ...(tool.title !== undefined && { title: tool.title }),
+        ...(tool.description !== undefined && { description: tool.description }),
+        inputSchema: validated(tool.inputSchema),
+        ...(tool.outputSchema && { outputSchema: listed(tool.outputSchema) }),
+        ...(tool.annotations && { annotations: tool.annotations }),
+        ...(tool.icons && { icons: tool.icons }),
+        ...(tool._meta && { _meta: tool._meta }),
+      },
+      callback(tool, options),
+    );
+  }
+}
+
+/**
+ * Returns `schema` as the SDK takes an input schema: listed as it is, and
+ * checked with the SDK's JSON Schema validator. The validator is compiled when
+ * the tool is first called, so registering thousands of tools compiles none.
+ */
+function validated(schema: Readonly<Record<string, unknown>>): StandardSchemaWithJSON<Args> {
+  let compiled: StandardSchemaWithJSON<Args> | undefined;
+  return {
+    '~standard': {
+      version: 1,
+      vendor: 'forge',
+      validate: (value) => (compiled ??= fromJsonSchema<Args>(schema))['~standard'].validate(value),
+      jsonSchema: { input: () => schema, output: () => schema },
+    },
+  };
+}
+
+/**
+ * Returns `schema` as the SDK takes an output schema: listed as it is, and
+ * accepting every value, since a client that takes it checks results itself.
+ */
+function listed(schema: Readonly<Record<string, unknown>>): StandardSchemaWithJSON {
+  return {
+    '~standard': {
+      version: 1,
+      vendor: 'forge',
+      validate: (value) => ({ value }),
+      jsonSchema: { input: () => schema, output: () => schema },
+    },
+  };
+}
+
+/** Returns the callback that calls `tool`, as {@link registerTools} describes. */
+function callback(
+  tool: Tool,
+  { baseUrl, fetch: send = globalThis.fetch }: RegisterOptions,
+): (args: Args) => Promise<CallToolResult> {
+  return async (args) => {
+    const request = buildRequest(tool, args, baseUrl);
+    const response = await send(new Request(request.url, request));
+    const text = await response.text();
+    if (!response.ok) {
+      return errorResult(`HTTP ${response.status}: ${text}`);
+    }
+    const result: CallToolResult = { content: [{ type: 'text', text }] };
+    const json = isJsonType(baseType(response.headers.get('Content-Type') ?? ''));
+    return tool.outputSchema && json ? { ...result, structuredContent: JSON.parse(text) } : result;
+  };
+}
+
+function errorResult(text: string): CallToolResult {
+  return { content: [{ type: 'text', text }], isError: true };
+}
