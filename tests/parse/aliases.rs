@@ -8,18 +8,34 @@ use crate::common::{field_names, group, intersection, method, model, object, par
 fn aliased(aliases: &str, fields: &str) -> String {
     format!(
         r#"{{
-          "openapi": "3.0.3", "info": {{"title": "t", "version": "1"}},
-          "paths": {{"/a/{{id}}/status": {{"patch": {{{fields}
-            "x-forge-group-name": ["a", "status"], "x-forge-method-name": "edit",
-            "x-forge-aliases": {aliases},
-            "summary": "Edit status", "description": "Changes the status.",
-            "parameters": [{{"name": "id", "in": "path", "required": true, "schema": {{"type": "string"}}}}],
-            "requestBody": {{"content": {{"application/json": {{"schema": {{"type": "object",
-              "properties": {{"status": {{"type": "string"}}}}}}}}}}}},
-            "responses": {{
-              "200": {{"description": "ok", "content": {{"application/json": {{"schema": {{"type": "boolean"}}}}}}}},
-              "404": {{"description": "missing"}}
-            }}}}}}}}
+          "openapi": "3.0.3",
+          "info": {{"title": "t", "version": "1"}},
+          "paths": {{
+            "/a/{{id}}/status": {{
+              "patch": {{
+                {fields}
+                "x-forge-group-name": ["a", "status"],
+                "x-forge-method-name": "edit",
+                "x-forge-aliases": {aliases},
+                "summary": "Edit status",
+                "description": "Changes the status.",
+                "parameters": [
+                  {{"name": "id", "in": "path", "required": true, "schema": {{"type": "string"}}}}
+                ],
+                "requestBody": {{"content": {{"application/json": {{"schema": {{
+                  "type": "object",
+                  "properties": {{"status": {{"type": "string"}}}}
+                }}}}}}}},
+                "responses": {{
+                  "200": {{
+                    "description": "ok",
+                    "content": {{"application/json": {{"schema": {{"type": "boolean"}}}}}}
+                  }},
+                  "404": {{"description": "missing"}}
+                }}
+              }}
+            }}
+          }}
         }}"#
     )
 }
@@ -97,11 +113,21 @@ fn aliases_share_the_rest_of_the_operation() {
 fn each_alias_has_its_own_availability_hidden_confirmation_and_extensions() {
     let forge = parse(&aliased(
         r#"[
-          {"x-forge-group-name": "a", "x-forge-method-name": "pause",
-            "x-forge-availability": "generally-available", "x-forge-hidden": true,
-            "x-forge-params": {"status": {"default": "pause", "hidden": true}}},
-          {"x-forge-group-name": "a", "x-forge-method-name": "terminate",
-            "x-forge-availability": "beta", "x-forge-require-confirmation": "Sure?", "x-a": 1, "x-b": 2}
+          {
+            "x-forge-group-name": "a",
+            "x-forge-method-name": "pause",
+            "x-forge-availability": "generally-available",
+            "x-forge-hidden": true,
+            "x-forge-params": {"status": {"default": "pause", "hidden": true}}
+          },
+          {
+            "x-forge-group-name": "a",
+            "x-forge-method-name": "terminate",
+            "x-forge-availability": "beta",
+            "x-forge-require-confirmation": "Sure?",
+            "x-a": 1,
+            "x-b": 2
+          }
         ]"#,
         "",
     ));
@@ -190,14 +216,25 @@ fn aliases_that_are_not_an_array_are_an_error() {
 fn alias_and_another_method_with_equal_names_are_an_error() {
     let err = parse_err(
         r#"{
-          "openapi": "3.0.3", "info": {"title": "t", "version": "1"},
+          "openapi": "3.0.3",
+          "info": {"title": "t", "version": "1"},
           "paths": {
-            "/a": {"get": {"x-forge-group-name": "a", "x-forge-method-name": "pause",
-              "responses": {"204": {"description": "ok"}}}},
-            "/b": {"post": {"x-forge-aliases": [
-              {"x-forge-group-name": "a", "x-forge-method-name": "resume"},
-              {"x-forge-group-name": "a", "x-forge-method-name": "Pause"}
-            ], "responses": {"204": {"description": "ok"}}}}
+            "/a": {
+              "get": {
+                "x-forge-group-name": "a",
+                "x-forge-method-name": "pause",
+                "responses": {"204": {"description": "ok"}}
+              }
+            },
+            "/b": {
+              "post": {
+                "x-forge-aliases": [
+                  {"x-forge-group-name": "a", "x-forge-method-name": "resume"},
+                  {"x-forge-group-name": "a", "x-forge-method-name": "Pause"}
+                ],
+                "responses": {"204": {"description": "ok"}}
+              }
+            }
           }
         }"#,
     );
@@ -283,8 +320,16 @@ fn skipped_alias_is_not_a_method() {
 #[test]
 fn aliases_are_not_extensions() {
     let forge = parse(&aliased(
-        r#"[{"x-forge-group-name": "a", "x-forge-method-name": "pause", "x-a": 1,
-             "x-forge-aliases": [{"x-forge-group-name": "b", "x-forge-method-name": "nested"}]}]"#,
+        r#"[
+          {
+            "x-forge-group-name": "a",
+            "x-forge-method-name": "pause",
+            "x-a": 1,
+            "x-forge-aliases": [
+              {"x-forge-group-name": "b", "x-forge-method-name": "nested"}
+            ]
+          }
+        ]"#,
         "",
     ));
 
@@ -297,8 +342,15 @@ fn aliases_are_not_extensions() {
 #[test]
 fn keys_of_an_alias_that_are_not_extensions_are_ignored() {
     let forge = parse(&aliased(
-        r#"[{"x-forge-group-name": "a", "x-forge-method-name": "pause",
-             "summary": "Pause", "deprecated": false, "path": "/b"}]"#,
+        r#"[
+          {
+            "x-forge-group-name": "a",
+            "x-forge-method-name": "pause",
+            "summary": "Pause",
+            "deprecated": false,
+            "path": "/b"
+          }
+        ]"#,
         "",
     ));
 
@@ -312,9 +364,17 @@ fn keys_of_an_alias_that_are_not_extensions_are_ignored() {
 fn operation_without_aliases_keeps_its_own_method() {
     let forge = parse(
         r#"{
-          "openapi": "3.0.3", "info": {"title": "t", "version": "1"},
-          "paths": {"/a": {"get": {"x-forge-group-name": "a", "x-forge-method-name": "get",
-            "responses": {"204": {"description": "ok"}}}}}
+          "openapi": "3.0.3",
+          "info": {"title": "t", "version": "1"},
+          "paths": {
+            "/a": {
+              "get": {
+                "x-forge-group-name": "a",
+                "x-forge-method-name": "get",
+                "responses": {"204": {"description": "ok"}}
+              }
+            }
+          }
         }"#,
     );
 
@@ -325,15 +385,29 @@ fn operation_without_aliases_keeps_its_own_method() {
 fn model_used_by_aliases_in_two_top_level_groups_is_at_the_top_level() {
     let forge = parse(
         r##"{
-          "openapi": "3.0.3", "info": {"title": "t", "version": "1"},
-          "paths": {"/m": {"get": {
-            "x-forge-group-name": ["a", "b"], "x-forge-method-name": "get",
-            "x-forge-aliases": [
-              {"x-forge-group-name": ["a", "b"], "x-forge-method-name": "get"},
-              {"x-forge-group-name": ["x"], "x-forge-method-name": "get"}
-            ],
-            "responses": {"200": {"description": "ok", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/M"}}}}}}}},
-          "components": {"schemas": {"M": {"type": "object", "properties": {"id": {"type": "string"}}}}}
+          "openapi": "3.0.3",
+          "info": {"title": "t", "version": "1"},
+          "paths": {
+            "/m": {
+              "get": {
+                "x-forge-group-name": ["a", "b"],
+                "x-forge-method-name": "get",
+                "x-forge-aliases": [
+                  {"x-forge-group-name": ["a", "b"], "x-forge-method-name": "get"},
+                  {"x-forge-group-name": ["x"], "x-forge-method-name": "get"}
+                ],
+                "responses": {"200": {
+                  "description": "ok",
+                  "content": {"application/json": {"schema": {"$ref": "#/components/schemas/M"}}}
+                }}
+              }
+            }
+          },
+          "components": {
+            "schemas": {
+              "M": {"type": "object", "properties": {"id": {"type": "string"}}}
+            }
+          }
         }"##,
     );
 
@@ -346,15 +420,29 @@ fn model_used_by_aliases_in_two_top_level_groups_is_at_the_top_level() {
 fn model_used_by_aliases_in_one_group_is_in_that_group() {
     let forge = parse(
         r##"{
-          "openapi": "3.0.3", "info": {"title": "t", "version": "1"},
-          "paths": {"/m": {"get": {
-            "x-forge-group-name": "x", "x-forge-method-name": "get",
-            "x-forge-aliases": [
-              {"x-forge-group-name": ["a", "b"], "x-forge-method-name": "get"},
-              {"x-forge-group-name": ["a", "c"], "x-forge-method-name": "get"}
-            ],
-            "responses": {"200": {"description": "ok", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/M"}}}}}}}},
-          "components": {"schemas": {"M": {"type": "object", "properties": {"id": {"type": "string"}}}}}
+          "openapi": "3.0.3",
+          "info": {"title": "t", "version": "1"},
+          "paths": {
+            "/m": {
+              "get": {
+                "x-forge-group-name": "x",
+                "x-forge-method-name": "get",
+                "x-forge-aliases": [
+                  {"x-forge-group-name": ["a", "b"], "x-forge-method-name": "get"},
+                  {"x-forge-group-name": ["a", "c"], "x-forge-method-name": "get"}
+                ],
+                "responses": {"200": {
+                  "description": "ok",
+                  "content": {"application/json": {"schema": {"$ref": "#/components/schemas/M"}}}
+                }}
+              }
+            }
+          },
+          "components": {
+            "schemas": {
+              "M": {"type": "object", "properties": {"id": {"type": "string"}}}
+            }
+          }
         }"##,
     );
 

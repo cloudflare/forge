@@ -21,30 +21,40 @@ const SOURCES: &str = r##"{"openapi":"3.0.3","info":{"title":"t","version":"1"},
 const COMPATIBILITY: &str = r##"{
   "openapi": "3.0.3",
   "info": {"title": "t", "version": "1"},
-  "paths": {"/a": {"get": {
-    "x-fern-sdk-group-name": ["a"],
-    "x-fern-sdk-method-name": "get",
-    "x-fern-ignore": false,
-    "x-fern-availability": "beta",
-    "parameters": [{
-      "name": "page",
-      "in": "query",
-      "x-fern-parameter-name": "page_number",
-      "schema": {"type": "integer"}
-    }],
-    "responses": {"200": {
-      "description": "ok",
-      "content": {"application/json": {"schema": {"$ref": "#/components/schemas/S"}}}
-    }}
-  }}},
-  "components": {"schemas": {"S": {
-    "type": "object",
-    "x-fern-type-name": "Secret",
-    "properties": {
-      "value": {"type": "string", "x-fern-property-name": "token", "x-sensitive": true},
-      "hidden": {"type": "string", "x-stainless-skip": true}
+  "paths": {
+    "/a": {
+      "get": {
+        "x-fern-sdk-group-name": ["a"],
+        "x-fern-sdk-method-name": "get",
+        "x-fern-ignore": false,
+        "x-fern-availability": "beta",
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "x-fern-parameter-name": "page_number",
+            "schema": {"type": "integer"}
+          }
+        ],
+        "responses": {"200": {
+          "description": "ok",
+          "content": {"application/json": {"schema": {"$ref": "#/components/schemas/S"}}}
+        }}
+      }
     }
-  }}}
+  },
+  "components": {
+    "schemas": {
+      "S": {
+        "type": "object",
+        "x-fern-type-name": "Secret",
+        "properties": {
+          "value": {"type": "string", "x-fern-property-name": "token", "x-sensitive": true},
+          "hidden": {"type": "string", "x-stainless-skip": true}
+        }
+      }
+    }
+  }
 }"##;
 
 /// A folder of its own to write files in, which is empty.

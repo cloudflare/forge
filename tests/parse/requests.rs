@@ -9,16 +9,16 @@ fn path_param_is_a_required_request_field() {
     let forge = parse(
         r#"{
           "openapi": "3.0.3",
-          "info": { "title": "Example", "version": "1.0.0" },
+          "info": {"title": "Example", "version": "1.0.0"},
           "paths": {
             "/zones/{zone_id}": {
               "get": {
                 "x-forge-group-name": "zones",
                 "x-forge-method-name": "get",
                 "parameters": [
-                  { "name": "zone_id", "in": "path", "required": true, "schema": { "type": "string" } }
+                  {"name": "zone_id", "in": "path", "required": true, "schema": {"type": "string"}}
                 ],
-                "responses": { "200": { "description": "OK" } }
+                "responses": {"200": {"description": "OK"}}
               }
             }
           }
@@ -43,11 +43,25 @@ fn path_param_is_a_required_request_field() {
 fn vendor_parameter_name_is_not_read() {
     let forge = parse(
         r#"{
-          "openapi": "3.0.3", "info": {"title": "t", "version": "1"},
-          "paths": {"/a": {"get": {"x-forge-group-name": "a", "x-forge-method-name": "get",
-            "parameters": [{"name": "wire_name", "in": "query", "x-fern-parameter-name": "renamed",
-              "schema": {"type": "string"}}],
-            "responses": {"204": {"description": "ok"}}}}}
+          "openapi": "3.0.3",
+          "info": {"title": "t", "version": "1"},
+          "paths": {
+            "/a": {
+              "get": {
+                "x-forge-group-name": "a",
+                "x-forge-method-name": "get",
+                "parameters": [
+                  {
+                    "name": "wire_name",
+                    "in": "query",
+                    "x-fern-parameter-name": "renamed",
+                    "schema": {"type": "string"}
+                  }
+                ],
+                "responses": {"204": {"description": "ok"}}
+              }
+            }
+          }
         }"#,
     );
 
@@ -60,10 +74,20 @@ fn vendor_parameter_name_is_not_read() {
 fn query_param_is_optional_and_exploded_by_default() {
     let forge = parse(
         r#"{
-          "openapi": "3.0.3", "info": {"title": "t", "version": "1"},
-          "paths": {"/a": {"get": {"x-forge-group-name": "a", "x-forge-method-name": "list",
-            "parameters": [{"name": "page", "in": "query", "schema": {"type": "integer"}}],
-            "responses": {"204": {"description": "ok"}}}}}
+          "openapi": "3.0.3",
+          "info": {"title": "t", "version": "1"},
+          "paths": {
+            "/a": {
+              "get": {
+                "x-forge-group-name": "a",
+                "x-forge-method-name": "list",
+                "parameters": [
+                  {"name": "page", "in": "query", "schema": {"type": "integer"}}
+                ],
+                "responses": {"204": {"description": "ok"}}
+              }
+            }
+          }
         }"#,
     );
 
@@ -77,10 +101,20 @@ fn query_param_is_optional_and_exploded_by_default() {
 fn query_param_can_be_required() {
     let forge = parse(
         r#"{
-          "openapi": "3.0.3", "info": {"title": "t", "version": "1"},
-          "paths": {"/a": {"get": {"x-forge-group-name": "a", "x-forge-method-name": "list",
-            "parameters": [{"name": "page", "in": "query", "required": true, "schema": {"type": "integer"}}],
-            "responses": {"204": {"description": "ok"}}}}}
+          "openapi": "3.0.3",
+          "info": {"title": "t", "version": "1"},
+          "paths": {
+            "/a": {
+              "get": {
+                "x-forge-group-name": "a",
+                "x-forge-method-name": "list",
+                "parameters": [
+                  {"name": "page", "in": "query", "required": true, "schema": {"type": "integer"}}
+                ],
+                "responses": {"204": {"description": "ok"}}
+              }
+            }
+          }
         }"#,
     );
 
@@ -92,11 +126,26 @@ fn query_param_can_be_required() {
 fn query_param_with_explode_false_is_not_exploded() {
     let forge = parse(
         r#"{
-          "openapi": "3.0.3", "info": {"title": "t", "version": "1"},
-          "paths": {"/a": {"get": {"x-forge-group-name": "a", "x-forge-method-name": "list",
-            "parameters": [{"name": "ids", "in": "query", "style": "form", "explode": false,
-              "schema": {"type": "array", "items": {"type": "string"}}}],
-            "responses": {"204": {"description": "ok"}}}}}
+          "openapi": "3.0.3",
+          "info": {"title": "t", "version": "1"},
+          "paths": {
+            "/a": {
+              "get": {
+                "x-forge-group-name": "a",
+                "x-forge-method-name": "list",
+                "parameters": [
+                  {
+                    "name": "ids",
+                    "in": "query",
+                    "style": "form",
+                    "explode": false,
+                    "schema": {"type": "array", "items": {"type": "string"}}
+                  }
+                ],
+                "responses": {"204": {"description": "ok"}}
+              }
+            }
+          }
         }"#,
     );
 
@@ -109,13 +158,21 @@ fn query_param_with_explode_false_is_not_exploded() {
 fn header_and_cookie_params_are_not_fields() {
     let forge = parse(
         r#"{
-          "openapi": "3.0.3", "info": {"title": "t", "version": "1"},
-          "paths": {"/a": {"get": {"x-forge-group-name": "a", "x-forge-method-name": "get",
-            "parameters": [
-              {"name": "X-Trace", "in": "header", "schema": {"type": "string"}},
-              {"name": "session", "in": "cookie", "schema": {"type": "string"}}
-            ],
-            "responses": {"204": {"description": "ok"}}}}}
+          "openapi": "3.0.3",
+          "info": {"title": "t", "version": "1"},
+          "paths": {
+            "/a": {
+              "get": {
+                "x-forge-group-name": "a",
+                "x-forge-method-name": "get",
+                "parameters": [
+                  {"name": "X-Trace", "in": "header", "schema": {"type": "string"}},
+                  {"name": "session", "in": "cookie", "schema": {"type": "string"}}
+                ],
+                "responses": {"204": {"description": "ok"}}
+              }
+            }
+          }
         }"#,
     );
 
@@ -127,10 +184,25 @@ fn header_and_cookie_params_are_not_fields() {
 fn param_field_is_named_by_x_forge_parameter_name() {
     let forge = parse(
         r#"{
-          "openapi": "3.0.3", "info": {"title": "t", "version": "1"},
-          "paths": {"/a": {"get": {"x-forge-group-name": "a", "x-forge-method-name": "list",
-            "parameters": [{"name": "q", "in": "query", "x-forge-parameter-name": "query", "schema": {"type": "string"}}],
-            "responses": {"204": {"description": "ok"}}}}}
+          "openapi": "3.0.3",
+          "info": {"title": "t", "version": "1"},
+          "paths": {
+            "/a": {
+              "get": {
+                "x-forge-group-name": "a",
+                "x-forge-method-name": "list",
+                "parameters": [
+                  {
+                    "name": "q",
+                    "in": "query",
+                    "x-forge-parameter-name": "query",
+                    "schema": {"type": "string"}
+                  }
+                ],
+                "responses": {"204": {"description": "ok"}}
+              }
+            }
+          }
         }"#,
     );
 
@@ -142,13 +214,30 @@ fn param_field_is_named_by_x_forge_parameter_name() {
 fn param_description_falls_back_to_an_inline_schema() {
     let forge = parse(
         r#"{
-          "openapi": "3.0.3", "info": {"title": "t", "version": "1"},
-          "paths": {"/a": {"get": {"x-forge-group-name": "a", "x-forge-method-name": "list",
-            "parameters": [
-              {"name": "own", "in": "query", "description": "Param.", "schema": {"type": "string", "description": "Schema."}},
-              {"name": "inherited", "in": "query", "schema": {"type": "string", "description": "Schema."}}
-            ],
-            "responses": {"204": {"description": "ok"}}}}}
+          "openapi": "3.0.3",
+          "info": {"title": "t", "version": "1"},
+          "paths": {
+            "/a": {
+              "get": {
+                "x-forge-group-name": "a",
+                "x-forge-method-name": "list",
+                "parameters": [
+                  {
+                    "name": "own",
+                    "in": "query",
+                    "description": "Param.",
+                    "schema": {"type": "string", "description": "Schema."}
+                  },
+                  {
+                    "name": "inherited",
+                    "in": "query",
+                    "schema": {"type": "string", "description": "Schema."}
+                  }
+                ],
+                "responses": {"204": {"description": "ok"}}
+              }
+            }
+          }
         }"#,
     );
 
@@ -161,14 +250,31 @@ fn param_description_falls_back_to_an_inline_schema() {
 fn param_description_comes_from_a_ref_schema() {
     let forge = parse(
         r##"{
-          "openapi": "3.0.3", "info": {"title": "t", "version": "1"},
-          "paths": {"/a": {"get": {"x-forge-group-name": "a", "x-forge-method-name": "list",
-            "parameters": [
-              {"name": "own", "in": "query", "description": "Param.", "schema": {"$ref": "#/components/schemas/Id"}},
-              {"name": "id", "in": "query", "schema": {"$ref": "#/components/schemas/Id"}}
-            ],
-            "responses": {"204": {"description": "ok"}}}}},
-          "components": {"schemas": {"Id": {"type": "string", "description": "An ID."}}}
+          "openapi": "3.0.3",
+          "info": {"title": "t", "version": "1"},
+          "paths": {
+            "/a": {
+              "get": {
+                "x-forge-group-name": "a",
+                "x-forge-method-name": "list",
+                "parameters": [
+                  {
+                    "name": "own",
+                    "in": "query",
+                    "description": "Param.",
+                    "schema": {"$ref": "#/components/schemas/Id"}
+                  },
+                  {"name": "id", "in": "query", "schema": {"$ref": "#/components/schemas/Id"}}
+                ],
+                "responses": {"204": {"description": "ok"}}
+              }
+            }
+          },
+          "components": {
+            "schemas": {
+              "Id": {"type": "string", "description": "An ID."}
+            }
+          }
         }"##,
     );
 
@@ -181,14 +287,31 @@ fn param_description_comes_from_a_ref_schema() {
 fn param_description_follows_a_chain_of_refs() {
     let forge = parse(
         r##"{
-          "openapi": "3.0.3", "info": {"title": "t", "version": "1"},
-          "paths": {"/a/{id}": {"get": {"x-forge-group-name": "a", "x-forge-method-name": "get",
-            "parameters": [{"name": "id", "in": "path", "required": true, "schema": {"$ref": "#/components/schemas/Id"}}],
-            "responses": {"204": {"description": "ok"}}}}},
-          "components": {"schemas": {
-            "Id": {"$ref": "#/components/schemas/Uuid"},
-            "Uuid": {"type": "string", "description": "A UUID."}
-          }}
+          "openapi": "3.0.3",
+          "info": {"title": "t", "version": "1"},
+          "paths": {
+            "/a/{id}": {
+              "get": {
+                "x-forge-group-name": "a",
+                "x-forge-method-name": "get",
+                "parameters": [
+                  {
+                    "name": "id",
+                    "in": "path",
+                    "required": true,
+                    "schema": {"$ref": "#/components/schemas/Id"}
+                  }
+                ],
+                "responses": {"204": {"description": "ok"}}
+              }
+            }
+          },
+          "components": {
+            "schemas": {
+              "Id": {"$ref": "#/components/schemas/Uuid"},
+              "Uuid": {"type": "string", "description": "A UUID."}
+            }
+          }
         }"##,
     );
 
@@ -200,14 +323,26 @@ fn param_description_follows_a_chain_of_refs() {
 fn param_description_is_never_a_schema_title() {
     let forge = parse(
         r##"{
-          "openapi": "3.0.3", "info": {"title": "t", "version": "1"},
-          "paths": {"/a": {"get": {"x-forge-group-name": "a", "x-forge-method-name": "list",
-            "parameters": [
-              {"name": "id", "in": "query", "schema": {"$ref": "#/components/schemas/Id"}},
-              {"name": "inline", "in": "query", "schema": {"type": "string", "title": "Inline"}}
-            ],
-            "responses": {"204": {"description": "ok"}}}}},
-          "components": {"schemas": {"Id": {"type": "string", "title": "Identifier"}}}
+          "openapi": "3.0.3",
+          "info": {"title": "t", "version": "1"},
+          "paths": {
+            "/a": {
+              "get": {
+                "x-forge-group-name": "a",
+                "x-forge-method-name": "list",
+                "parameters": [
+                  {"name": "id", "in": "query", "schema": {"$ref": "#/components/schemas/Id"}},
+                  {"name": "inline", "in": "query", "schema": {"type": "string", "title": "Inline"}}
+                ],
+                "responses": {"204": {"description": "ok"}}
+              }
+            }
+          },
+          "components": {
+            "schemas": {
+              "Id": {"type": "string", "title": "Identifier"}
+            }
+          }
         }"##,
     );
 
@@ -220,12 +355,29 @@ fn param_description_is_never_a_schema_title() {
 fn description_next_to_a_param_schema_ref_is_its_own_in_3_1() {
     let forge = parse(
         r##"{
-          "openapi": "3.1.0", "info": {"title": "t", "version": "1"},
-          "paths": {"/a": {"get": {"x-forge-group-name": "a", "x-forge-method-name": "list",
-            "parameters": [{"name": "id", "in": "query",
-              "schema": {"$ref": "#/components/schemas/Id", "description": "The ID to find."}}],
-            "responses": {"204": {"description": "ok"}}}}},
-          "components": {"schemas": {"Id": {"type": "string", "description": "An ID."}}}
+          "openapi": "3.1.0",
+          "info": {"title": "t", "version": "1"},
+          "paths": {
+            "/a": {
+              "get": {
+                "x-forge-group-name": "a",
+                "x-forge-method-name": "list",
+                "parameters": [
+                  {
+                    "name": "id",
+                    "in": "query",
+                    "schema": {"$ref": "#/components/schemas/Id", "description": "The ID to find."}
+                  }
+                ],
+                "responses": {"204": {"description": "ok"}}
+              }
+            }
+          },
+          "components": {
+            "schemas": {
+              "Id": {"type": "string", "description": "An ID."}
+            }
+          }
         }"##,
     );
 
@@ -237,12 +389,29 @@ fn description_next_to_a_param_schema_ref_is_its_own_in_3_1() {
 fn param_description_comes_from_an_all_of_member_in_3_1() {
     let forge = parse(
         r##"{
-          "openapi": "3.1.0", "info": {"title": "t", "version": "1"},
-          "paths": {"/a": {"get": {"x-forge-group-name": "a", "x-forge-method-name": "list",
-            "parameters": [{"name": "region", "in": "query",
-              "schema": {"allOf": [{"$ref": "#/components/schemas/Region"}, {"default": "us"}]}}],
-            "responses": {"204": {"description": "ok"}}}}},
-          "components": {"schemas": {"Region": {"type": "string", "description": "A region."}}}
+          "openapi": "3.1.0",
+          "info": {"title": "t", "version": "1"},
+          "paths": {
+            "/a": {
+              "get": {
+                "x-forge-group-name": "a",
+                "x-forge-method-name": "list",
+                "parameters": [
+                  {
+                    "name": "region",
+                    "in": "query",
+                    "schema": {"allOf": [{"$ref": "#/components/schemas/Region"}, {"default": "us"}]}
+                  }
+                ],
+                "responses": {"204": {"description": "ok"}}
+              }
+            }
+          },
+          "components": {
+            "schemas": {
+              "Region": {"type": "string", "description": "A region."}
+            }
+          }
         }"##,
     );
 
@@ -254,12 +423,29 @@ fn param_description_comes_from_an_all_of_member_in_3_1() {
 fn param_description_from_an_all_of_member_is_ignored_in_3_0() {
     let forge = parse(
         r##"{
-          "openapi": "3.0.3", "info": {"title": "t", "version": "1"},
-          "paths": {"/a": {"get": {"x-forge-group-name": "a", "x-forge-method-name": "list",
-            "parameters": [{"name": "region", "in": "query",
-              "schema": {"allOf": [{"$ref": "#/components/schemas/Region"}, {"default": "us"}]}}],
-            "responses": {"204": {"description": "ok"}}}}},
-          "components": {"schemas": {"Region": {"type": "string", "description": "A region."}}}
+          "openapi": "3.0.3",
+          "info": {"title": "t", "version": "1"},
+          "paths": {
+            "/a": {
+              "get": {
+                "x-forge-group-name": "a",
+                "x-forge-method-name": "list",
+                "parameters": [
+                  {
+                    "name": "region",
+                    "in": "query",
+                    "schema": {"allOf": [{"$ref": "#/components/schemas/Region"}, {"default": "us"}]}
+                  }
+                ],
+                "responses": {"204": {"description": "ok"}}
+              }
+            }
+          },
+          "components": {
+            "schemas": {
+              "Region": {"type": "string", "description": "A region."}
+            }
+          }
         }"##,
     );
 
@@ -271,12 +457,25 @@ fn param_description_from_an_all_of_member_is_ignored_in_3_0() {
 fn param_ref_description_overrides_the_params_in_3_1() {
     let forge = parse(
         r##"{
-          "openapi": "3.1.0", "info": {"title": "t", "version": "1"},
-          "paths": {"/a": {"get": {"x-forge-group-name": "a", "x-forge-method-name": "list",
-            "parameters": [{"$ref": "#/components/parameters/Page", "description": "The page of pets."}],
-            "responses": {"204": {"description": "ok"}}}}},
-          "components": {"parameters": {"Page": {"name": "page", "in": "query", "description": "A page.",
-            "schema": {"type": "integer"}}}}
+          "openapi": "3.1.0",
+          "info": {"title": "t", "version": "1"},
+          "paths": {
+            "/a": {
+              "get": {
+                "x-forge-group-name": "a",
+                "x-forge-method-name": "list",
+                "parameters": [
+                  {"$ref": "#/components/parameters/Page", "description": "The page of pets."}
+                ],
+                "responses": {"204": {"description": "ok"}}
+              }
+            }
+          },
+          "components": {
+            "parameters": {
+              "Page": {"name": "page", "in": "query", "description": "A page.", "schema": {"type": "integer"}}
+            }
+          }
         }"##,
     );
 
@@ -288,12 +487,25 @@ fn param_ref_description_overrides_the_params_in_3_1() {
 fn param_ref_description_is_ignored_in_3_0() {
     let forge = parse(
         r##"{
-          "openapi": "3.0.3", "info": {"title": "t", "version": "1"},
-          "paths": {"/a": {"get": {"x-forge-group-name": "a", "x-forge-method-name": "list",
-            "parameters": [{"$ref": "#/components/parameters/Page", "description": "The page of pets."}],
-            "responses": {"204": {"description": "ok"}}}}},
-          "components": {"parameters": {"Page": {"name": "page", "in": "query", "description": "A page.",
-            "schema": {"type": "integer"}}}}
+          "openapi": "3.0.3",
+          "info": {"title": "t", "version": "1"},
+          "paths": {
+            "/a": {
+              "get": {
+                "x-forge-group-name": "a",
+                "x-forge-method-name": "list",
+                "parameters": [
+                  {"$ref": "#/components/parameters/Page", "description": "The page of pets."}
+                ],
+                "responses": {"204": {"description": "ok"}}
+              }
+            }
+          },
+          "components": {
+            "parameters": {
+              "Page": {"name": "page", "in": "query", "description": "A page.", "schema": {"type": "integer"}}
+            }
+          }
         }"##,
     );
 
@@ -305,12 +517,23 @@ fn param_ref_description_is_ignored_in_3_0() {
 fn param_ref_without_a_description_has_the_params() {
     let forge = parse(
         r##"{
-          "openapi": "3.1.0", "info": {"title": "t", "version": "1"},
-          "paths": {"/a": {"get": {"x-forge-group-name": "a", "x-forge-method-name": "list",
-            "parameters": [{"$ref": "#/components/parameters/Page"}],
-            "responses": {"204": {"description": "ok"}}}}},
-          "components": {"parameters": {"Page": {"name": "page", "in": "query", "description": "A page.",
-            "schema": {"type": "integer"}}}}
+          "openapi": "3.1.0",
+          "info": {"title": "t", "version": "1"},
+          "paths": {
+            "/a": {
+              "get": {
+                "x-forge-group-name": "a",
+                "x-forge-method-name": "list",
+                "parameters": [{"$ref": "#/components/parameters/Page"}],
+                "responses": {"204": {"description": "ok"}}
+              }
+            }
+          },
+          "components": {
+            "parameters": {
+              "Page": {"name": "page", "in": "query", "description": "A page.", "schema": {"type": "integer"}}
+            }
+          }
         }"##,
     );
 
@@ -322,18 +545,37 @@ fn param_ref_without_a_description_has_the_params() {
 fn param_field_is_never_read_only() {
     let forge = parse(
         r##"{
-          "openapi": "3.1.0", "info": {"title": "t", "version": "1"},
-          "paths": {"/a/{id}": {"get": {"x-forge-group-name": "a", "x-forge-method-name": "get",
-            "parameters": [
-              {"name": "id", "in": "path", "required": true, "schema": {"type": "string", "readOnly": true}},
-              {"name": "since", "in": "query", "schema": {"$ref": "#/components/schemas/Since", "readOnly": true}},
-              {"name": "page", "in": "query", "schema": {"$ref": "#/components/schemas/Page"}}
-            ],
-            "responses": {"204": {"description": "ok"}}}}},
-          "components": {"schemas": {
-            "Since": {"type": "string"},
-            "Page": {"type": "integer", "readOnly": true}
-          }}
+          "openapi": "3.1.0",
+          "info": {"title": "t", "version": "1"},
+          "paths": {
+            "/a/{id}": {
+              "get": {
+                "x-forge-group-name": "a",
+                "x-forge-method-name": "get",
+                "parameters": [
+                  {
+                    "name": "id",
+                    "in": "path",
+                    "required": true,
+                    "schema": {"type": "string", "readOnly": true}
+                  },
+                  {
+                    "name": "since",
+                    "in": "query",
+                    "schema": {"$ref": "#/components/schemas/Since", "readOnly": true}
+                  },
+                  {"name": "page", "in": "query", "schema": {"$ref": "#/components/schemas/Page"}}
+                ],
+                "responses": {"204": {"description": "ok"}}
+              }
+            }
+          },
+          "components": {
+            "schemas": {
+              "Since": {"type": "string"},
+              "Page": {"type": "integer", "readOnly": true}
+            }
+          }
         }"##,
     );
 
@@ -347,12 +589,27 @@ fn param_field_is_never_read_only() {
 fn query_string_property_is_never_read_only() {
     let forge = parse(
         r#"{
-          "openapi": "3.2.0", "info": {"title": "t", "version": "1"},
-          "paths": {"/a": {"get": {"x-forge-group-name": "a", "x-forge-method-name": "list",
-            "parameters": [{"name": "filter", "in": "querystring", "content": {"application/x-www-form-urlencoded": {"schema": {
-              "type": "object", "properties": {"status": {"type": "string", "readOnly": true, "x-forge-sensitive": true}}
-            }}}}],
-            "responses": {"204": {"description": "ok"}}}}}
+          "openapi": "3.2.0",
+          "info": {"title": "t", "version": "1"},
+          "paths": {
+            "/a": {
+              "get": {
+                "x-forge-group-name": "a",
+                "x-forge-method-name": "list",
+                "parameters": [
+                  {
+                    "name": "filter",
+                    "in": "querystring",
+                    "content": {"application/x-www-form-urlencoded": {"schema": {
+                      "type": "object",
+                      "properties": {"status": {"type": "string", "readOnly": true, "x-forge-sensitive": true}}
+                    }}}
+                  }
+                ],
+                "responses": {"204": {"description": "ok"}}
+              }
+            }
+          }
         }"#,
     );
 
@@ -365,13 +622,21 @@ fn query_string_property_is_never_read_only() {
 fn param_field_is_sensitive_when_its_schema_is() {
     let forge = parse(
         r#"{
-          "openapi": "3.0.3", "info": {"title": "t", "version": "1"},
-          "paths": {"/a": {"get": {"x-forge-group-name": "a", "x-forge-method-name": "list",
-            "parameters": [
-              {"name": "token", "in": "query", "schema": {"type": "string", "x-forge-sensitive": true}},
-              {"name": "page", "in": "query", "schema": {"type": "integer"}}
-            ],
-            "responses": {"204": {"description": "ok"}}}}}
+          "openapi": "3.0.3",
+          "info": {"title": "t", "version": "1"},
+          "paths": {
+            "/a": {
+              "get": {
+                "x-forge-group-name": "a",
+                "x-forge-method-name": "list",
+                "parameters": [
+                  {"name": "token", "in": "query", "schema": {"type": "string", "x-forge-sensitive": true}},
+                  {"name": "page", "in": "query", "schema": {"type": "integer"}}
+                ],
+                "responses": {"204": {"description": "ok"}}
+              }
+            }
+          }
         }"#,
     );
 
@@ -384,14 +649,26 @@ fn param_field_is_sensitive_when_its_schema_is() {
 fn param_field_is_sensitive_when_its_ref_schema_is() {
     let forge = parse(
         r##"{
-          "openapi": "3.0.3", "info": {"title": "t", "version": "1"},
-          "paths": {"/a": {"get": {"x-forge-group-name": "a", "x-forge-method-name": "list",
-            "parameters": [{"name": "token", "in": "query", "schema": {"$ref": "#/components/schemas/Token"}}],
-            "responses": {"204": {"description": "ok"}}}}},
-          "components": {"schemas": {
-            "Token": {"$ref": "#/components/schemas/Secret"},
-            "Secret": {"type": "string", "x-forge-sensitive": true}
-          }}
+          "openapi": "3.0.3",
+          "info": {"title": "t", "version": "1"},
+          "paths": {
+            "/a": {
+              "get": {
+                "x-forge-group-name": "a",
+                "x-forge-method-name": "list",
+                "parameters": [
+                  {"name": "token", "in": "query", "schema": {"$ref": "#/components/schemas/Token"}}
+                ],
+                "responses": {"204": {"description": "ok"}}
+              }
+            }
+          },
+          "components": {
+            "schemas": {
+              "Token": {"$ref": "#/components/schemas/Secret"},
+              "Secret": {"type": "string", "x-forge-sensitive": true}
+            }
+          }
         }"##,
     );
 
@@ -402,12 +679,29 @@ fn param_field_is_sensitive_when_its_ref_schema_is() {
 fn sensitive_next_to_a_param_schema_ref_counts_in_3_0() {
     let forge = parse(
         r##"{
-          "openapi": "3.0.3", "info": {"title": "t", "version": "1"},
-          "paths": {"/a": {"get": {"x-forge-group-name": "a", "x-forge-method-name": "list",
-            "parameters": [{"name": "token", "in": "query",
-              "schema": {"$ref": "#/components/schemas/Token", "x-forge-sensitive": true}}],
-            "responses": {"204": {"description": "ok"}}}}},
-          "components": {"schemas": {"Token": {"type": "string"}}}
+          "openapi": "3.0.3",
+          "info": {"title": "t", "version": "1"},
+          "paths": {
+            "/a": {
+              "get": {
+                "x-forge-group-name": "a",
+                "x-forge-method-name": "list",
+                "parameters": [
+                  {
+                    "name": "token",
+                    "in": "query",
+                    "schema": {"$ref": "#/components/schemas/Token", "x-forge-sensitive": true}
+                  }
+                ],
+                "responses": {"204": {"description": "ok"}}
+              }
+            }
+          },
+          "components": {
+            "schemas": {
+              "Token": {"type": "string"}
+            }
+          }
         }"##,
     );
 
@@ -418,10 +712,20 @@ fn sensitive_next_to_a_param_schema_ref_counts_in_3_0() {
 fn sensitive_on_the_param_itself_is_ignored() {
     let forge = parse(
         r#"{
-          "openapi": "3.0.3", "info": {"title": "t", "version": "1"},
-          "paths": {"/a": {"get": {"x-forge-group-name": "a", "x-forge-method-name": "list",
-            "parameters": [{"name": "token", "in": "query", "x-forge-sensitive": true, "schema": {"type": "string"}}],
-            "responses": {"204": {"description": "ok"}}}}}
+          "openapi": "3.0.3",
+          "info": {"title": "t", "version": "1"},
+          "paths": {
+            "/a": {
+              "get": {
+                "x-forge-group-name": "a",
+                "x-forge-method-name": "list",
+                "parameters": [
+                  {"name": "token", "in": "query", "x-forge-sensitive": true, "schema": {"type": "string"}}
+                ],
+                "responses": {"204": {"description": "ok"}}
+              }
+            }
+          }
         }"#,
     );
 
@@ -432,11 +736,23 @@ fn sensitive_on_the_param_itself_is_ignored() {
 fn param_ref_is_followed() {
     let forge = parse(
         r##"{
-          "openapi": "3.0.3", "info": {"title": "t", "version": "1"},
-          "paths": {"/a": {"get": {"x-forge-group-name": "a", "x-forge-method-name": "list",
-            "parameters": [{"$ref": "#/components/parameters/Page"}],
-            "responses": {"204": {"description": "ok"}}}}},
-          "components": {"parameters": {"Page": {"name": "page", "in": "query", "schema": {"type": "integer"}}}}
+          "openapi": "3.0.3",
+          "info": {"title": "t", "version": "1"},
+          "paths": {
+            "/a": {
+              "get": {
+                "x-forge-group-name": "a",
+                "x-forge-method-name": "list",
+                "parameters": [{"$ref": "#/components/parameters/Page"}],
+                "responses": {"204": {"description": "ok"}}
+              }
+            }
+          },
+          "components": {
+            "parameters": {
+              "Page": {"name": "page", "in": "query", "schema": {"type": "integer"}}
+            }
+          }
         }"##,
     );
 
@@ -449,12 +765,25 @@ fn param_ref_is_followed() {
 fn path_item_params_belong_to_each_operation() {
     let forge = parse(
         r#"{
-          "openapi": "3.0.3", "info": {"title": "t", "version": "1"},
-          "paths": {"/a/{id}": {
-            "parameters": [{"name": "id", "in": "path", "required": true, "schema": {"type": "string"}}],
-            "get": {"x-forge-group-name": "a", "x-forge-method-name": "get", "responses": {"204": {"description": "ok"}}},
-            "delete": {"x-forge-group-name": "a", "x-forge-method-name": "delete", "responses": {"204": {"description": "ok"}}}
-          }}
+          "openapi": "3.0.3",
+          "info": {"title": "t", "version": "1"},
+          "paths": {
+            "/a/{id}": {
+              "parameters": [
+                {"name": "id", "in": "path", "required": true, "schema": {"type": "string"}}
+              ],
+              "get": {
+                "x-forge-group-name": "a",
+                "x-forge-method-name": "get",
+                "responses": {"204": {"description": "ok"}}
+              },
+              "delete": {
+                "x-forge-group-name": "a",
+                "x-forge-method-name": "delete",
+                "responses": {"204": {"description": "ok"}}
+              }
+            }
+          }
         }"#,
     );
 
@@ -469,13 +798,23 @@ fn path_item_params_belong_to_each_operation() {
 fn operation_param_replaces_the_path_item_param() {
     let forge = parse(
         r#"{
-          "openapi": "3.0.3", "info": {"title": "t", "version": "1"},
-          "paths": {"/a": {
-            "parameters": [{"name": "page", "in": "query", "schema": {"type": "string"}}],
-            "get": {"x-forge-group-name": "a", "x-forge-method-name": "list",
-              "parameters": [{"name": "page", "in": "query", "schema": {"type": "integer"}}],
-              "responses": {"204": {"description": "ok"}}}
-          }}
+          "openapi": "3.0.3",
+          "info": {"title": "t", "version": "1"},
+          "paths": {
+            "/a": {
+              "parameters": [
+                {"name": "page", "in": "query", "schema": {"type": "string"}}
+              ],
+              "get": {
+                "x-forge-group-name": "a",
+                "x-forge-method-name": "list",
+                "parameters": [
+                  {"name": "page", "in": "query", "schema": {"type": "integer"}}
+                ],
+                "responses": {"204": {"description": "ok"}}
+              }
+            }
+          }
         }"#,
     );
 
@@ -488,9 +827,17 @@ fn operation_param_replaces_the_path_item_param() {
 fn undeclared_path_placeholder_is_a_required_string() {
     let forge = parse(
         r#"{
-          "openapi": "3.0.3", "info": {"title": "t", "version": "1"},
-          "paths": {"/a/{id}": {"get": {"x-forge-group-name": "a", "x-forge-method-name": "get",
-            "responses": {"204": {"description": "ok"}}}}}
+          "openapi": "3.0.3",
+          "info": {"title": "t", "version": "1"},
+          "paths": {
+            "/a/{id}": {
+              "get": {
+                "x-forge-group-name": "a",
+                "x-forge-method-name": "get",
+                "responses": {"204": {"description": "ok"}}
+              }
+            }
+          }
         }"#,
     );
 
@@ -505,17 +852,25 @@ fn undeclared_path_placeholder_is_a_required_string() {
 fn params_are_in_path_template_then_declared_order() {
     let forge = parse(
         r#"{
-          "openapi": "3.0.3", "info": {"title": "t", "version": "1"},
-          "paths": {"/a/{second}/{first}": {
-            "parameters": [{"name": "item_query", "in": "query", "schema": {"type": "string"}}],
-            "get": {"x-forge-group-name": "a", "x-forge-method-name": "get",
+          "openapi": "3.0.3",
+          "info": {"title": "t", "version": "1"},
+          "paths": {
+            "/a/{second}/{first}": {
               "parameters": [
-                {"name": "op_query", "in": "query", "schema": {"type": "string"}},
-                {"name": "first", "in": "path", "required": true, "schema": {"type": "string"}},
-                {"name": "second", "in": "path", "required": true, "schema": {"type": "string"}}
+                {"name": "item_query", "in": "query", "schema": {"type": "string"}}
               ],
-              "responses": {"204": {"description": "ok"}}}
-          }}
+              "get": {
+                "x-forge-group-name": "a",
+                "x-forge-method-name": "get",
+                "parameters": [
+                  {"name": "op_query", "in": "query", "schema": {"type": "string"}},
+                  {"name": "first", "in": "path", "required": true, "schema": {"type": "string"}},
+                  {"name": "second", "in": "path", "required": true, "schema": {"type": "string"}}
+                ],
+                "responses": {"204": {"description": "ok"}}
+              }
+            }
+          }
         }"#,
     );
 
@@ -527,12 +882,27 @@ fn params_are_in_path_template_then_declared_order() {
 fn query_string_object_is_query_fields() {
     let forge = parse(
         r#"{
-          "openapi": "3.2.0", "info": {"title": "t", "version": "1"},
-          "paths": {"/a": {"get": {"x-forge-group-name": "a", "x-forge-method-name": "list",
-            "parameters": [{"name": "filter", "in": "querystring", "content": {"application/x-www-form-urlencoded": {"schema": {
-              "type": "object", "properties": {"status": {"type": "string"}, "limit": {"type": "integer"}}
-            }}}}],
-            "responses": {"204": {"description": "ok"}}}}}
+          "openapi": "3.2.0",
+          "info": {"title": "t", "version": "1"},
+          "paths": {
+            "/a": {
+              "get": {
+                "x-forge-group-name": "a",
+                "x-forge-method-name": "list",
+                "parameters": [
+                  {
+                    "name": "filter",
+                    "in": "querystring",
+                    "content": {"application/x-www-form-urlencoded": {"schema": {
+                      "type": "object",
+                      "properties": {"status": {"type": "string"}, "limit": {"type": "integer"}}
+                    }}}
+                  }
+                ],
+                "responses": {"204": {"description": "ok"}}
+              }
+            }
+          }
         }"#,
     );
 
@@ -548,9 +918,17 @@ fn query_string_object_is_query_fields() {
 fn no_params_and_no_body_is_no_request() {
     let forge = parse(
         r#"{
-          "openapi": "3.0.3", "info": {"title": "t", "version": "1"},
-          "paths": {"/a": {"get": {"x-forge-group-name": "a", "x-forge-method-name": "get",
-            "responses": {"204": {"description": "ok"}}}}}
+          "openapi": "3.0.3",
+          "info": {"title": "t", "version": "1"},
+          "paths": {
+            "/a": {
+              "get": {
+                "x-forge-group-name": "a",
+                "x-forge-method-name": "get",
+                "responses": {"204": {"description": "ok"}}
+              }
+            }
+          }
         }"#,
     );
 
@@ -561,10 +939,20 @@ fn no_params_and_no_body_is_no_request() {
 fn body_without_params_is_the_request() {
     let forge = parse(
         r#"{
-          "openapi": "3.0.3", "info": {"title": "t", "version": "1"},
-          "paths": {"/a": {"post": {"x-forge-group-name": "a", "x-forge-method-name": "create",
-            "requestBody": {"content": {"application/json": {"schema": {"type": "array", "items": {"type": "string"}}}}},
-            "responses": {"204": {"description": "ok"}}}}}
+          "openapi": "3.0.3",
+          "info": {"title": "t", "version": "1"},
+          "paths": {
+            "/a": {
+              "post": {
+                "x-forge-group-name": "a",
+                "x-forge-method-name": "create",
+                "requestBody": {
+                  "content": {"application/json": {"schema": {"type": "array", "items": {"type": "string"}}}}
+                },
+                "responses": {"204": {"description": "ok"}}
+              }
+            }
+          }
         }"#,
     );
 
@@ -575,13 +963,24 @@ fn body_without_params_is_the_request() {
 fn object_body_is_intersected_with_the_params() {
     let forge = parse(
         r#"{
-          "openapi": "3.0.3", "info": {"title": "t", "version": "1"},
-          "paths": {"/a/{id}": {"put": {"x-forge-group-name": "a", "x-forge-method-name": "update",
-            "parameters": [{"name": "id", "in": "path", "required": true, "schema": {"type": "string"}}],
-            "requestBody": {"content": {"application/json": {"schema": {
-              "type": "object", "properties": {"name": {"type": "string"}}
-            }}}},
-            "responses": {"204": {"description": "ok"}}}}}
+          "openapi": "3.0.3",
+          "info": {"title": "t", "version": "1"},
+          "paths": {
+            "/a/{id}": {
+              "put": {
+                "x-forge-group-name": "a",
+                "x-forge-method-name": "update",
+                "parameters": [
+                  {"name": "id", "in": "path", "required": true, "schema": {"type": "string"}}
+                ],
+                "requestBody": {"content": {"application/json": {"schema": {
+                  "type": "object",
+                  "properties": {"name": {"type": "string"}}
+                }}}},
+                "responses": {"204": {"description": "ok"}}
+              }
+            }
+          }
         }"#,
     );
 
@@ -598,12 +997,26 @@ fn object_body_is_intersected_with_the_params() {
 fn model_body_is_intersected_with_the_params() {
     let forge = parse(
         r##"{
-          "openapi": "3.0.3", "info": {"title": "t", "version": "1"},
-          "paths": {"/a/{id}": {"put": {"x-forge-group-name": "a", "x-forge-method-name": "update",
-            "parameters": [{"name": "id", "in": "path", "required": true, "schema": {"type": "string"}}],
-            "requestBody": {"content": {"application/json": {"schema": {"$ref": "#/components/schemas/Pet"}}}},
-            "responses": {"204": {"description": "ok"}}}}},
-          "components": {"schemas": {"Pet": {"type": "object", "properties": {"name": {"type": "string"}}}}}
+          "openapi": "3.0.3",
+          "info": {"title": "t", "version": "1"},
+          "paths": {
+            "/a/{id}": {
+              "put": {
+                "x-forge-group-name": "a",
+                "x-forge-method-name": "update",
+                "parameters": [
+                  {"name": "id", "in": "path", "required": true, "schema": {"type": "string"}}
+                ],
+                "requestBody": {"content": {"application/json": {"schema": {"$ref": "#/components/schemas/Pet"}}}},
+                "responses": {"204": {"description": "ok"}}
+              }
+            }
+          },
+          "components": {
+            "schemas": {
+              "Pet": {"type": "object", "properties": {"name": {"type": "string"}}}
+            }
+          }
         }"##,
     );
 
@@ -620,17 +1033,29 @@ fn model_body_is_intersected_with_the_params() {
 fn union_body_is_intersected_with_the_params() {
     let forge = parse(
         r##"{
-          "openapi": "3.0.3", "info": {"title": "t", "version": "1"},
-          "paths": {"/a/{id}": {"put": {"x-forge-group-name": "a", "x-forge-method-name": "update",
-            "parameters": [{"name": "id", "in": "path", "required": true, "schema": {"type": "string"}}],
-            "requestBody": {"content": {"application/json": {"schema": {
-              "oneOf": [{"$ref": "#/components/schemas/Cat"}, {"$ref": "#/components/schemas/Dog"}]
-            }}}},
-            "responses": {"204": {"description": "ok"}}}}},
-          "components": {"schemas": {
-            "Cat": {"type": "object", "properties": {"meows": {"type": "boolean"}}},
-            "Dog": {"type": "object", "properties": {"barks": {"type": "boolean"}}}
-          }}
+          "openapi": "3.0.3",
+          "info": {"title": "t", "version": "1"},
+          "paths": {
+            "/a/{id}": {
+              "put": {
+                "x-forge-group-name": "a",
+                "x-forge-method-name": "update",
+                "parameters": [
+                  {"name": "id", "in": "path", "required": true, "schema": {"type": "string"}}
+                ],
+                "requestBody": {"content": {"application/json": {"schema": {
+                  "oneOf": [{"$ref": "#/components/schemas/Cat"}, {"$ref": "#/components/schemas/Dog"}]
+                }}}},
+                "responses": {"204": {"description": "ok"}}
+              }
+            }
+          },
+          "components": {
+            "schemas": {
+              "Cat": {"type": "object", "properties": {"meows": {"type": "boolean"}}},
+              "Dog": {"type": "object", "properties": {"barks": {"type": "boolean"}}}
+            }
+          }
         }"##,
     );
 
@@ -647,11 +1072,23 @@ fn union_body_is_intersected_with_the_params() {
 fn array_body_is_the_last_field_of_the_params() {
     let forge = parse(
         r#"{
-          "openapi": "3.0.3", "info": {"title": "t", "version": "1"},
-          "paths": {"/a/{id}": {"put": {"x-forge-group-name": "a", "x-forge-method-name": "update",
-            "parameters": [{"name": "id", "in": "path", "required": true, "schema": {"type": "string"}}],
-            "requestBody": {"content": {"application/json": {"schema": {"type": "array", "items": {"type": "string"}}}}},
-            "responses": {"204": {"description": "ok"}}}}}
+          "openapi": "3.0.3",
+          "info": {"title": "t", "version": "1"},
+          "paths": {
+            "/a/{id}": {
+              "put": {
+                "x-forge-group-name": "a",
+                "x-forge-method-name": "update",
+                "parameters": [
+                  {"name": "id", "in": "path", "required": true, "schema": {"type": "string"}}
+                ],
+                "requestBody": {
+                  "content": {"application/json": {"schema": {"type": "array", "items": {"type": "string"}}}}
+                },
+                "responses": {"204": {"description": "ok"}}
+              }
+            }
+          }
         }"#,
     );
 
@@ -667,13 +1104,26 @@ fn array_body_is_the_last_field_of_the_params() {
 fn body_field_is_neither_read_only_nor_sensitive() {
     let forge = parse(
         r#"{
-          "openapi": "3.0.3", "info": {"title": "t", "version": "1"},
-          "paths": {"/a/{id}": {"put": {"x-forge-group-name": "a", "x-forge-method-name": "update",
-            "parameters": [{"name": "id", "in": "path", "required": true, "schema": {"type": "string"}}],
-            "requestBody": {"content": {"application/json": {"schema": {
-              "type": "array", "items": {"type": "string"}, "readOnly": true, "x-forge-sensitive": true
-            }}}},
-            "responses": {"204": {"description": "ok"}}}}}
+          "openapi": "3.0.3",
+          "info": {"title": "t", "version": "1"},
+          "paths": {
+            "/a/{id}": {
+              "put": {
+                "x-forge-group-name": "a",
+                "x-forge-method-name": "update",
+                "parameters": [
+                  {"name": "id", "in": "path", "required": true, "schema": {"type": "string"}}
+                ],
+                "requestBody": {"content": {"application/json": {"schema": {
+                  "type": "array",
+                  "items": {"type": "string"},
+                  "readOnly": true,
+                  "x-forge-sensitive": true
+                }}}},
+                "responses": {"204": {"description": "ok"}}
+              }
+            }
+          }
         }"#,
     );
 
@@ -686,13 +1136,29 @@ fn body_field_is_neither_read_only_nor_sensitive() {
 fn read_only_field_of_a_body_model_is_kept() {
     let forge = parse(
         r##"{
-          "openapi": "3.0.3", "info": {"title": "t", "version": "1"},
-          "paths": {"/a": {"post": {"x-forge-group-name": "a", "x-forge-method-name": "create",
-            "requestBody": {"content": {"application/json": {"schema": {"$ref": "#/components/schemas/Pet"}}}},
-            "responses": {"200": {"description": "ok", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Pet"}}}}}}}},
-          "components": {"schemas": {"Pet": {"type": "object", "properties": {
-            "id": {"type": "string", "readOnly": true}, "name": {"type": "string"}
-          }}}}
+          "openapi": "3.0.3",
+          "info": {"title": "t", "version": "1"},
+          "paths": {
+            "/a": {
+              "post": {
+                "x-forge-group-name": "a",
+                "x-forge-method-name": "create",
+                "requestBody": {"content": {"application/json": {"schema": {"$ref": "#/components/schemas/Pet"}}}},
+                "responses": {"200": {
+                  "description": "ok",
+                  "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Pet"}}}
+                }}
+              }
+            }
+          },
+          "components": {
+            "schemas": {
+              "Pet": {
+                "type": "object",
+                "properties": {"id": {"type": "string", "readOnly": true}, "name": {"type": "string"}}
+              }
+            }
+          }
         }"##,
     );
 
@@ -706,17 +1172,41 @@ fn read_only_field_of_a_body_model_is_kept() {
 fn required_field_of_a_body_model_is_read_only_through_all_of() {
     let forge = parse(
         r##"{
-          "openapi": "3.0.3", "info": {"title": "t", "version": "1"},
-          "paths": {"/rulesets": {"post": {"x-forge-group-name": "rulesets", "x-forge-method-name": "create",
-            "requestBody": {"content": {"application/json": {"schema": {"$ref": "#/components/schemas/Ruleset"}}}},
-            "responses": {"200": {"description": "ok", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Ruleset"}}}}}}}},
-          "components": {"schemas": {
-            "Ruleset": {"type": "object", "required": ["id", "name"], "properties": {
-              "id": {"allOf": [{"$ref": "#/components/schemas/RulesetId"}, {"type": "string", "readOnly": true}]},
-              "name": {"type": "string"}
-            }},
-            "RulesetId": {"type": "string", "description": "The unique ID of the ruleset."}
-          }}
+          "openapi": "3.0.3",
+          "info": {"title": "t", "version": "1"},
+          "paths": {
+            "/rulesets": {
+              "post": {
+                "x-forge-group-name": "rulesets",
+                "x-forge-method-name": "create",
+                "requestBody": {"content": {"application/json": {"schema": {
+                  "$ref": "#/components/schemas/Ruleset"
+                }}}},
+                "responses": {"200": {
+                  "description": "ok",
+                  "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Ruleset"}}}
+                }}
+              }
+            }
+          },
+          "components": {
+            "schemas": {
+              "Ruleset": {
+                "type": "object",
+                "required": ["id", "name"],
+                "properties": {
+                  "id": {
+                    "allOf": [
+                      {"$ref": "#/components/schemas/RulesetId"},
+                      {"type": "string", "readOnly": true}
+                    ]
+                  },
+                  "name": {"type": "string"}
+                }
+              },
+              "RulesetId": {"type": "string", "description": "The unique ID of the ruleset."}
+            }
+          }
         }"##,
     );
 
@@ -732,13 +1222,24 @@ fn required_field_of_a_body_model_is_read_only_through_all_of() {
 fn map_body_is_a_body_field() {
     let forge = parse(
         r#"{
-          "openapi": "3.0.3", "info": {"title": "t", "version": "1"},
-          "paths": {"/a/{id}": {"put": {"x-forge-group-name": "a", "x-forge-method-name": "update",
-            "parameters": [{"name": "id", "in": "path", "required": true, "schema": {"type": "string"}}],
-            "requestBody": {"content": {"application/json": {"schema": {
-              "type": "object", "additionalProperties": {"type": "string"}
-            }}}},
-            "responses": {"204": {"description": "ok"}}}}}
+          "openapi": "3.0.3",
+          "info": {"title": "t", "version": "1"},
+          "paths": {
+            "/a/{id}": {
+              "put": {
+                "x-forge-group-name": "a",
+                "x-forge-method-name": "update",
+                "parameters": [
+                  {"name": "id", "in": "path", "required": true, "schema": {"type": "string"}}
+                ],
+                "requestBody": {"content": {"application/json": {"schema": {
+                  "type": "object",
+                  "additionalProperties": {"type": "string"}
+                }}}},
+                "responses": {"204": {"description": "ok"}}
+              }
+            }
+          }
         }"#,
     );
 
@@ -750,11 +1251,21 @@ fn map_body_is_a_body_field() {
 fn unknown_body_is_a_body_field() {
     let forge = parse(
         r#"{
-          "openapi": "3.0.3", "info": {"title": "t", "version": "1"},
-          "paths": {"/a/{id}": {"put": {"x-forge-group-name": "a", "x-forge-method-name": "update",
-            "parameters": [{"name": "id", "in": "path", "required": true, "schema": {"type": "string"}}],
-            "requestBody": {"content": {"application/json": {"schema": {}}}},
-            "responses": {"204": {"description": "ok"}}}}}
+          "openapi": "3.0.3",
+          "info": {"title": "t", "version": "1"},
+          "paths": {
+            "/a/{id}": {
+              "put": {
+                "x-forge-group-name": "a",
+                "x-forge-method-name": "update",
+                "parameters": [
+                  {"name": "id", "in": "path", "required": true, "schema": {"type": "string"}}
+                ],
+                "requestBody": {"content": {"application/json": {"schema": {}}}},
+                "responses": {"204": {"description": "ok"}}
+              }
+            }
+          }
         }"#,
     );
 
@@ -766,13 +1277,25 @@ fn unknown_body_is_a_body_field() {
 fn nullable_body_is_a_body_field() {
     let forge = parse(
         r#"{
-          "openapi": "3.0.3", "info": {"title": "t", "version": "1"},
-          "paths": {"/a/{id}": {"put": {"x-forge-group-name": "a", "x-forge-method-name": "update",
-            "parameters": [{"name": "id", "in": "path", "required": true, "schema": {"type": "string"}}],
-            "requestBody": {"content": {"application/json": {"schema": {
-              "type": "object", "nullable": true, "properties": {"name": {"type": "string"}}
-            }}}},
-            "responses": {"204": {"description": "ok"}}}}}
+          "openapi": "3.0.3",
+          "info": {"title": "t", "version": "1"},
+          "paths": {
+            "/a/{id}": {
+              "put": {
+                "x-forge-group-name": "a",
+                "x-forge-method-name": "update",
+                "parameters": [
+                  {"name": "id", "in": "path", "required": true, "schema": {"type": "string"}}
+                ],
+                "requestBody": {"content": {"application/json": {"schema": {
+                  "type": "object",
+                  "nullable": true,
+                  "properties": {"name": {"type": "string"}}
+                }}}},
+                "responses": {"204": {"description": "ok"}}
+              }
+            }
+          }
         }"#,
     );
 
@@ -784,13 +1307,24 @@ fn nullable_body_is_a_body_field() {
 fn body_with_the_name_of_a_param_is_a_body_field() {
     let forge = parse(
         r#"{
-          "openapi": "3.0.3", "info": {"title": "t", "version": "1"},
-          "paths": {"/a/{zone_id}": {"put": {"x-forge-group-name": "a", "x-forge-method-name": "update",
-            "parameters": [{"name": "zone_id", "in": "path", "required": true, "schema": {"type": "string"}}],
-            "requestBody": {"content": {"application/json": {"schema": {
-              "type": "object", "properties": {"zoneId": {"type": "string"}, "name": {"type": "string"}}
-            }}}},
-            "responses": {"204": {"description": "ok"}}}}}
+          "openapi": "3.0.3",
+          "info": {"title": "t", "version": "1"},
+          "paths": {
+            "/a/{zone_id}": {
+              "put": {
+                "x-forge-group-name": "a",
+                "x-forge-method-name": "update",
+                "parameters": [
+                  {"name": "zone_id", "in": "path", "required": true, "schema": {"type": "string"}}
+                ],
+                "requestBody": {"content": {"application/json": {"schema": {
+                  "type": "object",
+                  "properties": {"zoneId": {"type": "string"}, "name": {"type": "string"}}
+                }}}},
+                "responses": {"204": {"description": "ok"}}
+              }
+            }
+          }
         }"#,
     );
 
@@ -802,12 +1336,25 @@ fn body_with_the_name_of_a_param_is_a_body_field() {
 fn field_of_another_method_has_no_location() {
     let forge = parse(
         r#"{
-          "openapi": "3.0.3", "info": {"title": "t", "version": "1"},
-          "paths": {"/a/{id}": {
-            "parameters": [{"name": "id", "in": "path", "required": true, "schema": {"type": "string"}}],
-            "get": {"x-forge-group-name": "a", "x-forge-method-name": "get", "responses": {"204": {"description": "ok"}}},
-            "delete": {"x-forge-group-name": "a", "x-forge-method-name": "delete", "responses": {"204": {"description": "ok"}}}
-          }}
+          "openapi": "3.0.3",
+          "info": {"title": "t", "version": "1"},
+          "paths": {
+            "/a/{id}": {
+              "parameters": [
+                {"name": "id", "in": "path", "required": true, "schema": {"type": "string"}}
+              ],
+              "get": {
+                "x-forge-group-name": "a",
+                "x-forge-method-name": "get",
+                "responses": {"204": {"description": "ok"}}
+              },
+              "delete": {
+                "x-forge-group-name": "a",
+                "x-forge-method-name": "delete",
+                "responses": {"204": {"description": "ok"}}
+              }
+            }
+          }
         }"#,
     );
 
@@ -821,13 +1368,24 @@ fn field_of_another_method_has_no_location() {
 fn body_that_is_not_json_is_an_unknown_body_field() {
     let forge = parse(
         r#"{
-          "openapi": "3.0.3", "info": {"title": "t", "version": "1"},
-          "paths": {"/a/{id}": {"post": {"x-forge-group-name": "a", "x-forge-method-name": "upload",
-            "parameters": [{"name": "id", "in": "path", "required": true, "schema": {"type": "string"}}],
-            "requestBody": {"content": {"multipart/form-data": {"schema": {
-              "type": "object", "properties": {"file": {"type": "string", "format": "binary"}}
-            }}}},
-            "responses": {"204": {"description": "ok"}}}}}
+          "openapi": "3.0.3",
+          "info": {"title": "t", "version": "1"},
+          "paths": {
+            "/a/{id}": {
+              "post": {
+                "x-forge-group-name": "a",
+                "x-forge-method-name": "upload",
+                "parameters": [
+                  {"name": "id", "in": "path", "required": true, "schema": {"type": "string"}}
+                ],
+                "requestBody": {"content": {"multipart/form-data": {"schema": {
+                  "type": "object",
+                  "properties": {"file": {"type": "string", "format": "binary"}}
+                }}}},
+                "responses": {"204": {"description": "ok"}}
+              }
+            }
+          }
         }"#,
     );
 
@@ -840,12 +1398,21 @@ fn body_that_is_not_json_is_an_unknown_body_field() {
 fn body_that_is_only_multipart_is_an_unknown_request() {
     let forge = parse(
         r#"{
-          "openapi": "3.0.3", "info": {"title": "t", "version": "1"},
-          "paths": {"/a": {"post": {"x-forge-group-name": "a", "x-forge-method-name": "upload",
-            "requestBody": {"content": {"multipart/form-data": {"schema": {
-              "type": "object", "properties": {"file": {"type": "string", "format": "binary"}}
-            }}}},
-            "responses": {"204": {"description": "ok"}}}}}
+          "openapi": "3.0.3",
+          "info": {"title": "t", "version": "1"},
+          "paths": {
+            "/a": {
+              "post": {
+                "x-forge-group-name": "a",
+                "x-forge-method-name": "upload",
+                "requestBody": {"content": {"multipart/form-data": {"schema": {
+                  "type": "object",
+                  "properties": {"file": {"type": "string", "format": "binary"}}
+                }}}},
+                "responses": {"204": {"description": "ok"}}
+              }
+            }
+          }
         }"#,
     );
 
@@ -858,13 +1425,21 @@ fn body_that_is_only_multipart_is_an_unknown_request() {
 fn path_param_missing_from_the_template_is_dropped() {
     let forge = parse(
         r#"{
-          "openapi": "3.0.3", "info": {"title": "t", "version": "1"},
-          "paths": {"/a/{id}": {"get": {"x-forge-group-name": "a", "x-forge-method-name": "get",
-            "parameters": [
-              {"name": "id", "in": "path", "required": true, "schema": {"type": "string"}},
-              {"name": "account_id", "in": "path", "required": true, "schema": {"type": "string"}}
-            ],
-            "responses": {"204": {"description": "ok"}}}}}
+          "openapi": "3.0.3",
+          "info": {"title": "t", "version": "1"},
+          "paths": {
+            "/a/{id}": {
+              "get": {
+                "x-forge-group-name": "a",
+                "x-forge-method-name": "get",
+                "parameters": [
+                  {"name": "id", "in": "path", "required": true, "schema": {"type": "string"}},
+                  {"name": "account_id", "in": "path", "required": true, "schema": {"type": "string"}}
+                ],
+                "responses": {"204": {"description": "ok"}}
+              }
+            }
+          }
         }"#,
     );
 
@@ -875,10 +1450,20 @@ fn path_param_missing_from_the_template_is_dropped() {
 fn deprecated_query_param_is_a_deprecated_field() {
     let forge = parse(
         r#"{
-          "openapi": "3.0.3", "info": {"title": "t", "version": "1"},
-          "paths": {"/a": {"get": {"x-forge-group-name": "a", "x-forge-method-name": "list",
-            "parameters": [{"name": "page", "in": "query", "deprecated": true, "schema": {"type": "integer"}}],
-            "responses": {"204": {"description": "ok"}}}}}
+          "openapi": "3.0.3",
+          "info": {"title": "t", "version": "1"},
+          "paths": {
+            "/a": {
+              "get": {
+                "x-forge-group-name": "a",
+                "x-forge-method-name": "list",
+                "parameters": [
+                  {"name": "page", "in": "query", "deprecated": true, "schema": {"type": "integer"}}
+                ],
+                "responses": {"204": {"description": "ok"}}
+              }
+            }
+          }
         }"#,
     );
 
@@ -889,10 +1474,26 @@ fn deprecated_query_param_is_a_deprecated_field() {
 fn deprecated_path_param_is_not_a_deprecated_field() {
     let forge = parse(
         r#"{
-          "openapi": "3.0.3", "info": {"title": "t", "version": "1"},
-          "paths": {"/a/{id}": {"get": {"x-forge-group-name": "a", "x-forge-method-name": "get",
-            "parameters": [{"name": "id", "in": "path", "required": true, "deprecated": true, "schema": {"type": "string"}}],
-            "responses": {"204": {"description": "ok"}}}}}
+          "openapi": "3.0.3",
+          "info": {"title": "t", "version": "1"},
+          "paths": {
+            "/a/{id}": {
+              "get": {
+                "x-forge-group-name": "a",
+                "x-forge-method-name": "get",
+                "parameters": [
+                  {
+                    "name": "id",
+                    "in": "path",
+                    "required": true,
+                    "deprecated": true,
+                    "schema": {"type": "string"}
+                  }
+                ],
+                "responses": {"204": {"description": "ok"}}
+              }
+            }
+          }
         }"#,
     );
 
@@ -903,17 +1504,29 @@ fn deprecated_path_param_is_not_a_deprecated_field() {
 fn all_of_body_is_one_member_of_the_intersection() {
     let forge = parse(
         r##"{
-          "openapi": "3.0.3", "info": {"title": "t", "version": "1"},
-          "paths": {"/a/{id}": {"put": {"x-forge-group-name": "a", "x-forge-method-name": "update",
-            "parameters": [{"name": "id", "in": "path", "required": true, "schema": {"type": "string"}}],
-            "requestBody": {"content": {"application/json": {"schema": {
-              "allOf": [{"$ref": "#/components/schemas/A"}, {"$ref": "#/components/schemas/B"}]
-            }}}},
-            "responses": {"204": {"description": "ok"}}}}},
-          "components": {"schemas": {
-            "A": {"type": "object", "properties": {"a": {"type": "string"}}},
-            "B": {"type": "object", "properties": {"b": {"type": "string"}}}
-          }}
+          "openapi": "3.0.3",
+          "info": {"title": "t", "version": "1"},
+          "paths": {
+            "/a/{id}": {
+              "put": {
+                "x-forge-group-name": "a",
+                "x-forge-method-name": "update",
+                "parameters": [
+                  {"name": "id", "in": "path", "required": true, "schema": {"type": "string"}}
+                ],
+                "requestBody": {"content": {"application/json": {"schema": {
+                  "allOf": [{"$ref": "#/components/schemas/A"}, {"$ref": "#/components/schemas/B"}]
+                }}}},
+                "responses": {"204": {"description": "ok"}}
+              }
+            }
+          },
+          "components": {
+            "schemas": {
+              "A": {"type": "object", "properties": {"a": {"type": "string"}}},
+              "B": {"type": "object", "properties": {"b": {"type": "string"}}}
+            }
+          }
         }"##,
     );
 
@@ -930,12 +1543,26 @@ fn all_of_body_is_one_member_of_the_intersection() {
 fn param_with_content_is_an_error() {
     let err = parse_err(
         r#"{
-          "openapi": "3.0.3", "info": {"title": "t", "version": "1"},
-          "paths": {"/a": {"get": {"x-forge-group-name": "a", "x-forge-method-name": "list",
-            "parameters": [{"name": "filter", "in": "query", "content": {"application/json": {"schema": {
-              "type": "object", "properties": {"status": {"type": "string"}}
-            }}}}],
-            "responses": {"204": {"description": "ok"}}}}}
+          "openapi": "3.0.3",
+          "info": {"title": "t", "version": "1"},
+          "paths": {
+            "/a": {
+              "get": {
+                "x-forge-group-name": "a",
+                "x-forge-method-name": "list",
+                "parameters": [
+                  {
+                    "name": "filter",
+                    "in": "query",
+                    "content": {
+                      "application/json": {"schema": {"type": "object", "properties": {"status": {"type": "string"}}}}
+                    }
+                  }
+                ],
+                "responses": {"204": {"description": "ok"}}
+              }
+            }
+          }
         }"#,
     );
 
@@ -954,10 +1581,20 @@ fn query_style_other_than_form_is_an_error() {
     ] {
         let err = parse_err(&format!(
             r#"{{
-              "openapi": "3.0.3", "info": {{"title": "t", "version": "1"}},
-              "paths": {{"/a": {{"get": {{"x-forge-group-name": "a", "x-forge-method-name": "list",
-                "parameters": [{{"name": "filter", "in": "query", "style": "{style}", "schema": {schema}}}],
-                "responses": {{"204": {{"description": "ok"}}}}}}}}}}
+              "openapi": "3.0.3",
+              "info": {{"title": "t", "version": "1"}},
+              "paths": {{
+                "/a": {{
+                  "get": {{
+                    "x-forge-group-name": "a",
+                    "x-forge-method-name": "list",
+                    "parameters": [
+                      {{"name": "filter", "in": "query", "style": "{style}", "schema": {schema}}}
+                    ],
+                    "responses": {{"204": {{"description": "ok"}}}}
+                  }}
+                }}
+              }}
             }}"#
         ));
 
@@ -969,13 +1606,29 @@ fn query_style_other_than_form_is_an_error() {
 fn two_query_string_params_are_an_error() {
     let err = parse_err(
         r#"{
-          "openapi": "3.2.0", "info": {"title": "t", "version": "1"},
-          "paths": {"/a": {"get": {"x-forge-group-name": "a", "x-forge-method-name": "list",
-            "parameters": [
-              {"name": "one", "in": "querystring", "content": {"application/x-www-form-urlencoded": {"schema": {"type": "object"}}}},
-              {"name": "two", "in": "querystring", "content": {"application/x-www-form-urlencoded": {"schema": {"type": "object"}}}}
-            ],
-            "responses": {"204": {"description": "ok"}}}}}
+          "openapi": "3.2.0",
+          "info": {"title": "t", "version": "1"},
+          "paths": {
+            "/a": {
+              "get": {
+                "x-forge-group-name": "a",
+                "x-forge-method-name": "list",
+                "parameters": [
+                  {
+                    "name": "one",
+                    "in": "querystring",
+                    "content": {"application/x-www-form-urlencoded": {"schema": {"type": "object"}}}
+                  },
+                  {
+                    "name": "two",
+                    "in": "querystring",
+                    "content": {"application/x-www-form-urlencoded": {"schema": {"type": "object"}}}
+                  }
+                ],
+                "responses": {"204": {"description": "ok"}}
+              }
+            }
+          }
         }"#,
     );
 
@@ -986,13 +1639,27 @@ fn two_query_string_params_are_an_error() {
 fn query_and_query_string_params_are_an_error() {
     let err = parse_err(
         r#"{
-          "openapi": "3.2.0", "info": {"title": "t", "version": "1"},
-          "paths": {"/a": {
-            "parameters": [{"name": "page", "in": "query", "schema": {"type": "integer"}}],
-            "get": {"x-forge-group-name": "a", "x-forge-method-name": "list",
-              "parameters": [{"name": "filter", "in": "querystring", "content": {"application/x-www-form-urlencoded": {"schema": {"type": "object"}}}}],
-              "responses": {"204": {"description": "ok"}}}
-          }}
+          "openapi": "3.2.0",
+          "info": {"title": "t", "version": "1"},
+          "paths": {
+            "/a": {
+              "parameters": [
+                {"name": "page", "in": "query", "schema": {"type": "integer"}}
+              ],
+              "get": {
+                "x-forge-group-name": "a",
+                "x-forge-method-name": "list",
+                "parameters": [
+                  {
+                    "name": "filter",
+                    "in": "querystring",
+                    "content": {"application/x-www-form-urlencoded": {"schema": {"type": "object"}}}
+                  }
+                ],
+                "responses": {"204": {"description": "ok"}}
+              }
+            }
+          }
         }"#,
     );
 
@@ -1003,16 +1670,32 @@ fn query_and_query_string_params_are_an_error() {
 fn body_field_is_required_when_the_body_is() {
     let forge = parse(
         r#"{
-          "openapi": "3.0.3", "info": {"title": "t", "version": "1"},
-          "paths": {"/a/{id}": {
-            "parameters": [{"name": "id", "in": "path", "required": true, "schema": {"type": "string"}}],
-            "put": {"x-forge-group-name": "a", "x-forge-method-name": "replace",
-              "requestBody": {"required": true, "content": {"application/json": {"schema": {"type": "array", "items": {"type": "string"}}}}},
-              "responses": {"204": {"description": "ok"}}},
-            "patch": {"x-forge-group-name": "a", "x-forge-method-name": "append",
-              "requestBody": {"content": {"application/json": {"schema": {"type": "array", "items": {"type": "string"}}}}},
-              "responses": {"204": {"description": "ok"}}}
-          }}
+          "openapi": "3.0.3",
+          "info": {"title": "t", "version": "1"},
+          "paths": {
+            "/a/{id}": {
+              "parameters": [
+                {"name": "id", "in": "path", "required": true, "schema": {"type": "string"}}
+              ],
+              "put": {
+                "x-forge-group-name": "a",
+                "x-forge-method-name": "replace",
+                "requestBody": {
+                  "required": true,
+                  "content": {"application/json": {"schema": {"type": "array", "items": {"type": "string"}}}}
+                },
+                "responses": {"204": {"description": "ok"}}
+              },
+              "patch": {
+                "x-forge-group-name": "a",
+                "x-forge-method-name": "append",
+                "requestBody": {
+                  "content": {"application/json": {"schema": {"type": "array", "items": {"type": "string"}}}}
+                },
+                "responses": {"204": {"description": "ok"}}
+              }
+            }
+          }
         }"#,
     );
 
@@ -1025,13 +1708,21 @@ fn body_field_is_required_when_the_body_is() {
 fn params_with_equal_names_are_an_error() {
     let err = parse_err(
         r#"{
-          "openapi": "3.0.3", "info": {"title": "t", "version": "1"},
-          "paths": {"/a/{zone_id}": {"get": {"x-forge-group-name": "a", "x-forge-method-name": "get",
-            "parameters": [
-              {"name": "zone_id", "in": "path", "required": true, "schema": {"type": "string"}},
-              {"name": "zoneId", "in": "query", "schema": {"type": "string"}}
-            ],
-            "responses": {"204": {"description": "ok"}}}}}
+          "openapi": "3.0.3",
+          "info": {"title": "t", "version": "1"},
+          "paths": {
+            "/a/{zone_id}": {
+              "get": {
+                "x-forge-group-name": "a",
+                "x-forge-method-name": "get",
+                "parameters": [
+                  {"name": "zone_id", "in": "path", "required": true, "schema": {"type": "string"}},
+                  {"name": "zoneId", "in": "query", "schema": {"type": "string"}}
+                ],
+                "responses": {"204": {"description": "ok"}}
+              }
+            }
+          }
         }"#,
     );
 
@@ -1043,10 +1734,26 @@ fn path_style_other_than_simple_is_an_error() {
     for style in ["label", "matrix"] {
         let err = parse_err(&format!(
             r#"{{
-              "openapi": "3.0.3", "info": {{"title": "t", "version": "1"}},
-              "paths": {{"/a/{{id}}": {{"get": {{"x-forge-group-name": "a", "x-forge-method-name": "get",
-                "parameters": [{{"name": "id", "in": "path", "required": true, "style": "{style}", "schema": {{"type": "string"}}}}],
-                "responses": {{"204": {{"description": "ok"}}}}}}}}}}
+              "openapi": "3.0.3",
+              "info": {{"title": "t", "version": "1"}},
+              "paths": {{
+                "/a/{{id}}": {{
+                  "get": {{
+                    "x-forge-group-name": "a",
+                    "x-forge-method-name": "get",
+                    "parameters": [
+                      {{
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "style": "{style}",
+                        "schema": {{"type": "string"}}
+                      }}
+                    ],
+                    "responses": {{"204": {{"description": "ok"}}}}
+                  }}
+                }}
+              }}
             }}"#
         ));
 
@@ -1058,13 +1765,21 @@ fn path_style_other_than_simple_is_an_error() {
 fn param_field_has_the_default_of_its_schema() {
     let forge = parse(
         r#"{
-          "openapi": "3.0.3", "info": {"title": "t", "version": "1"},
-          "paths": {"/a": {"get": {"x-forge-group-name": "a", "x-forge-method-name": "list",
-            "parameters": [
-              {"name": "per_page", "in": "query", "schema": {"type": "integer", "default": 20}},
-              {"name": "page", "in": "query", "schema": {"type": "integer"}}
-            ],
-            "responses": {"204": {"description": "ok"}}}}}
+          "openapi": "3.0.3",
+          "info": {"title": "t", "version": "1"},
+          "paths": {
+            "/a": {
+              "get": {
+                "x-forge-group-name": "a",
+                "x-forge-method-name": "list",
+                "parameters": [
+                  {"name": "per_page", "in": "query", "schema": {"type": "integer", "default": 20}},
+                  {"name": "page", "in": "query", "schema": {"type": "integer"}}
+                ],
+                "responses": {"204": {"description": "ok"}}
+              }
+            }
+          }
         }"#,
     );
 
@@ -1077,15 +1792,34 @@ fn param_field_has_the_default_of_its_schema() {
 fn param_field_has_the_default_of_its_ref_schema() {
     let forge = parse(
         r##"{
-          "openapi": "3.0.3", "info": {"title": "t", "version": "1"},
-          "paths": {"/a/{order}": {"get": {"x-forge-group-name": "a", "x-forge-method-name": "list",
-            "parameters": [
-              {"name": "order", "in": "path", "required": true, "schema": {"$ref": "#/components/schemas/Order"}},
-              {"$ref": "#/components/parameters/Direction"}
-            ],
-            "responses": {"204": {"description": "ok"}}}}},
+          "openapi": "3.0.3",
+          "info": {"title": "t", "version": "1"},
+          "paths": {
+            "/a/{order}": {
+              "get": {
+                "x-forge-group-name": "a",
+                "x-forge-method-name": "list",
+                "parameters": [
+                  {
+                    "name": "order",
+                    "in": "path",
+                    "required": true,
+                    "schema": {"$ref": "#/components/schemas/Order"}
+                  },
+                  {"$ref": "#/components/parameters/Direction"}
+                ],
+                "responses": {"204": {"description": "ok"}}
+              }
+            }
+          },
           "components": {
-            "parameters": {"Direction": {"name": "direction", "in": "query", "schema": {"$ref": "#/components/schemas/Direction"}}},
+            "parameters": {
+              "Direction": {
+                "name": "direction",
+                "in": "query",
+                "schema": {"$ref": "#/components/schemas/Direction"}
+              }
+            },
             "schemas": {
               "Order": {"$ref": "#/components/schemas/Field"},
               "Field": {"type": "string", "default": "name"},
@@ -1104,12 +1838,29 @@ fn param_field_has_the_default_of_its_ref_schema() {
 fn default_next_to_a_param_schema_ref_is_its_own_in_3_1() {
     let forge = parse(
         r##"{
-          "openapi": "3.1.0", "info": {"title": "t", "version": "1"},
-          "paths": {"/a": {"get": {"x-forge-group-name": "a", "x-forge-method-name": "list",
-            "parameters": [{"name": "per_page", "in": "query",
-              "schema": {"$ref": "#/components/schemas/PerPage", "default": 50}}],
-            "responses": {"204": {"description": "ok"}}}}},
-          "components": {"schemas": {"PerPage": {"type": "integer", "default": 20}}}
+          "openapi": "3.1.0",
+          "info": {"title": "t", "version": "1"},
+          "paths": {
+            "/a": {
+              "get": {
+                "x-forge-group-name": "a",
+                "x-forge-method-name": "list",
+                "parameters": [
+                  {
+                    "name": "per_page",
+                    "in": "query",
+                    "schema": {"$ref": "#/components/schemas/PerPage", "default": 50}
+                  }
+                ],
+                "responses": {"204": {"description": "ok"}}
+              }
+            }
+          },
+          "components": {
+            "schemas": {
+              "PerPage": {"type": "integer", "default": 20}
+            }
+          }
         }"##,
     );
 
@@ -1121,10 +1872,20 @@ fn default_next_to_a_param_schema_ref_is_its_own_in_3_1() {
 fn default_on_the_param_itself_is_ignored() {
     let forge = parse(
         r#"{
-          "openapi": "3.0.3", "info": {"title": "t", "version": "1"},
-          "paths": {"/a": {"get": {"x-forge-group-name": "a", "x-forge-method-name": "list",
-            "parameters": [{"name": "per_page", "in": "query", "default": 20, "schema": {"type": "integer"}}],
-            "responses": {"204": {"description": "ok"}}}}}
+          "openapi": "3.0.3",
+          "info": {"title": "t", "version": "1"},
+          "paths": {
+            "/a": {
+              "get": {
+                "x-forge-group-name": "a",
+                "x-forge-method-name": "list",
+                "parameters": [
+                  {"name": "per_page", "in": "query", "default": 20, "schema": {"type": "integer"}}
+                ],
+                "responses": {"204": {"description": "ok"}}
+              }
+            }
+          }
         }"#,
     );
 
@@ -1138,12 +1899,22 @@ fn default_on_the_param_itself_is_ignored() {
 fn body_field_and_undeclared_placeholder_have_no_default() {
     let forge = parse(
         r#"{
-          "openapi": "3.0.3", "info": {"title": "t", "version": "1"},
-          "paths": {"/a/{id}": {"put": {"x-forge-group-name": "a", "x-forge-method-name": "update",
-            "requestBody": {"content": {"application/json": {"schema": {
-              "type": "array", "items": {"type": "string"}, "default": ["x"]
-            }}}},
-            "responses": {"204": {"description": "ok"}}}}}
+          "openapi": "3.0.3",
+          "info": {"title": "t", "version": "1"},
+          "paths": {
+            "/a/{id}": {
+              "put": {
+                "x-forge-group-name": "a",
+                "x-forge-method-name": "update",
+                "requestBody": {"content": {"application/json": {"schema": {
+                  "type": "array",
+                  "items": {"type": "string"},
+                  "default": ["x"]
+                }}}},
+                "responses": {"204": {"description": "ok"}}
+              }
+            }
+          }
         }"#,
     );
 
@@ -1156,12 +1927,22 @@ fn body_field_and_undeclared_placeholder_have_no_default() {
 fn array_body_keeps_its_max_items() {
     let forge = parse(
         r#"{
-          "openapi": "3.0.3", "info": {"title": "t", "version": "1"},
-          "paths": {"/a": {"post": {"x-forge-group-name": "a", "x-forge-method-name": "create",
-            "requestBody": {"content": {"application/json": {"schema": {
-              "type": "array", "items": {"type": "string"}, "maxItems": 100
-            }}}},
-            "responses": {"204": {"description": "ok"}}}}}
+          "openapi": "3.0.3",
+          "info": {"title": "t", "version": "1"},
+          "paths": {
+            "/a": {
+              "post": {
+                "x-forge-group-name": "a",
+                "x-forge-method-name": "create",
+                "requestBody": {"content": {"application/json": {"schema": {
+                  "type": "array",
+                  "items": {"type": "string"},
+                  "maxItems": 100
+                }}}},
+                "responses": {"204": {"description": "ok"}}
+              }
+            }
+          }
         }"#,
     );
 

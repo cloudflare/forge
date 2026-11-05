@@ -295,7 +295,13 @@ mod tests {
 
     /// Returns the forge of an OpenAPI document with `paths`.
     fn build(paths: &str) -> Forge {
-        let doc = format!(r#"{{"openapi": "3.0.3", "info": {{"title": "t", "version": "1"}}, "paths": {paths}}}"#);
+        let doc = format!(
+            r#"{{
+              "openapi": "3.0.3",
+              "info": {{"title": "t", "version": "1"}},
+              "paths": {paths}
+            }}"#
+        );
         serde_json::from_str(&doc).unwrap()
     }
 
@@ -321,7 +327,10 @@ mod tests {
     }
 
     /// A JSON response with an object body.
-    const OK: &str = r#""responses": {"200": {"description": "ok", "content": {"application/json": {"schema": {"type": "object", "properties": {"id": {"type": "string"}}}}}}}"#;
+    const OK: &str = r#""responses": {"200": {
+      "description": "ok",
+      "content": {"application/json": {"schema": {"type": "object", "properties": {"id": {"type": "string"}}}}}
+    }}"#;
 
     /// A path parameter `id`.
     const ID: &str = r#""parameters": [{"name": "id", "in": "path", "required": true, "schema": {"type": "string"}}]"#;
@@ -330,13 +339,51 @@ mod tests {
     fn generate_server() {
         let forge = build(&format!(
             r#"{{
-              "/projects/{{id}}": {{"get": {{"x-forge-group-name": "projects", "x-forge-method-name": "get", "summary": "Gets a project.", {ID}, {OK}}}}},
-              "/projects": {{"get": {{"x-forge-group-name": "projects", "x-forge-method-name": "list",
-                "parameters": [{{"name": "cursor", "in": "query", "schema": {{"type": "string"}}}}], {OK}}}}},
-              "/projects/{{id}}/archive": {{"post": {{"x-forge-group-name": "projects", "x-forge-method-name": "archive", {ID}, {OK}}}}},
-              "/projects/{{id}}/members": {{"get": {{"x-forge-group-name": "projects.members", "x-forge-method-name": "list", {ID}, {OK}}}}},
-              "/projects/upload": {{"post": {{"x-forge-group-name": "projects", "x-forge-method-name": "upload",
-                "requestBody": {{"content": {{"application/octet-stream": {{"schema": {{"type": "string", "format": "binary"}}}}}}}}, {OK}}}}}
+              "/projects/{{id}}": {{
+                "get": {{
+                  "x-forge-group-name": "projects",
+                  "x-forge-method-name": "get",
+                  "summary": "Gets a project.",
+                  {ID},
+                  {OK}
+                }}
+              }},
+              "/projects": {{
+                "get": {{
+                  "x-forge-group-name": "projects",
+                  "x-forge-method-name": "list",
+                  "parameters": [
+                    {{"name": "cursor", "in": "query", "schema": {{"type": "string"}}}}
+                  ],
+                  {OK}
+                }}
+              }},
+              "/projects/{{id}}/archive": {{
+                "post": {{
+                  "x-forge-group-name": "projects",
+                  "x-forge-method-name": "archive",
+                  {ID},
+                  {OK}
+                }}
+              }},
+              "/projects/{{id}}/members": {{
+                "get": {{
+                  "x-forge-group-name": "projects.members",
+                  "x-forge-method-name": "list",
+                  {ID},
+                  {OK}
+                }}
+              }},
+              "/projects/upload": {{
+                "post": {{
+                  "x-forge-group-name": "projects",
+                  "x-forge-method-name": "upload",
+                  "requestBody": {{
+                    "content": {{"application/octet-stream": {{"schema": {{"type": "string", "format": "binary"}}}}}}
+                  }},
+                  {OK}
+                }}
+              }}
             }}"#
         ));
         let files = generate(&forge);
@@ -462,8 +509,20 @@ mod tests {
         // Cap'n Web never delivers a call to then or toString.
         let forge = build(&format!(
             r#"{{
-              "/a": {{"get": {{"x-forge-group-name": "a", "x-forge-method-name": "then", {OK}}}}},
-              "/b": {{"get": {{"x-forge-group-name": "to-string", "x-forge-method-name": "get", {OK}}}}}
+              "/a": {{
+                "get": {{
+                  "x-forge-group-name": "a",
+                  "x-forge-method-name": "then",
+                  {OK}
+                }}
+              }},
+              "/b": {{
+                "get": {{
+                  "x-forge-group-name": "to-string",
+                  "x-forge-method-name": "get",
+                  {OK}
+                }}
+              }}
             }}"#
         ));
         let root = Generator.generate(&forge).err().unwrap().to_string();
@@ -484,8 +543,22 @@ mod tests {
         // The SDK serves both as one property, which Cap'n Web can't type.
         let forge = build(&format!(
             r#"{{
-              "/projects/{{id}}/archive": {{"post": {{"x-forge-group-name": "projects", "x-forge-method-name": "archive", {ID}, {OK}}}}},
-              "/projects/{{id}}/archive/restore": {{"post": {{"x-forge-group-name": "projects.archive", "x-forge-method-name": "restore", {ID}, {OK}}}}}
+              "/projects/{{id}}/archive": {{
+                "post": {{
+                  "x-forge-group-name": "projects",
+                  "x-forge-method-name": "archive",
+                  {ID},
+                  {OK}
+                }}
+              }},
+              "/projects/{{id}}/archive/restore": {{
+                "post": {{
+                  "x-forge-group-name": "projects.archive",
+                  "x-forge-method-name": "restore",
+                  {ID},
+                  {OK}
+                }}
+              }}
             }}"#
         ));
         let projects = forge.groups().find(|g| g.name().camel() == "projects").unwrap();
