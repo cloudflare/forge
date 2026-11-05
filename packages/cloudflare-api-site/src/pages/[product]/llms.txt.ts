@@ -1,7 +1,7 @@
-import type { APIRoute } from 'astro';
 import { getLlmsPayload } from '@cloudflare/nimbus-docs/agent-endpoints';
+import type { APIRoute } from 'astro';
 import { renderLlmsIndexFromCatalog } from 'astro-fern/agents';
-import { getApiRouter, getFernContentCatalog } from '../../api-server.ts';
+import { getApiContentCatalog, getApiRouter } from '../../api-server.ts';
 
 // `/<segment>/llms.txt` is shared: API products resolve through astro-fern, and
 // any other segment falls back to the Nimbus index of that authored section.
@@ -13,7 +13,7 @@ export const GET: APIRoute = async ({ params, request, url }) => {
   const router = await getApiRouter();
   const selection = router.resolveLlms(product, url.searchParams);
   if (selection) {
-    const document = renderLlmsIndexFromCatalog(await getFernContentCatalog(), selection, router.resolveHref);
+    const document = renderLlmsIndexFromCatalog(await getApiContentCatalog(), selection, router.resolveHref);
     return new Response(document.body, { headers: { 'Content-Type': document.contentType } });
   }
   const section = await getLlmsPayload({ scope: 'section', surface: 'index', section: product }, { request });
