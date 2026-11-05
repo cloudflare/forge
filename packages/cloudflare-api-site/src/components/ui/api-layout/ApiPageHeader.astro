@@ -20,7 +20,6 @@ const homeChunk = page.kind === "api" && home && home.part.number > 1 ? home.par
 const title = homeChunk ? `${page.title}: endpoints ${homeChunk.start}–${homeChunk.end}` : page.title;
 const markdownUrl = page.markdownHref;
 const isHome = page.kind === "api";
-const intro = homeChunk ? undefined : page.descriptionHtml;
 const subtitle = isHome && !homeChunk ? config.description : undefined;
 
 // Cloudflare notices, from the Forge extensions the prepared spec keeps.
@@ -75,10 +74,9 @@ const deprecationHtml = !page.deprecated
   )}
 </div>
 
-{/* Header order (locked): title → description → endpoint → page actions. The
-    endpoint bar carries the sidebar method chip + verb + path; page actions sit
-    beneath so they read as page-level utilities, not part of the endpoint. The
-    API home's description is its subtitle; the spec's intro follows as body. */}
+{/* Header order (locked): title → endpoint → page actions. The page's
+    description opens the body, where long ones don't push the endpoint down;
+    the API home's subtitle is the site description. */}
 <div data-slot="page-header" class="mt-6 flex flex-col gap-4">
   <div class="flex flex-wrap items-center gap-3">
     <h1 class="mb-0 leading-tight text-foreground [text-wrap:balance]" style="font-size:var(--nb-h1-size);font-weight:var(--nb-h1-weight);letter-spacing:var(--nb-h1-tracking)">{title}</h1>
@@ -86,8 +84,6 @@ const deprecationHtml = !page.deprecated
   </div>
 
   {subtitle && <p data-slot="page-description" class="m-0 text-lg text-muted-foreground">{subtitle}</p>}
-
-  {!isHome && intro && <div class="nb-md max-w-(--api-header-measure) text-muted-foreground [overflow-wrap:anywhere]" set:html={intro} />}
 
   {page.kind === "operation" && (
     <ApiEndpointCard class="max-w-(--api-header-measure)" method={page.method} path={page.path} server={page.server} isWebhook={page.isWebhook} />
