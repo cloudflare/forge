@@ -10,6 +10,7 @@
     "eval": "node --import ./src/register.ts src/main.ts"
   },
   "devDependencies": {
+    "@modelcontextprotocol/server": "2.3.1",
     "@types/node": "26.0.1",
     "typescript": "7.0.2"
   },

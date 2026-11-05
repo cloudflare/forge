@@ -24,13 +24,22 @@ if (!dir) {
   process.exit(2);
 }
 
+type Generated = { name: string; title?: string; description?: string };
 const generated = (await import(pathToFileURL(resolve(dir, 'index.ts')).href)) as {
-  tools: readonly EvalTool[];
-  listTools: (tools: readonly EvalTool[]) => readonly { name: string; title?: string; description?: string }[];
+  tools: readonly Generated[];
+  operation: (tool: Generated) => { method: string; path: string };
 };
 // Search what a client sees, and match on the method each tool calls.
-const byName = new Map(generated.tools.map((tool) => [tool.name, tool]));
-const tools = generated.listTools(generated.tools).map((listed) => ({ ...listed, ...pick(byName.get(listed.name)) }));
+const tools: EvalTool[] = generated.tools.map((tool) => {
+  const { method, path } = generated.operation(tool);
+  return {
+    name: tool.name,
+    ...(tool.title !== undefined && { title: tool.title }),
+    ...(tool.description !== undefined && { description: tool.description }),
+    method,
+    path,
+  };
+});
 const tasks = JSON.parse(readFileSync(tasksFile, 'utf8')) as Task[];
 const result = score(tools, tasks);
 
@@ -39,8 +48,4 @@ const min = values['min-top5'] === undefined ? undefined : Number(values['min-to
 if (min !== undefined && result.top5 < min * result.tasks) {
   console.error(`top 5 hit ${result.top5} of ${result.tasks}, below ${min}`);
   process.exit(1);
-}
-
-function pick(tool: EvalTool | undefined): { method: string; path: string } {
-  return { method: tool?.method ?? '', path: tool?.path ?? '' };
 }

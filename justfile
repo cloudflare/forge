@@ -34,13 +34,18 @@ mcp-eval spec="" *args:
     #!/usr/bin/env bash
     set -euo pipefail
     spec="{{ spec }}"
+    mkdir -p target/mcp-eval
     if [ -z "$spec" ]; then
       spec=target/mcp-eval/openapi.forge.json
-      mkdir -p target/mcp-eval
       gh release download --repo cloudflare/forge --pattern openapi.forge.json --output "$spec" --clobber
     fi
-    cargo run --release --quiet -- "$spec" --target mcp --out target/mcp-eval/tools
-    node --import ./packages/mcp-search-eval/src/register.ts packages/mcp-search-eval/src/main.ts target/mcp-eval/tools {{ args }}
+    # The release has Fern's extensions; forge reads its own x-forge-* ones.
+    cargo run --release --quiet -- normalize "$spec" > target/mcp-eval/normalized.json
+    # Inside the package, so the tools' runtime finds the MCP SDK it imports.
+    rm -rf packages/mcp-search-eval/generated
+    cargo run --release --quiet -- target/mcp-eval/normalized.json --target mcp --out packages/mcp-search-eval/generated
+    cd packages/mcp-search-eval
+    node --import ./src/register.ts src/main.ts generated {{ args }}
 
 # Release builds
 #

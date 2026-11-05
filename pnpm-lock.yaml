@@ -303,6 +303,9 @@ importers:
 
   packages/mcp-search-eval:
     devDependencies:
+      '@modelcontextprotocol/server':
+        specifier: 2.3.1
+        version: 2.3.1
       '@types/node':
         specifier: 26.0.1
         version: 26.0.1
