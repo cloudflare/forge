@@ -703,6 +703,32 @@ fn read_only_field_of_a_body_model_is_kept() {
 }
 
 #[test]
+fn required_field_of_a_body_model_is_read_only_through_all_of() {
+    let forge = parse(
+        r##"{
+          "openapi": "3.0.3", "info": {"title": "t", "version": "1"},
+          "paths": {"/rulesets": {"post": {"x-forge-group-name": "rulesets", "x-forge-method-name": "create",
+            "requestBody": {"content": {"application/json": {"schema": {"$ref": "#/components/schemas/Ruleset"}}}},
+            "responses": {"200": {"description": "ok", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Ruleset"}}}}}}}},
+          "components": {"schemas": {
+            "Ruleset": {"type": "object", "required": ["id", "name"], "properties": {
+              "id": {"allOf": [{"$ref": "#/components/schemas/RulesetId"}, {"type": "string", "readOnly": true}]},
+              "name": {"type": "string"}
+            }},
+            "RulesetId": {"type": "string", "description": "The unique ID of the ruleset."}
+          }}
+        }"##,
+    );
+
+    let ruleset = object(model_of(method(&forge, "rulesets.create").request().unwrap()).ty());
+    assert_eq!(field_names(ruleset), ["id", "name"]);
+    let id = field(ruleset, "id");
+    assert!(id.is_required());
+    assert!(id.is_read_only());
+    assert!(!field(ruleset, "name").is_read_only());
+}
+
+#[test]
 fn map_body_is_a_body_field() {
     let forge = parse(
         r#"{

@@ -2005,35 +2005,52 @@ impl<'d> Builder<'d> {
     }
 
     /// Returns whether `schema` is read-only and sensitive, as a field
-    /// gives them: whether it or any schema along its chain of `$ref`s has
-    /// `readOnly: true`, and `x-forge-sensitive: true`.
+    /// gives them: whether it or any schema applied to it in place, the
+    /// one its `$ref` points to and each `allOf` member, read the same way,
+    /// has `readOnly: true`, and `x-forge-sensitive: true`.
     ///
     /// A `readOnly` next to a `$ref` counts from OpenAPI 3.1, and is
-    /// ignored in 3.0, as every keyword next to a `$ref` is. An
-    /// `x-forge-sensitive` next to a `$ref` counts in every version, since tools
-    /// commonly honour extensions there. The chain stops at a `$ref` that
-    /// does not point to a schema, which reading the schema's type
-    /// reports, and after 32 `$ref`s, which lead back to themselves.
-    fn schema_flags(&self, mut schema: Schema) -> SchemaFlags {
-        let doc = self.doc;
+    /// ignored in 3.0, as every keyword next to a `$ref` is, `allOf`
+    /// included. So in 3.0 a property marks a `$ref` read-only with an
+    /// `allOf` of the `$ref` and `{"readOnly": true}`. An
+    /// `x-forge-sensitive` next to a `$ref` counts in every version, since
+    /// tools commonly honour extensions there. The members of `anyOf` and
+    /// `oneOf` apply only to the values that match them, so none of their
+    /// flags count. The walk stops at a `$ref` that does not point to a
+    /// schema, which reading the schema's type reports, and after 64
+    /// schemas, which lead back to themselves.
+    fn schema_flags(&self, schema: Schema) -> SchemaFlags {
         let mut flags = SchemaFlags::default();
-        for _ in 0..32 {
-            let Schema::Object(object) = schema else {
-                break;
-            };
-            let object = doc.get(object);
-            let has_ref = !object.reference.is_empty();
-            flags.read_only |= object.read_only && !(has_ref && self.v30);
-            flags.sensitive |= object.sensitive;
-            if !has_ref || (flags.read_only && flags.sensitive) {
-                break;
-            }
-            let Ok((target, _)) = self.resolve(doc.str(object.reference)) else {
-                break;
-            };
-            schema = target;
-        }
+        let mut budget = 64;
+        self.flags_in(schema, &mut flags, &mut budget);
         flags
+    }
+
+    fn flags_in(&self, schema: Schema, flags: &mut SchemaFlags, budget: &mut u32) {
+        if *budget == 0 || (flags.read_only && flags.sensitive) {
+            return;
+        }
+        *budget -= 1;
+        let doc = self.doc;
+        let Schema::Object(object) = schema else {
+            return;
+        };
+        let object = doc.get(object);
+        let has_ref = !object.reference.is_empty();
+        flags.read_only |= object.read_only && !(has_ref && self.v30);
+        flags.sensitive |= object.sensitive;
+        if has_ref {
+            let Ok((target, _)) = self.resolve(doc.str(object.reference)) else {
+                return;
+            };
+            self.flags_in(target, flags, budget);
+            if self.v30 {
+                return;
+            }
+        }
+        for &member in doc.list(object.all_of) {
+            self.flags_in(member, flags, budget);
+        }
     }
 
     /// Returns `schema`, or the schema its `$ref` points to, following
@@ -2140,7 +2157,8 @@ impl<'d> Builder<'d> {
     }
 }
 
-/// What [`Builder::schema_flags`] reads of a schema and its `$ref`s.
+/// What [`Builder::schema_flags`] reads of a schema, its `$ref`s and its
+/// `allOf` members.
 #[derive(Clone, Copy, Default)]
 struct SchemaFlags {
     read_only: bool,
