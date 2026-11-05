@@ -6,7 +6,6 @@ import { Breadcrumbs } from "@/components/ui/breadcrumbs";
 import { PageActions } from "@/components/ui/page-actions";
 import ApiEndpointCard from "./ApiEndpointCard.astro";
 import { withBase } from "@cloudflare/nimbus-docs/runtime";
-import { API_HOME_LAST_MODIFIED } from "./home";
 import { config } from "virtual:nimbus/config";
 import type { ApiPageProps } from "@cloudflare/nimbus-docs/api";
 import type { ApiHome as ApiHomeView } from "@cloudflare/nimbus-docs/runtime";
@@ -94,5 +93,5 @@ const deprecationHtml = !page.deprecated
     <ApiEndpointCard class="max-w-(--api-header-measure)" method={page.method} path={page.path} server={page.server} isWebhook={page.isWebhook} />
   )}
 
-  {!homeChunk && <PageActions markdownUrl={markdownUrl} lastUpdated={isHome ? API_HOME_LAST_MODIFIED : undefined} />}
+  {!homeChunk && <PageActions markdownUrl={markdownUrl} />}
 </div>

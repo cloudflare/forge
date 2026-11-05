@@ -61,7 +61,6 @@ test("home keeps its title, description and the sidebar's top entries", async ({
   await expect(header.locator('[data-slot="page-description"]')).toHaveText(
     'API reference generated from the Cloudflare OpenAPI spec by Forge.',
   );
-  await expect(header.locator('[data-nb-page-actions] time[datetime]')).toBeVisible();
   await expect(header).not.toContainText('Welcome to Cloudflare');
   await expect(page.locator('main')).toContainText("Welcome to Cloudflare's API documentation site");
   const nav = page.locator('[data-nb-api-nav]');
@@ -100,12 +99,7 @@ test('code sample picker defaults to the cf CLI and switches samples', async ({ 
   await page.goto(operation);
   const picker = page.locator('[data-nb-api-coderail] select[data-nb-lang-select]').first();
   await expect(picker).toHaveValue('cf');
-  await expect(picker.locator('option')).toHaveText([
-    'cf CLI',
-    'curl',
-    'data cloudflare_zero_trust_device_ip_profile',
-    'data cloudflare_zero_trust_device_ip_profiles',
-  ]);
+  await expect(picker.locator('option')).toHaveText(['cf CLI', 'curl', 'Terraform']);
   await picker.selectOption('curl');
   await expect(page).toHaveURL(/[?&]lang=curl\b/);
   await expect(page.locator('[data-nb-api-coderail] [data-nb-sample-lang="curl"]').first()).toBeVisible();

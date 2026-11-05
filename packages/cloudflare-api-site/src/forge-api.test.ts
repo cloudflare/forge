@@ -175,6 +175,7 @@ const terraform = defineFernExtension({
               {
                 kind: 'data-source',
                 name: 'cloudflare_zone',
+                example: 'data "cloudflare_zone" "x" {}',
                 roles: ['read'],
                 required: [],
                 optional: [],
@@ -328,7 +329,7 @@ test('an alias path that is also a real section keeps the real page', () => {
   assert.equal(redirects['/b/items/'], undefined);
 });
 
-test('samples cover every target, with placeholders, HCL per declaration with an example, and an example per JSON response; Terraform data rides the extension', () => {
+test('samples cover every target, with placeholders, one Terraform sample joining every declaration example, and an example per JSON response; Terraform data rides the extension', () => {
   const { document } = prepare();
   const paths = document.paths as Record<string, Record<string, Record<string, unknown>>>;
   const create = paths['/beta/zones']!.post!;
@@ -338,11 +339,11 @@ test('samples cover every target, with placeholders, HCL per declaration with an
     [
       ['cf', 'cf CLI'],
       ['curl', 'curl'],
-      ['hcl', 'resource cloudflare_zone'],
+      ['hcl', 'Terraform'],
     ],
   );
   assert.match(samples[1]!.source, /curl .*\/beta\/zones/s);
-  assert.equal(samples.at(-1)!.source, 'resource "cloudflare_zone" "x" {}');
+  assert.equal(samples.at(-1)!.source, 'resource "cloudflare_zone" "x" {}\n\ndata "cloudflare_zone" "x" {}');
   const extension = create[TERRAFORM_EXTENSION] as { declarations: unknown[] };
   assert.equal(extension.declarations.length, 2);
   const list = paths['/beta/zones']!.get!;

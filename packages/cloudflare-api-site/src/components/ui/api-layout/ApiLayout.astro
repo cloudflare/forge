@@ -189,7 +189,7 @@ if (versionStatus?.isHidden || homePart) {
         becomes the sticky right column. The left padding keeps overflow-y-auto
         from clipping the LayerCard's outset ring at the scroll edge. */}
     {hasRail && (
-      <div data-pagefind-ignore class="mx-auto w-full max-w-(--nb-content-max) px-4 pb-12 md:px-8 min-[90rem]:col-start-2 min-[90rem]:row-span-2 min-[90rem]:row-start-2 min-[90rem]:mx-0 min-[90rem]:max-w-none min-[90rem]:sticky min-[90rem]:top-14 min-[90rem]:max-h-[calc(100vh-3.5rem)] min-[90rem]:w-(--nb-code-rail-width) min-[90rem]:overflow-y-auto min-[90rem]:pt-8 min-[90rem]:pe-6 min-[90rem]:pb-8 min-[90rem]:ps-1">
+      <div data-pagefind-ignore class="mx-auto w-full max-w-(--nb-content-max) px-4 pb-12 md:px-8 min-[90rem]:col-start-2 min-[90rem]:row-span-2 min-[90rem]:row-start-2 min-[90rem]:mx-0 min-[90rem]:max-w-none min-[90rem]:sticky min-[90rem]:top-14 min-[90rem]:max-h-[calc(100vh-3.5rem)] min-[90rem]:w-(--nb-code-rail-width) min-[90rem]:flex min-[90rem]:flex-col min-[90rem]:overflow-y-auto min-[90rem]:pt-8 min-[90rem]:pe-6 min-[90rem]:pb-8 min-[90rem]:ps-1">
         <ApiCodeRail
           responses={page.responses}
           samples={page.samples}

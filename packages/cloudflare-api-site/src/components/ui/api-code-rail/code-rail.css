@@ -81,6 +81,11 @@
   outline: 2px solid var(--color-ring, var(--nb-cr-accent));
   outline-offset: -1px;
 }
+[data-nb-api-coderail] .nb-cr-body pre:focus-visible,
+[data-nb-api-coderail] .nb-cr-respbody:focus-visible {
+  outline: 2px solid var(--color-ring, var(--nb-cr-accent));
+  outline-offset: -2px;
+}
 /* A native <select> can't paint its chevron from `currentColor`, so the arrow
    is a data-URI stroke; a dark-mode override keeps it legible on dark chrome. */
 [data-mode="dark"] [data-nb-api-coderail] .nb-cr-langselect {
@@ -185,7 +190,7 @@
 /* The response body scrolls tall JSON; scrollbars come from globals.css. */
 [data-nb-api-coderail] .nb-cr-respbody {
   max-height: 20rem;
-  overflow-y: auto;
+  overflow: auto;
 }
 
 /* Reset the shared <Code> figure so it sits flush inside the surface. The
@@ -220,6 +225,13 @@
   font-size: 0.8125rem;
   /* 13/20: a whole-pixel line, so the rail lines up with itself. */
   line-height: 1.25rem;
+  /* The sample's box scrolls both ways, so both scrollbars sit on its edges. */
+  overflow: visible;
+  width: max-content;
+  min-width: 100%;
+}
+[data-nb-api-coderail] .nb-cr-content {
+  overflow: auto;
 }
 
 /* Gutter line numbers, counted off Shiki's per-line spans. Shiki separates
@@ -256,4 +268,20 @@
   top: 0.5rem;
   right: 0.5rem;
   opacity: 1;
+}
+
+/* Beside the page, the rail is capped at the viewport: its header and the
+   response keep their size, and the request sample scrolls inside the rest. */
+@media (min-width: 90rem) {
+  [data-nb-api-coderail],
+  [data-nb-api-coderail] .nb-cr-layer {
+    min-height: 0;
+  }
+  [data-nb-api-coderail] .nb-cr-head,
+  [data-nb-api-coderail] .nb-cr-respsection {
+    flex-shrink: 0;
+  }
+  [data-nb-api-coderail] .nb-cr-content {
+    min-height: 0;
+  }
 }

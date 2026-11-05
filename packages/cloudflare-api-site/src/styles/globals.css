@@ -85,6 +85,7 @@
   --nb-m-other-line: var(--nb-border);
 
   /* Layout */
+  --nb-header-height: 3.5rem;
   --nb-sidebar-width: 18.75rem;
   --nb-toc-width: 18rem;
   --nb-content-max: 43.5rem;

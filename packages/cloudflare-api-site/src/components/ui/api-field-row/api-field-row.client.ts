@@ -1,5 +1,5 @@
-/** Wires each API field group: expand/collapse-all + hash deep-linking, and the
- *  { n properties } buttons that toggle each row's <details>. */
+/** Wires each API field group's expand/collapse-all and the { n properties }
+ *  buttons that toggle each row's <details>. */
 
 import { mount, initDisclosureGroup } from "@cloudflare/nimbus-docs/client";
 
@@ -7,7 +7,6 @@ mount("[data-api-section]", (root) => {
   const instance = initDisclosureGroup({
     root,
     toggleAll: root.querySelector<HTMLElement>("[data-api-toggle-all]"),
-    deepLink: true,
   });
   return () => instance.destroy();
 });

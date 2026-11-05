@@ -5,7 +5,6 @@ import {
   canonicalTerraformEndpoint,
   indexTerraformDocs,
   renderTerraformDescriptions,
-  terraformDeclarationLabel,
   terraformEndpointKeys,
   terraformDocsSchema,
   terraformRolesSummary,
@@ -117,8 +116,6 @@ test('renderTerraformDescriptions renders every description once and keeps the M
 });
 
 test('Terraform operation data remains namespaced on the operation', () => {
-  assert.equal(terraformDeclarationLabel(resource), 'resource cloudflare_widget');
-  assert.equal(terraformDeclarationLabel(dataSource), 'data cloudflare_widget_data');
   assert.equal(
     terraformRolesSummary({ ...resource, roles: ['read', 'import'] }),
     'Called by this resource to read and import.',

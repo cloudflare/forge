@@ -21,7 +21,7 @@ openapi.forge.json (latest stable Forge release)
    prepareForgeApi (src/forge-api.ts)
                  |
                  v
-   .forge/  spec, products, redirects, release
+   .forge/  spec, products, redirects
                  |
                  v
    Nimbus api collection
@@ -34,15 +34,14 @@ release, loaded by `src/openapi-source.ts`. Fern SDK group and method metadata d
 resource hierarchy, and method route. OpenAPI tags remain internal ownership
 metadata and do not appear in URLs.
 
-`prepareForgeApi` writes four files to the git-ignored `.forge/` directory:
+`prepareForgeApi` writes three files to the git-ignored `.forge/` directory:
 
 - `openapi-<version>.json`: the spec Nimbus renders, with Cloudflare titles,
   `x-nimbus-order` for lifecycle order, request samples, synthesized response
   examples, and Terraform data under `x-cloudflare-terraform`;
 - `products.json`: the products and their slugs, read by the command sidebar;
 - `redirects.json`: old section, alias-operation, and moved-product URLs, read by
-  `src/middleware.ts`;
-- `release.json`: the spec's release date, shown on the API home page.
+  `src/middleware.ts`.
 
 Operations with removed Forge metadata are left out with a build warning.
 Operations `astro-fern` gives no URL are left out silently.

@@ -172,10 +172,6 @@ export function indexTerraformDocs(docs: TerraformDocs): Map<string, TerraformDe
   );
 }
 
-export function terraformDeclarationLabel(declaration: Pick<TerraformDeclaration, 'kind' | 'name'>): string {
-  return `${declaration.kind === 'resource' ? 'resource' : 'data'} ${declaration.name}`;
-}
-
 const ROLE_LABELS: Record<TerraformRole, string> = {
   create: 'create',
   read: 'read',

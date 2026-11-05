@@ -19,7 +19,7 @@ import {
 } from './cloudflare.ts';
 import { loadForgeOpenApi } from './openapi-source.ts';
 import { cloudflareTerraformExtension } from './terraform-extension.ts';
-import { TERRAFORM_EXTENSION_NAME, terraformDeclarationLabel, terraformOperationDataSchema } from './terraform.ts';
+import { TERRAFORM_EXTENSION_NAME, terraformOperationDataSchema } from './terraform.ts';
 import { assertToolingRouteNamespace } from './command-reference/routing.ts';
 import { cloudflareApiVersionLabel, parseCloudflareApiVersion } from './version.ts';
 
@@ -231,11 +231,9 @@ export function prepareForgeApi(
         const code = snippets.get(target.id);
         if (code) return [{ lang, label: target.label, source: code }];
         if (target.id === 'terraform' && declarations.length > 0) {
-          return declarations.map((declaration) => ({
-            lang,
-            label: terraformDeclarationLabel(declaration),
-            source: declaration.example!,
-          }));
+          return [
+            { lang, label: target.label, source: declarations.map((declaration) => declaration.example!).join('\n\n') },
+          ];
         }
         return [
           {
@@ -271,8 +269,7 @@ export function prepareForgeApi(
 
 /** Builds the prepared spec for every version and returns the Nimbus `api` entry. */
 export async function forgeApi(): Promise<ApiSpec> {
-  const source = await loadForgeOpenApi();
-  const document = hoistForgeCommands(source.document);
+  const document = hoistForgeCommands(await loadForgeOpenApi());
   const label = cloudflareApiVersionLabel(air);
   const data = buildFernContent({
     source: { kind: 'snapshots', snapshots: [{ id: air.wire, source: document, label, default: true }] },
@@ -294,10 +291,6 @@ export async function forgeApi(): Promise<ApiSpec> {
   writeFileSync(new URL(specFile, dir), JSON.stringify(prepared.document));
   writeFileSync(new URL('products.json', dir), JSON.stringify(prepared.products, null, 2));
   writeFileSync(new URL('redirects.json', dir), JSON.stringify(prepared.redirects, null, 2));
-  writeFileSync(
-    new URL('release.json', dir),
-    JSON.stringify({ lastModified: source.lastModified?.toISOString() ?? null }, null, 2),
-  );
 
   return {
     collection: 'api',
