@@ -206,8 +206,8 @@ importers:
         specifier: ^15.0.0-beta.2
         version: 15.0.0-beta.2(@types/node@26.0.1)(astro@7.4.1(@types/node@26.0.1)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.22.4)(yaml@2.9.1))(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.22.4)(workerd@1.20261019.1)(yaml@2.9.1)
       '@cloudflare/nimbus-docs':
-        specifier: ^0.19.2
-        version: 0.19.2(@readme/httpsnippet@11.4.0)(@scalar/openapi-parser@0.28.12)(@types/node@26.0.1)(astro@7.4.1(@types/node@26.0.1)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.22.4)(yaml@2.9.1))(esbuild@0.28.2)(jiti@2.7.0)(openapi-sampler@1.7.4)(supports-color@10.2.2)(tsx@4.22.4)
+        specifier: ^0.19.3
+        version: 0.19.3(@readme/httpsnippet@11.4.0)(@scalar/openapi-parser@0.28.12)(@types/node@26.0.1)(astro@7.4.1(@types/node@26.0.1)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.22.4)(yaml@2.9.1))(esbuild@0.28.2)(jiti@2.7.0)(openapi-sampler@1.7.4)(supports-color@10.2.2)(tsx@4.22.4)
       '@fontsource-variable/inter':
         specifier: 5.3.0
         version: 5.3.0
@@ -808,8 +808,8 @@ packages:
   '@cloudflare/config@0.27.0':
     resolution: {integrity: sha512-wNnL0z4lj5Gm2fze5qXTOvRPbUOi4jlMmwPk7ArCUakI5oVxgjfl3Rhnfd/Mmzo3g86x/ofH75yPIhsa5msqdQ==}
 
-  '@cloudflare/nimbus-docs@0.19.2':
-    resolution: {integrity: sha512-qlmwCcgI6sNdGAgbd8OGbH4asfxYy965DThKxrO6ek88JCnj5v/d+WxxYRghCkXEC1B6C4ZOcoPkMQHyHEOPCA==}
+  '@cloudflare/nimbus-docs@0.19.3':
+    resolution: {integrity: sha512-Y6J3smVzBOs+RNLjji0dvFFHXj2v/L13sbuDDW0YYTfa5nak2kGprGqj4h5Tf/P7QomIYcQuAFxgmPwqkpXlpA==}
     engines: {node: '>=22.12.0'}
     hasBin: true
     peerDependencies:
@@ -5215,7 +5215,7 @@ snapshots:
     dependencies:
       zod: 4.6.5
 
-  '@cloudflare/nimbus-docs@0.19.2(@readme/httpsnippet@11.4.0)(@scalar/openapi-parser@0.28.12)(@types/node@26.0.1)(astro@7.4.1(@types/node@26.0.1)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.22.4)(yaml@2.9.1))(esbuild@0.28.2)(jiti@2.7.0)(openapi-sampler@1.7.4)(supports-color@10.2.2)(tsx@4.22.4)':
+  '@cloudflare/nimbus-docs@0.19.3(@readme/httpsnippet@11.4.0)(@scalar/openapi-parser@0.28.12)(@types/node@26.0.1)(astro@7.4.1(@types/node@26.0.1)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.22.4)(yaml@2.9.1))(esbuild@0.28.2)(jiti@2.7.0)(openapi-sampler@1.7.4)(supports-color@10.2.2)(tsx@4.22.4)':
     dependencies:
       '@astrojs/markdown-satteri': 0.4.4
       '@astrojs/mdx': 8.0.3(@astrojs/markdown-satteri@0.4.4)(astro@7.4.1(@types/node@26.0.1)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.22.4)(yaml@2.9.1))
