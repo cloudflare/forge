@@ -17,6 +17,9 @@
 #   DOCS_SYNC_TOKEN, the docs bot's token: work done with GITHUB_TOKEN starts no workflows, so CI
 #   would not run on the pull request and the merge would not deploy. The main ruleset's
 #   required review is bypassed for the bot's team, for pull request merges only.
+# - Unlike sync-terraform-docs.yml, there is no fallback to GITHUB_TOKEN, and a pull request on which
+#   no checks appear fails the job instead of waiting for review: snapshot pull requests exist to
+#   merge on their own, so one that cannot is a failure someone has to see.
 # - Third-party actions are pinned to commit SHAs. Inputs reach scripts only through `env`.
 name: Sync API versions
 
@@ -50,12 +53,19 @@ jobs:
       contents: read
     outputs:
       added: ${{ steps.sync.outputs.added }}
+      base: ${{ steps.base.outputs.sha256 }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
       - uses: ./.github/actions/setup-workspace
+
+      # The manifest this run started from, so the pull-request job can refuse to overwrite a change
+      # that reached main in the meantime.
+      - name: Record the base manifest
+        id: base
+        run: echo "sha256=$(sha256sum "$MANIFEST" | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
 
       - name: Sync
         id: sync
@@ -99,10 +109,18 @@ jobs:
 
       - uses: ./.github/actions/setup-workspace
 
-      # The artifact replaces the committed manifest only if it is valid.
+      # The artifact replaces the committed manifest only if main still has the manifest sync started
+      # from, and only if the result is valid. A manifest edited on main meanwhile is never undone; the
+      # next run starts from it.
       - name: Apply artifact
+        env:
+          BASE_SHA256: ${{ needs.generate.outputs.base }}
         run: |
           set -euo pipefail
+          if [ "$(sha256sum "$MANIFEST" | cut -d' ' -f1)" != "$BASE_SHA256" ]; then
+            echo "::error::$MANIFEST changed on main during this run; the next run will start from it"
+            exit 1
+          fi
           cp "$RUNNER_TEMP/api-versions/api-versions.json" "$MANIFEST"
           pnpm --filter cloudflare-api-site api-versions check
 
@@ -118,6 +136,18 @@ jobs:
           if git diff --quiet -- "$MANIFEST"; then
             echo "::notice::$MANIFEST is already up to date"
             exit 0
+          fi
+
+          # An open pull request that already proposes this manifest is left alone, so the hourly run
+          # does not push the same change again and restart its checks. A failing one stays open
+          # until someone looks at it, or until upstream publishes another release.
+          number="$(gh pr list --head "$BRANCH" --base "$BASE" --state open --json number --jq '.[0].number // empty')"
+          if [ -n "$number" ]; then
+            git fetch --quiet origin "$BRANCH"
+            if git diff --quiet FETCH_HEAD -- "$MANIFEST"; then
+              echo "::notice::#$number already proposes this manifest"
+              exit 0
+            fi
           fi
 
           # Only the manifest is committed; the branch is rebuilt from the base every run.
@@ -137,7 +167,6 @@ jobs:
           Records the cloudflare/api-schemas releases $versions as API version snapshots of the docs site, each pinned to the commit its release points at and the SHA-256 of its spec. CI builds every recorded version before this merges.
           EOF
           )"
-          number="$(gh pr list --head "$BRANCH" --base "$BASE" --state open --json number --jq '.[0].number // empty')"
           if [ -n "$number" ]; then
             gh pr edit "$number" --title "$title" --body "$body"
             echo "::notice::Updated pull request #$number"
@@ -175,4 +204,6 @@ jobs:
 
           # Exits non-zero on the first failing check, which fails this job and leaves the PR open.
           gh pr checks "$NUMBER" --watch --fail-fast --interval 30
-          gh pr merge "$NUMBER" --squash --match-head-commit "$HEAD_SHA"
+          # Every check has passed; --admin uses the bot's ruleset bypass for the required review,
+          # which a plain merge reports as blocked.
+          gh pr merge "$NUMBER" --squash --admin --match-head-commit "$HEAD_SHA"

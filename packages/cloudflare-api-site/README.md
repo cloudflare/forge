@@ -210,9 +210,9 @@ The site publishes two kinds of API version:
 
 - **Rolling**, the latest: `openapi.json` at the head of `cloudflare/api-schemas`
   `main` when the site builds. It is the default and is never recorded.
-- **Snapshots**, one per API release. A release is a GitHub Release of
-  `cloudflare/api-schemas` named after its version, `YYYY-MM-DD.<train>` (for
-  example `2026-10-01.epoch`). Release candidates (`-rcN`) and `.rolling` are
+- **Snapshots**, one per API release. A release is a published GitHub Release
+  of `cloudflare/api-schemas` whose tag is its version, `YYYY-MM-DD.<train>`
+  (for example `2026-10-01.epoch`), pinned to the commit the tag points at. Release candidates (`-rcN`) and `.rolling` are
   never published there.
 
 `api-versions.json` records the snapshots, oldest first, each pinned to the

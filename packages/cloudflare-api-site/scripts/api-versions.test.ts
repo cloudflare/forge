@@ -243,6 +243,12 @@ test('rejects an unknown format or an unusable source', () => {
   }
 });
 
+test('rejects a release entry that is not an object', () => {
+  for (const entry of [null, 'release', 42]) {
+    assert.throws(() => parseManifest(manifestText([entry])), /release entry 0 is not an object/, String(entry));
+  }
+});
+
 test('rejects a release whose commit is not a full SHA', () => {
   assert.throws(
     () => parseManifest(manifestText([{ id: '2026-10-01.epoch', commit: 'abc123', sha256: DIGEST_A }])),
