@@ -9,9 +9,10 @@
     "deploy": "cf deploy",
     "deploy:preview": "cf previews deploy",
     "check": "astro check",
-    "test": "node --experimental-strip-types --test src/*.test.ts",
+    "test": "node --experimental-strip-types --test src/*.test.ts scripts/*.test.ts",
     "test:e2e": "playwright test --project=e2e",
-    "test:visual": "playwright test --project=visual"
+    "test:visual": "playwright test --project=visual",
+    "api-versions": "node --experimental-strip-types scripts/api-versions.ts"
   },
   "dependencies": {
     "@astrojs/cloudflare": "^15.0.0-beta.2",
