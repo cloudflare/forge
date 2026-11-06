@@ -1,0 +1,35 @@
+# Not a workflow of this repository: it belongs in cloudflare/api-schemas, as
+# .github/workflows/notify-docs.yml. Kept here so the docs pipeline and its trigger change together.
+#
+# Tells cloudflare/forge that the API schemas changed:
+# - every push to main sends `api-schemas-updated`, which deploys the docs with the new rolling spec;
+# - every published release sends `api-schemas-released`, which records the release as an API version
+#   snapshot.
+#
+# FORGE_DISPATCH_TOKEN is a fine-grained token of the docs bot with Contents read and write on
+# cloudflare/forge only, which POST /repos/cloudflare/forge/dispatches requires. If it breaks, this
+# workflow fails on every push; the docs keep their last deploy until it is fixed.
+name: Notify docs
+
+on:
+  push:
+    branches: [main]
+  release:
+    types: [published]
+
+permissions: {}
+
+concurrency:
+  group: notify-docs-${{ github.event_name }}
+  cancel-in-progress: false
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Dispatch to cloudflare/forge
+        env:
+          GH_TOKEN: ${{ secrets.FORGE_DISPATCH_TOKEN }}
+          EVENT: ${{ github.event_name == 'release' && 'api-schemas-released' || 'api-schemas-updated' }}
+        run: gh api --method POST repos/cloudflare/forge/dispatches -f event_type="$EVENT" -f "client_payload[sha]=$GITHUB_SHA"

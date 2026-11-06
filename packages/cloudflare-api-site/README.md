@@ -29,10 +29,11 @@ OpenAPI source or version-bound snapshots
                      target metadata
 ```
 
-The OpenAPI specification is loaded from the `openapi.forge.json` asset on the
-latest stable Forge GitHub release. Set `FORGE_OPENAPI_RELEASE` to a release tag
-to build against that exact revision. The released artifact keeps normal docs
-development free of Fern generation, Docker, and registry access. Fern SDK group
+The OpenAPI specification is `openapi.json` from
+[`cloudflare/api-schemas`](https://github.com/cloudflare/api-schemas), read at
+the head of `main` unless a commit is pinned; see [API versions](#api-versions).
+Reading the published spec keeps normal docs development free of Fern generation,
+Docker, and registry access. Fern SDK group
 and method metadata defines each public product, resource hierarchy, and method
 route. OpenAPI tags remain internal ownership metadata and do not appear in
 SDK-backed URLs.
@@ -171,14 +172,18 @@ served at `<preview-name>-docs.<subdomain>.workers.dev` (`previewUrls` in
 `.github/workflows/preview-docs.yml` deploys one for every same-repository pull
 request and comments its URL.
 
-To reproduce a release-triggered build, pin the release asset:
+Set `FORGE_OPENAPI_SPEC` to an already-downloaded spec to build without
+downloading it again, for example the rolling spec `materialize` writes (see
+[API versions](#api-versions)):
 
 ```bash
-FORGE_OPENAPI_RELEASE='openapi@<api-schemas-commit>' pnpm --filter cloudflare-api-site build
+pnpm --filter cloudflare-api-site api-versions materialize --out .forge/sources
+FORGE_OPENAPI_SPEC=.forge/sources/rolling.json pnpm --filter cloudflare-api-site build
 ```
 
-Set `FORGE_OPENAPI_SPEC` to an already-downloaded artifact to build without
-downloading it again.
+`FORGE_OPENAPI_RELEASE='openapi@<api-schemas-commit>'` still builds against
+`openapi.json` at that `api-schemas` commit; it goes away once the site reads
+every version from the index.
 
 Astro trusts the `X-Forwarded-Host` header only for hosts listed in
 [`security.allowedDomains`](https://docs.astro.build/en/reference/configuration-reference/#securityalloweddomains)
@@ -196,5 +201,57 @@ bundle.
 `test:visual` compares screenshots of key pages against local baselines. It
 serves the last build with `astro preview`, or uses `VISUAL_BASE_URL` when set.
 Build the known-good revision and run it with `--update-snapshots` to record
-baselines, then build the change and run it again. Pin `FORGE_OPENAPI_RELEASE`
-for both builds; baselines and results are not committed.
+baselines, then build the change and run it again. Build both against the same
+`FORGE_OPENAPI_SPEC`; baselines and results are not committed.
+
+## API versions
+
+The site publishes two kinds of API version:
+
+- **Rolling**, the latest: `openapi.json` at the head of `cloudflare/api-schemas`
+  `main` when the site builds. It is the default and is never recorded.
+- **Snapshots**, one per API release. A release is a GitHub Release of
+  `cloudflare/api-schemas` named after its version, `YYYY-MM-DD.<train>` (for
+  example `2026-10-01.epoch`). Release candidates (`-rcN`) and `.rolling` are
+  never published there.
+
+`api-versions.json` records the snapshots, oldest first, each pinned to the
+commit its release pointed at and the SHA-256 of its spec:
+
+```json
+{ "id": "2026-10-01.epoch", "commit": "<40-character sha>", "sha256": "<64-character digest>" }
+```
+
+The record is append-only. Sync adds releases, fails if a recorded release now
+points at another commit, and keeps one that disappeared upstream with a
+warning. Changing or removing an entry is a reviewed edit to the file.
+
+`scripts/api-versions.ts` reads and writes it:
+
+```bash
+pnpm --filter cloudflare-api-site api-versions sync         # record new upstream releases
+pnpm --filter cloudflare-api-site api-versions materialize --out .forge/sources [--rolling-commit <sha>] [--cache <dir>]
+```
+
+`materialize` writes every snapshot spec, checked against its digest, the
+rolling spec, and `index.json`, which lists them all. Until the site reads that
+index, a build renders rolling alone, from `FORGE_OPENAPI_SPEC`.
+
+The workflows:
+
+- `.github/workflows/deploy-docs.yml` deploys on a push to `main`, on the
+  `api-schemas-updated` dispatch that `api-schemas` sends on every push to its
+  `main`, and by hand. It never runs on a schedule, and runs queue rather than
+  cancel. A manual run can pin rolling to a commit, or build without deploying.
+- `.github/workflows/sync-api-versions.yml` runs `sync` on the
+  `api-schemas-released` dispatch, hourly, and by hand. When it records a
+  release, it opens a pull request, which CI builds and the docs bot merges
+  once every check passes. The merge deploys.
+- `.github/actions/materialize-api-versions` runs `materialize` for the deploy,
+  CI, and preview workflows, and caches snapshot specs between runs.
+- `upstream/api-schemas-notify-docs.yml` is the workflow that sends both
+  dispatches. It belongs in `cloudflare/api-schemas`, not here.
+
+The dispatches need `FORGE_DISPATCH_TOKEN` in `api-schemas`, and sync needs
+`DOCS_SYNC_TOKEN` here. Both are fine-grained tokens of the docs bot, scoped to
+this repository.

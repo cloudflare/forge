@@ -47,9 +47,15 @@ jobs:
       - name: Install Playwright browser
         run: pnpm --filter cloudflare-api-site exec playwright install --with-deps chromium
 
+      # Every recorded API version snapshot, plus rolling, so a change that breaks any of them fails here.
+      - uses: ./.github/actions/materialize-api-versions
+        id: specs
+
       # The tests run against `astro preview`, which serves the last build.
       - name: Build
         run: pnpm --filter cloudflare-api-site build
+        env:
+          FORGE_OPENAPI_SPEC: ${{ steps.specs.outputs.rolling }}
 
       - name: Run end-to-end tests
         run: pnpm --filter cloudflare-api-site test:e2e
