@@ -27,6 +27,26 @@ lint:
     cargo clippy --locked --all-targets --all-features -- -D warnings
     cargo clippy --locked --all-targets --no-default-features -- -D warnings
 
+# Score how findable the MCP tools generated from a spec are; with no spec,
+# the latest openapi.forge.json release. Takes main.ts options, such as
+# --min-top5 0.8 or --json.
+mcp-eval spec="" *args:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    spec="{{ spec }}"
+    mkdir -p target/mcp-eval
+    if [ -z "$spec" ]; then
+      spec=target/mcp-eval/openapi.forge.json
+      gh release download --repo cloudflare/forge --pattern openapi.forge.json --output "$spec" --clobber
+    fi
+    # The release has Fern's extensions; forge reads its own x-forge-* ones.
+    cargo run --release --quiet -- normalize "$spec" > target/mcp-eval/normalized.json
+    # Inside the package, so the tools' runtime finds the MCP SDK it imports.
+    rm -rf packages/mcp-search-eval/generated
+    cargo run --release --quiet -- target/mcp-eval/normalized.json --target mcp --out packages/mcp-search-eval/generated
+    cd packages/mcp-search-eval
+    node --import ./src/register.ts src/main.ts generated {{ args }}
+
 # Release builds
 #
 # Every way of getting release binaries puts them in target/binaries/<target>/
