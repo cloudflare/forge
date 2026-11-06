@@ -1,44 +1,88 @@
+# Deploys the docs site with every API version it publishes: each snapshot recorded in
+# packages/cloudflare-api-site/api-versions.json, plus rolling, the head of cloudflare/api-schemas
+# main.
+#
+# Builds run only when something changed:
+# - a push to main: site code, or a merged snapshot PR from sync-api-versions.yml;
+# - repository_dispatch `api-schemas-updated`, sent by the doorbell workflow in api-schemas on every
+#   push to its main (packages/cloudflare-api-site/upstream/api-schemas-notify-docs.yml);
+# - a manual run.
+#
+# There is no schedule. A lost dispatch needs no fallback: api-schemas commits several times an hour,
+# and every deploy resolves rolling itself, so the next one catches up. The dispatch payload is
+# ignored for the same reason.
+#
+# Runs queue and never cancel: at most one runs and one waits, and the waiting run builds the newest
+# state when it starts.
+
 name: Deploy docs
 
 on:
   push:
     branches: [main]
-  release:
-    types: [published]
+  repository_dispatch:
+    types: [api-schemas-updated]
   workflow_dispatch:
     inputs:
-      openapi_release:
-        description: Forge OpenAPI release tag (defaults to the latest release).
+      rolling_commit:
+        description: Full api-schemas commit SHA to build rolling from (defaults to the head of main).
         required: false
         type: string
+      dry_run:
+        description: Build and check without deploying.
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
 
 concurrency:
   group: deploy-docs
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   deploy:
     name: Deploy docs
-    if: >-
-      github.event_name != 'release' ||
-      (github.event.release.prerelease == false && contains(github.event.release.assets.*.name, 'openapi.forge.json'))
     runs-on: ubuntu-latest
-    timeout-minutes: 15
-    permissions:
-      contents: read
+    timeout-minutes: 30
 
     steps:
       - uses: actions/checkout@v7.0.1
-        with:
-          ref: ${{ github.event_name == 'release' && github.event.repository.default_branch || github.ref }}
 
       - uses: ./.github/actions/setup-workspace
 
-      # `cf deploy` builds the site (`astro build`) and deploys it. `run` is
-      # needed because `pnpm deploy` is a built-in pnpm command.
+      - uses: ./.github/actions/materialize-api-versions
+        id: specs
+        with:
+          rolling-commit: ${{ inputs.rolling_commit || '' }}
+
+      # `cf deploy` builds the site (`astro build`) and deploys it. `run` is needed because
+      # `pnpm deploy` is a built-in pnpm command. Until the site reads every version from
+      # .forge/sources/index.json, it builds rolling alone, from FORGE_OPENAPI_SPEC.
       - name: Build and deploy
-        run: pnpm --filter cloudflare-api-site run deploy
+        run: |
+          if [ "$DRY_RUN" = 'true' ]; then
+            pnpm --filter cloudflare-api-site exec cf deploy --dry-run
+          else
+            pnpm --filter cloudflare-api-site run deploy
+          fi
         env:
-          FORGE_OPENAPI_RELEASE: ${{ github.event.release.tag_name || inputs.openapi_release || '' }}
+          DRY_RUN: ${{ inputs.dry_run || false }}
+          FORGE_OPENAPI_SPEC: ${{ steps.specs.outputs.rolling }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+
+      - name: Summary
+        env:
+          ROLLING_COMMIT: ${{ steps.specs.outputs.rolling-commit }}
+          RELEASES: ${{ steps.specs.outputs.releases }}
+          DRY_RUN: ${{ inputs.dry_run || false }}
+        run: |
+          cat >> "$GITHUB_STEP_SUMMARY" <<EOF
+          ### Docs $([ "$DRY_RUN" = 'true' ] && echo 'dry run' || echo 'deploy')
+
+          - Forge: \`$GITHUB_SHA\`
+          - Rolling: cloudflare/api-schemas@\`$ROLLING_COMMIT\`
+          - Snapshots: ${RELEASES:-none}
+          EOF

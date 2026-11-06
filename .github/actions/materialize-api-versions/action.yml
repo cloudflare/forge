@@ -1,0 +1,50 @@
+name: Materialize API versions
+description: >-
+  Writes every API version snapshot recorded in packages/cloudflare-api-site/api-versions.json, each
+  checked against its recorded digest, plus the rolling spec at the head of the source branch, into
+  packages/cloudflare-api-site/.forge/sources/. Snapshot specs never change, so they are cached
+  between runs. Needs the workspace installed (./.github/actions/setup-workspace).
+
+inputs:
+  rolling-commit:
+    description: Full api-schemas commit SHA to pin rolling to. Defaults to the head of the source branch.
+    required: false
+    default: ''
+
+outputs:
+  rolling:
+    description: Path of the rolling spec, relative to packages/cloudflare-api-site.
+    value: ${{ steps.materialize.outputs.rolling }}
+  rolling-commit:
+    description: The api-schemas commit rolling was built from.
+    value: ${{ steps.materialize.outputs.rolling-commit }}
+  releases:
+    description: Comma-separated ids of the snapshots, oldest first.
+    value: ${{ steps.materialize.outputs.releases }}
+
+runs:
+  using: composite
+  steps:
+    # One cache entry per manifest. A manifest that adds a snapshot restores the previous entry and
+    # downloads only the new spec.
+    - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: ~/.cache/api-versions
+        key: api-versions-${{ hashFiles('packages/cloudflare-api-site/api-versions.json') }}
+        restore-keys: api-versions-
+
+    - name: Materialize
+      id: materialize
+      shell: bash
+      env:
+        ROLLING_COMMIT: ${{ inputs.rolling-commit }}
+        GH_TOKEN: ${{ github.token }}
+      run: |
+        set -euo pipefail
+        if [ -n "$ROLLING_COMMIT" ] && ! [[ "$ROLLING_COMMIT" =~ ^[0-9a-f]{40}$ ]]; then
+          echo "::error::rolling-commit must be a full 40-character commit SHA"; exit 1
+        fi
+        pnpm --filter cloudflare-api-site api-versions materialize \
+          --out .forge/sources \
+          --cache "$HOME/.cache/api-versions" \
+          ${ROLLING_COMMIT:+--rolling-commit "$ROLLING_COMMIT"}

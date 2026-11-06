@@ -16,6 +16,7 @@ on:
       - 'packages/cloudflare-api-site/**'
       - 'pnpm-lock.yaml'
       - '.github/workflows/preview-docs.yml'
+      - '.github/actions/materialize-api-versions/**'
 
 concurrency:
   group: preview-docs-${{ github.event.pull_request.number }}
@@ -38,9 +39,13 @@ jobs:
 
       # Preview URLs come from `previewUrls` in cloudflare.config.ts, which a
       # production deploy must apply first.
+      - uses: ./.github/actions/materialize-api-versions
+        id: specs
+
       - name: Deploy preview
         run: pnpm --filter cloudflare-api-site run deploy:preview | tee "$RUNNER_TEMP/preview.log"
         env:
+          FORGE_OPENAPI_SPEC: ${{ steps.specs.outputs.rolling }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
 

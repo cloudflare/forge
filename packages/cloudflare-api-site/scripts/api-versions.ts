@@ -8,6 +8,7 @@
  *
  * Commands, run from the package directory:
  *
+ *   check        validate api-versions.json
  *   sync         record new upstream releases in api-versions.json
  *   materialize  write every snapshot spec, the rolling spec and index.json into --out
  *
@@ -332,6 +333,11 @@ async function main(argv: string[]): Promise<void> {
   });
   const manifest = parseManifest(await readFile(values.manifest, 'utf8'));
 
+  if (command === 'check') {
+    console.log(`${values.manifest}: ${manifest.releases.length} snapshot(s), valid`);
+    return;
+  }
+
   if (command === 'sync') {
     const releases = await listUpstreamReleases(manifest.source.repository);
     const result = await sync(manifest, { releases, fetch });
@@ -357,7 +363,7 @@ async function main(argv: string[]): Promise<void> {
     return;
   }
 
-  fail(`unknown command "${command ?? ''}": expected sync or materialize`);
+  fail(`unknown command "${command ?? ''}": expected check, sync or materialize`);
 }
 
 if (import.meta.main) {
