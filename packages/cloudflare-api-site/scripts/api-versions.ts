@@ -51,6 +51,11 @@ function fail(message: string): never {
   throw new Error(`api-versions: ${message}`);
 }
 
+/** True for a full, lowercase commit SHA: the only commit form the record and the URLs accept. */
+export function isCommit(value: unknown): value is string {
+  return typeof value === 'string' && COMMIT.test(value);
+}
+
 /** True for `YYYY-MM-DD.<train>` on a real calendar date, other than the rolling channel. */
 export function isReleaseVersion(name: string): boolean {
   const match = VERSION.exec(name);
@@ -87,7 +92,7 @@ export function sha256(bytes: Uint8Array): string {
 }
 
 export function specUrl(manifest: ApiVersionsManifest, commit: string): URL {
-  if (!COMMIT.test(commit)) fail(`"${commit}" is not a full commit SHA`);
+  if (!isCommit(commit)) fail(`"${commit}" is not a full commit SHA`);
   const { repository, path } = manifest.source;
   return new URL(`https://raw.githubusercontent.com/${repository}/${commit}/${path}`);
 }
@@ -164,8 +169,9 @@ const ROLLING_FILE = 'rolling.json';
 async function readIfPresent(path: string): Promise<Uint8Array | undefined> {
   try {
     return new Uint8Array(await readFile(path));
-  } catch {
-    return undefined;
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return undefined;
+    throw error;
   }
 }
 
@@ -187,22 +193,23 @@ export async function materialize(
   await mkdir(out, { recursive: true });
   if (cache) await mkdir(cache, { recursive: true });
 
+  /** The release's spec, from the cache when a cached copy matches its digest. Fails on a mismatch. */
   const loadRelease = async (release: ApiRelease): Promise<Uint8Array> => {
     const cached = cache ? join(cache, `${release.commit}.json`) : undefined;
     const hit = cached ? await readIfPresent(cached) : undefined;
     if (hit && sha256(hit) === release.sha256) return hit;
     const bytes = await downloadSpec(manifest, release.commit, fetch);
-    if (cached && sha256(bytes) === release.sha256) await writeFile(cached, bytes);
+    const digest = sha256(bytes);
+    if (digest !== release.sha256) {
+      fail(`the spec for ${release.id} at ${release.commit} hashes to ${digest}, not the recorded ${release.sha256}`);
+    }
+    if (cached) await writeFile(cached, bytes);
     return bytes;
   };
 
   const releases: ApiVersionsIndex['releases'] = [];
   for (const release of manifest.releases) {
     const bytes = await loadRelease(release);
-    const digest = sha256(bytes);
-    if (digest !== release.sha256) {
-      fail(`the spec for ${release.id} at ${release.commit} hashes to ${digest}, not the recorded ${release.sha256}`);
-    }
     const file = `${release.id}.json`;
     await writeFile(join(out, file), bytes);
     releases.push({ ...release, file });
@@ -240,13 +247,14 @@ export function parseManifest(text: string): ApiVersionsManifest {
   }
   if (!Array.isArray(manifest.releases)) fail('releases must be an array');
   let previous: string | undefined;
-  for (const release of manifest.releases) {
+  for (const [i, release] of manifest.releases.entries()) {
+    if (typeof release !== 'object' || release === null) fail(`release entry ${i} is not an object`);
     if (!isReleaseVersion(release.id)) fail(`"${release.id}" is not a release version (YYYY-MM-DD.<train>)`);
     if (previous !== undefined && compareIds(previous, release.id) >= 0) {
       fail(`releases must be strictly oldest first: ${release.id} follows ${previous}`);
     }
     previous = release.id;
-    if (!COMMIT.test(release.commit)) fail(`release ${release.id} has an invalid commit "${release.commit}"`);
+    if (!isCommit(release.commit)) fail(`release ${release.id} has an invalid commit "${release.commit}"`);
     if (!SHA256.test(release.sha256)) fail(`release ${release.id} has an invalid sha256`);
   }
   return manifest;
@@ -277,7 +285,41 @@ async function githubJson<T>(path: string): Promise<T> {
   return (await response.json()) as T;
 }
 
-/** Every release of `repository`, with the commit its tag points at. Only release names are resolved. */
+const execFileAsync = promisify(execFile);
+
+async function lsRemote(repository: string, args: string[]): Promise<string> {
+  const { stdout } = await execFileAsync('git', ['ls-remote', ...args, `https://github.com/${repository}.git`], {
+    maxBuffer: 64 * 1024 * 1024,
+  });
+  return stdout;
+}
+
+/**
+ * Tag name → commit, from `git ls-remote --tags` output. An annotated tag is listed twice, as the tag
+ * object and as the commit it peels to (`<name>^{}`); the commit wins.
+ */
+function tagCommits(output: string): Map<string, string> {
+  const commits = new Map<string, string>();
+  const peeled = new Set<string>();
+  for (const line of output.split('\n')) {
+    const [sha, ref] = line.split('\t');
+    if (!sha || !ref?.startsWith('refs/tags/')) continue;
+    const name = ref.slice('refs/tags/'.length);
+    if (name.endsWith('^{}')) {
+      commits.set(name.slice(0, -3), sha);
+      peeled.add(name.slice(0, -3));
+    } else if (!peeled.has(name)) {
+      commits.set(name, sha);
+    }
+  }
+  return commits;
+}
+
+/**
+ * The published releases of `repository` whose tag is a release version, with the commit the tag
+ * points at. A release is identified by its tag, which upstream names after the version; drafts and
+ * prereleases are dropped before any tag is resolved.
+ */
 async function listUpstreamReleases(repository: string): Promise<UpstreamRelease[]> {
   const releases: { tag_name: string; draft: boolean; prerelease: boolean }[] = [];
   for (let page = 1; ; page++) {
@@ -285,27 +327,25 @@ async function listUpstreamReleases(repository: string): Promise<UpstreamRelease
     releases.push(...batch);
     if (batch.length < 100) break;
   }
-  const result: UpstreamRelease[] = [];
-  for (const release of releases) {
-    if (!isReleaseVersion(release.tag_name)) continue;
-    const commit = await githubJson<{ sha: string }>(
-      `/repos/${repository}/commits/${encodeURIComponent(release.tag_name)}`,
-    );
-    result.push({ name: release.tag_name, commit: commit.sha, draft: release.draft, prerelease: release.prerelease });
-  }
-  return result;
+  const candidates = releases.filter((r) => !r.draft && !r.prerelease && isReleaseVersion(r.tag_name));
+  if (candidates.length === 0) return [];
+  const commits = tagCommits(await lsRemote(repository, ['--tags']));
+  return candidates.map((release) => {
+    const commit = commits.get(release.tag_name);
+    if (!isCommit(commit)) fail(`release ${release.tag_name} has no tag ${release.tag_name} in ${repository}`);
+    return { name: release.tag_name, commit };
+  });
 }
 
 /** The commit at the head of the source branch, from `git ls-remote`, which needs no API quota. */
 async function resolveBranch(manifest: ApiVersionsManifest): Promise<string> {
   const { repository, branch } = manifest.source;
   const ref = `refs/heads/${branch}`;
-  const { stdout } = await promisify(execFile)('git', ['ls-remote', `https://github.com/${repository}.git`, ref]);
-  const commit = stdout
+  const commit = (await lsRemote(repository, [ref]))
     .split('\n')
     .find((line) => line.endsWith(`\t${ref}`))
     ?.split('\t')[0];
-  if (!commit || !COMMIT.test(commit)) fail(`could not resolve ${repository}@${branch}`);
+  if (!isCommit(commit)) fail(`could not resolve ${repository}@${branch}`);
   return commit;
 }
 
