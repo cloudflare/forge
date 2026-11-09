@@ -24,6 +24,7 @@ test.describe('routes', () => {
     ],
     ['/api/zero-trust/devices/ip-profiles/methods/list/index.md', 200, 'text/markdown'],
     ['/api/index.md', 200, 'text/markdown'],
+    ['/api.md', 301, '', '/api/index.md'],
     ['/api/o11y/agents/traces/methods/list/', 302, '', '/api/observability/agents/traces/methods/list/'],
     ['/api/hyperdrive/integration/planetscale/', 302, '', '/api/hyperdrive/'],
     ['/api/tags/', 302, '', '/api/tagging/'],
