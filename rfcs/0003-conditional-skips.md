@@ -23,7 +23,7 @@ x-forge-skip:
 
 A generation has an unordered set of active condition names, such as `sdk` and
 `typescript`. `when` skips when any named condition is active. `unless` skips
-when none is active. The two keys are mutually exclusive.
+when none is active. A condition rule contains exactly one of the two keys.
 
 | Value               | Result                                       |
 | ------------------- | -------------------------------------------- |
@@ -32,15 +32,15 @@ when none is active. The two keys are mutually exclusive.
 | `{ when: names }`   | skip when the active set intersects `names`  |
 | `{ unless: names }` | skip when the active set misses every `name` |
 
-Names are exact, case-sensitive strings. Their order and duplicates have no
-effect. `when: []` is equivalent to `false`; `unless: []` is equivalent to
-`true`.
+Each rule lists at least one condition. Names are non-empty, exact,
+case-sensitive strings. Their order and duplicates have no effect. An empty
+list is invalid rather than an implicit always or never rule; use a boolean for
+those cases.
 
 ## Conditions
 
-The name follows Node's conditional exports: several independent conditions can
-describe one output. For example, a TypeScript SDK can activate both `sdk` and
-`typescript`.
+Several independent conditions can describe one output. For example, a
+TypeScript SDK can activate both `sdk` and `typescript`.
 
 The CLI accepts additional conditions as a comma-separated set:
 
@@ -48,10 +48,13 @@ The CLI accepts additional conditions as a comma-separated set:
 forge openapi.json --target wasm://plugin.wasm --conditions=sdk,typescript --out sdk
 ```
 
-Built-in targets provide their own conditions. The host resolves skips before
-building the Forge model, so plugins cannot disagree about filtering and never
-receive skipped definitions or skip metadata. A future `--include-skipped`
-option may bypass filtering for inspection; it is not part of this RFC.
+Built-in targets provide their own conditions. A custom plugin starts with no
+active conditions unless the CLI supplies them. With no active conditions,
+`when` never skips and `unless` always skips.
+
+The host resolves skips before building the Forge model, so plugins cannot
+disagree about filtering and never receive skipped definitions or skip
+metadata.
 
 ## Compatibility adapters
 
