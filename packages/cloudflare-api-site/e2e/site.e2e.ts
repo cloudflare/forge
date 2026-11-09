@@ -84,9 +84,9 @@ test('operation page renders the operation, its samples, its response example an
   await expect(page.locator('h1')).toHaveText('List IP profiles');
   await expect(page.locator('main nav[aria-label="Breadcrumb"] a').first()).toHaveText('API Reference');
   await expect(page.locator('[data-nb-api-coderail]')).toContainText('https://api.cloudflare.com/client/v4/accounts/');
-  await expect(page.locator('[data-nb-api-coderail] [data-nb-sample-lang="curl"]').first()).toBeAttached();
-  await expect(page.locator('[data-nb-api-coderail] [data-nb-sample-lang="cf"]').first()).toBeVisible();
-  await expect(page.locator('[data-nb-api-coderail] [data-nb-sample-lang="cf"]').first()).toContainText(
+  await expect(page.locator('[data-nb-api-coderail] [data-nb-choice-kind="curl"]').first()).toBeAttached();
+  await expect(page.locator('[data-nb-api-coderail] [data-nb-choice-kind="cf"]').first()).toBeVisible();
+  await expect(page.locator('[data-nb-api-coderail] [data-nb-choice-kind="cf"]').first()).toContainText(
     'cf zero-trust devices ip-profiles list',
   );
   await expect(page.locator('[data-nb-api-coderail]')).toContainText('Response example');
@@ -97,12 +97,12 @@ test('operation page renders the operation, its samples, its response example an
 
 test('code sample picker defaults to the cf CLI and switches samples', async ({ page }) => {
   await page.goto(operation);
-  const picker = page.locator('[data-nb-api-coderail] select[data-nb-lang-select]').first();
+  const picker = page.locator('[data-nb-api-coderail] select[data-nb-choice-select]').first();
   await expect(picker).toHaveValue('cf');
   await expect(picker.locator('option')).toHaveText(['cf CLI', 'curl', 'Terraform']);
   await picker.selectOption('curl');
   await expect(page).toHaveURL(/[?&]lang=curl\b/);
-  await expect(page.locator('[data-nb-api-coderail] [data-nb-sample-lang="curl"]').first()).toBeVisible();
+  await expect(page.locator('[data-nb-api-coderail] [data-nb-choice-kind="curl"]').first()).toBeVisible();
 });
 
 test('operation links its agent Markdown, which carries the cURL sample', async ({ page, request }) => {
@@ -122,7 +122,10 @@ test('operation links its agent Markdown, which carries the cURL sample', async 
 test('a Terraform-backed operation shows its declarations only with the HCL sample', async ({ page, request }) => {
   await page.goto('/api/dns/records/methods/create/');
   await expect(page.locator('[data-api-terraform]')).toBeHidden();
-  await page.locator('[data-nb-lang-select]').selectOption('hcl');
+  // Like the old site, the page carries the declarations only for ?lang=hcl;
+  // picking Terraform fetches them.
+  await expect(page.locator('[data-api-terraform] .forge-terraform-declaration')).toHaveCount(0);
+  await page.locator('[data-nb-choice-select]').selectOption('hcl');
   await expect(
     page.locator('[data-api-terraform]').getByRole('heading', { name: 'Terraform', exact: true }),
   ).toBeVisible();
