@@ -7,8 +7,6 @@ mod json;
 mod link;
 mod method;
 mod name;
-#[cfg(feature = "cli")]
-pub mod normalize;
 mod plugin;
 mod types;
 pub use json::Json;

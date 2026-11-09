@@ -368,16 +368,46 @@ fn display() {
 fn models() {
     let forge: Forge = serde_json::from_str(
         r##"{
-          "openapi": "3.0.3", "info": {"title": "t", "version": "1"},
+          "openapi": "3.0.3",
+          "info": {"title": "t", "version": "1"},
           "paths": {
-            "/a": {"get": {"x-forge-group-name": ["pet-store", "list_all"], "x-forge-method-name": "get",
-              "responses": {"200": {"description": "ok", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/pet_owner"}}}}}}},
-            "/b": {"get": {"x-forge-group-name": ["pet-store"], "x-forge-method-name": "get",
-              "responses": {"200": {"description": "ok", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/2fa"}}}}}}},
-            "/c": {"get": {"x-forge-group-name": ["other"], "x-forge-method-name": "get",
-              "responses": {"200": {"description": "ok", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/2fa"}}}}}}}
+            "/a": {
+              "get": {
+                "x-forge-group-name": ["pet-store", "list_all"],
+                "x-forge-method-name": "get",
+                "responses": {"200": {
+                  "description": "ok",
+                  "content": {"application/json": {"schema": {"$ref": "#/components/schemas/pet_owner"}}}
+                }}
+              }
+            },
+            "/b": {
+              "get": {
+                "x-forge-group-name": ["pet-store"],
+                "x-forge-method-name": "get",
+                "responses": {"200": {
+                  "description": "ok",
+                  "content": {"application/json": {"schema": {"$ref": "#/components/schemas/2fa"}}}
+                }}
+              }
+            },
+            "/c": {
+              "get": {
+                "x-forge-group-name": ["other"],
+                "x-forge-method-name": "get",
+                "responses": {"200": {
+                  "description": "ok",
+                  "content": {"application/json": {"schema": {"$ref": "#/components/schemas/2fa"}}}
+                }}
+              }
+            }
           },
-          "components": {"schemas": {"pet_owner": {"type": "string"}, "2fa": {"type": "string"}}}
+          "components": {
+            "schemas": {
+              "pet_owner": {"type": "string"},
+              "2fa": {"type": "string"}
+            }
+          }
         }"##,
     )
     .unwrap();

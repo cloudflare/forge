@@ -4,16 +4,14 @@ Generates SDKs from OpenAPI documents.
 
 ```sh
 npm install --save-dev @cloudflare/forge
-npx forge openapi.json --generator ts --out sdk
+npx forge openapi.json --target ts --out sdk
 ```
 
 Or run it once without installing:
 
 ```sh
-npx @cloudflare/forge openapi.json --generator ts --out sdk
+npx @cloudflare/forge openapi.json --target ts --out sdk
 ```
-
-The former `--target` option remains available as a compatibility alias.
 
 Pass `-` instead of a path to read the document from standard input. Run
 `forge --help` for every option.
@@ -21,8 +19,8 @@ Pass `-` instead of a path to read the document from standard input. Run
 ## Normalizing a document
 
 `forge normalize` rewrites metadata extensions from other tools into Forge's
-`x-forge-*` vocabulary. This command does not change which extensions Forge
-reads; adopting the native vocabulary in the parser is a separate change.
+`x-forge-*` vocabulary. Forge reads that native vocabulary directly: vendor
+extensions have no parser effect until they are normalized.
 
 ```sh
 # Print the document with its keys rewritten. Nothing is changed.
@@ -95,7 +93,7 @@ WebAssembly components, so they run anywhere forge does, sandboxed: a plugin
 reads nothing but the document, and its only output is the files it returns.
 
 ```sh
-npx forge openapi.json --generator wasm://plugin.wasm --out sdk
+npx forge openapi.json --target wasm://plugin.wasm --out sdk
 ```
 
 ### Writing one in TypeScript
@@ -141,7 +139,7 @@ Build it, and run it:
 
 ```sh
 npx forge-plugin build plugin.ts -o plugin.wasm
-npx forge openapi.json --generator wasm://plugin.wasm --out sdk
+npx forge openapi.json --target wasm://plugin.wasm --out sdk
 ```
 
 `@cloudflare/forge/plugin` is typed throughout. A type is a union you narrow
@@ -165,8 +163,9 @@ have no `.` or `..` parts, and no two files may share one.
 
 Things to know:
 
-- **Each group runs in an instance of its own.** `generateGroup` sees
-  nothing that `generate` or another group kept in module state.
+- **Groups run in parallel across a pool of instances.** Instances are
+  reused across groups of the same forge, so module state may carry over
+  between calls.
 - **There is no Node.** Plugins have no `fs`, `process`, network or clock.
   Libraries in plain JavaScript bundle in and work.
 - **QuickJS runs the plugin.** `forge-plugin build` compiles it in, for a

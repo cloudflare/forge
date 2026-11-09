@@ -9,7 +9,8 @@
 
 use serde_json::{Map, Value};
 
-use super::{Options, Report};
+use super::json::{Options, Report};
+use super::vendor::{Change, Native};
 
 /// A kind of object that is read.
 #[derive(Clone, Copy)]
@@ -86,7 +87,7 @@ pub(super) fn walk(document: &mut Value, options: &Options) -> Report {
 }
 
 struct Walk<'o> {
-    options: &'o Options,
+    options: &'o Options<'o>,
     report: Report,
 }
 
@@ -142,20 +143,51 @@ impl Walk<'_> {
             .keys()
             .filter(|key| key.starts_with("x-"))
             .filter_map(|key| {
-                let normalize = match kind {
-                    Kind::Operation => self.options.sources.definition(key),
-                    Kind::Parameter => self.options.sources.parameter(key),
-                    Kind::Schema => self.options.sources.schema(key),
+                // The first source with a normalizer for the key wins.
+                let normalizer = self.options.sources.iter().find_map(|source| match kind {
+                    Kind::Operation => source.definition(key),
+                    Kind::Parameter => source.parameter(key),
+                    Kind::Schema => source.schema(key),
                     Kind::Document | Kind::Components | Kind::PathItem | Kind::Alias | Kind::Body | Kind::Media => None,
-                };
-                normalize.map(|normalize| (key.clone(), normalize))
+                });
+                normalizer.map(|normalizer| (key.clone(), normalizer))
             })
             .collect();
 
-        for (original, normalize) in normalizers {
-            if let Some(change) = normalize.normalize(members, &original, self.options) {
-                self.report.record(&original, change);
+        for (original, normalizer) in normalizers {
+            let Some(Native {
+                key: native,
+                value,
+                change,
+            }) = members.get(&original).and_then(|value| normalizer.normalize(value))
+            else {
+                continue;
+            };
+
+            // The native value wins when both are present. Keeping
+            // compatibility keys makes this object already normalized;
+            // otherwise the old key is removed without touching the native one.
+            if members.contains_key(native) {
+                if !self.options.leave_old_extensions {
+                    members.shift_remove(&original);
+                    self.report.record(&original, Change::plain());
+                }
+                continue;
             }
+
+            let at = members
+                .keys()
+                .position(|key| *key == original)
+                .expect("the compatibility key was found in its container");
+            // The value is only copied when the old key keeps it too.
+            let removed = if self.options.leave_old_extensions {
+                None
+            } else {
+                members.shift_remove(&original)
+            };
+            let value = value.or(removed).unwrap_or_else(|| members[&original].clone());
+            members.shift_insert(at, native.to_owned(), value);
+            self.report.record(&original, change);
         }
     }
 }

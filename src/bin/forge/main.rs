@@ -1,8 +1,10 @@
 //! The `forge` command, which generates an SDK from an OpenAPI document.
 //!
 //! ```text
-//! forge openapi.json --generator ts --out sdk
-//! forge openapi.json --generator wasm://plugin.wasm --out sdk
+//! forge openapi.json --target ts --out sdk
+//! forge openapi.json --target capnweb --out server
+//! forge openapi.json --target mcp --out tools
+//! forge openapi.json --target wasm://plugin.wasm --out sdk
 //! forge normalize specs/*.json
 //! ```
 
@@ -12,8 +14,11 @@ use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
 use clap::Parser;
-use forge::{Err, Forge};
+use forge::{Err, Forge, Plugin};
+use strum::{EnumString, VariantNames};
 
+mod capnweb;
+mod mcp;
 mod normalize;
 mod ts;
 
@@ -26,10 +31,12 @@ struct Args {
     /// The OpenAPI JSON document, or - to read it from standard input.
     #[arg(required = true)]
     spec: Option<PathBuf>,
-    /// The language of the SDK: `ts` for TypeScript, or `wasm://PATH` for
-    /// the plugin compiled to a WebAssembly component at PATH.
-    #[arg(long, alias = "target", value_parser = Generator::parse, required = true)]
-    generator: Option<Generator>,
+    /// The language of the SDK: `ts` for TypeScript, `capnweb` for a Cap'n
+    /// Web server of the TypeScript SDK, which it imports from `#sdk`, `mcp`
+    /// for the tools of an MCP server in TypeScript, or `wasm://PATH` for the
+    /// plugin compiled to a WebAssembly component at PATH.
+    #[arg(long, value_parser = Target::parse, required = true)]
+    target: Option<Target>,
     /// The directory to write the SDK to.
     #[arg(long, required = true)]
     out: Option<PathBuf>,
@@ -47,29 +54,42 @@ enum Command {
     Normalize(normalize::Args),
 }
 
-/// What Forge generates an SDK with.
-#[derive(Clone)]
-enum Generator {
+/// What forge generates an SDK with.
+#[derive(Clone, EnumString, VariantNames)]
+#[strum(serialize_all = "lowercase")]
+enum Target {
     /// The TypeScript generator.
     Ts,
+    /// The Cap'n Web server generator.
+    Capnweb,
+    /// The MCP generator, which generates the tools of an MCP server in TypeScript.
+    Mcp,
     /// A plugin compiled to a WebAssembly component, at the path.
     #[cfg(feature = "wasm")]
+    #[strum(disabled)]
     Wasm(PathBuf),
 }
 
-impl Generator {
-    fn parse(s: &str) -> Result<Generator, String> {
-        if s == "ts" {
-            return Ok(Generator::Ts);
+const WASM_PREFIX: &str = "wasm://";
+
+impl Target {
+    fn parse(s: &str) -> Result<Target, String> {
+        if let Ok(target) = s.parse::<Target>() {
+            return Ok(target);
         }
-        let Some(path) = s.strip_prefix("wasm://") else {
-            return Err("possible values: ts, wasm://PATH".to_owned());
+        let Some(path) = s.strip_prefix(WASM_PREFIX) else {
+            return Err(format!(
+                "unrecognized target {s}, possible values: {}, or {WASM_PREFIX}PATH",
+                Target::VARIANTS.join(", "),
+            ));
         };
         if path.is_empty() {
-            return Err("wasm:// needs the path of a plugin, as in wasm://plugin.wasm".to_owned());
+            return Err(format!(
+                "{WASM_PREFIX} needs the path of a plugin, as in {WASM_PREFIX}plugin.wasm"
+            ));
         }
         #[cfg(feature = "wasm")]
-        return Ok(Generator::Wasm(PathBuf::from(path)));
+        return Ok(Target::Wasm(PathBuf::from(path)));
         #[cfg(not(feature = "wasm"))]
         Err("this forge was built without wasm plugins; build it with `--features wasm`".to_owned())
     }
@@ -91,21 +111,20 @@ fn run(args: Args) -> Result<(), Err> {
         return normalize::run(args);
     }
     // They are required, which a command is the only way around.
-    let (Some(spec), Some(generator), Some(out)) = (args.spec, args.generator, args.out) else {
-        unreachable!("clap asks for a spec, a generator and an out when there is no command");
+    let (Some(spec), Some(target), Some(out)) = (args.spec, args.target, args.out) else {
+        unreachable!("clap asks for a spec, a target and an out when there is no command");
     };
-    generate(&spec, generator, &out)
+    generate(&spec, target, &out)
 }
 
 /// Generates the SDK for the document at `spec`, and writes it to `out`.
-fn generate(spec: &Path, generator: Generator, out: &Path) -> Result<(), Err> {
-    match generator {
-        Generator::Ts => {
-            let forge = read(spec)?;
-            forge::write(out, forge::run(&forge, &ts::Generator)?)
-        }
+fn generate(spec: &Path, target: Target, out: &Path) -> Result<(), Err> {
+    match target {
+        Target::Ts => run_plugin(&ts::Generator, spec, out),
+        Target::Capnweb => run_plugin(&capnweb::Generator, spec, out),
+        Target::Mcp => run_plugin(&mcp::Generator, spec, out),
         #[cfg(feature = "wasm")]
-        Generator::Wasm(path) => {
+        Target::Wasm(path) => {
             // Compiling the plugin and reading the document are both slow,
             // so they run at the same time.
             let (plugin, forge) = rayon::join(|| forge::wasm::WasmPlugin::from_file(&path), || read(spec));
@@ -113,6 +132,10 @@ fn generate(spec: &Path, generator: Generator, out: &Path) -> Result<(), Err> {
             forge::write(out, forge::run(&forge, &plugin)?)
         }
     }
+}
+
+fn run_plugin(plugin: &impl Plugin, spec: &Path, out: &Path) -> Result<(), Err> {
+    forge::write(out, forge::run(&read(spec)?, plugin)?)
 }
 
 /// Reads the document at `path`, or from standard input when `path` is `-`.
@@ -151,17 +174,14 @@ mod tests {
         let command = parse(&["normalize", "--check", "a.json"]).unwrap();
         assert!(matches!(command.command, Some(Command::Normalize(_))) && command.spec.is_none());
 
-        let document = parse(&["./normalize", "--generator", "ts", "--out", "sdk"]).unwrap();
+        let document = parse(&["./normalize", "--target", "ts", "--out", "sdk"]).unwrap();
         assert!(document.command.is_none() && document.spec.as_deref() == Some(Path::new("./normalize")));
-
-        let legacy = parse(&["a.json", "--target", "ts", "--out", "sdk"]).unwrap();
-        assert!(matches!(legacy.generator, Some(super::Generator::Ts)));
 
         // What a command or a document needs is not waived for the other.
         assert!(parse(&["normalize"]).is_err());
         assert!(parse(&["a.json"]).is_err());
-        assert!(parse(&["normalize", "--generator", "ts", "a.json"]).is_err());
-        assert!(parse(&["--generator", "ts", "normalize", "a.json"]).is_err());
+        assert!(parse(&["normalize", "--target", "ts", "a.json"]).is_err());
+        assert!(parse(&["--target", "ts", "normalize", "a.json"]).is_err());
         assert!(parse(&[]).is_err());
     }
 }

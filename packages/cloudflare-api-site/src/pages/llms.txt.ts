@@ -1,7 +1,7 @@
-import type { APIRoute } from 'astro';
 import { getLlmsPayload } from '@cloudflare/nimbus-docs/agent-endpoints';
+import type { APIRoute } from 'astro';
 import { renderLlmsIndexFromCatalog } from 'astro-fern/agents';
-import { getApiRouter, getFernContentCatalog } from '../api-server.ts';
+import { getApiContentCatalog, getApiRouter } from '../api-server.ts';
 
 // Rendered on request: the authored pages come from the index Nimbus prepares
 // at build time, followed by the API products astro-fern resolves per request.
@@ -18,7 +18,7 @@ export const GET: APIRoute = async ({ request, url }) => {
   if (!router.resolveSiteSelection(url)) return new Response('Not found', { status: 404 });
   const [docs, catalog] = await Promise.all([
     getLlmsPayload({ scope: 'site', surface: 'index' }, { request }),
-    getFernContentCatalog(),
+    getApiContentCatalog(),
   ]);
   const api = renderLlmsIndexFromCatalog(catalog, { kind: 'llms', scope: 'site' }, router.resolveHref);
   const body = docs ? `${docs.body.trimEnd()}\n\n${withoutTitle(api.body)}` : api.body;

@@ -1,5 +1,4 @@
-//! The TypeScript SDK generator, ported from Go's `internal/ts` and
-//! following the specs in specs/ts.
+//! The TypeScript SDK generator, following the specs in specs/ts.
 //!
 //! Every group gets a client.ts, a models.ts and an index.ts in its
 //! directory. The root also gets the runtime library, in `_/`.
@@ -9,12 +8,12 @@ use std::borrow::Cow;
 use forge::ts::{self, Ident, Module, PREAMBLE};
 use forge::{Err, Forge, Group, Method, Model, Plugin};
 
-mod client;
+pub(crate) mod client;
 mod codec;
 mod index;
 mod models;
 mod operation;
-mod types;
+pub(crate) mod types;
 
 /// Generates a TypeScript SDK.
 pub struct Generator;
@@ -54,7 +53,8 @@ fn files(node: Node<'_>) -> Result<Vec<File>, Err> {
 pub enum File {
     /// A generated file.
     Ts(ts::File),
-    /// A file of the runtime library, after the preamble.
+    /// A file with fixed content, such as one of the runtime library: its
+    /// path, and its content after the preamble.
     Runtime { path: String, content: String },
 }
 
@@ -79,14 +79,14 @@ impl forge::File for File {
 // `Plugin::generate` could pass in. Then every function here takes a
 // `Group`.
 #[derive(Clone, Copy)]
-enum Node<'f> {
+pub(crate) enum Node<'f> {
     Root(&'f Forge),
     Group(Group<'f>),
 }
 
 impl<'f> Node<'f> {
     /// Returns the directory of the node's files.
-    fn dir(self) -> Module {
+    pub(crate) fn dir(self) -> Module {
         match self {
             Node::Root(_) => Module::ROOT,
             Node::Group(group) => Module::group(group),
@@ -103,7 +103,7 @@ impl<'f> Node<'f> {
 
     /// Returns the names of the groups down to the node, in camelCase and
     /// separated by dots, for errors.
-    fn path(self) -> String {
+    pub(crate) fn path(self) -> String {
         match self {
             Node::Root(_) => String::new(),
             Node::Group(group) => group.path().map(|name| name.camel()).collect::<Vec<_>>().join("."),
@@ -112,7 +112,7 @@ impl<'f> Node<'f> {
 
     /// Returns the methods directly in the node, sorted by name. The root
     /// has none.
-    fn methods(self) -> Vec<Method<'f>> {
+    pub(crate) fn methods(self) -> Vec<Method<'f>> {
         match self {
             Node::Root(_) => Vec::new(),
             Node::Group(group) => group.methods().collect(),
@@ -120,7 +120,7 @@ impl<'f> Node<'f> {
     }
 
     /// Returns the groups directly in the node, sorted by name.
-    fn children(self) -> Vec<Group<'f>> {
+    pub(crate) fn children(self) -> Vec<Group<'f>> {
         match self {
             Node::Root(forge) => forge.groups().filter(|g| g.parent().is_none()).collect(),
             Node::Group(group) => group.children().collect(),
