@@ -72,18 +72,6 @@ function commandGroups(router: CommandRouter): CommandGroups {
   return { global, products };
 }
 
-/** The command directory: non-product commands, then one group per product with commands. */
-function commandSidebar(router: CommandRouter, pathname: string): SidebarItem[] {
-  const { global, products } = commandGroups(router);
-  const productItems: Item[] = [...products].map(([product, items]) => ({
-    label: product.title,
-    collapsed: true,
-    items,
-  }));
-  const current = currentPath(pathname);
-  return [...global, ...productItems].map((item, order) => toSidebarItem(item, current, order));
-}
-
 function currentPath(pathname: string): string {
   return pathname.replace(/\/+$/, '') || '/';
 }
@@ -100,10 +88,6 @@ function toSidebarItem(item: Item, current: string, order: number): SidebarItem 
     children: item.items.map((child, index) => toSidebarItem(child, current, index)),
     order,
   };
-}
-
-export async function getCommandSidebar(url: URL): Promise<SidebarItem[]> {
-  return commandSidebar(await getCommandRouter(), url.pathname);
 }
 
 export interface ToolingSidebar {

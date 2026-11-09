@@ -71,7 +71,9 @@ approved zone mapping.
   leaves out the description, which the body repeats.
 - `src/middleware.ts` 302s the URLs in `.forge/redirects.json` to their pages.
 - `src/command-reference/`, `src/command-sidebar.ts`, `src/pages/tooling/`, and
-  `src/pages/[product]/tooling/` own the `cf` command pages and their sidebar.
+  `src/pages/[product]/tooling/` own the `cf` command pages. They render on
+  request, inside `CommandPage.astro`, with the same API sidebar as the API
+  pages (`ApiNavigation.astro`), opened at the overview or the command's product.
   The catalog in `src/command-reference/_generated/` is copied from
   `cloudflare/cf`; replace it to refresh the commands.
 - `src/components/ui/` holds the Nimbus starter components the site owns,
