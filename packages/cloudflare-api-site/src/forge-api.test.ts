@@ -16,7 +16,7 @@ import {
   cloudflareOperationRoutingPreference,
   cloudflareSnippets,
 } from './cloudflare.ts';
-import { prepareForgeApi, TERRAFORM_EXTENSION } from './forge-api.ts';
+import { isAstroPreview, prepareForgeApi, TERRAFORM_EXTENSION } from './forge-api.ts';
 import { TERRAFORM_EXTENSION_NAME, terraformOperationDataSchema } from './terraform.ts';
 
 const SNAPSHOT = '2026-11-30.air';
@@ -439,4 +439,13 @@ test('refuses data that would give two pages one URL or one tag two meanings', (
 
 test('the prepared spec is titled for the API home', () => {
   assert.equal((prepare().document.info as { title: string }).title, 'API Reference');
+});
+
+test('only `astro preview` reuses the last build', () => {
+  const bin = '/repo/node_modules/astro/bin/astro.mjs';
+  assert.equal(isAstroPreview(['node', bin, 'preview', '--port', '8788']), true);
+  assert.equal(isAstroPreview(['node', '/repo/node_modules/.bin/astro', 'preview']), true);
+  assert.equal(isAstroPreview(['node', bin, 'build', '--mode', 'preview']), false);
+  assert.equal(isAstroPreview(['node', bin, 'dev', '--mode', 'preview']), false);
+  assert.equal(isAstroPreview(['node', '/repo/preview.mjs']), false);
 });

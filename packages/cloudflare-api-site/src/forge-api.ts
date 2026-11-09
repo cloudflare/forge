@@ -325,6 +325,15 @@ export async function forgeApi(): Promise<ApiSpec> {
 const BUILT_API_FILE = 'api.json';
 
 /**
+ * Whether this process is `astro preview`: the command is the argument after
+ * the Astro binary, so `astro build --mode preview` doesn't count.
+ */
+export function isAstroPreview(argv: readonly string[] = process.argv): boolean {
+  const bin = argv.findIndex((arg) => /(^|[\\/])astro(\.m?js)?$/.test(arg));
+  return bin !== -1 && argv[bin + 1] === 'preview';
+}
+
+/**
  * The Nimbus `api` entry the last `forgeApi()` run wrote. `astro preview` only
  * serves the last build, so it reads this instead of preparing the spec again.
  */
