@@ -1,0 +1,20 @@
+{
+  "name": "redocly-plugin-generators",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./index.ts"
+  },
+  "scripts": {
+    "test": "node --experimental-strip-types --test \"**/*.test.ts\"",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@redocly/openapi-core": "2.77.0",
+    "@types/node": "25.3.5",
+    "typescript": "5.9.3"
+  },
+  "peerDependencies": {
+    "@redocly/openapi-core": "^2.0.0"
+  }
+}
