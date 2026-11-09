@@ -118,3 +118,13 @@
 .docs-content .heading-anchor:hover {
   color: var(--cf-foreground);
 }
+
+/* A `cf` command is something to paste, not a listing: no line numbers, and
+   a box only as tall as the command instead of the code rail's minimum. */
+[data-nb-api-coderail] [data-nb-sample-lang='cf'] pre.astro-code .line::before {
+  content: none;
+}
+
+[data-nb-api-coderail] .nb-cr-content:has(> [data-nb-sample-lang='cf']:not([hidden])) {
+  min-height: 0;
+}
