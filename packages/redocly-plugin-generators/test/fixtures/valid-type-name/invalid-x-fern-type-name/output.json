@@ -1,12 +1,12 @@
 [
   {
-    "ruleId": "generators/valid-type-name",
+    "ruleId": "generators/fern-valid-type-name",
     "severity": "error",
     "message": "Type name must begin with a letter, but x-fern-type-name is \"1Owner\".",
     "location": "openapi.yaml#/components/schemas/Plant/properties/owner/x-fern-type-name"
   },
   {
-    "ruleId": "generators/valid-type-name",
+    "ruleId": "generators/fern-valid-type-name",
     "severity": "error",
     "message": "Type name must begin with a letter, but x-fern-type-name is \"_Plant\".",
     "location": "openapi.yaml#/components/schemas/Plant/x-fern-type-name"

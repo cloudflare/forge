@@ -1,6 +1,6 @@
 [
   {
-    "ruleId": "generators/no-duplicate-example-names",
+    "ruleId": "generators/fern-no-duplicate-example-names",
     "severity": "error",
     "message": "Duplicate example name: Samples. x-fern-examples entry 0 of this operation already uses it.",
     "location": "openapi.yaml#/paths/~1plants/delete/x-fern-examples/1/name"

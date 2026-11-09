@@ -157,6 +157,7 @@ function checkEnum(ctx: UserContext, schema: AnyNode, location: Location): void 
 
 export const noDuplicateFieldNames: RuleDefinition = {
   name: 'no-duplicate-field-names',
+  vendor: 'fern',
   sourceRules: ['fern-definition/no-duplicate-field-names'],
   severity: 'error',
   description: 'Object properties and enum values must have unique Fern names.',

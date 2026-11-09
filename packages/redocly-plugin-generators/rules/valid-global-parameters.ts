@@ -15,6 +15,7 @@ const VALID_TYPES = ['string', 'integer', 'double', 'number', 'boolean'];
 
 export const validGlobalParameters: RuleDefinition = {
   name: 'valid-global-parameters',
+  vendor: 'fern',
   sourceRules: ['fern-definition/valid-global-parameters'],
   severity: 'error',
   description:

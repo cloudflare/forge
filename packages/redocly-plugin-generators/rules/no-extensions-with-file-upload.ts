@@ -49,6 +49,7 @@ function droppedParents(ctx: UserContext, schema: Located): Located[] {
 
 export const noExtensionsWithFileUpload: RuleDefinition = {
   name: 'no-extensions-with-file-upload',
+  vendor: 'fern',
   sourceRules: ['fern-definition/no-extensions-with-file-upload'],
   severity: 'error',
   description: 'Multipart (file upload) request body schemas cannot inherit properties through `allOf` `$ref`s.',

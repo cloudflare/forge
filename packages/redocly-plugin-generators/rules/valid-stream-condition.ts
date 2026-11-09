@@ -172,6 +172,7 @@ function checkObject(
 
 export const validStreamCondition: RuleDefinition = {
   name: 'valid-stream-condition',
+  vendor: 'fern',
   sourceRules: ['fern-definition/valid-stream-condition'],
   severity: 'error',
   description:

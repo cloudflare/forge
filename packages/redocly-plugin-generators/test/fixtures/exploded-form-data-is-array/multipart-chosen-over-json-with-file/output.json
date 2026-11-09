@@ -1,6 +1,6 @@
 [
   {
-    "ruleId": "generators/exploded-form-data-is-array",
+    "ruleId": "generators/fern-exploded-form-data-is-array",
     "severity": "error",
     "message": "Multipart property \"tag\" has `encoding.tag.explode: true`, so it must be an array, but its schema is a string. Did you mean `type: array` with `items` of the current schema?",
     "location": "openapi.yaml#/paths/~1upload/post/requestBody/content/multipart~1mixed/encoding/tag/explode (key)"

@@ -1,6 +1,6 @@
 [
   {
-    "ruleId": "generators/no-conflicting-request-wrapper-properties",
+    "ruleId": "generators/fern-no-conflicting-request-wrapper-properties",
     "severity": "error",
     "message": "Multiple request properties resolve to the same generated name \"plantId\" after camelCase normalization: path parameter \"plant_id\" (SDK name \"plant_id\"), requestBody property \"plantId\" (SDK name \"plantId\") inherited via allOf from \"PlantKey\". This causes broken generated code. Use x-fern-parameter-name on a parameter or x-fern-property-name on a requestBody property to disambiguate.",
     "location": "paths/plant.yaml#/post (key)"

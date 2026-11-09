@@ -10,6 +10,7 @@ import type { AnyNode, RuleDefinition, UserContext } from '../utils/types.ts';
  */
 export const noDuplicateExampleNames: RuleDefinition = {
   name: 'no-duplicate-example-names',
+  vendor: 'fern',
   sourceRules: ['fern-definition/no-duplicate-example-names'],
   severity: 'error',
   description: 'x-fern-examples entries of an operation must have unique names.',

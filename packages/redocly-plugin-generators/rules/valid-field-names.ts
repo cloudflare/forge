@@ -113,6 +113,7 @@ function checkDiscriminator(ctx: UserContext, schema: AnyNode, location: Locatio
 
 export const validFieldNames: RuleDefinition = {
   name: 'valid-field-names',
+  vendor: 'fern',
   sourceRules: ['fern-definition/valid-field-names'],
   severity: 'error',
   description:

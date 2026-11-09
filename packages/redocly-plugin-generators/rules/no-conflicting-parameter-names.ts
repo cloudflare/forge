@@ -57,6 +57,7 @@ export function parameterNameCollisions(allParameters: ParameterInfo[]): Paramet
 
 export const noConflictingParameterNames: RuleDefinition = {
   name: 'no-conflicting-parameter-names',
+  vendor: 'fern',
   sourceRules: ['oss/no-conflicting-parameter-names'],
   severity: 'error',
   description: 'Parameters of an operation in different locations must not normalize to the same camelCase name.',

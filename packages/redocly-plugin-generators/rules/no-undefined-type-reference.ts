@@ -124,6 +124,7 @@ function headerUsages(ctx: UserContext, rootNode: AnyNode, key: string): FernTyp
 
 export const noUndefinedTypeReference: RuleDefinition = {
   name: 'no-undefined-type-reference',
+  vendor: 'fern',
   sourceRules: ['fern-definition/no-undefined-type-reference'],
   severity: 'error',
   description: "Types written in Fern's type syntax (x-fern-type, header type) parse and reference schemas that exist.",

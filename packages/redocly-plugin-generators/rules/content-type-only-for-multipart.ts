@@ -10,6 +10,7 @@ import type { AnyNode, RuleDefinition, UserContext } from '../utils/types.ts';
 
 export const contentTypeOnlyForMultipart: RuleDefinition = {
   name: 'content-type-only-for-multipart',
+  vendor: 'fern',
   sourceRules: ['fern-definition/content-type-only-for-multipart'],
   severity: 'error',
   description: 'Per-property `encoding.contentType` is only supported on multipart request bodies.',

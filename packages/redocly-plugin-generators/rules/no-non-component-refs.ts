@@ -28,6 +28,7 @@ function isInYamlComment(contents: string, index: number): boolean {
 
 export const noNonComponentRefs: RuleDefinition = {
   name: 'no-non-component-refs',
+  vendor: 'fern',
   sourceRules: ['docs/no-non-component-refs'],
   severity: 'error',
   description: 'Local `$ref`s must point to reusable components under `#/components/`.',

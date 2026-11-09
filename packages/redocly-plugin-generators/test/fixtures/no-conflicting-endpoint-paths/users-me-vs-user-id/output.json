@@ -1,12 +1,12 @@
 [
   {
-    "ruleId": "generators/no-conflicting-endpoint-paths",
+    "ruleId": "generators/fern-no-conflicting-endpoint-paths",
     "severity": "error",
     "message": "Endpoint path /users/{id} conflicts with other GET operations whose paths match the same URLs (a path parameter segment matches any segment): GET /users/me.",
     "location": "openapi.yaml#/paths/~1users~1{id}/get (key)"
   },
   {
-    "ruleId": "generators/no-conflicting-endpoint-paths",
+    "ruleId": "generators/fern-no-conflicting-endpoint-paths",
     "severity": "error",
     "message": "Endpoint path /users/me conflicts with other GET operations whose paths match the same URLs (a path parameter segment matches any segment): GET /users/{id} (operationId getUser).",
     "location": "openapi.yaml#/paths/~1users~1me/get (key)"

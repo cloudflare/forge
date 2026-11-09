@@ -73,6 +73,7 @@ function toDisplay(path: string, baseDirectory: string): string {
 
 export const noComponentSchemaCollisions: RuleDefinition = {
   name: 'no-component-schema-collisions',
+  vendor: 'fern',
   sourceRules: ['oss/no-component-schema-collisions'],
   severity: 'warn',
   description: 'Component schema keys must not be defined in more than one spec of a Fern API.',

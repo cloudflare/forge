@@ -1,6 +1,6 @@
 [
   {
-    "ruleId": "generators/valid-pagination",
+    "ruleId": "generators/fern-valid-pagination",
     "severity": "error",
     "message": "x-fern-pagination is not a valid pagination configuration. Declare cursor pagination (cursor, next_cursor, results), offset pagination (offset, results, and optionally step and has-next-page), uri pagination (next_uri, results), path pagination (next_path, results) or custom pagination (type: custom, results).",
     "location": "openapi.yaml#/x-fern-pagination"

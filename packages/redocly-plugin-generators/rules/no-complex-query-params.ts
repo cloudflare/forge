@@ -135,6 +135,7 @@ function findDiscriminatedUnion(ctx: UserContext, start: Located): Found | undef
 
 export const noComplexQueryParams: RuleDefinition = {
   name: 'no-complex-query-params',
+  vendor: 'fern',
   sourceRules: ['fern-definition/no-complex-query-params'],
   severity: 'error',
   description: 'Query parameters cannot use schemas that contain discriminated unions.',

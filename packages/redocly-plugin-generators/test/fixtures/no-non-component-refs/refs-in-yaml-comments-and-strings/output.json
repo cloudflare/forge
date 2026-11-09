@@ -1,6 +1,6 @@
 [
   {
-    "ruleId": "generators/no-non-component-refs",
+    "ruleId": "generators/fern-no-non-component-refs",
     "severity": "error",
     "message": "The text $ref: \"#/paths/~1users\" appears outside a real $ref (for example inside a description). Fern's docs check scans the raw file and rejects it as a reference to a non-component location; reword the text so it does not look like a $ref.",
     "location": "openapi.yaml#/"

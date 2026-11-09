@@ -30,6 +30,7 @@ function message(declaration: Declaration): string | undefined {
 
 export const validTypeName: RuleDefinition = {
   name: 'valid-type-name',
+  vendor: 'fern',
   sourceRules: ['fern-definition/valid-type-name'],
   severity: 'error',
   description: 'Type names Fern declares must begin with a letter.',

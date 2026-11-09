@@ -1,12 +1,12 @@
 [
   {
-    "ruleId": "generators/valid-field-names",
+    "ruleId": "generators/fern-valid-field-names",
     "severity": "warn",
     "message": "x-fern-enum must be an object keyed by enum value; Fern ignores it.",
     "location": "openapi.yaml#/components/schemas/Size/x-fern-enum"
   },
   {
-    "ruleId": "generators/valid-field-names",
+    "ruleId": "generators/fern-valid-field-names",
     "severity": "warn",
     "message": "x-fern-enum has an entry for \"archived\", which is not one of the enum values, so Fern ignores it.",
     "location": "openapi.yaml#/components/schemas/Status/x-fern-enum/archived (key)"

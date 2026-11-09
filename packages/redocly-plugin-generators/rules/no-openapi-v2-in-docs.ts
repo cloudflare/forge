@@ -5,6 +5,7 @@ import type { AnyNode, RuleDefinition, UserContext } from '../utils/types.ts';
 
 export const noOpenApiV2InDocs: RuleDefinition = {
   name: 'no-openapi-v2-in-docs',
+  vendor: 'fern',
   sourceRules: ['docs/no-openapi-v2-in-docs'],
   severity: 'warn',
   description: 'Swagger 2.0 documents should be upgraded to OpenAPI 3.',

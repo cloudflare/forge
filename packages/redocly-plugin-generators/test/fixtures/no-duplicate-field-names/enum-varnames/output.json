@@ -1,6 +1,6 @@
 [
   {
-    "ruleId": "generators/no-duplicate-field-names",
+    "ruleId": "generators/fern-no-duplicate-field-names",
     "severity": "error",
     "message": "Fern silently drops enum value \"okay\" from the generated SDK: its name \"OK\" is also the name of the earlier value \"ok\". Give each value a unique name with x-fern-enum.",
     "location": "openapi.yaml#/components/schemas/Status/x-enum-varnames/1"

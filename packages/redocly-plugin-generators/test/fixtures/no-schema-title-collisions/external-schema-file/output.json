@@ -1,6 +1,6 @@
 [
   {
-    "ruleId": "generators/no-schema-title-collisions",
+    "ruleId": "generators/fern-no-schema-title-collisions",
     "severity": "error",
     "message": "Schema title collision detected: Multiple schemas use title 'Plant'. Schema 'LegacyPlant' conflicts with schema 'Plant', and Fern names schemas after their titles (title-as-schema-name). Change one of the titles, or set 'resolve-schema-collisions: true' in generators.yml (and resolveSchemaCollisions: true on this rule) to resolve collisions automatically.",
     "location": "legacy-plant.yaml#/title"

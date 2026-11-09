@@ -251,6 +251,7 @@ function checkOperation(ctx: UserContext, operation: OperationInfo, config: Effe
 
 export const validPagination: RuleDefinition = {
   name: 'valid-pagination',
+  vendor: 'fern',
   sourceRules: ['fern-definition/valid-pagination'],
   severity: 'error',
   description:

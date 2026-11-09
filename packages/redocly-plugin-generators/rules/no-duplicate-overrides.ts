@@ -45,6 +45,7 @@ function audiencesIntersect(left: string[], right: string[]): boolean {
 
 export const noDuplicateOverrides: RuleDefinition = {
   name: 'no-duplicate-overrides',
+  vendor: 'fern',
   sourceRules: ['oss/no-duplicate-overrides'],
   severity: 'error',
   description:

@@ -91,6 +91,7 @@ function explanation(schemes: Record<string, AnyNode>): string {
 
 export const noMissingAuth: RuleDefinition = {
   name: 'no-missing-auth',
+  vendor: 'fern',
   sourceRules: ['fern-definition/no-missing-auth'],
   severity: 'error',
   description: 'Operations that require auth need a security scheme Fern supports.',

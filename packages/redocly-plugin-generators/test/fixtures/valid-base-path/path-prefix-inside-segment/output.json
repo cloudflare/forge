@@ -1,6 +1,6 @@
 [
   {
-    "ruleId": "generators/valid-base-path",
+    "ruleId": "generators/fern-valid-base-path",
     "severity": "error",
     "message": "Path '/v1users' starts with base path '/v1' only partway through a segment. Fern strips the prefix anyway and prepends the base path again with a slash, so SDKs call '/v1/users' instead of '/v1users'.",
     "location": "openapi.yaml#/paths/~1v1users (key)"

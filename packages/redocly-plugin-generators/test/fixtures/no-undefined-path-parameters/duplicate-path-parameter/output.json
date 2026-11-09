@@ -1,6 +1,6 @@
 [
   {
-    "ruleId": "generators/no-undefined-path-parameters",
+    "ruleId": "generators/fern-no-undefined-path-parameters",
     "severity": "error",
     "message": "Path '/users/{id}/friends/{id}' has duplicate path parameter: id.",
     "location": "openapi.yaml#/paths/~1users~1{id}~1friends~1{id} (key)"

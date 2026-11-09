@@ -1,12 +1,12 @@
 [
   {
-    "ruleId": "generators/valid-pagination",
+    "ruleId": "generators/fern-valid-pagination",
     "severity": "error",
     "message": "x-fern-pagination for endpoint listUsersByBadUri specifies 'next_uri' $response.links.count, which is not a valid 'next_uri' type. It must point to a property of the JSON success response whose type is a string.",
     "location": "openapi.yaml#/paths/~1users~1by-bad-uri/get/x-fern-pagination/next_uri"
   },
   {
-    "ruleId": "generators/valid-pagination",
+    "ruleId": "generators/fern-valid-pagination",
     "severity": "error",
     "message": "x-fern-pagination for endpoint listUsersByPath specifies 'next_path' $response.links.count, which is not a valid 'next_path' type. It must point to a property of the JSON success response whose type is a string.",
     "location": "openapi.yaml#/paths/~1users~1by-path/get/x-fern-pagination/next_path"

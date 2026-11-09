@@ -11,6 +11,7 @@ import type { AnyNode, RuleDefinition, UserContext } from '../utils/types.ts';
 
 export const validBasePath: RuleDefinition = {
   name: 'valid-base-path',
+  vendor: 'fern',
   sourceRules: ['fern-definition/valid-base-path'],
   severity: 'error',
   description:

@@ -1,24 +1,24 @@
 [
   {
-    "ruleId": "generators/valid-example-endpoint-call",
+    "ruleId": "generators/fern-valid-example-endpoint-call",
     "severity": "error",
     "message": "Example is missing required header \"X-Format\" (Fern makes it a global header because every operation declares it; its schema is a $ref, and Fern's example check cannot resolve schema references of global headers, so it treats the header as required)",
     "location": "openapi.yaml#/paths/~1plants/get/x-fern-examples/0/headers (key)"
   },
   {
-    "ruleId": "generators/valid-example-endpoint-call",
+    "ruleId": "generators/fern-valid-example-endpoint-call",
     "severity": "error",
     "message": "Example is missing required header \"X-Format\" (Fern makes it a global header because every operation declares it; its schema is a $ref, and Fern's example check cannot resolve schema references of global headers, so it treats the header as required)",
     "location": "openapi.yaml#/paths/~1plants/get/x-fern-examples/1/headers (key)"
   },
   {
-    "ruleId": "generators/valid-example-endpoint-call",
+    "ruleId": "generators/fern-valid-example-endpoint-call",
     "severity": "error",
     "message": "Invalid header \"X-Api-Version\" example: Expected example to be \"2024-01-01\". Example is: \"2023-01-01\" (Fern turns a header's string default into a constant)",
     "location": "openapi.yaml#/paths/~1plants/get/x-fern-examples/1/headers/X-Api-Version"
   },
   {
-    "ruleId": "generators/valid-example-endpoint-call",
+    "ruleId": "generators/fern-valid-example-endpoint-call",
     "severity": "error",
     "message": "Example is missing required header \"X-Api-Version\"",
     "location": "openapi.yaml#/paths/~1plants/get/x-fern-examples/2/headers (key)"

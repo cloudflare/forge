@@ -1,6 +1,6 @@
 [
   {
-    "ruleId": "generators/valid-pagination",
+    "ruleId": "generators/fern-valid-pagination",
     "severity": "warn",
     "message": "x-fern-pagination for endpoint listUsers specifies 'results' $response.data, which is not an array. Fern pages through the items of the results property, so it should be an array.",
     "location": "openapi.yaml#/paths/~1users/get/x-fern-pagination/results"

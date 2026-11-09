@@ -1,6 +1,6 @@
 [
   {
-    "ruleId": "generators/no-undefined-variable-reference",
+    "ruleId": "generators/fern-no-undefined-variable-reference",
     "severity": "error",
     "message": "x-fern-sdk-variables must be an object mapping variable names to schemas with type: string. Fern fails to import the document.",
     "location": "openapi.yaml#/x-fern-sdk-variables"

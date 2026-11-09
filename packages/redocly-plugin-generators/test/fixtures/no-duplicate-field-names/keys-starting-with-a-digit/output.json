@@ -1,6 +1,6 @@
 [
   {
-    "ruleId": "generators/no-duplicate-field-names",
+    "ruleId": "generators/fern-no-duplicate-field-names",
     "severity": "error",
     "message": "Object has multiple properties named \"_2xl\": \"2xl\" at #/components/schemas/Sizes/properties/2xl, \"_2xl\" at #/components/schemas/Sizes/properties/_2xl. Give each property a unique name with x-fern-property-name.",
     "location": "openapi.yaml#/components/schemas/Sizes/properties/_2xl (key)"

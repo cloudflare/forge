@@ -1,12 +1,12 @@
 [
   {
-    "ruleId": "generators/valid-webhook-signature",
+    "ruleId": "generators/fern-valid-webhook-signature",
     "severity": "error",
     "message": "x-fern-webhook-signature must specify a header",
     "location": "openapi.yaml#/webhooks/petUpdated/post/x-fern-webhook-signature/header (key)"
   },
   {
-    "ruleId": "generators/valid-webhook-signature",
+    "ruleId": "generators/fern-valid-webhook-signature",
     "severity": "error",
     "message": "x-fern-webhook-signature must specify a header",
     "location": "openapi.yaml#/x-fern-webhook-signature/header"

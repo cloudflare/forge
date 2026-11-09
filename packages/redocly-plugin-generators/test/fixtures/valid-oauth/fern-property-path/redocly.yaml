@@ -1,5 +1,5 @@
 rules:
-  generators/valid-oauth:
+  generators/fern-valid-oauth:
     severity: error
     getToken:
       endpoint: POST /token

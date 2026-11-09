@@ -12,6 +12,7 @@ import type { AnyNode, RuleDefinition, UserContext } from '../utils/types.ts';
 
 export const noUndefinedPathParameters: RuleDefinition = {
   name: 'no-undefined-path-parameters',
+  vendor: 'fern',
   sourceRules: ['fern-definition/no-undefined-path-parameters'],
   severity: 'error',
   description:

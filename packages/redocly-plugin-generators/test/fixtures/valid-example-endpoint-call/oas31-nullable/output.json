@@ -1,12 +1,12 @@
 [
   {
-    "ruleId": "generators/valid-example-endpoint-call",
+    "ruleId": "generators/fern-valid-example-endpoint-call",
     "severity": "error",
     "message": "Invalid response example at \"/kind\": Expected example to be \"plant\". Example is: \"tree\"",
     "location": "openapi.yaml#/paths/~1plants/get/x-fern-examples/1/response/body/kind"
   },
   {
-    "ruleId": "generators/valid-example-endpoint-call",
+    "ruleId": "generators/fern-valid-example-endpoint-call",
     "severity": "error",
     "message": "Invalid response example at \"/nickname\": Expected example to be a string or null. Example is: 5",
     "location": "openapi.yaml#/paths/~1plants/get/x-fern-examples/1/response/body/nickname"

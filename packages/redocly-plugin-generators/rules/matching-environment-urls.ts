@@ -22,6 +22,7 @@ function environmentSuffix(url: string): string {
 
 export const matchingEnvironmentUrls: RuleDefinition = {
   name: 'matching-environment-urls',
+  vendor: 'fern',
   sourceRules: ['fern-definition/matching-environment-urls'],
   severity: 'error',
   description: 'Every server URL ends up in the environments Fern builds from servers and x-fern-server-name.',

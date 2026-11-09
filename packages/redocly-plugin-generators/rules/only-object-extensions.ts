@@ -108,6 +108,7 @@ interface Parent {
 
 export const onlyObjectExtensions: RuleDefinition = {
   name: 'only-object-extensions',
+  vendor: 'fern',
   sourceRules: ['fern-definition/only-object-extensions'],
   severity: 'error',
   description: 'Schemas referenced from `allOf` (Fern `extends`) must be objects.',

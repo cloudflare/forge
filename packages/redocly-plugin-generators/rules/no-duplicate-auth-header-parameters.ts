@@ -33,6 +33,7 @@ function authHeaderNames(ctx: Ctx, root: Located): Set<string> {
 
 export const noDuplicateAuthHeaderParameters: RuleDefinition = {
   name: 'no-duplicate-auth-header-parameters',
+  vendor: 'fern',
   sourceRules: ['oss/no-duplicate-auth-header-parameters'],
   severity: 'warn',
   description: 'Header parameters must not redeclare a header that a security scheme already defines.',

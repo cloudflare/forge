@@ -9,6 +9,7 @@ import type { AnyNode, RuleDefinition, UserContext } from '../utils/types.ts';
 
 export const validBaseUrlEnv: RuleDefinition = {
   name: 'valid-base-url-env',
+  vendor: 'fern',
   sourceRules: ['fern-definition/valid-base-url-env'],
   severity: 'error',
   description: 'x-fern-base-url-env is a non-empty string and the document declares servers for it to override.',

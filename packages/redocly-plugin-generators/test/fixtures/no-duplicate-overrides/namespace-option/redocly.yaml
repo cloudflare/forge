@@ -1,4 +1,4 @@
 rules:
-  generators/no-duplicate-overrides:
+  generators/fern-no-duplicate-overrides:
     severity: error
     namespace: payment

@@ -1,12 +1,12 @@
 [
   {
-    "ruleId": "generators/valid-stream-condition",
+    "ruleId": "generators/fern-valid-stream-condition",
     "severity": "error",
     "message": "stream-condition can only be used if both response and response-stream are specified. Fern types the non-streaming and streamed responses of endpoint streamConditionButNoResponse as unknown.",
     "location": "openapi.yaml#/paths/~1chat/post/x-fern-streaming/stream-condition"
   },
   {
-    "ruleId": "generators/valid-stream-condition",
+    "ruleId": "generators/fern-valid-stream-condition",
     "severity": "error",
     "message": "stream-condition can only be used if both response and response-stream are specified. Fern types the non-streaming response of endpoint streamConditionWithoutResponse as unknown.",
     "location": "openapi.yaml#/paths/~1chat~1only-stream/post/x-fern-streaming/stream-condition"

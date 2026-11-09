@@ -1,12 +1,12 @@
 [
   {
-    "ruleId": "generators/no-conflicting-endpoint-paths",
+    "ruleId": "generators/fern-no-conflicting-endpoint-paths",
     "severity": "error",
     "message": "Endpoint path /projects/default/{section} conflicts with other PATCH operations whose paths match the same URLs (a path parameter segment matches any segment): PATCH /projects/{projectId}/settings (operationId updateProjectSettings).",
     "location": "paths.yaml#/DefaultProjectSection/patch (key)"
   },
   {
-    "ruleId": "generators/no-conflicting-endpoint-paths",
+    "ruleId": "generators/fern-no-conflicting-endpoint-paths",
     "severity": "error",
     "message": "Endpoint path /projects/{projectId}/settings conflicts with other PATCH operations whose paths match the same URLs (a path parameter segment matches any segment): PATCH /projects/default/{section} (operationId updateDefaultProjectSection).",
     "location": "paths.yaml#/ProjectSettings/patch (key)"

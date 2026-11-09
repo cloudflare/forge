@@ -1,12 +1,12 @@
 [
   {
-    "ruleId": "generators/only-object-extensions",
+    "ruleId": "generators/fern-only-object-extensions",
     "severity": "error",
     "message": "Objects can only extend other objects, and \"AliasOfNullable\" is not an object: it is nullable, which Fern imports as a nullable alias rather than an object. Fern turns this `allOf` `$ref` into an `extends`, so the referenced schema must be an object schema with `properties`.",
     "location": "openapi.yaml#/components/schemas/IgnoredPropertyChild/allOf/0/$ref (key)"
   },
   {
-    "ruleId": "generators/only-object-extensions",
+    "ruleId": "generators/fern-only-object-extensions",
     "severity": "error",
     "message": "Objects can only extend other objects, and \"Tags\" is not an object: it is an array. Fern turns this `allOf` `$ref` into an `extends`, so the referenced schema must be an object schema with `properties`.",
     "location": "openapi.yaml#/components/schemas/NoPropertiesChild/allOf/0/$ref (key)"

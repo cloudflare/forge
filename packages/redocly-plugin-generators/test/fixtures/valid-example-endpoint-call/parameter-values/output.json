@@ -1,30 +1,30 @@
 [
   {
-    "ruleId": "generators/valid-example-endpoint-call",
+    "ruleId": "generators/fern-valid-example-endpoint-call",
     "severity": "error",
     "message": "Invalid header \"X-Plain\" example: Expected example to be a string. Example is: 5",
     "location": "openapi.yaml#/paths/~1plants~1{plantId}/get/x-fern-examples/1/headers/X-Plain"
   },
   {
-    "ruleId": "generators/valid-example-endpoint-call",
+    "ruleId": "generators/fern-valid-example-endpoint-call",
     "severity": "error",
     "message": "Invalid path parameter \"plantId\" example: Expected example to be an integer. Example is: \"7\"",
     "location": "openapi.yaml#/paths/~1plants~1{plantId}/get/x-fern-examples/1/path-parameters/plantId"
   },
   {
-    "ruleId": "generators/valid-example-endpoint-call",
+    "ruleId": "generators/fern-valid-example-endpoint-call",
     "severity": "error",
     "message": "Invalid query parameter \"ids\" example: Expected example to be an integer. Example is: \"two\"",
     "location": "openapi.yaml#/paths/~1plants~1{plantId}/get/x-fern-examples/1/query-parameters/ids/1"
   },
   {
-    "ruleId": "generators/valid-example-endpoint-call",
+    "ruleId": "generators/fern-valid-example-endpoint-call",
     "severity": "error",
     "message": "Invalid query parameter \"sort\" example: \"color\" is not a valid example for this enum. Enum values are: \"name\", \"height\"",
     "location": "openapi.yaml#/paths/~1plants~1{plantId}/get/x-fern-examples/1/query-parameters/sort"
   },
   {
-    "ruleId": "generators/valid-example-endpoint-call",
+    "ruleId": "generators/fern-valid-example-endpoint-call",
     "severity": "error",
     "message": "Invalid query parameter \"ids\" example: Expected example to be an integer. Example is: \"nine\"",
     "location": "openapi.yaml#/paths/~1plants~1{plantId}/get/x-fern-examples/2/query-parameters/ids"

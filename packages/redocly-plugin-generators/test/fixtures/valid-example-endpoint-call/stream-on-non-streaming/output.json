@@ -1,6 +1,6 @@
 [
   {
-    "ruleId": "generators/valid-example-endpoint-call",
+    "ruleId": "generators/fern-valid-example-endpoint-call",
     "severity": "error",
     "message": "Unexpected streaming response in example. This operation does not stream (no x-fern-streaming and no text/event-stream response), so Fern reads the example as having no response body, but the 200 response has a JSON body.",
     "location": "openapi.yaml#/paths/~1plants/get/x-fern-examples/0/response/stream (key)"

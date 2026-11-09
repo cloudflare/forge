@@ -34,6 +34,7 @@ function describeType(ctx: UserContext, schema: Located): string {
 
 export const explodedFormDataIsArray: RuleDefinition = {
   name: 'exploded-form-data-is-array',
+  vendor: 'fern',
   sourceRules: ['fern-definition/exploded-form-data-is-array'],
   severity: 'error',
   description: 'Multipart properties with `encoding.explode: true` must be arrays.',

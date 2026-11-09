@@ -74,6 +74,7 @@ function describe(operation: OperationInfo): string {
 
 export const noConflictingEndpointPaths: RuleDefinition = {
   name: 'no-conflicting-endpoint-paths',
+  vendor: 'fern',
   sourceRules: ['fern-definition/no-conflicting-endpoint-paths'],
   severity: 'warn',
   description: 'Operations with the same HTTP method should not have paths that match the same URLs.',

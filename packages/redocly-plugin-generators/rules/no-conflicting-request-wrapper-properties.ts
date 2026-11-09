@@ -67,6 +67,7 @@ function coveredByParameterNameRule(items: WrapperItem[], operation: OperationIn
 
 export const noConflictingRequestWrapperProperties: RuleDefinition = {
   name: 'no-conflicting-request-wrapper-properties',
+  vendor: 'fern',
   sourceRules: ['fern-definition/no-conflicting-request-wrapper-properties'],
   severity: 'error',
   description:

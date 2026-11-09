@@ -1,6 +1,6 @@
 [
   {
-    "ruleId": "generators/no-duplicate-declarations",
+    "ruleId": "generators/fern-no-duplicate-declarations",
     "severity": "error",
     "message": "The non-streaming request of POST /chat (name generated from operationId \"chat\") is named \"ChatRequest\", which is already declared by the schema schemas.yaml#/ChatRequest (which Fern copies into components.schemas when it bundles the document) at schemas.yaml#/ChatRequest. fern check fails with \"ChatRequest is already declared\". Fern splits an operation with an x-fern-streaming stream-condition into a streaming and a non-streaming endpoint, each with its own request. Name the two requests with x-fern-request-name on the operation and stream-request-name in x-fern-streaming.",
     "location": "openapi.yaml#/paths/~1chat/post/operationId"

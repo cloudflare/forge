@@ -1,6 +1,6 @@
 [
   {
-    "ruleId": "generators/no-conflicting-request-wrapper-properties",
+    "ruleId": "generators/fern-no-conflicting-request-wrapper-properties",
     "severity": "error",
     "message": "Multiple request properties have the name \"caption\": query parameter \"caption\", multipart requestBody property \"caption\". This is not suitable for code generation. Use x-fern-parameter-name on a parameter to deconflict.",
     "location": "openapi.yaml#/paths/~1plants~1{plantId}~1photo/post (key)"

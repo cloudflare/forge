@@ -14,6 +14,7 @@ import type { AnyNode, RuleDefinition, UserContext } from '../utils/types.ts';
 
 export const noGetRequestBody: RuleDefinition = {
   name: 'no-get-request-body',
+  vendor: 'fern',
   sourceRules: ['fern-definition/no-get-request-body'],
   severity: 'error',
   description: 'GET and HEAD operations cannot have a request body.',

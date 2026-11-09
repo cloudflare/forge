@@ -1,6 +1,6 @@
 [
   {
-    "ruleId": "generators/no-duplicate-declarations",
+    "ruleId": "generators/fern-no-duplicate-declarations",
     "severity": "error",
     "message": "The request of GET /trees (named by its x-request-name) is named \"PlantQuery\", which is already declared by the request of GET /plants (named by its x-fern-request-name) at #/paths/~1plants/get/x-fern-request-name. fern check fails with \"PlantQuery is already declared\". Rename this request with x-fern-request-name on the operation.",
     "location": "openapi.yaml#/paths/~1trees/get/x-request-name"

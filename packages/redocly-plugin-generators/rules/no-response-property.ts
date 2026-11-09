@@ -63,6 +63,7 @@ function isMap(ctx: UserContext, schema: Located | undefined): boolean {
 
 export const noResponseProperty: RuleDefinition = {
   name: 'no-response-property',
+  vendor: 'fern',
   sourceRules: ['fern-definition/no-response-property'],
   severity: 'error',
   description: 'x-fern-sdk-return-value must name a top-level property of the JSON success response.',

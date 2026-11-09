@@ -1,24 +1,24 @@
 [
   {
-    "ruleId": "generators/valid-example-endpoint-call",
+    "ruleId": "generators/fern-valid-example-endpoint-call",
     "severity": "error",
     "message": "Invalid request example: Unexpected property \"id\"; Fern drops readOnly properties from request bodies it inlines into the request",
     "location": "openapi.yaml#/paths/~1plants/post/x-fern-examples/1/request/id (key)"
   },
   {
-    "ruleId": "generators/valid-example-endpoint-call",
+    "ruleId": "generators/fern-valid-example-endpoint-call",
     "severity": "error",
     "message": "Invalid request example: Unexpected property \"tag\"; Fern drops readOnly properties from request bodies it inlines into the request",
     "location": "openapi.yaml#/paths/~1plants/post/x-fern-examples/1/request/tag (key)"
   },
   {
-    "ruleId": "generators/valid-example-endpoint-call",
+    "ruleId": "generators/fern-valid-example-endpoint-call",
     "severity": "error",
     "message": "Invalid request example: Example is missing required property \"secret\"",
     "location": "openapi.yaml#/paths/~1plants/post/x-fern-examples/2/request"
   },
   {
-    "ruleId": "generators/valid-example-endpoint-call",
+    "ruleId": "generators/fern-valid-example-endpoint-call",
     "severity": "error",
     "message": "Invalid response example: Example is missing required property \"secret\"",
     "location": "openapi.yaml#/paths/~1plants/post/x-fern-examples/2/response/body"

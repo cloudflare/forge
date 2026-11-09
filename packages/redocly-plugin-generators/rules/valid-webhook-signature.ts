@@ -238,6 +238,7 @@ function validateUrlNormalization(ctx: UserContext, normalization: AnyNode, loca
 
 export const validWebhookSignature: RuleDefinition = {
   name: 'valid-webhook-signature',
+  vendor: 'fern',
   sourceRules: ['fern-definition/valid-webhook-signature'],
   severity: 'error',
   description: 'x-fern-webhook-signature is a valid HMAC or asymmetric signature config and is only set on webhooks.',

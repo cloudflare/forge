@@ -1,6 +1,6 @@
 [
   {
-    "ruleId": "generators/valid-version",
+    "ruleId": "generators/fern-valid-version",
     "severity": "error",
     "message": "Default version \"1.0\" not found in x-fern-version values",
     "location": "openapi.yaml#/x-fern-version/default"

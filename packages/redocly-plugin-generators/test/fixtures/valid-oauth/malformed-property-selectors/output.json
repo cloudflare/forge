@@ -1,18 +1,18 @@
 [
   {
-    "ruleId": "generators/valid-oauth",
+    "ruleId": "generators/fern-valid-oauth",
     "severity": "error",
     "message": "OAuth configuration for endpoint getToken must define a dot-delimited 'access-token' property starting with $response (e.g. $response.access_token).",
     "location": "openapi.yaml#/paths/~1token/post"
   },
   {
-    "ruleId": "generators/valid-oauth",
+    "ruleId": "generators/fern-valid-oauth",
     "severity": "error",
     "message": "OAuth configuration for endpoint getToken must define a dot-delimited 'client-id' property starting with $request (e.g. $request.client_id).",
     "location": "openapi.yaml#/paths/~1token/post"
   },
   {
-    "ruleId": "generators/valid-oauth",
+    "ruleId": "generators/fern-valid-oauth",
     "severity": "error",
     "message": "OAuth configuration for endpoint getToken must define a dot-delimited 'expires-in' property starting with $response (e.g. $response.expires_in).",
     "location": "openapi.yaml#/paths/~1token/post"

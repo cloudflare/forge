@@ -1,6 +1,6 @@
 [
   {
-    "ruleId": "generators/no-duplicate-field-names",
+    "ruleId": "generators/fern-no-duplicate-field-names",
     "severity": "error",
     "message": "Object has multiple properties named \"foo\": \"foo\" inherited from ObjectWithFooProperty at #/components/schemas/ObjectWithFooProperty/properties/foo, \"propertyWithFooName\" (x-fern-property-name \"foo\") inherited from ObjectWithFooAndBarProperties at #/components/schemas/ObjectWithFooAndBarProperties/properties/propertyWithFooName. Give each property a unique name with x-fern-property-name.",
     "location": "openapi.yaml#/components/schemas/ObjectWithDuplicatedNameFooByDifferentExtensions/allOf (key)"

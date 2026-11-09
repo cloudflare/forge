@@ -1,36 +1,36 @@
 [
   {
-    "ruleId": "generators/valid-example-endpoint-call",
+    "ruleId": "generators/fern-valid-example-endpoint-call",
     "severity": "error",
     "message": "Unexpected response in example. The operation has no success response with a body (200, 201, 202 or 204, or default when none of those exist). If you're adding an example of an error response, set response.error to the error's name (for example NotFoundError for 404).",
     "location": "openapi.yaml#/paths/~1plants/delete/x-fern-examples/0/response/body (key)"
   },
   {
-    "ruleId": "generators/valid-example-endpoint-call",
+    "ruleId": "generators/fern-valid-example-endpoint-call",
     "severity": "error",
     "message": "Example is missing response.body; Fern requires it because the 200 response of this operation has a JSON body.",
     "location": "openapi.yaml#/paths/~1plants/get/x-fern-examples/1"
   },
   {
-    "ruleId": "generators/valid-example-endpoint-call",
+    "ruleId": "generators/fern-valid-example-endpoint-call",
     "severity": "error",
     "message": "Example is missing response.body; Fern requires it because the 200 response of this operation has a JSON body.",
     "location": "openapi.yaml#/paths/~1plants/get/x-fern-examples/2/response"
   },
   {
-    "ruleId": "generators/valid-example-endpoint-call",
+    "ruleId": "generators/fern-valid-example-endpoint-call",
     "severity": "error",
     "message": "Invalid response example at \"/0/name\": Expected example to be a string. Example is: 7",
     "location": "openapi.yaml#/paths/~1plants/get/x-fern-examples/3/response/body/0/name"
   },
   {
-    "ruleId": "generators/valid-example-endpoint-call",
+    "ruleId": "generators/fern-valid-example-endpoint-call",
     "severity": "error",
     "message": "Invalid response example at \"/1\": Example is missing required property \"name\"",
     "location": "openapi.yaml#/paths/~1plants/get/x-fern-examples/3/response/body/1"
   },
   {
-    "ruleId": "generators/valid-example-endpoint-call",
+    "ruleId": "generators/fern-valid-example-endpoint-call",
     "severity": "error",
     "message": "Invalid response example at \"/name\": Expected example to be a string. Example is: false",
     "location": "openapi.yaml#/paths/~1plants~1default/get/x-fern-examples/0/response/body/name"

@@ -241,6 +241,7 @@ function checkEndpoint(
 
 export const validOauth: RuleDefinition = {
   name: 'valid-oauth',
+  vendor: 'fern',
   sourceRules: ['fern-definition/valid-oauth'],
   severity: 'error',
   description:

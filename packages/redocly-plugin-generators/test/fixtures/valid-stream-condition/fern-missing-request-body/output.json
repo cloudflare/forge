@@ -1,18 +1,18 @@
 [
   {
-    "ruleId": "generators/valid-stream-condition",
+    "ruleId": "generators/fern-valid-stream-condition",
     "severity": "error",
     "message": "stream-condition $request.stream requires a JSON request body, but endpoint missingRequestBody has none, so Fern generates its streaming and non-streaming endpoints without a request body to select between them.",
     "location": "openapi.yaml#/paths/~1chat/post/x-fern-streaming/stream-condition"
   },
   {
-    "ruleId": "generators/valid-stream-condition",
+    "ruleId": "generators/fern-valid-stream-condition",
     "severity": "error",
     "message": "stream-condition $request.stream requires the JSON request body to be an object schema with properties; Fern drops a request body that is not, so endpoint arrayRequestBody would lose its request body.",
     "location": "openapi.yaml#/paths/~1chat~1array/post/x-fern-streaming/stream-condition"
   },
   {
-    "ruleId": "generators/valid-stream-condition",
+    "ruleId": "generators/fern-valid-stream-condition",
     "severity": "error",
     "message": "stream-condition $request.stream requires a JSON request body, but endpoint formRequestBody has none, so Fern generates its streaming and non-streaming endpoints without a request body to select between them.",
     "location": "openapi.yaml#/paths/~1chat~1form/post/x-fern-streaming/stream-condition"

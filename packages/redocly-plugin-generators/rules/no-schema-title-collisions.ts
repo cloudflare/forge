@@ -21,6 +21,7 @@ interface Options {
 
 export const noSchemaTitleCollisions: RuleDefinition = {
   name: 'no-schema-title-collisions',
+  vendor: 'fern',
   sourceRules: ['oss/no-schema-title-collisions'],
   severity: 'error',
   recommended: false,

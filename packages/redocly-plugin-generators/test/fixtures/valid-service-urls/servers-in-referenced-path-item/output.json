@@ -1,6 +1,6 @@
 [
   {
-    "ruleId": "generators/valid-service-urls",
+    "ruleId": "generators/fern-valid-service-urls",
     "severity": "error",
     "message": "Server 'https://files.example.com' has no x-fern-server-name, so Fern ignores it and GET /files falls back to the default base URL. Operation- and path-level servers must be named to be added to the environments.",
     "location": "files.yaml#/get/servers/0"

@@ -1,4 +1,4 @@
 rules:
-  generators/no-conflicting-endpoint-paths: warn
+  generators/fern-no-conflicting-endpoint-paths: warn
   no-ambiguous-paths: error
   no-identical-paths: error

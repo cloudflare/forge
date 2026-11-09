@@ -1,78 +1,78 @@
 [
   {
-    "ruleId": "generators/valid-example-endpoint-call",
+    "ruleId": "generators/fern-valid-example-endpoint-call",
     "severity": "error",
     "message": "Fern ignores x-fern-examples entry 0 because it does not match Fern's example format: Entry must be an object.",
     "location": "openapi.yaml#/paths/~1plants/get/x-fern-examples/0"
   },
   {
-    "ruleId": "generators/valid-example-endpoint-call",
+    "ruleId": "generators/fern-valid-example-endpoint-call",
     "severity": "error",
     "message": "Fern ignores x-fern-examples entry 1 because it does not match Fern's example format: Unexpected key \"summary\" (allowed keys: name, docs, id, path-parameters, query-parameters, headers, request, response, code-samples).",
     "location": "openapi.yaml#/paths/~1plants/get/x-fern-examples/1/summary (key)"
   },
   {
-    "ruleId": "generators/valid-example-endpoint-call",
+    "ruleId": "generators/fern-valid-example-endpoint-call",
     "severity": "warn",
     "message": "\"code-samples\" must be a list; Fern ignores it.",
     "location": "openapi.yaml#/paths/~1plants/get/x-fern-examples/10/code-samples"
   },
   {
-    "ruleId": "generators/valid-example-endpoint-call",
+    "ruleId": "generators/fern-valid-example-endpoint-call",
     "severity": "error",
     "message": "Fern ignores x-fern-examples entry 2 because it does not match Fern's example format: \"name\" must be a string.",
     "location": "openapi.yaml#/paths/~1plants/get/x-fern-examples/2/name"
   },
   {
-    "ruleId": "generators/valid-example-endpoint-call",
+    "ruleId": "generators/fern-valid-example-endpoint-call",
     "severity": "error",
     "message": "Fern ignores x-fern-examples entry 3 because it does not match Fern's example format: \"headers\" must be an object mapping names to example values.",
     "location": "openapi.yaml#/paths/~1plants/get/x-fern-examples/3/headers"
   },
   {
-    "ruleId": "generators/valid-example-endpoint-call",
+    "ruleId": "generators/fern-valid-example-endpoint-call",
     "severity": "error",
     "message": "Fern ignores x-fern-examples entry 4 because it does not match Fern's example format: Unexpected key \"status\" in \"response\" (allowed keys: body, error, stream).",
     "location": "openapi.yaml#/paths/~1plants/get/x-fern-examples/4/response/status (key)"
   },
   {
-    "ruleId": "generators/valid-example-endpoint-call",
+    "ruleId": "generators/fern-valid-example-endpoint-call",
     "severity": "error",
     "message": "Fern ignores x-fern-examples entry 5 because it does not match Fern's example format: \"response.stream\" must be a list.",
     "location": "openapi.yaml#/paths/~1plants/get/x-fern-examples/5/response/stream"
   },
   {
-    "ruleId": "generators/valid-example-endpoint-call",
+    "ruleId": "generators/fern-valid-example-endpoint-call",
     "severity": "error",
     "message": "Fern ignores x-fern-examples entry 6 because it does not match Fern's example format: \"response.error\" must be a string naming the error.",
     "location": "openapi.yaml#/paths/~1plants/get/x-fern-examples/6/response/error"
   },
   {
-    "ruleId": "generators/valid-example-endpoint-call",
+    "ruleId": "generators/fern-valid-example-endpoint-call",
     "severity": "error",
     "message": "Fern ignores x-fern-examples entry 7 because it does not match Fern's example format: Unexpected key \"body\" in a streaming \"response\" (only \"stream\" is allowed).",
     "location": "openapi.yaml#/paths/~1plants/get/x-fern-examples/7/response/body (key)"
   },
   {
-    "ruleId": "generators/valid-example-endpoint-call",
+    "ruleId": "generators/fern-valid-example-endpoint-call",
     "severity": "error",
     "message": "Fern ignores x-fern-examples entry 8 because it does not match Fern's example format: Unexpected key \"label\" in code sample (allowed keys: language, code, install, name, docs).",
     "location": "openapi.yaml#/paths/~1plants/get/x-fern-examples/8/code-samples/0/label (key)"
   },
   {
-    "ruleId": "generators/valid-example-endpoint-call",
+    "ruleId": "generators/fern-valid-example-endpoint-call",
     "severity": "error",
     "message": "Fern ignores x-fern-examples entry 8 because it does not match Fern's example format: Code sample \"sdk\" must be one of: curl, python, javascript, typescript, go, ruby, csharp, java, js, node, ts, nodets, golang, dotnet, jvm, c#.",
     "location": "openapi.yaml#/paths/~1plants/get/x-fern-examples/8/code-samples/1/sdk"
   },
   {
-    "ruleId": "generators/valid-example-endpoint-call",
+    "ruleId": "generators/fern-valid-example-endpoint-call",
     "severity": "warn",
     "message": "Code sample must be an object; Fern ignores it.",
     "location": "openapi.yaml#/paths/~1plants/get/x-fern-examples/9/code-samples/0"
   },
   {
-    "ruleId": "generators/valid-example-endpoint-call",
+    "ruleId": "generators/fern-valid-example-endpoint-call",
     "severity": "warn",
     "message": "Code sample has no \"code\" string (or {$ref} to a file); Fern ignores it.",
     "location": "openapi.yaml#/paths/~1plants/get/x-fern-examples/9/code-samples/1"

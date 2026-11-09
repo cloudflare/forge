@@ -1,12 +1,12 @@
 [
   {
-    "ruleId": "generators/no-missing-auth",
+    "ruleId": "generators/fern-no-missing-auth",
     "severity": "error",
     "message": "Operation requires auth, but no auth is defined: its `security` is not empty, but Fern skips every security scheme in `components.securitySchemes`: cookie (apiKey in cookie). Define a security scheme Fern supports (apiKey in a header, http bearer, http basic, oauth2 or openIdConnect), or use `security: []` for operations without auth.",
     "location": "openapi.yaml#/paths/~1users/get/security (key)"
   },
   {
-    "ruleId": "generators/no-missing-auth",
+    "ruleId": "generators/fern-no-missing-auth",
     "severity": "error",
     "message": "Operations without their own `security` require auth, but no auth is defined: the root `security` is not empty, but Fern skips every security scheme in `components.securitySchemes`: cookie (apiKey in cookie). Define a security scheme Fern supports (apiKey in a header, http bearer, http basic, oauth2 or openIdConnect), or use `security: []` for operations without auth.",
     "location": "openapi.yaml#/security (key)"

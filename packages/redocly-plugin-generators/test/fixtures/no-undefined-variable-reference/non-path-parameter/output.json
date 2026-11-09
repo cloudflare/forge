@@ -1,6 +1,6 @@
 [
   {
-    "ruleId": "generators/no-undefined-variable-reference",
+    "ruleId": "generators/fern-no-undefined-variable-reference",
     "severity": "warn",
     "message": "x-fern-sdk-variable is ignored on the in: query parameter 'appId'; Fern only supports SDK variables on path parameters.",
     "location": "openapi.yaml#/paths/~1users/get/parameters/0/x-fern-sdk-variable"

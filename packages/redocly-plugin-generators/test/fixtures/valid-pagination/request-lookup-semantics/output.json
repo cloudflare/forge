@@ -1,24 +1,24 @@
 [
   {
-    "ruleId": "generators/valid-pagination",
+    "ruleId": "generators/fern-valid-pagination",
     "severity": "error",
     "message": "x-fern-pagination for endpoint pathParameterIsNotACursor specifies 'cursor' $request.cursor, which is not a valid 'cursor' type. It must point to an `in: query` parameter or request body property whose type is a string, integer or number.",
     "location": "openapi.yaml#/paths/~1orgs~1{cursor}~1users/get/x-fern-pagination/cursor"
   },
   {
-    "ruleId": "generators/valid-pagination",
+    "ruleId": "generators/fern-valid-pagination",
     "severity": "error",
     "message": "x-fern-pagination for endpoint headerIsNotACursor specifies 'cursor' $request.X-Cursor, which is not a valid 'cursor' type. It must point to an `in: query` parameter or request body property whose type is a string, integer or number.",
     "location": "openapi.yaml#/paths/~1users~1header/get/x-fern-pagination/cursor"
   },
   {
-    "ruleId": "generators/valid-pagination",
+    "ruleId": "generators/fern-valid-pagination",
     "severity": "error",
     "message": "x-fern-pagination for endpoint nestedPathDoesNotMatchQuery specifies 'cursor' $request.pagination.cursor, which is not a valid 'cursor' type. It must point to a request body property whose type is a string, integer or number.",
     "location": "openapi.yaml#/paths/~1users~1nested-query/get/x-fern-pagination/cursor"
   },
   {
-    "ruleId": "generators/valid-pagination",
+    "ruleId": "generators/fern-valid-pagination",
     "severity": "error",
     "message": "x-fern-pagination for endpoint unionIsNotTraversed specifies 'cursor' $request.pagination.cursor, which is not a valid 'cursor' type. It must point to a request body property whose type is a string, integer or number.",
     "location": "openapi.yaml#/paths/~1users~1union/post/x-fern-pagination/cursor"

@@ -1,6 +1,6 @@
 [
   {
-    "ruleId": "generators/no-undefined-variable-reference",
+    "ruleId": "generators/fern-no-undefined-variable-reference",
     "severity": "error",
     "message": "x-fern-sdk-variable must name the variable without a leading $ (Fern adds it, producing $$appId); use 'appId'.",
     "location": "openapi.yaml#/paths/~1apps~1{appId}~1users/get/parameters/0/x-fern-sdk-variable"

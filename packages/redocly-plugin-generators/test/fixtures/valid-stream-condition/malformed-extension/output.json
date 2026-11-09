@@ -1,36 +1,36 @@
 [
   {
-    "ruleId": "generators/valid-stream-condition",
+    "ruleId": "generators/fern-valid-stream-condition",
     "severity": "error",
     "message": "x-fern-streaming must be true or an object. Fern ignores any other value, so endpoint stringExtension does not stream.",
     "location": "openapi.yaml#/paths/~1chat/post/x-fern-streaming"
   },
   {
-    "ruleId": "generators/valid-stream-condition",
+    "ruleId": "generators/fern-valid-stream-condition",
     "severity": "error",
     "message": "x-fern-streaming format must be 'sse' or 'json'. Fern ignores x-fern-streaming with another format, so endpoint badFormat does not stream.",
     "location": "openapi.yaml#/paths/~1chat~1format/post/x-fern-streaming/format"
   },
   {
-    "ruleId": "generators/valid-stream-condition",
+    "ruleId": "generators/fern-valid-stream-condition",
     "severity": "error",
     "message": "x-fern-streaming resumable must be a boolean. Fern treats any other value as false.",
     "location": "openapi.yaml#/paths/~1chat~1format/post/x-fern-streaming/resumable"
   },
   {
-    "ruleId": "generators/valid-stream-condition",
+    "ruleId": "generators/fern-valid-stream-condition",
     "severity": "warn",
     "message": "x-fern-streaming stream-description must be a string.",
     "location": "openapi.yaml#/paths/~1chat~1format/post/x-fern-streaming/stream-description"
   },
   {
-    "ruleId": "generators/valid-stream-condition",
+    "ruleId": "generators/fern-valid-stream-condition",
     "severity": "warn",
     "message": "x-fern-streaming terminator must be a string.",
     "location": "openapi.yaml#/paths/~1chat~1format/post/x-fern-streaming/terminator"
   },
   {
-    "ruleId": "generators/valid-stream-condition",
+    "ruleId": "generators/fern-valid-stream-condition",
     "severity": "warn",
     "message": "x-fern-streaming resumable only applies to server-sent events; set format: sse or remove resumable.",
     "location": "openapi.yaml#/paths/~1chat~1resumable/post/x-fern-streaming/resumable"

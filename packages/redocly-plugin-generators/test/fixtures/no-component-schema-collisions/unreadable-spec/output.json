@@ -1,12 +1,12 @@
 [
   {
-    "ruleId": "generators/no-component-schema-collisions",
+    "ruleId": "generators/fern-no-component-schema-collisions",
     "severity": "warn",
     "message": "\"broken.txt\", listed in the apis option of generators/no-component-schema-collisions, is not valid YAML or JSON.",
     "location": "openapi.yaml#/"
   },
   {
-    "ruleId": "generators/no-component-schema-collisions",
+    "ruleId": "generators/fern-no-component-schema-collisions",
     "severity": "warn",
     "message": "Cannot read \"missing.yaml\", listed in the apis option of generators/no-component-schema-collisions.",
     "location": "openapi.yaml#/"

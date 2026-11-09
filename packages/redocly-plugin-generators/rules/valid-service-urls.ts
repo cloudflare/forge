@@ -11,6 +11,7 @@ import type { AnyNode, RuleDefinition, UserContext } from '../utils/types.ts';
 
 export const validServiceUrls: RuleDefinition = {
   name: 'valid-service-urls',
+  vendor: 'fern',
   sourceRules: ['fern-definition/valid-service-urls'],
   severity: 'error',
   description:

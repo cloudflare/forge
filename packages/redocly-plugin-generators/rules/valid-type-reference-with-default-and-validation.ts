@@ -51,6 +51,7 @@ function numericKind(type: string, format: unknown): NumericKind {
 
 export const validTypeReferenceWithDefaultAndValidation: RuleDefinition = {
   name: 'valid-type-reference-with-default-and-validation',
+  vendor: 'fern',
   sourceRules: ['fern-definition/valid-type-reference-with-default-and-validation'],
   severity: 'error',
   description:

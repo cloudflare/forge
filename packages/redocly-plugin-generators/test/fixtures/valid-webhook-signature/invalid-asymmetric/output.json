@@ -1,12 +1,12 @@
 [
   {
-    "ruleId": "generators/valid-webhook-signature",
+    "ruleId": "generators/fern-valid-webhook-signature",
     "severity": "error",
     "message": "Invalid asymmetric algorithm \"rsa-sha1\". Must be one of: rsa-sha256, rsa-sha384, rsa-sha512, ecdsa-sha256, ecdsa-sha384, ecdsa-sha512, ed25519. Fern drops signature verification without a valid asymmetric-algorithm.",
     "location": "openapi.yaml#/webhooks/a/post/x-fern-webhook-signature/asymmetric-algorithm"
   },
   {
-    "ruleId": "generators/valid-webhook-signature",
+    "ruleId": "generators/fern-valid-webhook-signature",
     "severity": "warn",
     "message": "key-id-header is specified without jwks-url and will be ignored",
     "location": "openapi.yaml#/webhooks/b/post/x-fern-webhook-signature/key-id-header (key)"

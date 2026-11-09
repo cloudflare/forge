@@ -1,6 +1,6 @@
 [
   {
-    "ruleId": "generators/matching-environment-urls",
+    "ruleId": "generators/fern-matching-environment-urls",
     "severity": "error",
     "message": "Servers 'https://upload-staging.example.com' and 'https://images-staging.example.com' are both named 'Upload' and map to the same environment suffix 'staging'. Fern keeps a single URL per name and environment, so one of them silently replaces the other.",
     "location": "openapi.yaml#/paths/~1images/post/servers/0/x-fern-server-name"

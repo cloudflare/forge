@@ -76,6 +76,7 @@ function isAutoResolved(declaration: Declaration, first: Declaration, options: O
 
 export const noDuplicateDeclarations: RuleDefinition = {
   name: 'no-duplicate-declarations',
+  vendor: 'fern',
   sourceRules: ['fern-definition/no-duplicate-declarations'],
   severity: 'error',
   description: 'Type, request wrapper and error names Fern generates must be unique.',

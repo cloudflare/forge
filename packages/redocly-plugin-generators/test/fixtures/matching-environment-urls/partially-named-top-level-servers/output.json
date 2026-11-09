@@ -1,6 +1,6 @@
 [
   {
-    "ruleId": "generators/matching-environment-urls",
+    "ruleId": "generators/fern-matching-environment-urls",
     "severity": "warn",
     "message": "Top-level server 'https://staging.example.com' has no x-fern-server-name, so Fern skips it: once any top-level server is named, only named servers become environments. Its description 'Staging environment' is not used as a name: Fern only derives names from the descriptions 'Production' and 'Sandbox'.",
     "location": "openapi.yaml#/servers/2"

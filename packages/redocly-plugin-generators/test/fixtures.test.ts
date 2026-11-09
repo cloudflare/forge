@@ -1,9 +1,11 @@
 import { join } from 'node:path';
 import { describe, expect, test } from 'vitest';
-import { ruleDefinitions } from '../index.ts';
+import { fullName, ruleDefinitions } from '../index.ts';
 import { lintCase, listDirectories, readExpected, shouldUpdate, writeExpected } from './harness.ts';
 
 const FIXTURES = join(import.meta.dirname, 'fixtures');
+
+const definitionByBaseName = new Map(ruleDefinitions.map((definition) => [definition.name, definition]));
 
 describe('rule fixtures', () => {
   for (const ruleName of listDirectories(FIXTURES)) {
@@ -11,8 +13,10 @@ describe('rule fixtures', () => {
       for (const caseName of listDirectories(join(FIXTURES, ruleName))) {
         const caseDirectory = join(FIXTURES, ruleName, caseName);
         test(caseName, async () => {
+          const definition = definitionByBaseName.get(ruleName);
+          const ruleId = definition === undefined ? `generators/${ruleName}` : `generators/${fullName(definition)}`;
           const problems = await lintCase(caseDirectory, {
-            [`generators/${ruleName}`]: 'error',
+            [ruleId]: 'error',
           });
           if (shouldUpdate) {
             writeExpected(caseDirectory, problems);
@@ -44,7 +48,7 @@ describe('fixture coverage', () => {
         'needs a case with no problems',
       ).toBe(true);
       expect(
-        outputs.some((problems) => problems.some((problem) => problem.ruleId === `generators/${definition.name}`)),
+        outputs.some((problems) => problems.some((problem) => problem.ruleId === `generators/${fullName(definition)}`)),
         'needs a case that reports the rule',
       ).toBe(true);
     });

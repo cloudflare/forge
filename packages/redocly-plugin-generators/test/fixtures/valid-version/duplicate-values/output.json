@@ -1,6 +1,6 @@
 [
   {
-    "ruleId": "generators/valid-version",
+    "ruleId": "generators/fern-valid-version",
     "severity": "error",
     "message": "Version \"2024-01-01\" is listed more than once in x-fern-version values. Fern generates the version enum with a member per entry, so two members share the value \"2024-01-01\" (duplicated values are rejected in every other Fern enum).",
     "location": "openapi.yaml#/x-fern-version/values/1"

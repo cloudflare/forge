@@ -1,6 +1,6 @@
 [
   {
-    "ruleId": "generators/valid-version",
+    "ruleId": "generators/fern-valid-version",
     "severity": "error",
     "message": "x-fern-version must list the allowed versions in `values`. fern check does not catch this, but SDK generation fails.",
     "location": "openapi.yaml#/x-fern-version/values"
