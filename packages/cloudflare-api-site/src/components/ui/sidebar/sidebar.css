@@ -140,3 +140,8 @@
 [data-mobile-sidebar-nav] .sb-filter-bar {
   top: 3.5rem;
 }
+
+/* The API drawer is card-coloured. */
+[data-nb-api-drawer-slot] .sb-filter-bar {
+  background: var(--nb-card);
+}

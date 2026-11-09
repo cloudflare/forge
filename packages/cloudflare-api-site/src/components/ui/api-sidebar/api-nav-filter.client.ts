@@ -15,7 +15,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, "");
 
 mount("[data-nb-nav-list]", (filter) => {
   const input = filter.querySelector<HTMLInputElement>("input");
-  const scope = filter.parentElement;
+  const scope = filter.closest("[data-nb-api-tree]");
   const tree = scope?.querySelector<HTMLElement>("[data-nb-api-nav]");
   const results = scope?.querySelector<HTMLElement>("[data-nb-nav-results]");
   const status = scope?.querySelector<HTMLElement>("[data-nb-nav-status]");
