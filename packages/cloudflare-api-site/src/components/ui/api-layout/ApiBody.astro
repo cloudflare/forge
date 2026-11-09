@@ -91,6 +91,15 @@ const requestExamples =
         ? [{ ...page.example, id: "example", label: "Example" }]
         : [];
 
+// The section anchors this site used before Nimbus, kept so old links land.
+// Each is an empty span before its section; in the gap-8 column it takes back
+// its own gap, so the spacing stays as it was.
+const LEGACY_ANCHORS: Record<string, string> = {
+  "parameters-path": "path-parameters",
+  "parameters-query": "query-parameters",
+  "request-body": "body-parameters",
+  responses: "returns",
+};
 const terraform = page.kind === "operation" ? page.extensions?.["x-cloudflare-terraform"] : undefined;
 ---
 
@@ -105,9 +114,15 @@ const terraform = page.kind === "operation" ? page.extensions?.["x-cloudflare-te
       )}
 
       {page.parameters.map((group) => (
+        <>
+        {group.anchor && LEGACY_ANCHORS[group.anchor] && <span id={LEGACY_ANCHORS[group.anchor]} class="-mt-8 block scroll-mt-16" aria-hidden="true" />}
         <ApiFieldList as="h2" title={group.label} fields={group.fields} anchor={group.anchor} truncated={group.truncated} examples />
+        </>
       ))}
 
+      {(page.bodyUnion || page.bodyScalar || page.body.length > 0 || page.bodyMediaType || page.bodyRequired !== undefined || page.bodyDescriptionHtml) && (
+        <span id={LEGACY_ANCHORS["request-body"]} class="-mt-8 block scroll-mt-16" aria-hidden="true" />
+      )}
       {page.bodyUnion || page.bodyScalar || page.body.length > 0 ? (
         /* The body's type when it has no fields, its fields, then its union's options. */
         <ApiFieldList as="h2" title="Request body" anchor="request-body" badge={mediaBadge(page.bodyMediaType ?? "application/json")} required={page.bodyRequired} descriptionHtml={page.bodyDescriptionHtml} fields={page.body.length > 0 ? page.body : undefined} truncated={page.bodyTruncated} collapsible={page.bodyUnion ? true : undefined}>
@@ -194,6 +209,7 @@ const terraform = page.kind === "operation" ? page.extensions?.["x-cloudflare-te
 
       {page.responses.length > 0 && (
         <section class="scroll-mt-24" data-api-responses>
+          <span id={LEGACY_ANCHORS.responses} class="block scroll-mt-24" aria-hidden="true" />
           <h2 id="responses" class="fl-title mb-3 scroll-mt-24">Returns</h2>
           <div class="flex flex-col gap-6">
             {page.responses.map((r) => {
