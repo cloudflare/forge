@@ -1,0 +1,29 @@
+openapi: 3.1.0
+info:
+  title: Test API
+  version: 1.0.0
+x-fern-sdk-variables:
+  appId:
+    type: string
+  region:
+    type: string
+paths:
+  /apps/{appId}/regions/{region}/users:
+    get:
+      operationId: listUsers
+      parameters:
+        - name: appId
+          in: path
+          required: true
+          schema:
+            type: string
+          x-fern-sdk-variable: 5
+        - name: region
+          in: path
+          required: true
+          schema:
+            type: string
+          x-fern-sdk-variable: [appId, region]
+      responses:
+        '200':
+          description: OK

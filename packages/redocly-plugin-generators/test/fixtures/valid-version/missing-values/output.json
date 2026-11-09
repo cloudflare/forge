@@ -1,0 +1,8 @@
+[
+  {
+    "ruleId": "generators/valid-version",
+    "severity": "error",
+    "message": "x-fern-version must list the allowed versions in `values`. Fern crashes while reading the document.",
+    "location": "openapi.yaml#/x-fern-version/values (key)"
+  }
+]

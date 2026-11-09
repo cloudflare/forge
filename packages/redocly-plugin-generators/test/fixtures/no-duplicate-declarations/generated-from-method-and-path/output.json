@@ -1,0 +1,8 @@
+[
+  {
+    "ruleId": "generators/no-duplicate-declarations",
+    "severity": "error",
+    "message": "The request of GET /plants (name generated from the method and path) is named \"GetPlantsBody\", which is already declared by the schema components.schemas.getPlantsBody at #/components/schemas/getPlantsBody. fern check fails with \"GetPlantsBody is already declared\". Rename this request with x-fern-request-name on the operation.",
+    "location": "openapi.yaml#/paths/~1plants/get (key)"
+  }
+]

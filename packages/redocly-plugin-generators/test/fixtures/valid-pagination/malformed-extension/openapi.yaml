@@ -1,0 +1,48 @@
+openapi: 3.0.3
+info:
+  title: Users
+  version: 1.0.0
+paths:
+  /a:
+    get:
+      operationId: notAnObject
+      x-fern-pagination: cursor
+      responses:
+        '200':
+          description: OK
+  /b:
+    get:
+      operationId: unknownShape
+      x-fern-pagination:
+        page: $request.page
+        results: $response.data
+      responses:
+        '200':
+          description: OK
+  /c:
+    get:
+      operationId: cursorWithoutNextCursor
+      x-fern-pagination:
+        cursor: $request.cursor
+        results: $response.data
+      responses:
+        '200':
+          description: OK
+  /d:
+    get:
+      operationId: nonStringSelectors
+      x-fern-pagination:
+        offset: 1
+        results:
+          - $response.data
+      responses:
+        '200':
+          description: OK
+  /e:
+    get:
+      operationId: customWithoutResults
+      x-fern-pagination:
+        type: custom
+      responses:
+        '200':
+          description: OK

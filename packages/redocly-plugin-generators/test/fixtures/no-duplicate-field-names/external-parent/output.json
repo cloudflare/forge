@@ -1,0 +1,8 @@
+[
+  {
+    "ruleId": "generators/no-duplicate-field-names",
+    "severity": "error",
+    "message": "Object has multiple properties named \"createdAt\": \"createdAt\" at #/components/schemas/Plant/properties/createdAt, \"created\" (x-fern-property-name \"createdAt\") inherited from base.yaml at base.yaml#/properties/created. Give each property a unique name with x-fern-property-name.",
+    "location": "openapi.yaml#/components/schemas/Plant/properties/createdAt (key)"
+  }
+]

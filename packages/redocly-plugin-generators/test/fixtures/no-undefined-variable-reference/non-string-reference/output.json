@@ -1,0 +1,14 @@
+[
+  {
+    "ruleId": "generators/no-undefined-variable-reference",
+    "severity": "error",
+    "message": "x-fern-sdk-variable must be the name of a variable declared in x-fern-sdk-variables; got 5, which Fern reads as the undefined variable $5.",
+    "location": "openapi.yaml#/paths/~1apps~1{appId}~1regions~1{region}~1users/get/parameters/0/x-fern-sdk-variable"
+  },
+  {
+    "ruleId": "generators/no-undefined-variable-reference",
+    "severity": "error",
+    "message": "x-fern-sdk-variable must be the name of a variable declared in x-fern-sdk-variables; got [\"appId\",\"region\"], which Fern reads as the undefined variable $appId,region.",
+    "location": "openapi.yaml#/paths/~1apps~1{appId}~1regions~1{region}~1users/get/parameters/1/x-fern-sdk-variable"
+  }
+]

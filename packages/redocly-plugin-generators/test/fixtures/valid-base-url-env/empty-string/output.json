@@ -1,0 +1,8 @@
+[
+  {
+    "ruleId": "generators/valid-base-url-env",
+    "severity": "error",
+    "message": "x-fern-base-url-env must be a non-empty string naming an environment variable; Fern ignores ''.",
+    "location": "openapi.yaml#/x-fern-base-url-env"
+  }
+]

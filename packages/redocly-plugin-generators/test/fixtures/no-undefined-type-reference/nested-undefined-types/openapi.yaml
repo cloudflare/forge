@@ -1,0 +1,21 @@
+openapi: 3.1.0
+info:
+  title: Test API
+  version: 1.0.0
+paths: {}
+components:
+  schemas:
+    Pet:
+      type: object
+      properties:
+        name:
+          type: string
+    Holder:
+      type: object
+      properties:
+        owners:
+          type: string
+          x-fern-type: optional<map<string, list<Owner>>>
+        pair:
+          type: string
+          x-fern-type: map<Key, Owner>

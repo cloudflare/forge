@@ -1,0 +1,4 @@
+Cookie:
+  type: apiKey
+  in: cookie
+  name: session

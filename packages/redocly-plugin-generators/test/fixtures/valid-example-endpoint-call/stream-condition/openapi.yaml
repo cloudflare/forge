@@ -1,0 +1,62 @@
+openapi: 3.0.3
+info:
+  title: Chat
+  version: 1.0.0
+paths:
+  /chat:
+    post:
+      operationId: chat
+      x-fern-streaming:
+        stream-condition: $request.stream
+        response: { $ref: '#/components/schemas/Plant' }
+        response-stream: { $ref: '#/components/schemas/Chunk' }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                stream: { type: boolean }
+                q: { type: string }
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { type: string } } } }
+        '429':
+          {
+            description: Slow,
+            content: { application/json: { schema: { type: object, properties: { retryAfter: { type: integer } } } } },
+          }
+      x-fern-examples:
+        - name: Without a response
+          request: { q: hi }
+        - name: Invalid stream event
+          request: { q: hi }
+          response:
+            stream:
+              - { delta: 3 }
+        - name: Valid non-streaming example
+          request: { q: hi, stream: false }
+          response:
+            body: { name: Fern }
+        - name: Invalid non-streaming body
+          request: { q: hi }
+          response:
+            body: { name: 4 }
+        - name: Streaming example with stream false
+          request: { q: hi, stream: false }
+          response:
+            stream:
+              - { delta: x }
+        - name: Non-streaming example with stream true
+          request: { q: hi, stream: true }
+          response:
+            body: { name: Fern }
+        - name: Error example
+          response:
+            error: TooManyRequestsError
+            body: { retryAfter: soon }
+        - name: Empty response
+          response: {}
+components:
+  schemas:
+    Plant: { type: object, required: [name], properties: { name: { type: string } } }
+    Chunk: { type: object, required: [delta], properties: { delta: { type: string } } }

@@ -1,0 +1,14 @@
+[
+  {
+    "ruleId": "generators/no-duplicate-declarations",
+    "severity": "error",
+    "message": "The error Fern declares for \"404\" responses is named \"NotFoundError\", which is already declared by the schema components.schemas.not_found_error at #/components/schemas/not_found_error. fern check fails with \"NotFoundError is already declared\". Rename the schema components.schemas.not_found_error with x-fern-type-name.",
+    "location": "openapi.yaml#/paths/~1plants~1{plantId}/get/responses/404 (key)"
+  },
+  {
+    "ruleId": "generators/no-duplicate-declarations",
+    "severity": "error",
+    "message": "The error Fern declares for \"4XX\" responses is named \"ClientRequestError\", which is already declared by the schema components.schemas.Error (named by its x-fern-type-name) at #/components/schemas/Error/x-fern-type-name. fern check fails with \"ClientRequestError is already declared\". Rename the schema components.schemas.Error with x-fern-type-name.",
+    "location": "openapi.yaml#/paths/~1plants~1{plantId}/get/responses/4XX (key)"
+  }
+]

@@ -1,0 +1,55 @@
+openapi: 3.1.0
+info:
+  title: Test API
+  version: 1.0.0
+paths: {}
+webhooks:
+  a:
+    post:
+      operationId: a
+      x-fern-webhook-signature:
+        type: hmac
+        header: X-Signature
+        timestamp:
+          format: rfc3339
+          tolerance: 0
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: OK
+  b:
+    post:
+      operationId: b
+      x-fern-webhook-signature:
+        type: hmac
+        header: X-Signature
+        timestamp:
+          header: X-Timestamp
+          tolerance: '300'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: OK
+  c:
+    post:
+      operationId: c
+      x-fern-webhook-signature:
+        type: hmac
+        header: X-Signature
+        timestamp: X-Timestamp
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: OK

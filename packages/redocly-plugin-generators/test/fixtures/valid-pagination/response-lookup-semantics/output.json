@@ -1,0 +1,14 @@
+[
+  {
+    "ruleId": "generators/valid-pagination",
+    "severity": "error",
+    "message": "x-fern-pagination for endpoint listUsersArrayItem specifies 'next_cursor' $response.pages.next, which is not a valid 'next_cursor' type. It must point to a property of the JSON success response whose type is a string, integer or number.",
+    "location": "openapi.yaml#/paths/~1users/get/x-fern-pagination/next_cursor"
+  },
+  {
+    "ruleId": "generators/valid-pagination",
+    "severity": "error",
+    "message": "x-fern-pagination for endpoint listUsersMap specifies 'next_cursor' $response.meta.next, which is not a valid 'next_cursor' type. It must point to a property of the JSON success response whose type is a string, integer or number.",
+    "location": "openapi.yaml#/paths/~1users~1map/get/x-fern-pagination/next_cursor"
+  }
+]

@@ -1,0 +1,8 @@
+[
+  {
+    "ruleId": "generators/no-extensions-with-file-upload",
+    "severity": "error",
+    "message": "The `multipart/form-data` request body schema extends \"BaseUpload\" through an `allOf` `$ref`. Request body extensions are not supported for file upload (multipart) requests, so Fern drops the properties inherited from \"BaseUpload\". Declare them directly in the request body schema instead.",
+    "location": "openapi.yaml#/paths/~1upload/post/requestBody/content/multipart~1form-data/schema/allOf/0/$ref (key)"
+  }
+]

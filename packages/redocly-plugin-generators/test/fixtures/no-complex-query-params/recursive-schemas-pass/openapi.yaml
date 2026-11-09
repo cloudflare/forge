@@ -1,0 +1,52 @@
+openapi: 3.1.0
+info:
+  title: Trees
+  version: 1.0.0
+paths:
+  /trees:
+    get:
+      operationId: listTrees
+      parameters:
+        - name: tree
+          in: query
+          style: deepObject
+          schema:
+            $ref: '#/components/schemas/Tree'
+      responses:
+        '200':
+          description: OK
+  /forests:
+    get:
+      operationId: listForests
+      parameters:
+        - name: forest
+          in: query
+          style: deepObject
+          schema:
+            $ref: '#/components/schemas/Forest'
+      responses:
+        '200':
+          description: OK
+components:
+  schemas:
+    Tree:
+      type: object
+      properties:
+        children:
+          type: array
+          items:
+            $ref: '#/components/schemas/Tree'
+    Forest:
+      type: object
+      properties:
+        trees:
+          type: array
+          items:
+            $ref: '#/components/schemas/Forest'
+        leaf:
+          $ref: '#/components/schemas/Leaf'
+    Leaf:
+      oneOf:
+        - $ref: '#/components/schemas/Forest'
+      discriminator:
+        propertyName: kind

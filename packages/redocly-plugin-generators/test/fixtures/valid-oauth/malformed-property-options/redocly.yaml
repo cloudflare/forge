@@ -1,0 +1,7 @@
+rules:
+  generators/valid-oauth:
+    severity: error
+    getToken:
+      endpoint: POST /token
+      requestProperties:
+        clientSecret: 5

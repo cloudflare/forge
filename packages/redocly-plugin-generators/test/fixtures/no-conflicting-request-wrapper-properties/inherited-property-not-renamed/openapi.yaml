@@ -1,0 +1,45 @@
+openapi: 3.1.0
+info:
+  title: Test API
+  version: 1.0.0
+paths:
+  /health:
+    get:
+      operationId: health
+      responses:
+        '200':
+          description: OK
+  /plants:
+    post:
+      operationId: createPlant
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+      requestBody:
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/Paging'
+                - type: object
+                  properties:
+                    name:
+                      type: string
+      responses:
+        '200':
+          description: OK
+components:
+  schemas:
+    Paging:
+      allOf:
+        - $ref: '#/components/schemas/Limit'
+      properties:
+        cursor:
+          type: string
+    Limit:
+      type: object
+      properties:
+        limit:
+          type: integer

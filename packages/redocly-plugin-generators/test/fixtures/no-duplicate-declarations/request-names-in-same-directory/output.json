@@ -1,0 +1,8 @@
+[
+  {
+    "ruleId": "generators/no-duplicate-declarations",
+    "severity": "error",
+    "message": "The request of GET /plants/{plantId}/bulbs (named by its x-fern-request-name) is named \"ListSeedsRequest\", which is already declared by the request of GET /plants/{plantId}/seeds (name generated from x-fern-sdk-method-name and x-fern-sdk-group-name) at #/paths/~1plants~1{plantId}~1seeds/get/x-fern-sdk-method-name. fern check fails with \"ListSeedsRequest is already declared\". Rename this request with x-fern-request-name on the operation.",
+    "location": "openapi.yaml#/paths/~1plants~1{plantId}~1bulbs/get/x-fern-request-name"
+  }
+]

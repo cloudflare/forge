@@ -1,0 +1,14 @@
+openapi: 3.0.3
+info:
+  title: Test API
+  version: 1.0.0
+paths:
+  /ec2/boot:
+    post:
+      operationId: bootInstance
+      servers:
+        - url: https://ec2.aws.com
+        - url: https://staging.ec2.aws.com
+      responses:
+        '204':
+          description: Booted

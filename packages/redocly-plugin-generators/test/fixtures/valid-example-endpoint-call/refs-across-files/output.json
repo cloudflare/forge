@@ -1,0 +1,26 @@
+[
+  {
+    "ruleId": "generators/valid-example-endpoint-call",
+    "severity": "error",
+    "message": "Invalid path parameter \"plantId\" example: Expected example to be an integer. Example is: \"one\"",
+    "location": "paths/plant.yaml#/put/x-fern-examples/1/path-parameters/plantId"
+  },
+  {
+    "ruleId": "generators/valid-example-endpoint-call",
+    "severity": "error",
+    "message": "Invalid request example at \"/soil/ph\": Expected example to be a number. Example is: \"acidic\"",
+    "location": "paths/plant.yaml#/put/x-fern-examples/1/request/soil/ph"
+  },
+  {
+    "ruleId": "generators/valid-example-endpoint-call",
+    "severity": "error",
+    "message": "Invalid response example: Example is missing required property \"name\"",
+    "location": "paths/plant.yaml#/put/x-fern-examples/1/response/body"
+  },
+  {
+    "ruleId": "generators/valid-example-endpoint-call",
+    "severity": "error",
+    "message": "Invalid response example at \"/soil\": Example is missing required property \"ph\"",
+    "location": "paths/plant.yaml#/put/x-fern-examples/1/response/body/soil"
+  }
+]

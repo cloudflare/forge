@@ -1,0 +1,14 @@
+[
+  {
+    "ruleId": "generators/no-non-component-refs",
+    "severity": "error",
+    "message": "Reference \"#/paths/~1users/get/responses\" points to a non-component location. OpenAPI references should point to reusable components under #/components/ (e.g., #/components/schemas/MySchema, #/components/responses/MyResponse). Direct references to paths, operations, or other spec sections are not supported.",
+    "location": "openapi.yaml#/paths/~1users/get/x-code-samples-meta/nested/0/$ref"
+  },
+  {
+    "ruleId": "generators/no-non-component-refs",
+    "severity": "error",
+    "message": "Reference \"#/info/x-request-id-schema\" points to a non-component location. OpenAPI references should point to reusable components under #/components/ (e.g., #/components/schemas/MySchema, #/components/responses/MyResponse). Direct references to paths, operations, or other spec sections are not supported.",
+    "location": "openapi.yaml#/x-fern-global-headers/0/schema/$ref"
+  }
+]

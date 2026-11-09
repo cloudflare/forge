@@ -1,0 +1,30 @@
+openapi: 3.1.0
+info:
+  title: Plant Store
+  version: 1.0.0
+paths: {}
+
+components:
+  schemas:
+    ValidAndInvalidEnum:
+      type: string
+      enum: [523_Invalid, bla.bla, valid, VALID, V2343_ALID, 23-Invalid, '<', '', n/a, '*']
+      x-fern-enum:
+        bla.bla:
+          name: validName
+    Level:
+      type: string
+      enum: [low, high]
+      x-enum-varnames: [LEVEL_LOW, LEVEL_HIGH]
+    Shape:
+      oneOf:
+        - $ref: '#/components/schemas/Circle'
+      discriminator:
+        propertyName: type
+        mapping:
+          circle: '#/components/schemas/Circle'
+    Circle:
+      type: object
+      properties:
+        type:
+          type: string

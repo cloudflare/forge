@@ -1,0 +1,20 @@
+[
+  {
+    "ruleId": "generators/no-duplicate-overrides",
+    "severity": "error",
+    "message": "x-fern-sdk-group-name must be a string or a list of strings; got 42. Fern fails to import the document.",
+    "location": "openapi.yaml#/paths/~1a/get/x-fern-sdk-group-name"
+  },
+  {
+    "ruleId": "generators/no-duplicate-overrides",
+    "severity": "error",
+    "message": "x-fern-sdk-group-name must be a string or a list of strings; got [\"plants\",1]. Fern fails to import the document.",
+    "location": "openapi.yaml#/paths/~1b/get/x-fern-sdk-group-name"
+  },
+  {
+    "ruleId": "generators/no-duplicate-overrides",
+    "severity": "error",
+    "message": "x-fern-sdk-group-name must be a string or a list of strings; got true. Fern fails to import the document.",
+    "location": "openapi.yaml#/paths/~1c/get/x-fern-sdk-group-name"
+  }
+]

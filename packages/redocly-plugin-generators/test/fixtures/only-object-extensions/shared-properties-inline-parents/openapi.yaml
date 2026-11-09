@@ -1,0 +1,57 @@
+openapi: 3.0.3
+info:
+  title: Parents
+  version: 1.0.0
+paths: {}
+components:
+  schemas:
+    InlinedChild:
+      type: object
+      properties:
+        name:
+          type: string
+      allOf:
+        - $ref: '#/components/schemas/AliasOfNullable'
+        - $ref: '#/components/schemas/Identified'
+    IgnoredPropertyChild:
+      type: object
+      properties:
+        name:
+          type: string
+      allOf:
+        - $ref: '#/components/schemas/AliasOfNullable'
+        - $ref: '#/components/schemas/IgnoredId'
+    NoPropertiesChild:
+      type: object
+      properties:
+        name:
+          type: string
+      allOf:
+        - $ref: '#/components/schemas/Tags'
+        - $ref: '#/components/schemas/Identified'
+    NullableBase:
+      type: object
+      nullable: true
+      properties:
+        id:
+          type: string
+    AliasOfNullable:
+      allOf:
+        - $ref: '#/components/schemas/NullableBase'
+    Identified:
+      type: object
+      properties:
+        id:
+          type: integer
+    IgnoredId:
+      type: object
+      properties:
+        id:
+          type: integer
+          x-fern-ignore: true
+        label:
+          type: string
+    Tags:
+      type: array
+      items:
+        type: string

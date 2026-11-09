@@ -1,0 +1,14 @@
+[
+  {
+    "ruleId": "generators/no-invalid-tag-names-or-frontmatter",
+    "severity": "error",
+    "message": "Tag name \"Café\" contains non-ASCII characters: é. Non-ASCII characters in tag names will be included in URL paths and HTTP headers, which only support ASCII characters. This will cause runtime errors (ERR_INVALID_CHAR). Remove non-ASCII characters from the tag name.",
+    "location": "openapi.yaml#/paths/~1orders/get/tags/1"
+  },
+  {
+    "ruleId": "generators/no-invalid-tag-names-or-frontmatter",
+    "severity": "error",
+    "message": "Tag name \"Ünits\" contains non-ASCII characters: Ü. Non-ASCII characters in tag names will be included in URL paths and HTTP headers, which only support ASCII characters. This will cause runtime errors (ERR_INVALID_CHAR). Remove non-ASCII characters from the tag name.",
+    "location": "openapi.yaml#/paths/~1orders/post/tags/1"
+  }
+]

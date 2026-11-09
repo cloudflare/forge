@@ -1,0 +1,20 @@
+[
+  {
+    "ruleId": "generators/no-undefined-type-reference",
+    "severity": "error",
+    "message": "Type Version is not defined. x-fern-global-headers type 'Version' references it, but it is neither a Fern primitive nor a key of components.schemas, so Fern treats it as unknown.",
+    "location": "openapi.yaml#/x-fern-global-headers/0/type"
+  },
+  {
+    "ruleId": "generators/no-undefined-type-reference",
+    "severity": "error",
+    "message": "x-fern-global-headers type 'map<Tag, string>' uses 'Tag' as a map key, but map keys must be primitive types; Fern ignores this type and falls back to string.",
+    "location": "openapi.yaml#/x-fern-global-headers/1/type"
+  },
+  {
+    "ruleId": "generators/no-undefined-type-reference",
+    "severity": "error",
+    "message": "Type Key is not defined. x-fern-idempotency-headers type 'optional<Key>' references it, but it is neither a Fern primitive nor a key of components.schemas, so Fern treats it as unknown.",
+    "location": "openapi.yaml#/x-fern-idempotency-headers/0/type"
+  }
+]

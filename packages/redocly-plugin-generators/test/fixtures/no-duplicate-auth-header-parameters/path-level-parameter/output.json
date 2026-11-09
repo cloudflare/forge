@@ -1,0 +1,8 @@
+[
+  {
+    "ruleId": "generators/no-duplicate-auth-header-parameters",
+    "severity": "error",
+    "message": "Header parameter 'authorization' conflicts with the 'authorization' header already defined by a security scheme. This parameter will be ignored during SDK generation.",
+    "location": "openapi.yaml#/paths/~1plants/parameters/0/name"
+  }
+]

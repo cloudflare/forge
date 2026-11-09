@@ -1,0 +1,8 @@
+[
+  {
+    "ruleId": "generators/valid-service-urls",
+    "severity": "error",
+    "message": "x-fern-server-name must be a string naming a server; got {\"name\":\"Upload\"}.",
+    "location": "openapi.yaml#/paths/~1files/get/x-fern-server-name"
+  }
+]

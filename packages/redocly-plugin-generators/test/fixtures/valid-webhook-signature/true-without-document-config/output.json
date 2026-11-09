@@ -1,0 +1,8 @@
+[
+  {
+    "ruleId": "generators/valid-webhook-signature",
+    "severity": "error",
+    "message": "x-fern-webhook-signature: true inherits the document-level x-fern-webhook-signature, but the document does not define one, so Fern drops signature verification for this webhook.",
+    "location": "openapi.yaml#/webhooks/a/post/x-fern-webhook-signature"
+  }
+]

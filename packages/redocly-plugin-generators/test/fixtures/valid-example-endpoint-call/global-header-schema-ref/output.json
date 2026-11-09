@@ -1,0 +1,8 @@
+[
+  {
+    "ruleId": "generators/valid-example-endpoint-call",
+    "severity": "error",
+    "message": "Example is missing required header \"X-Region\" (Fern makes it a global header because every operation declares it; its schema is a $ref, and Fern's example check cannot resolve schema references of global headers, so it treats the header as required)",
+    "location": "openapi.yaml#/paths/~1plants/get/x-fern-examples/0"
+  }
+]

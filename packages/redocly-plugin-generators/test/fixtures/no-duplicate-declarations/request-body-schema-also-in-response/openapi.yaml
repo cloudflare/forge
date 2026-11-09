@@ -1,0 +1,57 @@
+openapi: 3.1.0
+info:
+  title: Plant Store
+  version: 1.0.0
+paths:
+  /plants:
+    post:
+      operationId: createPlant
+      parameters:
+        - name: dryRun
+          in: query
+          schema:
+            type: boolean
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Plant'
+      responses:
+        '200':
+          description: Created.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Plant'
+  /plants/{plantId}:
+    put:
+      operationId: replacePlant
+      x-fern-request-name: Seedling
+      parameters:
+        - name: plantId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Seedling'
+      responses:
+        '204':
+          description: Replaced.
+components:
+  schemas:
+    Plant:
+      type: object
+      properties:
+        name:
+          type: string
+    Seedling:
+      type: object
+      properties:
+        name:
+          type: string

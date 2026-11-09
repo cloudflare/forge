@@ -1,0 +1,19 @@
+openapi: 3.1.0
+info:
+  title: Plant Store
+  version: 1.0.0
+paths: {}
+
+components:
+  schemas:
+    _:
+      type: string
+    $$:
+      type: string
+    10000Items:
+      type: object
+    日本:
+      type: string
+    Fixed:
+      x-fern-type-name: Fixed
+      type: string

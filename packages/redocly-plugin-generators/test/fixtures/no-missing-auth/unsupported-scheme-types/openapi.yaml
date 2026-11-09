@@ -1,0 +1,43 @@
+openapi: 3.1.0
+info:
+  title: Auth
+  version: 1.0.0
+paths:
+  /query-key:
+    get:
+      operationId: queryKey
+      security:
+        - queryKey: []
+      responses:
+        '200':
+          description: OK
+  /digest:
+    get:
+      operationId: digest
+      security:
+        - digest: []
+        - mtls: []
+      responses:
+        '200':
+          description: OK
+  /oauth-without-flows:
+    get:
+      operationId: oauthWithoutFlows
+      security:
+        - brokenOauth: [read]
+      responses:
+        '200':
+          description: OK
+components:
+  securitySchemes:
+    queryKey:
+      type: apiKey
+      in: query
+      name: api_key
+    digest:
+      type: http
+      scheme: digest
+    mtls:
+      type: mutualTLS
+    brokenOauth:
+      type: oauth2

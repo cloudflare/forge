@@ -1,0 +1,115 @@
+openapi: 3.1.0
+info:
+  title: Plants
+  version: 1.0.0
+paths:
+  /plants:
+    post:
+      operationId: createPlant
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [id, secret, name, tag]
+              properties:
+                id:
+                  type: string
+                  readOnly: true
+                secret:
+                  type: string
+                  writeOnly: true
+                tag:
+                  $ref: '#/components/schemas/Tag'
+                name:
+                  type: string
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Plant'
+      x-fern-examples:
+        - name: Read-only properties omitted everywhere
+          request:
+            name: Fern
+            secret: s3cret
+          response:
+            body:
+              name: Fern
+              secret: s3cret
+        - name: Read-only properties in an inlined request body
+          request:
+            id: p1
+            name: Fern
+            secret: s3cret
+            tag: green
+          response:
+            body:
+              id: p1
+              name: Fern
+              secret: s3cret
+              tag: green
+        - name: Write-only properties are still required
+          request:
+            name: Fern
+          response:
+            body:
+              id: p1
+              name: Fern
+  /plants/{plantId}:
+    put:
+      operationId: replacePlant
+      parameters:
+        - name: plantId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Plant'
+      responses:
+        '200':
+          description: Replaced
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Plant'
+      x-fern-examples:
+        - name: Read-only properties of a referenced request body are accepted
+          path-parameters:
+            plantId: p1
+          request:
+            id: p1
+            name: Fern
+            secret: s3cret
+            tag: green
+          response:
+            body:
+              name: Fern
+              secret: s3cret
+components:
+  schemas:
+    Tag:
+      type: string
+      readOnly: true
+    Plant:
+      type: object
+      required: [id, secret, name, tag]
+      properties:
+        id:
+          type: string
+          readOnly: true
+        secret:
+          type: string
+          writeOnly: true
+        tag:
+          $ref: '#/components/schemas/Tag'
+        name:
+          type: string

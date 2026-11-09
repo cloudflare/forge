@@ -1,0 +1,20 @@
+[
+  {
+    "ruleId": "generators/valid-type-reference-with-default-and-validation",
+    "severity": "error",
+    "message": "Default value '3' is not a valid string. Fern's importer drops the default.",
+    "location": "openapi.yaml#/components/schemas/Plant/properties/name/default"
+  },
+  {
+    "ruleId": "generators/valid-type-reference-with-default-and-validation",
+    "severity": "error",
+    "message": "Default value '{\"text\":\"none\"}' is not a valid string. Fern's importer drops the default.",
+    "location": "openapi.yaml#/components/schemas/Plant/properties/notes/default"
+  },
+  {
+    "ruleId": "generators/valid-type-reference-with-default-and-validation",
+    "severity": "error",
+    "message": "Default value 'false' is not a valid string. Fern's importer drops the default.",
+    "location": "openapi.yaml#/components/schemas/Plant/properties/planted/default"
+  }
+]

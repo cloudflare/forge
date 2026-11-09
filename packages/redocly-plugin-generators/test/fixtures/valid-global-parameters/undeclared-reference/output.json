@@ -1,0 +1,14 @@
+[
+  {
+    "ruleId": "generators/valid-global-parameters",
+    "severity": "error",
+    "message": "Endpoint 'listPets' references undeclared global parameter 'locale'. Declared parameters in x-fern-global-parameters: currency, region",
+    "location": "openapi.yaml#/paths/~1pets/get/x-fern-global-parameter/1"
+  },
+  {
+    "ruleId": "generators/valid-global-parameters",
+    "severity": "error",
+    "message": "Endpoint 'DELETE /pets/{id}' references undeclared global parameter 'tenant'. Declared parameters in x-fern-global-parameters: currency, region",
+    "location": "openapi.yaml#/paths/~1pets~1{id}/delete/x-fern-global-parameter"
+  }
+]

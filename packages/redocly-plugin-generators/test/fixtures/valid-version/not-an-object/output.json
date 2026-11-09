@@ -1,0 +1,8 @@
+[
+  {
+    "ruleId": "generators/valid-version",
+    "severity": "error",
+    "message": "x-fern-version must be an object with a `header` and a list of `values`. fern check does not catch this, but SDK generation fails.",
+    "location": "openapi.yaml#/x-fern-version"
+  }
+]

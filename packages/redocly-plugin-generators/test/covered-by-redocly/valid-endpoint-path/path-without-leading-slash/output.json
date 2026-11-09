@@ -1,0 +1,8 @@
+[
+  {
+    "ruleId": "struct",
+    "severity": "error",
+    "message": "Property `plants` is not expected here.",
+    "location": "openapi.yaml#/paths/plants (key)"
+  }
+]

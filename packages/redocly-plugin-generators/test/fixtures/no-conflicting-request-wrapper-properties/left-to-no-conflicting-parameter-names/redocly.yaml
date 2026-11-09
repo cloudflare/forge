@@ -1,0 +1,3 @@
+rules:
+  generators/no-conflicting-request-wrapper-properties: error
+  generators/no-conflicting-parameter-names: error

@@ -1,0 +1,31 @@
+openapi: 3.1.0
+info:
+  title: Plant Store
+  version: 1.0.0
+paths:
+  /plants/{plantId}/seeds:
+    get:
+      x-fern-sdk-group-name: [plants, seeds]
+      x-fern-sdk-method-name: list
+      parameters:
+        - name: plantId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The seeds.
+  /trees/{treeId}/seeds:
+    get:
+      x-fern-sdk-group-name: [trees, seeds]
+      x-fern-sdk-method-name: list
+      parameters:
+        - name: treeId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The seeds.

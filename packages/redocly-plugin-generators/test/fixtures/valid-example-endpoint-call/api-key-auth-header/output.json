@@ -1,0 +1,8 @@
+[
+  {
+    "ruleId": "generators/valid-example-endpoint-call",
+    "severity": "error",
+    "message": "Unexpected header \"X-Api-Key\"; Fern sets authentication headers from components.securitySchemes and drops them from operations",
+    "location": "openapi.yaml#/paths/~1plants/get/x-fern-examples/0/headers/X-Api-Key (key)"
+  }
+]

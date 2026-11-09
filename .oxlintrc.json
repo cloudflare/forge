@@ -18,6 +18,13 @@
       }
     },
     {
+      "files": ["packages/redocly-plugin-generators/**"],
+      "rules": {
+        "curly": "off",
+        "eqeqeq": "off"
+      }
+    },
+    {
       "files": ["src/bin/forge/ts/lib/**"],
       "plugins": ["typescript", "unicorn", "oxc", "import", "node"],
       "rules": {

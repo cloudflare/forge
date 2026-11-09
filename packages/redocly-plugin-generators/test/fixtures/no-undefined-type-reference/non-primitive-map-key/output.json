@@ -1,0 +1,20 @@
+[
+  {
+    "ruleId": "generators/no-undefined-type-reference",
+    "severity": "error",
+    "message": "x-fern-type 'map<Pet, string>' uses 'Pet' as a map key, but map keys must be primitive types; Fern ignores this type and falls back to the schema's own type.",
+    "location": "openapi.yaml#/components/schemas/Holder/properties/a/x-fern-type"
+  },
+  {
+    "ruleId": "generators/no-undefined-type-reference",
+    "severity": "error",
+    "message": "x-fern-type 'map<unknown, string>' uses 'unknown' as a map key, but map keys must be primitive types; Fern ignores this type and falls back to the schema's own type.",
+    "location": "openapi.yaml#/components/schemas/Holder/properties/b/x-fern-type"
+  },
+  {
+    "ruleId": "generators/no-undefined-type-reference",
+    "severity": "error",
+    "message": "x-fern-type 'map<optional<string>, string>' uses 'optional<string>' as a map key, but map keys must be primitive types; Fern ignores this type and falls back to the schema's own type.",
+    "location": "openapi.yaml#/components/schemas/Holder/properties/c/x-fern-type"
+  }
+]

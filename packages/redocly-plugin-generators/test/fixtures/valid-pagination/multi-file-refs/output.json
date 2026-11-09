@@ -1,0 +1,20 @@
+[
+  {
+    "ruleId": "generators/valid-pagination",
+    "severity": "error",
+    "message": "\"has-next-page\" selector, $response.more, does not point to a boolean property.",
+    "location": "paths/users.yaml#/get/x-fern-pagination/has-next-page"
+  },
+  {
+    "ruleId": "generators/valid-pagination",
+    "severity": "error",
+    "message": "x-fern-pagination for endpoint listUsers specifies 'offset' $request.offset, which is not a valid 'offset' type. It must point to an `in: query` parameter or request body property whose type is an integer or a double-precision number.",
+    "location": "paths/users.yaml#/get/x-fern-pagination/offset"
+  },
+  {
+    "ruleId": "generators/valid-pagination",
+    "severity": "warn",
+    "message": "x-fern-pagination for endpoint listUsers specifies 'results' $response.data, which is not an array. Fern pages through the items of the results property, so it should be an array.",
+    "location": "paths/users.yaml#/get/x-fern-pagination/results"
+  }
+]

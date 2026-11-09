@@ -1,0 +1,19 @@
+openapi: 3.0.3
+info:
+  title: Plant Store
+  version: 1.0.0
+paths: {}
+components:
+  schemas:
+    PlantInfo:
+      type: object
+      properties:
+        name:
+          type: string
+    plant_info:
+      type: object
+      properties:
+        id:
+          type: string
+    plant-info:
+      type: string

@@ -1,0 +1,29 @@
+openapi: 3.1.0
+info:
+  title: Test API
+  version: 1.0.0
+x-fern-global-parameters:
+  - name: currency
+    in: query
+  - name: region
+    in: header
+paths:
+  /pets:
+    get:
+      operationId: listPets
+      x-fern-global-parameter: [currency, locale]
+      responses:
+        '200':
+          description: OK
+  /pets/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+    delete:
+      x-fern-global-parameter: tenant
+      responses:
+        '204':
+          description: Deleted

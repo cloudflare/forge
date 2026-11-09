@@ -1,0 +1,27 @@
+openapi: 3.1.0
+info:
+  title: Plants
+  version: 1.0.0
+paths:
+  /plants:
+    post:
+      operationId: createPlant
+      responses:
+        '201':
+          description: Created
+        '422':
+          description: Invalid plant
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [errors]
+                properties:
+                  errors:
+                    type: array
+                    items:
+                      type: string
+              examples:
+                missingName:
+                  value:
+                    message: name is required

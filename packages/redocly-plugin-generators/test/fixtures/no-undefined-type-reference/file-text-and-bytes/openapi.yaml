@@ -1,0 +1,54 @@
+openapi: 3.1.0
+info:
+  title: Test API
+  version: 1.0.0
+paths:
+  /upload:
+    post:
+      operationId: upload
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  x-fern-type: file
+                files:
+                  type: array
+                  items:
+                    type: string
+                  x-fern-type: optional<list<file>>
+      responses:
+        '200':
+          description: OK
+          content:
+            text/plain:
+              schema:
+                type: string
+                x-fern-type: text
+  /raw:
+    post:
+      operationId: raw
+      requestBody:
+        content:
+          application/octet-stream:
+            schema:
+              type: string
+              x-fern-type: bytes
+      responses:
+        '204':
+          description: No content
+components:
+  schemas:
+    Document:
+      type: object
+      properties:
+        body:
+          type: string
+          x-fern-type: text
+        raw:
+          type: string
+          x-fern-type: optional<bytes>

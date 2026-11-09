@@ -1,0 +1,8 @@
+[
+  {
+    "ruleId": "generators/no-undefined-path-parameters",
+    "severity": "warn",
+    "message": "Path parameter is unreferenced in x-fern-base-path '/{tenant}': region. Fern ignores it.",
+    "location": "openapi.yaml#/x-fern-base-path/parameters/region (key)"
+  }
+]

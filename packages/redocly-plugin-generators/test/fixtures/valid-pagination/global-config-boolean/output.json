@@ -1,0 +1,8 @@
+[
+  {
+    "ruleId": "generators/valid-pagination",
+    "severity": "error",
+    "message": "Global pagination extension is a boolean, expected an object. Only endpoints may declare a boolean for x-fern-pagination.",
+    "location": "openapi.yaml#/x-fern-pagination"
+  }
+]

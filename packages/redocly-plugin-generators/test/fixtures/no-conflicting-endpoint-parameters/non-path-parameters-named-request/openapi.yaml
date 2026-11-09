@@ -1,0 +1,20 @@
+openapi: 3.1.0
+info:
+  title: Test API
+  version: 1.0.0
+paths:
+  /requests:
+    get:
+      operationId: listRequests
+      parameters:
+        - name: request
+          in: query
+          schema:
+            type: string
+        - name: Request
+          in: header
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK

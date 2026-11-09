@@ -1,0 +1,38 @@
+[
+  {
+    "ruleId": "generators/valid-example-endpoint-call",
+    "severity": "error",
+    "message": "Example is missing response.body for NotFoundError; Fern declares NotFoundError with a body schema from the 404 response of another operation.",
+    "location": "openapi.yaml#/paths/~1plants/get/x-fern-examples/0/response"
+  },
+  {
+    "ruleId": "generators/valid-example-endpoint-call",
+    "severity": "error",
+    "message": "\"NotFoundError\" is not an error this operation declares. Fern names errors after their status codes (for example 404 becomes NotFoundError); this operation declares no error responses (status codes 400-599, 4XX or 5XX).",
+    "location": "openapi.yaml#/paths/~1plants/get/x-fern-examples/0/response/error"
+  },
+  {
+    "ruleId": "generators/valid-example-endpoint-call",
+    "severity": "error",
+    "message": "\"InternalServerError\" is not an error this operation declares. Fern names errors after their status codes (for example 404 becomes NotFoundError); this operation declares: NotFoundError (404), ServiceUnavailableError (503), ClientRequestError (4XX).",
+    "location": "openapi.yaml#/paths/~1plants~1{plantId}/get/x-fern-examples/3/response/error"
+  },
+  {
+    "ruleId": "generators/valid-example-endpoint-call",
+    "severity": "error",
+    "message": "\"Not found\" is not an error this operation declares. Fern names errors after their status codes (for example 404 becomes NotFoundError); this operation declares: NotFoundError (404), ServiceUnavailableError (503), ClientRequestError (4XX).",
+    "location": "openapi.yaml#/paths/~1plants~1{plantId}/get/x-fern-examples/4/response/error"
+  },
+  {
+    "ruleId": "generators/valid-example-endpoint-call",
+    "severity": "error",
+    "message": "Invalid NotFoundError response example at \"/title\": Expected example to be a string. Example is: 404",
+    "location": "openapi.yaml#/paths/~1plants~1{plantId}/get/x-fern-examples/5/response/body/title"
+  },
+  {
+    "ruleId": "generators/valid-example-endpoint-call",
+    "severity": "error",
+    "message": "Example is missing response.body for NotFoundError; the 404 response of this operation has a body schema.",
+    "location": "openapi.yaml#/paths/~1plants~1{plantId}/get/x-fern-examples/6/response"
+  }
+]

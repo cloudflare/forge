@@ -1,0 +1,7 @@
+PartnerKey:
+  type: apiKey
+  in: query
+  name: partner_key
+PartnerToken:
+  type: http
+  scheme: bearer

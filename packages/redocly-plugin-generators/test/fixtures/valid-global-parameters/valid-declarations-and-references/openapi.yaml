@@ -1,0 +1,31 @@
+openapi: 3.0.3
+info:
+  title: Test API
+  version: 1.0.0
+x-fern-global-parameters:
+  - name: currency
+    in: query
+    type: string
+    apply: explicit
+    default: USD
+  - name: region
+    in: header
+    target: X-Region
+    type: integer
+    apply: auto
+    optional: true
+  - name: tenant
+paths:
+  /pets:
+    get:
+      operationId: listPets
+      x-fern-global-parameter: currency
+      responses:
+        '200':
+          description: OK
+    post:
+      operationId: createPet
+      x-fern-global-parameter: [currency, tenant]
+      responses:
+        '200':
+          description: OK

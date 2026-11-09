@@ -1,0 +1,8 @@
+[
+  {
+    "ruleId": "generators/valid-base-path",
+    "severity": "error",
+    "message": "Path '/{tenant}users' starts with base path '/{tenant}' only partway through a segment. Fern strips the prefix anyway and produces the path 'users', and fern check fails with \"Path must start with a slash\".",
+    "location": "openapi.yaml#/paths/~1{tenant}users (key)"
+  }
+]

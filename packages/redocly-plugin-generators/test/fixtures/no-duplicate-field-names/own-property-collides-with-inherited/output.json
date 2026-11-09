@@ -1,0 +1,8 @@
+[
+  {
+    "ruleId": "generators/no-duplicate-field-names",
+    "severity": "error",
+    "message": "Object has multiple properties named \"blogPostName\": \"blogPostName\" at #/components/schemas/FeaturedPost/properties/blogPostName, \"title\" (x-fern-property-name \"blogPostName\") inherited from BlogPostAlias at #/components/schemas/BlogPost/properties/title. Give each property a unique name with x-fern-property-name.",
+    "location": "openapi.yaml#/components/schemas/FeaturedPost/properties/blogPostName (key)"
+  }
+]

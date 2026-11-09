@@ -1,0 +1,14 @@
+[
+  {
+    "ruleId": "generators/valid-field-names",
+    "severity": "error",
+    "message": "Enum value \"^\" is not suitable for code generation: Fern cannot generate a name from it. Use the x-fern-enum extension to specify a name that starts with a letter and contains only letters, numbers, and underscores: https://buildwithfern.com/learn/api-definitions/openapi/extensions/enum-descriptions-and-names",
+    "location": "openapi.yaml#/components/schemas/Operator/enum/1"
+  },
+  {
+    "ruleId": "generators/valid-field-names",
+    "severity": "warn",
+    "message": "x-fern-enum name \"_dollar\" for enum value \"$\" is not suitable for code generation. It must start with a letter and only contain letters, numbers, and underscores. Fern ignores it and cannot generate a name from the value either.",
+    "location": "openapi.yaml#/components/schemas/Operator/x-fern-enum/$/name"
+  }
+]

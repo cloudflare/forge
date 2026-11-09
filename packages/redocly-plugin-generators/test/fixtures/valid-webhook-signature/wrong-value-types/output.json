@@ -1,0 +1,14 @@
+[
+  {
+    "ruleId": "generators/valid-webhook-signature",
+    "severity": "error",
+    "message": "x-fern-webhook-signature on a webhook must be an object, or true to inherit the document-level config; got 'hmac'. Fern drops signature verification for this webhook.",
+    "location": "openapi.yaml#/webhooks/a/post/x-fern-webhook-signature"
+  },
+  {
+    "ruleId": "generators/valid-webhook-signature",
+    "severity": "error",
+    "message": "The document-level x-fern-webhook-signature must be an object (the default config for every webhook); Fern ignores true.",
+    "location": "openapi.yaml#/x-fern-webhook-signature"
+  }
+]

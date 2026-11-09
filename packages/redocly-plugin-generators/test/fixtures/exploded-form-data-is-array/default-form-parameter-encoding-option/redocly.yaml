@@ -1,0 +1,4 @@
+rules:
+  generators/exploded-form-data-is-array:
+    severity: error
+    defaultFormParameterEncoding: form

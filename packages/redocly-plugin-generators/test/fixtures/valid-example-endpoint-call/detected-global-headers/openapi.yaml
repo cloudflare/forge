@@ -1,0 +1,71 @@
+openapi: 3.0.3
+info:
+  title: Plants
+  version: 1.0.0
+paths:
+  /plants:
+    get:
+      operationId: listPlants
+      parameters:
+        - $ref: '#/components/parameters/Tenant'
+        - name: X-Client
+          in: header
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The plants
+      x-fern-examples:
+        - name: Tenant is an optional global header
+          headers:
+            X-Client: web
+    post:
+      operationId: createPlant
+      parameters:
+        - $ref: '#/components/parameters/Tenant'
+        - $ref: '#/components/parameters/OptionalClient'
+      responses:
+        '201':
+          description: Created
+      x-fern-examples:
+        - name: Client is a required global header
+          headers:
+            X-Tenant: t1
+  /gardens:
+    get:
+      operationId: listGardens
+      parameters:
+        - $ref: '#/components/parameters/Tenant'
+        - $ref: '#/components/parameters/OptionalClient'
+      responses:
+        '200':
+          description: The gardens
+      x-fern-examples:
+        - headers:
+            X-Client: web
+    post:
+      operationId: createGarden
+      parameters:
+        - $ref: '#/components/parameters/OptionalClient'
+      responses:
+        '201':
+          description: Created
+      x-fern-examples:
+        - name: Every operation accepts the optional global header
+          headers:
+            X-Client: web
+            X-Tenant: t1
+components:
+  parameters:
+    Tenant:
+      name: X-Tenant
+      in: header
+      required: true
+      schema:
+        type: string
+    OptionalClient:
+      name: X-Client
+      in: header
+      schema:
+        type: string

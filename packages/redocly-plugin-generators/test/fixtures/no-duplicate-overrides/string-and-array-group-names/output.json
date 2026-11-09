@@ -1,0 +1,8 @@
+[
+  {
+    "ruleId": "generators/no-duplicate-overrides",
+    "severity": "error",
+    "message": "SDK method a.b.list already exists (x-fern-sdk-group-name: a.b, x-fern-sdk-method-name: list)",
+    "location": "openapi.yaml#/paths/~1b/get/x-fern-sdk-method-name"
+  }
+]

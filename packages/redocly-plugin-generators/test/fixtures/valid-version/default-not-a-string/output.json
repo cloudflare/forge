@@ -1,0 +1,8 @@
+[
+  {
+    "ruleId": "generators/valid-version",
+    "severity": "error",
+    "message": "Default version 2 not found in x-fern-version values",
+    "location": "openapi.yaml#/x-fern-version/default"
+  }
+]

@@ -1,0 +1,8 @@
+[
+  {
+    "ruleId": "generators/valid-webhook-signature",
+    "severity": "error",
+    "message": "body-hash-binding query-parameter location must specify a name; without one, fern check crashes.",
+    "location": "openapi.yaml#/webhooks/a/post/x-fern-webhook-signature/body-hash-binding/location/name (key)"
+  }
+]

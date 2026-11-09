@@ -1,0 +1,20 @@
+openapi: 3.1.0
+info:
+  title: Plant Store
+  version: 1.0.0
+paths: {}
+
+components:
+  schemas:
+    Status:
+      type: string
+      enum: [active, inactive]
+      x-fern-enum:
+        active:
+          description: The plant is growing.
+        archived:
+          name: Archived
+    Size:
+      type: string
+      enum: [small, large]
+      x-fern-enum: small

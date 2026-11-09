@@ -1,0 +1,14 @@
+[
+  {
+    "ruleId": "generators/valid-pagination",
+    "severity": "error",
+    "message": "x-fern-pagination for endpoint listUsers specifies 'next_cursor' $response.next, which is not a valid 'next_cursor' type (inherited from the document-level x-fern-pagination). It must point to a property of the JSON success response whose type is a string, integer or number.",
+    "location": "openapi.yaml#/paths/~1users/get/x-fern-pagination"
+  },
+  {
+    "ruleId": "generators/valid-pagination",
+    "severity": "warn",
+    "message": "x-fern-pagination: false does not disable pagination: Fern treats it like true and applies the document-level x-fern-pagination. Remove the extension instead.",
+    "location": "openapi.yaml#/paths/~1users/get/x-fern-pagination"
+  }
+]

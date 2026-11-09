@@ -1,0 +1,14 @@
+[
+  {
+    "ruleId": "generators/valid-oauth",
+    "severity": "error",
+    "message": "OAuth configuration for endpoint getToken cannot reference nested $request properties like '$request.credentials.client_id'; expected a top-level property such as '$request.client_id' instead.",
+    "location": "openapi.yaml#/paths/~1token/post/requestBody"
+  },
+  {
+    "ruleId": "generators/valid-oauth",
+    "severity": "error",
+    "message": "OAuth configuration for endpoint getToken cannot reference nested $request properties like '$request.credentials.client_secret'; expected a top-level property such as '$request.client_secret' instead.",
+    "location": "openapi.yaml#/paths/~1token/post/requestBody"
+  }
+]

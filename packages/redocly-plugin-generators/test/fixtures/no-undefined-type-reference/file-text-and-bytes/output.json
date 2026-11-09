@@ -1,0 +1,26 @@
+[
+  {
+    "ruleId": "generators/no-undefined-type-reference",
+    "severity": "error",
+    "message": "The text type can only be used as a response or response-stream, which x-fern-type cannot express; Fern treats it as unknown. Use a text/plain response instead.",
+    "location": "openapi.yaml#/components/schemas/Document/properties/body/x-fern-type"
+  },
+  {
+    "ruleId": "generators/no-undefined-type-reference",
+    "severity": "error",
+    "message": "The bytes type can only be used as a request, which x-fern-type cannot express; Fern treats it as unknown. Use an application/octet-stream request body instead.",
+    "location": "openapi.yaml#/components/schemas/Document/properties/raw/x-fern-type"
+  },
+  {
+    "ruleId": "generators/no-undefined-type-reference",
+    "severity": "error",
+    "message": "The file type can only be used as properties in inlined requests, which x-fern-type cannot express; Fern treats it as unknown, so the value is no longer uploaded as a file. Use a multipart/form-data request property with type: string and format: binary instead.",
+    "location": "openapi.yaml#/paths/~1upload/post/requestBody/content/multipart~1form-data/schema/properties/file/x-fern-type"
+  },
+  {
+    "ruleId": "generators/no-undefined-type-reference",
+    "severity": "error",
+    "message": "The file type can only be used as properties in inlined requests, which x-fern-type cannot express; Fern treats it as unknown, so the value is no longer uploaded as a file. Use a multipart/form-data request property with type: string and format: binary instead.",
+    "location": "openapi.yaml#/paths/~1upload/post/requestBody/content/multipart~1form-data/schema/properties/files/x-fern-type"
+  }
+]

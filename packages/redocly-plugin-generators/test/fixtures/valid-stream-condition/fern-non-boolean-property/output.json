@@ -1,0 +1,14 @@
+[
+  {
+    "ruleId": "generators/valid-stream-condition",
+    "severity": "warn",
+    "message": "Property \"$request.stream\" must be a boolean to be used as a stream-condition. Fern replaces it with a boolean in the generated request types.",
+    "location": "openapi.yaml#/paths/~1chat/post/requestBody/content/application~1json/schema/properties/stream"
+  },
+  {
+    "ruleId": "generators/valid-stream-condition",
+    "severity": "warn",
+    "message": "Property \"stream\" must be a boolean to be used as a stream-condition. Fern replaces it with a boolean in the generated request types.",
+    "location": "openapi.yaml#/paths/~1chat~1enum/post/requestBody/content/application~1json/schema/properties/stream"
+  }
+]

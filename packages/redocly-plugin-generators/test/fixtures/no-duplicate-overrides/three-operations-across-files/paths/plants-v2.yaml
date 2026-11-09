@@ -1,0 +1,14 @@
+post:
+  operationId: listV2Post
+  x-fern-sdk-group-name: plants
+  x-fern-sdk-method-name: list
+  responses:
+    '200':
+      description: OK
+get:
+  operationId: listV2
+  x-fern-sdk-group-name: [plants]
+  x-fern-sdk-method-name: list
+  responses:
+    '200':
+      description: OK

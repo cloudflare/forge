@@ -1,0 +1,72 @@
+openapi: 3.1.0
+info:
+  title: Plant Store
+  version: 1.0.0
+paths:
+  /plants:
+    post:
+      operationId: createPlant
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                plantName:
+                  x-fern-property-name: name
+                  type: string
+      responses:
+        '204':
+          description: Created.
+  /trees:
+    post:
+      operationId: createTree
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NewTree'
+      responses:
+        '200':
+          description: Created.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Tree'
+  /trees/{treeId}:
+    put:
+      operationId: replaceTree
+      parameters:
+        - name: treeId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Tree'
+      responses:
+        '204':
+          description: Replaced.
+components:
+  schemas:
+    NewTree:
+      type: object
+      properties:
+        name:
+          type: string
+        treeName:
+          x-fern-property-name: name
+          type: string
+    Tree:
+      type: object
+      properties:
+        name:
+          type: string
+        treeName:
+          x-fern-property-name: name
+          type: string

@@ -1,0 +1,21 @@
+openapi: 3.0.3
+info:
+  title: Chat
+  version: 1.0.0
+paths:
+  /chat:
+    post:
+      operationId: responsesButNoStreamCondition
+      x-fern-streaming:
+        format: json
+        response:
+          type: string
+        response-stream:
+          type: string
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: string

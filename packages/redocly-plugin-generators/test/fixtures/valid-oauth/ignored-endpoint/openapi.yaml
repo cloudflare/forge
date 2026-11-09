@@ -1,0 +1,12 @@
+openapi: 3.0.3
+info:
+  title: Auth
+  version: 1.0.0
+paths:
+  /token:
+    post:
+      operationId: getToken
+      x-fern-ignore: true
+      responses:
+        '200':
+          description: OK

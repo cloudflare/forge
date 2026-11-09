@@ -1,0 +1,8 @@
+[
+  {
+    "ruleId": "generators/no-duplicate-declarations",
+    "severity": "error",
+    "message": "The request of POST /photos (named after its multipart request body schema components.schemas.PhotoUpload, which Fern inlines into the request) is named \"PhotoUpload\", which is already declared by the schema components.schemas.photo_upload at #/components/schemas/photo_upload. fern check fails with \"PhotoUpload is already declared\". Rename this request with x-fern-request-name on the operation.",
+    "location": "openapi.yaml#/paths/~1photos/post/requestBody/content/multipart~1form-data/schema"
+  }
+]

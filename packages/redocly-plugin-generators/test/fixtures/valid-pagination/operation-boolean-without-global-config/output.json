@@ -1,0 +1,20 @@
+[
+  {
+    "ruleId": "generators/valid-pagination",
+    "severity": "warn",
+    "message": "x-fern-pagination: false does not disable pagination: Fern treats it like true and applies the document-level x-fern-pagination. Remove the extension instead.",
+    "location": "openapi.yaml#/paths/~1groups/get/x-fern-pagination"
+  },
+  {
+    "ruleId": "generators/valid-pagination",
+    "severity": "warn",
+    "message": "x-fern-pagination: false inherits the document-level x-fern-pagination, but the document does not declare one, so Fern generates no pagination for endpoint listGroups.",
+    "location": "openapi.yaml#/paths/~1groups/get/x-fern-pagination"
+  },
+  {
+    "ruleId": "generators/valid-pagination",
+    "severity": "warn",
+    "message": "x-fern-pagination: true inherits the document-level x-fern-pagination, but the document does not declare one, so Fern generates no pagination for endpoint listUsers.",
+    "location": "openapi.yaml#/paths/~1users/get/x-fern-pagination"
+  }
+]

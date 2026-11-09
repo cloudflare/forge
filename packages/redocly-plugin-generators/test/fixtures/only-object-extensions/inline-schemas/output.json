@@ -1,0 +1,14 @@
+[
+  {
+    "ruleId": "generators/only-object-extensions",
+    "severity": "error",
+    "message": "Objects can only extend other objects, and \"Id\" is not an object: it is a string. Fern turns this `allOf` `$ref` into an `extends`, so the referenced schema must be an object schema with `properties`.",
+    "location": "openapi.yaml#/paths/~1pets/post/requestBody/content/application~1json/schema/properties/owner/allOf/0/$ref (key)"
+  },
+  {
+    "ruleId": "generators/only-object-extensions",
+    "severity": "error",
+    "message": "Objects can only extend other objects, and \"Id\" is not an object: it is a string. Fern turns this `allOf` `$ref` into an `extends`, so the referenced schema must be an object schema with `properties`.",
+    "location": "openapi.yaml#/paths/~1pets/post/responses/201/content/application~1json/schema/allOf/0/$ref (key)"
+  }
+]

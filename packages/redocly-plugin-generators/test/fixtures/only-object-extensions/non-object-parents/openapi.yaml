@@ -1,0 +1,36 @@
+openapi: 3.1.0
+info:
+  title: Parents
+  version: 1.0.0
+paths: {}
+components:
+  schemas:
+    Child:
+      type: object
+      properties:
+        name:
+          type: string
+      allOf:
+        - $ref: '#/components/schemas/Tags'
+        - $ref: '#/components/schemas/Color'
+        - $ref: '#/components/schemas/Count'
+        - $ref: '#/components/schemas/Attributes'
+        - $ref: '#/components/schemas/EmptyObject'
+        - $ref: '#/components/schemas/Anything'
+    Tags:
+      type: array
+      items:
+        type: string
+    Color:
+      type: string
+      enum: [red, green]
+    Count:
+      type: integer
+    Attributes:
+      type: object
+      additionalProperties:
+        type: string
+    EmptyObject:
+      type: object
+    Anything:
+      description: Any value.

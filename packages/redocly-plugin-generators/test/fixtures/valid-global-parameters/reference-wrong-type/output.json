@@ -1,0 +1,14 @@
+[
+  {
+    "ruleId": "generators/valid-global-parameters",
+    "severity": "error",
+    "message": "x-fern-global-parameter must be a global parameter name or a list of names; Fern ignores this value.",
+    "location": "openapi.yaml#/paths/~1pets/get/x-fern-global-parameter"
+  },
+  {
+    "ruleId": "generators/valid-global-parameters",
+    "severity": "error",
+    "message": "x-fern-global-parameter entries must be strings; Fern ignores 7.",
+    "location": "openapi.yaml#/paths/~1pets/post/x-fern-global-parameter/1"
+  }
+]

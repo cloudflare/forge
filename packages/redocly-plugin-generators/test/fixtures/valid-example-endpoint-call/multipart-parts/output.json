@@ -1,0 +1,44 @@
+[
+  {
+    "ruleId": "generators/valid-example-endpoint-call",
+    "severity": "error",
+    "message": "Invalid request example: Example is missing required property \"caption\"",
+    "location": "openapi.yaml#/paths/~1plants~1photos/post/x-fern-examples/1/request"
+  },
+  {
+    "ruleId": "generators/valid-example-endpoint-call",
+    "severity": "error",
+    "message": "Invalid request \"tags\" part example at \"/0\": Expected example to be a string. Example is: 1",
+    "location": "openapi.yaml#/paths/~1plants~1photos/post/x-fern-examples/1/request/tags/0"
+  },
+  {
+    "ruleId": "generators/valid-example-endpoint-call",
+    "severity": "error",
+    "message": "Invalid request \"width\" part example: Expected example to be an integer. Example is: \"wide\"",
+    "location": "openapi.yaml#/paths/~1plants~1photos/post/x-fern-examples/1/request/width"
+  },
+  {
+    "ruleId": "generators/valid-example-endpoint-call",
+    "severity": "error",
+    "message": "Invalid request example: Unexpected property \"album\"",
+    "location": "openapi.yaml#/paths/~1plants~1photos/post/x-fern-examples/2/request/album (key)"
+  },
+  {
+    "ruleId": "generators/valid-example-endpoint-call",
+    "severity": "error",
+    "message": "Invalid request example: Unexpected property \"photo\"; Fern's example check does not accept file parts (format: binary) of multipart request bodies, so leave them out of examples",
+    "location": "openapi.yaml#/paths/~1plants~1photos/post/x-fern-examples/2/request/photo (key)"
+  },
+  {
+    "ruleId": "generators/valid-example-endpoint-call",
+    "severity": "error",
+    "message": "Invalid request example: Unexpected property \"thumbnails\"; Fern's example check does not accept file parts (format: binary) of multipart request bodies, so leave them out of examples",
+    "location": "openapi.yaml#/paths/~1plants~1photos/post/x-fern-examples/2/request/thumbnails (key)"
+  },
+  {
+    "ruleId": "generators/valid-example-endpoint-call",
+    "severity": "error",
+    "message": "Invalid request example: Expected example to be an object. Example is: \"photo.jpg\"",
+    "location": "openapi.yaml#/paths/~1plants~1photos/post/x-fern-examples/3/request"
+  }
+]

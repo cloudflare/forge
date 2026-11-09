@@ -1,0 +1,8 @@
+[
+  {
+    "ruleId": "generators/no-conflicting-request-wrapper-properties",
+    "severity": "error",
+    "message": "Multiple request properties resolve to the same generated name \"userId\" after camelCase normalization: path parameter \"user_id\" (SDK name \"user_id\"), requestBody property \"userId\" (SDK name \"userId\"). This causes broken generated code. Use x-fern-parameter-name on a parameter or x-fern-property-name on a requestBody property to disambiguate.",
+    "location": "openapi.yaml#/paths/~1identifiers~1{user_id}/patch (key)"
+  }
+]

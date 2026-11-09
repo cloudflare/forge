@@ -1,0 +1,38 @@
+[
+  {
+    "ruleId": "generators/valid-pagination",
+    "severity": "error",
+    "message": "x-fern-pagination must be an object, or a boolean to inherit the document-level x-fern-pagination.",
+    "location": "openapi.yaml#/paths/~1a/get/x-fern-pagination"
+  },
+  {
+    "ruleId": "generators/valid-pagination",
+    "severity": "error",
+    "message": "x-fern-pagination is not a valid pagination configuration. Declare cursor pagination (cursor, next_cursor, results), offset pagination (offset, results, and optionally step and has-next-page), uri pagination (next_uri, results), path pagination (next_path, results) or custom pagination (type: custom, results).",
+    "location": "openapi.yaml#/paths/~1b/get/x-fern-pagination"
+  },
+  {
+    "ruleId": "generators/valid-pagination",
+    "severity": "error",
+    "message": "x-fern-pagination declares cursor pagination, which requires 'next_cursor'.",
+    "location": "openapi.yaml#/paths/~1c/get/x-fern-pagination"
+  },
+  {
+    "ruleId": "generators/valid-pagination",
+    "severity": "error",
+    "message": "x-fern-pagination 'offset' must be a string selector such as '$request.offset'.",
+    "location": "openapi.yaml#/paths/~1d/get/x-fern-pagination/offset"
+  },
+  {
+    "ruleId": "generators/valid-pagination",
+    "severity": "error",
+    "message": "x-fern-pagination 'results' must be a string selector such as '$response.results'.",
+    "location": "openapi.yaml#/paths/~1d/get/x-fern-pagination/results"
+  },
+  {
+    "ruleId": "generators/valid-pagination",
+    "severity": "error",
+    "message": "x-fern-pagination declares custom pagination, which requires 'results'.",
+    "location": "openapi.yaml#/paths/~1e/get/x-fern-pagination"
+  }
+]

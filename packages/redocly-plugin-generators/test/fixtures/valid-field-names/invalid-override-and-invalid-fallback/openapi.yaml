@@ -1,0 +1,23 @@
+openapi: 3.1.0
+info:
+  title: Plant Store
+  version: 1.0.0
+paths: {}
+components:
+  schemas:
+    Operator:
+      type: string
+      enum: ['@@', '日本', '>=']
+      x-fern-enum:
+        '@@':
+          name: _at
+        '>=':
+          name: 2gte
+      x-enum-varnames: [AT, JAPAN, GTE]
+    Marker:
+      type: string
+      enum: ['~', 'ok']
+      x-fern-enum:
+        '~':
+          description: Named through x-enum-varnames.
+      x-enum-varnames: ['1_TILDE', 'OK']

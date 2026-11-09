@@ -1,0 +1,38 @@
+openapi: 3.1.0
+info:
+  title: Plant Store
+  version: 1.0.0
+x-fern-global-headers:
+  - header: X-Api-Version
+paths:
+  /plants:
+    get:
+      operationId: listPlants
+      x-fern-request-name: Plant
+      parameters:
+        - name: X-Api-Version
+          in: header
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The plants.
+  /trees:
+    get:
+      operationId: listTrees
+      x-fern-request-name: Plant
+      parameters:
+        - name: X-Request-Id
+          in: header
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The trees.
+components:
+  schemas:
+    Plant:
+      type: object
+      properties:
+        name:
+          type: string

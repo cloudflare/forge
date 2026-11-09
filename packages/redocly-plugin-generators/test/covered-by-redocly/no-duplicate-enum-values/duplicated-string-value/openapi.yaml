@@ -1,0 +1,13 @@
+openapi: 3.1.0
+info:
+  title: Plants
+  version: 1.0.0
+paths: {}
+components:
+  schemas:
+    PlantStatus:
+      type: string
+      enum:
+        - available
+        - sold
+        - available

@@ -1,0 +1,10 @@
+rules:
+  generators/valid-oauth:
+    severity: error
+    getToken:
+      endpoint: POST /token
+      requestProperties:
+        scopes: $request.scope
+      responseProperties:
+        accessToken: $response.data.access_token
+        expiresIn: $response.data.expires_in

@@ -1,0 +1,15 @@
+get:
+  operationId: listUsers
+  x-fern-pagination:
+    offset: $request.offset
+    results: $response.data
+    has-next-page: $response.more
+  parameters:
+    - $ref: ../components.yaml#/components/parameters/Offset
+  responses:
+    '200':
+      description: OK
+      content:
+        application/json:
+          schema:
+            $ref: ../components.yaml#/components/schemas/UserPage

@@ -1,0 +1,8 @@
+[
+  {
+    "ruleId": "generators/matching-environment-urls",
+    "severity": "error",
+    "message": "Top-level servers 'https://api.example.com' and 'https://api.eu.example.com' are both named 'Production'. Fern builds one environment per name, so environment 'Production' only gets 'https://api.eu.example.com' and 'https://api.example.com' is dropped.",
+    "location": "openapi.yaml#/servers/1/x-fern-server-name"
+  }
+]

@@ -1,0 +1,40 @@
+openapi: 3.1.0
+info:
+  title: Test API
+  version: 1.0.0
+paths:
+  /requests/{request}:
+    put:
+      operationId: replaceRequest
+      parameters:
+        - name: request
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                request:
+                  type: string
+      responses:
+        '200':
+          description: OK
+    get:
+      operationId: getRequest
+      parameters:
+        - name: request
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: request
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK

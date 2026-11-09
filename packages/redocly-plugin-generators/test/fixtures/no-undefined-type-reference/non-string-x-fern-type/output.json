@@ -1,0 +1,8 @@
+[
+  {
+    "ruleId": "generators/no-undefined-type-reference",
+    "severity": "error",
+    "message": "x-fern-type must be a string in Fern's type syntax (for example optional<list<string>>); got {\"properties\":{\"a\":\"string\"}}. Fern cannot convert it and turns the schema that contains it into unknown.",
+    "location": "openapi.yaml#/components/schemas/Holder/properties/meta/x-fern-type"
+  }
+]

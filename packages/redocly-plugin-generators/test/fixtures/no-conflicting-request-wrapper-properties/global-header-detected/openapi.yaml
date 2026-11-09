@@ -1,0 +1,33 @@
+openapi: 3.1.0
+info:
+  title: Test API
+  version: 1.0.0
+components:
+  parameters:
+    PlantIdHeader:
+      name: X-Plant-Id
+      in: header
+      schema:
+        type: string
+paths:
+  /health:
+    get:
+      operationId: health
+      parameters:
+        - $ref: '#/components/parameters/PlantIdHeader'
+      responses:
+        '200':
+          description: OK
+  /plants/{plantId}:
+    get:
+      operationId: getPlant
+      parameters:
+        - $ref: '#/components/parameters/PlantIdHeader'
+        - name: plantId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK

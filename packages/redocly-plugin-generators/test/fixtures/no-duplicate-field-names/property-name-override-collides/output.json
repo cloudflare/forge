@@ -1,0 +1,8 @@
+[
+  {
+    "ruleId": "generators/no-duplicate-field-names",
+    "severity": "error",
+    "message": "Object has multiple properties named \"b\": \"b\" at #/components/schemas/Plant/properties/b, \"c\" (x-fern-property-name \"b\") at #/components/schemas/Plant/properties/c. Give each property a unique name with x-fern-property-name.",
+    "location": "openapi.yaml#/components/schemas/Plant/properties/c/x-fern-property-name"
+  }
+]

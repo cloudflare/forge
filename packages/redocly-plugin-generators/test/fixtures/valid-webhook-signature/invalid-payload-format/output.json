@@ -1,0 +1,14 @@
+[
+  {
+    "ruleId": "generators/valid-webhook-signature",
+    "severity": "error",
+    "message": "Invalid payload-format component \"url\". Must be one of: body, timestamp, notification-url, message-id. Fern replaces it with body, so SDKs sign the body in its place.",
+    "location": "openapi.yaml#/webhooks/a/post/x-fern-webhook-signature/payload-format/components/1"
+  },
+  {
+    "ruleId": "generators/valid-webhook-signature",
+    "severity": "error",
+    "message": "x-fern-webhook-signature payload-format must be an object with a list of components (body, timestamp, notification-url, message-id). Fern fails to import the document.",
+    "location": "openapi.yaml#/webhooks/b/post/x-fern-webhook-signature/payload-format/components"
+  }
+]

@@ -1,0 +1,33 @@
+openapi: 3.0.3
+info:
+  title: Test API
+  version: 1.0.0
+x-fern-webhook-signature:
+  type: hmac
+  header: X-Signature
+paths:
+  /pets:
+    post:
+      operationId: createPet
+      x-fern-webhook-signature: true
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: OK
+  /hooks/pet:
+    post:
+      operationId: petHook
+      x-fern-webhook: true
+      x-fern-webhook-signature: true
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: OK

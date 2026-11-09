@@ -1,0 +1,4 @@
+rules:
+  generators/no-component-schema-collisions:
+    severity: warn
+    apis: [openapi.yaml, ./api2.yaml]

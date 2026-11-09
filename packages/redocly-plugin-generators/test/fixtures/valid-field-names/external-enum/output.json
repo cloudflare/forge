@@ -1,0 +1,8 @@
+[
+  {
+    "ruleId": "generators/valid-field-names",
+    "severity": "error",
+    "message": "Enum value \"###\" is not suitable for code generation: Fern cannot generate a name from it. Use the x-fern-enum extension to specify a name that starts with a letter and contains only letters, numbers, and underscores: https://buildwithfern.com/learn/api-definitions/openapi/extensions/enum-descriptions-and-names",
+    "location": "status.yaml#/enum/1"
+  }
+]

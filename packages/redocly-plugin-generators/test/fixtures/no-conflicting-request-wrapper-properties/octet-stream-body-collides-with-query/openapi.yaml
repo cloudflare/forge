@@ -1,0 +1,37 @@
+openapi: 3.1.0
+info:
+  title: Test API
+  version: 1.0.0
+paths:
+  /health:
+    get:
+      operationId: health
+      responses:
+        '200':
+          description: OK
+  /plants/{plantId}/photo:
+    put:
+      operationId: uploadPhoto
+      parameters:
+        - name: plantId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: body
+          in: query
+          schema:
+            type: string
+        - name: X-Plant-Id
+          in: header
+          schema:
+            type: string
+      requestBody:
+        content:
+          image/png:
+            schema:
+              type: string
+              format: binary
+      responses:
+        '200':
+          description: OK

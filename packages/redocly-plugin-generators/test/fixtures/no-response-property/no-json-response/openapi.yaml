@@ -1,0 +1,79 @@
+openapi: 3.0.3
+info:
+  title: Movies
+  version: 1.0.0
+paths:
+  /a:
+    delete:
+      operationId: noContent
+      x-fern-sdk-return-value: data
+      responses:
+        '204':
+          description: No content
+  /b:
+    get:
+      operationId: textResponse
+      x-fern-sdk-return-value: data
+      responses:
+        '200':
+          description: OK
+          content:
+            text/plain:
+              schema:
+                type: string
+  /c:
+    get:
+      operationId: errorsOnly
+      x-fern-sdk-return-value: data
+      responses:
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Response'
+  /d:
+    post:
+      operationId: sseStream
+      x-fern-sdk-return-value: data
+      x-fern-streaming:
+        format: sse
+      responses:
+        '200':
+          description: OK
+          content:
+            text/event-stream:
+              schema:
+                $ref: '#/components/schemas/Response'
+  /e:
+    post:
+      operationId: conditionWithoutResponse
+      x-fern-sdk-return-value: data
+      x-fern-streaming:
+        stream-condition: $request.stream
+        response-stream:
+          $ref: '#/components/schemas/Response'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                stream:
+                  type: boolean
+      responses:
+        '200':
+          description: OK
+
+components:
+  schemas:
+    Movie:
+      type: object
+      properties:
+        id:
+          type: string
+    Response:
+      type: object
+      properties:
+        data:
+          $ref: '#/components/schemas/Movie'

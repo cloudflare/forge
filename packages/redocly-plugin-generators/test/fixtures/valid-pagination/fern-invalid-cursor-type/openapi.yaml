@@ -1,0 +1,69 @@
+openapi: 3.0.3
+info:
+  title: Users
+  version: 1.0.0
+paths:
+  /users:
+    get:
+      operationId: listWithInvalidCursorPaginationType
+      x-fern-pagination:
+        cursor: $request.user
+        next_cursor: $response.valid
+        results: $response.data
+      parameters:
+        - name: starting_after
+          in: query
+          schema:
+            type: string
+        - name: user
+          in: query
+          style: deepObject
+          schema:
+            $ref: '#/components/schemas/User'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListUsersResponse'
+
+components:
+  schemas:
+    ListUsersResponse:
+      type: object
+      properties:
+        page:
+          $ref: '#/components/schemas/Page'
+        total_count:
+          type: integer
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/User'
+        hasNextPage:
+          type: boolean
+        valid:
+          type: boolean
+    Page:
+      type: object
+      nullable: true
+      properties:
+        page:
+          type: integer
+        next:
+          $ref: '#/components/schemas/NextPage'
+    NextPage:
+      type: object
+      properties:
+        page:
+          type: integer
+        starting_after:
+          type: string
+    User:
+      type: object
+      properties:
+        name:
+          type: string
+        id:
+          type: integer

@@ -1,0 +1,30 @@
+openapi: 3.1.0
+info:
+  title: Test API
+  version: 1.0.0
+x-fern-webhook-signature: true
+paths: {}
+webhooks:
+  a:
+    post:
+      operationId: a
+      x-fern-webhook-signature: hmac
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: OK
+  b:
+    post:
+      operationId: b
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: OK

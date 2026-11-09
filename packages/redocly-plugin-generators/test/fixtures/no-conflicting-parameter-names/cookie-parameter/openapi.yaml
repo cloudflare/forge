@@ -1,0 +1,20 @@
+openapi: 3.1.0
+info:
+  title: Test API
+  version: 1.0.0
+paths:
+  /session:
+    get:
+      operationId: getSession
+      parameters:
+        - name: session_id
+          in: cookie
+          schema:
+            type: string
+        - name: sessionId
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK

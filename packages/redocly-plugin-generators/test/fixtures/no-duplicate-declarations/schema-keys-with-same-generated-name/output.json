@@ -1,0 +1,14 @@
+[
+  {
+    "ruleId": "generators/no-duplicate-declarations",
+    "severity": "error",
+    "message": "The schema components.schemas.plant_info is named \"PlantInfo\", which is already declared by the schema components.schemas.PlantInfo at #/components/schemas/PlantInfo. Both become Fern types named \"PlantInfo\" in the same file, so Fern keeps only one of them and silently drops the other; references to the dropped schema point to the one Fern keeps. Rename one of them with x-fern-type-name.",
+    "location": "openapi.yaml#/components/schemas/plant_info (key)"
+  },
+  {
+    "ruleId": "generators/no-duplicate-declarations",
+    "severity": "error",
+    "message": "The schema components.schemas.plant-info is named \"PlantInfo\", which is already declared by the schema components.schemas.PlantInfo at #/components/schemas/PlantInfo. Both become Fern types named \"PlantInfo\" in the same file, so Fern keeps only one of them and silently drops the other; references to the dropped schema point to the one Fern keeps. Rename one of them with x-fern-type-name.",
+    "location": "openapi.yaml#/components/schemas/plant-info (key)"
+  }
+]

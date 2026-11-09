@@ -1,0 +1,64 @@
+openapi: 3.1.0
+info:
+  title: Users
+  version: 1.0.0
+x-fern-pagination:
+  offset: $request.page
+  step: $request.per_page
+  results: $response.data
+  has-next-page: $response.hasNextPage
+paths:
+  /users:
+    get:
+      operationId: listUsers
+      x-fern-pagination: true
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: [integer, 'null']
+        - name: per_page
+          in: query
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListUsersResponse'
+  /users/search:
+    post:
+      operationId: searchUsers
+      x-fern-pagination: true
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                page:
+                  type: number
+                per_page:
+                  type: number
+                  format: double
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListUsersResponse'
+components:
+  schemas:
+    ListUsersResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            type: string
+        hasNextPage:
+          type: [boolean, 'null']

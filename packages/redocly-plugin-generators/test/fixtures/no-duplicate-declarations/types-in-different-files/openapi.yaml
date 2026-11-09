@@ -1,0 +1,26 @@
+openapi: 3.1.0
+info:
+  title: Plant Store
+  version: 1.0.0
+paths: {}
+components:
+  schemas:
+    Plant:
+      type: object
+      properties:
+        height:
+          type: number
+    Tree:
+      x-tags: [trees]
+      x-fern-type-name: Plant
+      type: object
+      properties:
+        name:
+          type: string
+    Bush:
+      x-fern-sdk-group-name: [garden, bushes]
+      x-fern-type-name: Plant
+      type: object
+      properties:
+        name:
+          type: string

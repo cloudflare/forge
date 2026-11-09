@@ -1,0 +1,14 @@
+[
+  {
+    "ruleId": "generators/no-undefined-type-reference",
+    "severity": "error",
+    "message": "Type Owner is not defined. x-fern-type 'optional<map<string, list<Owner>>>' references it, but it is neither a Fern primitive nor a key of components.schemas, so Fern treats it as unknown.",
+    "location": "openapi.yaml#/components/schemas/Holder/properties/owners/x-fern-type"
+  },
+  {
+    "ruleId": "generators/no-undefined-type-reference",
+    "severity": "error",
+    "message": "x-fern-type 'map<Key, Owner>' uses 'Key' as a map key, but map keys must be primitive types; Fern ignores this type and falls back to the schema's own type.",
+    "location": "openapi.yaml#/components/schemas/Holder/properties/pair/x-fern-type"
+  }
+]

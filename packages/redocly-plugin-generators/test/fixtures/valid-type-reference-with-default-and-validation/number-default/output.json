@@ -1,0 +1,14 @@
+[
+  {
+    "ruleId": "generators/valid-type-reference-with-default-and-validation",
+    "severity": "error",
+    "message": "Default value 'fast' is not a valid number.",
+    "location": "openapi.yaml#/components/schemas/Plant/properties/ratio/default"
+  },
+  {
+    "ruleId": "generators/valid-type-reference-with-default-and-validation",
+    "severity": "error",
+    "message": "Default value '1.5' is not a valid float. Fern's importer drops the default.",
+    "location": "openapi.yaml#/components/schemas/Plant/properties/weight/default"
+  }
+]

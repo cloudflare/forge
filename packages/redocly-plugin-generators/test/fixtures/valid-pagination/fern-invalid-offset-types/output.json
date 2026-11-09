@@ -1,0 +1,14 @@
+[
+  {
+    "ruleId": "generators/valid-pagination",
+    "severity": "error",
+    "message": "x-fern-pagination for endpoint listWithInvalidOffsetPaginationType specifies 'offset' $request.starting_after, which is not a valid 'offset' type. It must point to an `in: query` parameter or request body property whose type is an integer or a double-precision number.",
+    "location": "openapi.yaml#/paths/~1users/get/x-fern-pagination/offset"
+  },
+  {
+    "ruleId": "generators/valid-pagination",
+    "severity": "error",
+    "message": "x-fern-pagination for endpoint listWithInvalidOffsetStepPaginationType specifies 'step' $request.limit, which is not a valid 'step' type. It must point to an `in: query` parameter or request body property whose type is an integer or a double-precision number.",
+    "location": "openapi.yaml#/paths/~1users~1stepped/get/x-fern-pagination/step"
+  }
+]

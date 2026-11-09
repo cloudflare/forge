@@ -1,0 +1,17 @@
+openapi: 3.1.0
+info:
+  title: Test API
+  version: 1.0.0
+paths:
+  /requests/{request}:
+    post:
+      operationId: approveRequest
+      parameters:
+        - name: request
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK

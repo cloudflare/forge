@@ -1,0 +1,11 @@
+openapi: 3.1.0
+info:
+  title: Test API
+  version: 1.0.0
+x-fern-version:
+  header: X-API-Version
+  default: 2
+  values:
+    - '1'
+    - '2'
+paths: {}

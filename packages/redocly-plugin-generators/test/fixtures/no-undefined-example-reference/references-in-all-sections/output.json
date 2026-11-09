@@ -1,0 +1,38 @@
+[
+  {
+    "ruleId": "generators/no-undefined-example-reference",
+    "severity": "error",
+    "message": "Example $RequestId.One is not defined. Fern reads strings shaped like $Type.Example in x-fern-examples as references to named type examples, which OpenAPI documents cannot declare. To use the literal string, escape the dollar sign: \"\\$RequestId.One\".",
+    "location": "openapi.yaml#/paths/~1plants~1{plantId}/put/x-fern-examples/0/headers/X-Request-Id"
+  },
+  {
+    "ruleId": "generators/no-undefined-example-reference",
+    "severity": "error",
+    "message": "Example $PlantId.Example is not defined. Fern reads strings shaped like $Type.Example in x-fern-examples as references to named type examples, which OpenAPI documents cannot declare. To use the literal string, escape the dollar sign: \"\\$PlantId.Example\".",
+    "location": "openapi.yaml#/paths/~1plants~1{plantId}/put/x-fern-examples/0/path-parameters/plantId"
+  },
+  {
+    "ruleId": "generators/no-undefined-example-reference",
+    "severity": "error",
+    "message": "Example $Tag.Indoor is not defined. Fern reads strings shaped like $Type.Example in x-fern-examples as references to named type examples, which OpenAPI documents cannot declare. To use the literal string, escape the dollar sign: \"\\$Tag.Indoor\".",
+    "location": "openapi.yaml#/paths/~1plants~1{plantId}/put/x-fern-examples/0/query-parameters/tag/1"
+  },
+  {
+    "ruleId": "generators/no-undefined-example-reference",
+    "severity": "error",
+    "message": "Example $Soil.Loam is not defined. Fern reads strings shaped like $Type.Example in x-fern-examples as references to named type examples, which OpenAPI documents cannot declare. To use the literal string, escape the dollar sign: \"\\$Soil.Loam\".",
+    "location": "openapi.yaml#/paths/~1plants~1{plantId}/put/x-fern-examples/0/request/plant/soil"
+  },
+  {
+    "ruleId": "generators/no-undefined-example-reference",
+    "severity": "error",
+    "message": "Example $Plant.Fern is not defined. Fern reads strings shaped like $Type.Example in x-fern-examples as references to named type examples, which OpenAPI documents cannot declare. To use the literal string, escape the dollar sign: \"\\$Plant.Fern\".",
+    "location": "openapi.yaml#/paths/~1plants~1{plantId}/put/x-fern-examples/0/response/body/items/0"
+  },
+  {
+    "ruleId": "generators/no-undefined-example-reference",
+    "severity": "error",
+    "message": "Example $Problem.NotFound is not defined. Fern reads strings shaped like $Type.Example in x-fern-examples as references to named type examples, which OpenAPI documents cannot declare. To use the literal string, escape the dollar sign: \"\\$Problem.NotFound\".",
+    "location": "openapi.yaml#/paths/~1plants~1{plantId}/put/x-fern-examples/1/response/body/message"
+  }
+]

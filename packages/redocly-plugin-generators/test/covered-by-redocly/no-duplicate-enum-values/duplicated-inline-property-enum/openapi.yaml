@@ -1,0 +1,16 @@
+openapi: 3.0.3
+info:
+  title: Plants
+  version: 1.0.0
+paths:
+  /plants:
+    get:
+      parameters:
+        - name: size
+          in: query
+          schema:
+            type: string
+            enum: [small, large, small]
+      responses:
+        '200':
+          description: OK

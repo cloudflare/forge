@@ -1,0 +1,14 @@
+[
+  {
+    "ruleId": "generators/valid-oauth",
+    "severity": "error",
+    "message": "Failed to resolve endpoint GET /token: the document has no such operation (operations with x-fern-ignore do not count).",
+    "location": "openapi.yaml#/paths"
+  },
+  {
+    "ruleId": "generators/valid-oauth",
+    "severity": "error",
+    "message": "Failed to resolve endpoint POST /oauth/token: the document has no such operation (operations with x-fern-ignore do not count).",
+    "location": "openapi.yaml#/paths"
+  }
+]

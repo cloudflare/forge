@@ -1,0 +1,8 @@
+[
+  {
+    "ruleId": "generators/no-duplicate-overrides",
+    "severity": "error",
+    "message": "SDK method payment.referrals.fetchRewardBalance already exists (x-fern-sdk-group-name: referrals, x-fern-sdk-method-name: fetchRewardBalance)",
+    "location": "openapi.yaml#/paths/~1v2~1referrals~1reward-balance/get/x-fern-sdk-method-name"
+  }
+]

@@ -1,0 +1,112 @@
+openapi: 3.0.3
+info:
+  title: Plants
+  version: 1.0.0
+paths:
+  /plants:
+    get:
+      operationId: listPlants
+      responses:
+        '200':
+          description: The plants
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Plant'
+      x-fern-examples:
+        - name: Valid response
+          response:
+            body:
+              - name: Fern
+        - name: Response omitted
+          docs: Fern requires the body.
+        - name: Body omitted
+          response: {}
+        - name: Invalid response
+          response:
+            body:
+              - name: 7
+              - height: 3
+    delete:
+      operationId: deletePlants
+      responses:
+        '204':
+          description: Deleted
+      x-fern-examples:
+        - name: Body on an operation without a response body
+          response:
+            body:
+              deleted: true
+        - name: No response is fine
+          docs: Nothing to show.
+  /plants/latest:
+    get:
+      operationId: getLatestPlant
+      responses:
+        '200':
+          description: The latest plant
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Plant'
+        '204':
+          description: No plants yet
+      x-fern-examples:
+        - name: A 204 next to the 200 makes the body optional
+          docs: No response body.
+        - name: Null body is accepted too
+          response:
+            body: null
+  /plants/report:
+    get:
+      operationId: getReport
+      responses:
+        '200':
+          description: A text report
+          content:
+            text/plain:
+              schema:
+                type: string
+      x-fern-examples:
+        - name: Text responses are not validated
+          response:
+            body: 42
+  /plants/anything:
+    get:
+      operationId: getAnything
+      responses:
+        '201':
+          description: Anything
+          content:
+            application/json:
+              schema: {}
+      x-fern-examples:
+        - name: Unknown response may be omitted
+          docs: The schema accepts anything.
+  /plants/default:
+    get:
+      operationId: getDefault
+      responses:
+        default:
+          description: The default response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Plant'
+      x-fern-examples:
+        - name: Default response is the success response
+          response:
+            body:
+              name: false
+components:
+  schemas:
+    Plant:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+        height:
+          type: number

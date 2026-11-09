@@ -1,0 +1,6 @@
+get:
+  operationId: listPets
+  x-fern-global-parameter: [currency, region]
+  responses:
+    '200':
+      description: OK

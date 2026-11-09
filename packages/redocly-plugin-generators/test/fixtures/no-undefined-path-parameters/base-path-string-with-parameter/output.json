@@ -1,0 +1,8 @@
+[
+  {
+    "ruleId": "generators/no-undefined-path-parameters",
+    "severity": "error",
+    "message": "x-fern-base-path has missing path parameter: tenant. The string form declares no path parameters; use the object form (path and parameters) to declare 'tenant'.",
+    "location": "openapi.yaml#/x-fern-base-path"
+  }
+]

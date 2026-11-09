@@ -1,0 +1,7 @@
+rules:
+  generators/valid-oauth:
+    severity: error
+    getToken:
+      endpoint: post /oauth/token
+    refreshToken:
+      endpoint: refreshToken

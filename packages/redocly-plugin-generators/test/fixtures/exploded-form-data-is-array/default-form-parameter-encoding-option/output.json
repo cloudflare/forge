@@ -1,0 +1,8 @@
+[
+  {
+    "ruleId": "generators/exploded-form-data-is-array",
+    "severity": "error",
+    "message": "Multipart property \"note\" has `encoding.note.explode: true`, so it must be an array, but its schema is a string. Did you mean `type: array` with `items` of the current schema?",
+    "location": "openapi.yaml#/paths/~1upload/post/requestBody/content/multipart~1form-data/encoding/note/explode (key)"
+  }
+]

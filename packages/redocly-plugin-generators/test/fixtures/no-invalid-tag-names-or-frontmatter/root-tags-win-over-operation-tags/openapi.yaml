@@ -1,0 +1,16 @@
+openapi: 3.1.0
+info:
+  title: Test API
+  version: 1.0.0
+tags:
+  - name: Orders
+    description: Pédidos y órdenes
+paths:
+  /orders:
+    get:
+      tags:
+        - Órdenes
+      operationId: listOrders
+      responses:
+        '200':
+          description: Success

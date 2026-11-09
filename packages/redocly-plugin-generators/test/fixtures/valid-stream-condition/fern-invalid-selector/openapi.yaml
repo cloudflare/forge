@@ -1,0 +1,112 @@
+openapi: 3.0.3
+info:
+  title: Chat
+  version: 1.0.0
+paths:
+  /chat:
+    post:
+      operationId: dottedSelector
+      x-fern-streaming:
+        stream-condition: $request.options.stream
+        response:
+          type: string
+        response-stream:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                options:
+                  type: object
+                  properties:
+                    stream:
+                      type: boolean
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: string
+
+  /chat/query:
+    post:
+      operationId: validQueryParam
+      x-fern-streaming:
+        stream-condition: $query.stream
+        response:
+          type: string
+        response-stream:
+          type: string
+      parameters:
+        - name: stream
+          in: query
+          schema:
+            type: boolean
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                prompt:
+                  type: string
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: string
+
+  /chat/empty:
+    post:
+      operationId: emptySelector
+      x-fern-streaming:
+        stream-condition: '$request.'
+        response:
+          type: string
+        response-stream:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                prompt:
+                  type: string
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: string
+
+  /chat/number:
+    post:
+      operationId: nonStringSelector
+      x-fern-streaming:
+        stream-condition: true
+        response:
+          type: string
+        response-stream:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                prompt:
+                  type: string
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: string

@@ -1,0 +1,39 @@
+openapi: 3.1.0
+info:
+  title: Test API
+  version: 1.0.0
+paths:
+  /pets:
+    get:
+      operationId: listPets
+      parameters:
+        - name: since
+          in: query
+          schema:
+            type: string
+            x-fern-type: datetime
+        - name: tag
+          in: query
+          schema:
+            type: string
+            x-fern-type: Tag
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Pet'
+                  - type: object
+                    properties:
+                      owner:
+                        type: [string, 'null']
+                        x-fern-type: nullable<Owner>
+components:
+  schemas:
+    Pet:
+      type: object
+      properties:
+        name:
+          type: string

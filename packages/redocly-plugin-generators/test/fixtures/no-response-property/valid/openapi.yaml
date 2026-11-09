@@ -1,0 +1,81 @@
+openapi: 3.1.0
+info:
+  title: Movies
+  version: 1.0.0
+paths:
+  /movies/{id}:
+    get:
+      operationId: getMovie
+      x-fern-sdk-return-value: data
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Response'
+
+  /movies/inherited:
+    get:
+      operationId: getInherited
+      x-fern-sdk-return-value: id
+      responses:
+        '201':
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Movie'
+                  - type: object
+                    properties:
+                      title:
+                        type: string
+
+  /movies/nullable:
+    get:
+      operationId: getNullable
+      x-fern-sdk-return-value: data
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: [object, 'null']
+                properties:
+                  data:
+                    type: string
+
+  /movies/one-of-null:
+    get:
+      operationId: getOneOfNull
+      x-fern-sdk-return-value: data
+      responses:
+        'default':
+          description: OK
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/Response'
+                  - type: 'null'
+
+components:
+  schemas:
+    Movie:
+      type: object
+      properties:
+        id:
+          type: string
+    Response:
+      type: object
+      properties:
+        data:
+          $ref: '#/components/schemas/Movie'

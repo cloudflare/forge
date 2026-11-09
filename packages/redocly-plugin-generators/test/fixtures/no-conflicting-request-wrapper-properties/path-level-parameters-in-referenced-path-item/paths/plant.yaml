@@ -1,0 +1,16 @@
+parameters:
+  - name: plant_id
+    in: path
+    required: true
+    schema:
+      type: string
+post:
+  operationId: updatePlant
+  requestBody:
+    content:
+      application/json:
+        schema:
+          $ref: ../openapi.yaml#/components/schemas/UpdatePlant
+  responses:
+    '200':
+      description: OK

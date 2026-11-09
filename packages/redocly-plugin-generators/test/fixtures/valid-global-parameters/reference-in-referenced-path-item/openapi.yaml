@@ -1,0 +1,10 @@
+openapi: 3.1.0
+info:
+  title: Test API
+  version: 1.0.0
+x-fern-global-parameters:
+  - name: currency
+    in: query
+paths:
+  /pets:
+    $ref: ./pets.yaml

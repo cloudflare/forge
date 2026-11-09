@@ -1,0 +1,17 @@
+openapi: 3.0.3
+info:
+  title: Plant Store
+  version: 1.0.0
+paths: {}
+
+components:
+  schemas:
+    Rose:
+      title: Flower
+      type: object
+    Tulip:
+      title: Flower
+      type: object
+    Daisy:
+      title: Flower
+      type: object

@@ -1,0 +1,14 @@
+[
+  {
+    "ruleId": "generators/no-invalid-tag-names-or-frontmatter",
+    "severity": "error",
+    "message": "Endpoint description for GET /reports contains \"---\" which will be interpreted as a YAML frontmatter delimiter by the docs renderer, causing parsing failures and 500 errors on the generated docs site. Remove the \"---\" delimiters from the description.",
+    "location": "paths.yaml#/Reports/get/description"
+  },
+  {
+    "ruleId": "generators/no-invalid-tag-names-or-frontmatter",
+    "severity": "error",
+    "message": "Tag name \"Rapports 📊\" contains non-ASCII characters: 📊. Non-ASCII characters in tag names will be included in URL paths and HTTP headers, which only support ASCII characters. This will cause runtime errors (ERR_INVALID_CHAR). Remove non-ASCII characters from the tag name.",
+    "location": "paths.yaml#/Reports/get/tags/0"
+  }
+]

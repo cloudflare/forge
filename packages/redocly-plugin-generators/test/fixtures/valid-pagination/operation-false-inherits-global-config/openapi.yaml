@@ -1,0 +1,32 @@
+openapi: 3.0.3
+info:
+  title: Users
+  version: 1.0.0
+x-fern-pagination:
+  cursor: $request.cursor
+  next_cursor: $response.next
+  results: $response.data
+paths:
+  /users:
+    get:
+      operationId: listUsers
+      x-fern-pagination: false
+      parameters:
+        - name: cursor
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  next:
+                    type: boolean
+                  data:
+                    type: array
+                    items:
+                      type: string

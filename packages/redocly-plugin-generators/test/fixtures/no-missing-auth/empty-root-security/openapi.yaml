@@ -1,0 +1,20 @@
+openapi: 3.1.0
+info:
+  title: Auth
+  version: 1.0.0
+security: []
+paths:
+  /public:
+    get:
+      operationId: public
+      responses:
+        '200':
+          description: OK
+  /optional:
+    get:
+      operationId: optional
+      security:
+        - {}
+      responses:
+        '200':
+          description: OK

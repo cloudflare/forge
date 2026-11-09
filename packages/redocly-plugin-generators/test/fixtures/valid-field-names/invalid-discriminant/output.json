@@ -1,0 +1,20 @@
+[
+  {
+    "ruleId": "generators/valid-field-names",
+    "severity": "error",
+    "message": "Discriminant \"@kind\" (discriminator.propertyName) is not suitable for code generation. Add discriminator.x-fern-property-name with a name that starts with a letter and contains only letters, numbers, and underscores.",
+    "location": "openapi.yaml#/components/schemas/ObjectWithMapping/discriminator/propertyName"
+  },
+  {
+    "ruleId": "generators/valid-field-names",
+    "severity": "error",
+    "message": "Discriminant \"_type\" (discriminator.propertyName) is not suitable for code generation. Add discriminator.x-fern-property-name with a name that starts with a letter and contains only letters, numbers, and underscores.",
+    "location": "openapi.yaml#/components/schemas/UnionWithInvalidDiscriminant/discriminator/propertyName"
+  },
+  {
+    "ruleId": "generators/valid-field-names",
+    "severity": "error",
+    "message": "Discriminant name \"_type\" (discriminator.x-fern-property-name) is not suitable for code generation. It must start with a letter and only contain letters, numbers, and underscores.",
+    "location": "openapi.yaml#/components/schemas/UnionWithInvalidName/discriminator/x-fern-property-name"
+  }
+]

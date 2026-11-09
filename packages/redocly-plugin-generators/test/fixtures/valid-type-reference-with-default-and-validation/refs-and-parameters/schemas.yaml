@@ -1,0 +1,4 @@
+Sort:
+  type: string
+  enum: [name, height]
+  default: age

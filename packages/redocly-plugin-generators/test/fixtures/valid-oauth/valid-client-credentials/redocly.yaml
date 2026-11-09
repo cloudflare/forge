@@ -1,0 +1,14 @@
+rules:
+  generators/valid-oauth:
+    severity: error
+    getToken:
+      endpoint: POST /oauth/token
+      requestProperties:
+        scopes: $request.scope
+      responseProperties:
+        expiresIn: $response.expires_in
+        refreshToken: $response.refresh_token
+    refreshToken:
+      endpoint: POST /oauth/refresh
+      responseProperties:
+        expiresIn: $response.expires_in
