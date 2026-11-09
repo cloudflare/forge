@@ -1,4 +1,4 @@
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { sample } from 'openapi-sampler';
 import type { ApiSpec } from '@cloudflare/nimbus-docs/types';
 import {
@@ -292,7 +292,7 @@ export async function forgeApi(): Promise<ApiSpec> {
   writeFileSync(new URL('products.json', dir), JSON.stringify(prepared.products, null, 2));
   writeFileSync(new URL('redirects.json', dir), JSON.stringify(prepared.redirects, null, 2));
 
-  return {
+  const api: ApiSpec = {
     collection: 'api',
     label: 'Cloudflare API',
     versionUrl: { in: 'query' },
@@ -318,4 +318,17 @@ export async function forgeApi(): Promise<ApiSpec> {
       },
     ],
   };
+  writeFileSync(new URL(BUILT_API_FILE, dir), JSON.stringify(api));
+  return api;
+}
+
+const BUILT_API_FILE = 'api.json';
+
+/**
+ * The Nimbus `api` entry the last `forgeApi()` run wrote. `astro preview` only
+ * serves the last build, so it reads this instead of preparing the spec again.
+ */
+export function builtForgeApi(): ApiSpec | undefined {
+  const file = new URL(`../.forge/${BUILT_API_FILE}`, import.meta.url);
+  return existsSync(file) ? (JSON.parse(readFileSync(file, 'utf8')) as ApiSpec) : undefined;
 }
