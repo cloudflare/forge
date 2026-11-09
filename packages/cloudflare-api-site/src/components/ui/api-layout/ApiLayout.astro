@@ -33,6 +33,7 @@ interface Props {
 
 const { page, nav, collection, version, coordinate, home } = Astro.props;
 const homePart = home && home.part.number > 1;
+const intro = homePart ? undefined : page.descriptionHtml;
 
 const versionStatus =
   collection && version
@@ -123,19 +124,15 @@ if (versionStatus?.isHidden || homePart) {
         </div>
       )}
       <ApiPageHeader page={page} home={home} />
+      {intro && <div data-nb-heading-anchors class="nb-md nb-md-intro mt-8 [overflow-wrap:anywhere]" set:html={intro} />}
     </div>
 
-    <div class={cn("mx-auto w-full max-w-(--nb-content-max) px-4 pt-8 pb-12 md:px-8", hasRail && "min-[90rem]:col-start-1 min-[90rem]:row-start-2")}>
-      <ApiBody page={page} home={home} />
-      {nav.prevNext && !hasRail && <Pagination prevNext={nav.prevNext} data-pagefind-ignore />}
-    </div>
-
-    {/* Below 90rem the rail reflows inline beneath the body (samples are unique
-        content, so they stay in the no-JS HTML for crawlability); at 90rem+ it
-        becomes the sticky right column. The left padding keeps overflow-y-auto
+    {/* Below 90rem the rail sits between the description and the reference;
+        samples are unique content, so they stay in the no-JS HTML. At 90rem+
+        it is the sticky right column. The left padding keeps overflow-y-auto
         from clipping the LayerCard's outset ring at the scroll edge. */}
     {hasRail && (
-      <div data-pagefind-ignore class="mx-auto w-full max-w-(--nb-content-max) px-4 pb-12 md:px-8 min-[90rem]:col-start-2 min-[90rem]:row-span-2 min-[90rem]:row-start-1 min-[90rem]:mx-0 min-[90rem]:max-w-none min-[90rem]:sticky min-[90rem]:top-14 min-[90rem]:h-[calc(100vh-3.5rem)] min-[90rem]:w-(--nb-code-rail-width) min-[90rem]:flex min-[90rem]:flex-col min-[90rem]:overflow-y-auto min-[90rem]:pt-8 min-[90rem]:pe-6 min-[90rem]:pb-8 min-[90rem]:ps-1">
+      <div data-pagefind-ignore class="mx-auto w-full max-w-(--nb-content-max) px-4 pt-8 md:px-8 min-[90rem]:col-start-2 min-[90rem]:row-span-2 min-[90rem]:row-start-1 min-[90rem]:mx-0 min-[90rem]:max-w-none min-[90rem]:sticky min-[90rem]:top-14 min-[90rem]:h-[calc(100vh-3.5rem)] min-[90rem]:w-(--nb-code-rail-width) min-[90rem]:flex min-[90rem]:flex-col min-[90rem]:overflow-y-auto min-[90rem]:pe-6 min-[90rem]:pb-8 min-[90rem]:ps-1">
         <ApiCodeRail
           responses={page.responses}
           samples={page.samples}
@@ -146,9 +143,13 @@ if (versionStatus?.isHidden || homePart) {
       </div>
     )}
 
-    {/* With a rail, previous/next sits after it, so on narrow screens the
-        samples come before it. From 90rem it spans the body and the rail on its
-        own row, from the body text's left edge to the rail card's right edge. */}
+    <div class={cn("mx-auto w-full max-w-(--nb-content-max) px-4 pt-8 pb-12 md:px-8", hasRail && "min-[90rem]:col-start-1 min-[90rem]:row-start-2")}>
+      <ApiBody page={page} home={home} />
+      {nav.prevNext && !hasRail && <Pagination prevNext={nav.prevNext} data-pagefind-ignore />}
+    </div>
+
+    {/* From 90rem previous/next spans the body and the rail on its own row,
+        from the body text's left edge to the rail card's right edge. */}
     {hasRail && nav.prevNext && (
       <div class="mx-auto w-full max-w-(--nb-content-max) px-4 pb-12 -mt-12 md:px-8 min-[90rem]:col-span-2 min-[90rem]:col-start-1 min-[90rem]:row-start-3 min-[90rem]:max-w-none min-[90rem]:pe-6">
         <Pagination prevNext={nav.prevNext} data-pagefind-ignore />

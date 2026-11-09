@@ -3,7 +3,8 @@
  * ApiBody — the API docs main-body content, rendered from a frozen
  * `ApiPageProps` by kind (operation · schema · section · api). Extracted from
  * `ApiLayout` so the body can be composed in isolation; the layout shell
- * (nav · body · code rail) still owns width/stickiness. Property rows, expanders,
+ * (nav · body · code rail) still owns width/stickiness and the page's
+ * description, which this file styles (`.nb-md-intro`). Property rows, expanders,
  * object previews, deep-links, and the union tree are handled by
  * `ApiFieldRow`/`ApiFieldList`/`ApiUnionExplorer`.
  *
@@ -37,7 +38,6 @@ const { page, home } = Astro.props;
 // reader without script can walk the whole list.
 const homeChunk = page.kind === "api" && home && home.part.number > 1 ? home.part : undefined;
 const homeNext = homeChunk && home?.parts[homeChunk.number];
-const intro = homeChunk ? undefined : page.descriptionHtml;
 
 // "JSON" for a JSON body; any other names its media type as written
 // (`text/plain`, `multipart/form-data`).
@@ -105,8 +105,6 @@ const terraform = page.kind === "operation" ? page.extensions?.["x-cloudflare-te
 
 {/* Section headings with an id get a "#" link that copies their URL. */}
 <div class="flex flex-col gap-8" data-nb-heading-anchors>
-  {intro && <div class="nb-md nb-md-intro [overflow-wrap:anywhere]" set:html={intro} />}
-
   {page.kind === "operation" && (
     <>
       {authFieldList.length > 0 && (
