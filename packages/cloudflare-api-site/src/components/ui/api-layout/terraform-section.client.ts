@@ -23,6 +23,13 @@ mount("[data-api-terraform]", (section) => {
       current.replaceWith(document.importNode(body, true));
       delete section.dataset.apiTerraformSrc;
       headingAnchors();
+      // This URL doesn't carry the declarations, so their links point at the one that does.
+      for (const link of section.querySelectorAll<HTMLAnchorElement>("a.heading-anchor")) {
+        link.href = `${src}${link.hash}`;
+      }
+      // A link to one of them arrived before they did.
+      const target = location.hash ? document.getElementById(decodeURIComponent(location.hash.slice(1))) : null;
+      if (target && section.contains(target) && !section.hidden) target.scrollIntoView();
     } catch {
       // The link stays in place, so the reader can still open the declarations.
     } finally {

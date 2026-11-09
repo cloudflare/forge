@@ -5,6 +5,12 @@ import { API_HOME_CHUNK_SIZE, ApiLayout } from '@/components/ui/api-layout';
 import BaseLayout from '@/layouts/BaseLayout.astro';
 import { toPlainText } from '@/plain-text';
 
+// The old site named the Terraform sample `terraform`; the code rail calls it `hcl`.
+if (Astro.url.searchParams.get('lang') === 'terraform') {
+  const url = new URL(Astro.url);
+  url.searchParams.set('lang', 'hcl');
+  return Astro.redirect(`${url.pathname}${url.search}${url.hash}`, 301);
+}
 const result = await getApiRoute(Astro, 'api', { homeChunkSize: API_HOME_CHUNK_SIZE });
 if (result instanceof Response) return result;
 const { page, nav, collection, version, coordinate, home } = result;

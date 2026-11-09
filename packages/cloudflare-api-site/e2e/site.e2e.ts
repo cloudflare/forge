@@ -13,6 +13,7 @@ test.describe('routes', () => {
     [operation, 200, 'text/html'],
     [`${operation}?lang=hcl`, 200, 'text/html'],
     [`${operation}?lang=nope`, 200, 'text/html'],
+    [`${operation}?lang=terraform`, 301, '', `${operation}?lang=hcl`],
     [`${operation}?version=2026-11-30.air`, 200, 'text/html'],
     [`${operation}?version=nope`, 404, 'text/html'],
     [
@@ -134,6 +135,15 @@ test('a Terraform-backed operation shows its declarations only with the HCL samp
   await expect(page.locator('[data-api-terraform]')).toBeVisible();
   const markdown = await (await request.get('/api/dns/records/methods/create/index.md')).text();
   expect(markdown).toContain('```hcl');
+});
+
+test('a link to a Terraform heading lands once the declarations load', async ({ page }) => {
+  await page.goto('/api/dns/records/methods/create/');
+  await page.locator('[data-nb-choice-select]').selectOption('hcl');
+  await expect(page.locator('#terraform-1 a.heading-anchor')).toHaveAttribute('href', /\?lang=hcl#terraform-1$/);
+  // The saved choice brings Terraform back on a URL without ?lang, which fetches the declarations.
+  await page.goto('/api/dns/records/methods/create/#terraform-1');
+  await expect(page.locator('#terraform-1')).toBeInViewport();
 });
 
 test('a resource page lists its endpoints, then its child resources', async ({ page }) => {

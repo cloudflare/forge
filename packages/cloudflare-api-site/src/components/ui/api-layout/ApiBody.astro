@@ -104,9 +104,10 @@ const terraform = page.kind === "operation" ? page.extensions?.["x-cloudflare-te
 // As on the old site, a page carries its Terraform declarations only when the
 // URL asks for the Terraform sample. Otherwise the section links to that URL,
 // and the client fetches it from there when the reader picks Terraform.
-const lang = Astro.url.searchParams.get("lang");
-const terraformChosen = lang === "hcl" || lang === "terraform";
-const terraformHref = `${Astro.url.pathname}?lang=hcl`;
+const terraformChosen = Astro.url.searchParams.get("lang") === "hcl";
+const terraformUrl = new URL(Astro.url);
+terraformUrl.searchParams.set("lang", "hcl");
+const terraformHref = `${terraformUrl.pathname}${terraformUrl.search}`;
 ---
 
 {/* Section headings with an id get a "#" link that copies their URL. */}
