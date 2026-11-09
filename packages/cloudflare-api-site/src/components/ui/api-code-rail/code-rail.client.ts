@@ -45,18 +45,6 @@ function initCodeRail(container: HTMLElement): () => void {
   };
   rails.add(showLanguage);
 
-  // The copy button sits in the header but is injected after its code; move it
-  // ahead so Tab reaches it before the code it copies.
-  const raiseCopyButtons = () => {
-    for (const panel of panels) {
-      const button = panel.querySelector(".nb-cr-body .nb-code-copy");
-      if (button) panel.prepend(button);
-    }
-  };
-  raiseCopyButtons();
-  const copyButtons = new MutationObserver(raiseCopyButtons);
-  for (const panel of panels) copyButtons.observe(panel, { childList: true, subtree: true });
-
   const onChange = () => {
     const panel = panelFor(select.value);
     if (!panel) return;
@@ -92,7 +80,6 @@ function initCodeRail(container: HTMLElement): () => void {
 
   return () => {
     rails.delete(showLanguage);
-    copyButtons.disconnect();
     select.removeEventListener("change", onChange);
     window.removeEventListener("storage", onStorage);
   };

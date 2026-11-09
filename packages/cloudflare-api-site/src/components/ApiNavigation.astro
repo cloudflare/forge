@@ -1,0 +1,30 @@
+---
+/**
+ * The API sidebar with the site's own rows: an Overview link, the site-wide
+ * "Developer Tooling" group, and each product's tooling group inside its
+ * section. API pages and command pages render the same one, so open groups and
+ * scroll carry across them.
+ */
+import { ApiSidebarPanel } from '@/components/ui/api-sidebar';
+import { SidebarGroup, SidebarLink } from '@/components/ui/sidebar';
+import { getToolingSidebar } from '@/command-sidebar';
+import type { ApiNav } from '@cloudflare/nimbus-docs/api';
+
+interface Props {
+  nav: ApiNav;
+  version?: string | null;
+  overviewCurrent?: boolean;
+}
+
+const { nav, version = null, overviewCurrent = false } = Astro.props;
+const tooling = await getToolingSidebar(Astro.url);
+---
+
+<ApiSidebarPanel nav={nav} version={version} groups={tooling.products}>
+  <li>
+    <SidebarLink label="Overview" href="/" isCurrent={overviewCurrent} />
+  </li>
+  <li>
+    <SidebarGroup label="Developer Tooling" items={tooling.global} collapsed />
+  </li>
+</ApiSidebarPanel>

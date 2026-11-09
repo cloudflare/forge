@@ -81,11 +81,6 @@
   outline: 2px solid var(--color-ring, var(--nb-cr-accent));
   outline-offset: -1px;
 }
-[data-nb-api-coderail] .nb-cr-body pre:focus-visible,
-[data-nb-api-coderail] .nb-cr-respbody:focus-visible {
-  outline: 2px solid var(--color-ring, var(--nb-cr-accent));
-  outline-offset: -2px;
-}
 /* A native <select> can't paint its chevron from `currentColor`, so the arrow
    is a data-URI stroke; a dark-mode override keeps it legible on dark chrome. */
 [data-mode="dark"] [data-nb-api-coderail] .nb-cr-langselect {
@@ -187,10 +182,23 @@
 [data-nb-api-coderail] .nb-cr-respsection .nb-code-copy {
   display: none;
 }
-/* The response body scrolls tall JSON; scrollbars come from globals.css. */
+/* The response body scrolls tall and wide JSON; scrollbars come from
+   globals.css. It is the example's one Tab stop, so it scrolls both ways and
+   the code inside never scrolls on its own. */
 [data-nb-api-coderail] .nb-cr-respbody {
   max-height: 20rem;
   overflow: auto;
+}
+[data-nb-api-coderail] .nb-cr-respbody pre.astro-code {
+  overflow: visible;
+  width: max-content;
+  min-width: 100%;
+}
+/* A line's full-width highlight bleeds by the pre's own padding (0.75rem
+   here, not the 1rem elsewhere), so code that fits never scrolls sideways. */
+[data-nb-api-coderail] .nb-cr-respbody pre.astro-code .line {
+  margin-inline: -0.75rem;
+  padding-inline: 0.75rem;
 }
 
 /* Reset the shared <Code> figure so it sits flush inside the surface. The
@@ -225,13 +233,6 @@
   font-size: 0.8125rem;
   /* 13/20: a whole-pixel line, so the rail lines up with itself. */
   line-height: 1.25rem;
-  /* The sample's box scrolls both ways, so both scrollbars sit on its edges. */
-  overflow: visible;
-  width: max-content;
-  min-width: 100%;
-}
-[data-nb-api-coderail] .nb-cr-content {
-  overflow: auto;
 }
 
 /* Gutter line numbers, counted off Shiki's per-line spans. Shiki separates
@@ -270,10 +271,24 @@
   opacity: 1;
 }
 
-/* Beside the page, the rail is capped at the viewport: its header and the
-   response keep their size, and the request sample scrolls inside the rest. */
-@media (min-width: 90rem) {
-  [data-nb-api-coderail],
+/* Code you can scroll is a focus stop: give it a visible ring. */
+[data-nb-api-coderail] .nb-cr-body pre:focus-visible,
+[data-nb-api-coderail] .nb-cr-respbody:focus-visible {
+  outline: 2px solid var(--color-ring, var(--nb-cr-accent));
+  outline-offset: -2px;
+}
+
+/* Beside the page (90rem+), the rail fits the viewport: the header and the
+   response keep their size, and the request sample scrolls inside the rest,
+   one box that scrolls both ways so both scrollbars stay in view. The layout's
+   rail wrapper is a flex column at this width (ApiLayout.astro). Under 42rem
+   tall the card can't fit with a usable sample, so it keeps its own height and
+   the wrapper scrolls. */
+@media (min-width: 90rem) and (min-height: 42rem) {
+  [data-nb-api-coderail] {
+    flex: 1 1 0%;
+    min-height: 0;
+  }
   [data-nb-api-coderail] .nb-cr-layer {
     min-height: 0;
   }
@@ -282,6 +297,19 @@
     flex-shrink: 0;
   }
   [data-nb-api-coderail] .nb-cr-content {
-    min-height: 0;
+    flex: 1 1 auto;
+    min-height: 8rem;
+    overflow: auto;
+  }
+  [data-nb-api-coderail] .nb-cr-body pre.astro-code {
+    overflow: visible;
+    width: max-content;
+    min-width: 100%;
+  }
+  /* A line's full-width highlight bleeds by the pre's own padding (0.75rem
+     here, not the 1rem elsewhere), so code that fits never scrolls sideways. */
+  [data-nb-api-coderail] pre.astro-code .line {
+    margin-inline: -0.75rem;
+    padding-inline: 0.75rem;
   }
 }

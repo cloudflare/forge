@@ -7,17 +7,14 @@
  * tokens (`--nb-sidebar-width`, `--nb-content-max`, `--nb-code-rail-width`).
  */
 import Icon from "@cloudflare/nimbus-docs/components/Icon.astro";
-import { ApiSidebar } from "@/components/ui/api-sidebar";
-import ApiMethodChip from "@/components/ui/api-sidebar/ApiMethodChip.astro";
-import { SidebarFilter, SidebarGroup, SidebarLink } from "@/components/ui/sidebar";
-import { getToolingSidebar } from "@/command-sidebar";
+import ApiNavigation from "@/components/ApiNavigation.astro";
 import { ApiCodeRail } from "@/components/ui/api-code-rail";
 import { Banner } from "@/components/ui/banner";
 import { Pagination } from "@/components/ui/pagination";
 import ApiBody from "./ApiBody.astro";
 import ApiPageHeader from "./ApiPageHeader.astro";
 import { cn } from "@/lib/cn";
-import { getApiVersionHead, getVersionStatus, navBuildId, navStateScript, withBase } from "@cloudflare/nimbus-docs/runtime";
+import { getApiVersionHead, getVersionStatus, withBase } from "@cloudflare/nimbus-docs/runtime";
 import type { ApiNav, ApiPageProps } from "@cloudflare/nimbus-docs/api";
 import type { ApiHome } from "@cloudflare/nimbus-docs/runtime";
 
@@ -36,10 +33,6 @@ interface Props {
 
 const { page, nav, collection, version, coordinate, home } = Astro.props;
 const homePart = home && home.part.number > 1;
-const tooling = await getToolingSidebar(Astro.url);
-// Sidebar state is shared per API version, across both sidebar copies. The
-// base keeps two sites on one origin apart.
-const navKey = `${import.meta.env.BASE_URL}|${nav.collection}${version ? `@${version}` : ""}`;
 
 const versionStatus =
   collection && version
@@ -101,57 +94,10 @@ if (versionStatus?.isHidden || homePart) {
   </div>
 </dialog>
 
-<div class="flex w-full">
-  {/* The rail keeps its open groups and scroll across pages: the inline script
-      below restores them before paint, and `initNavSidebar` records them. It is
-      excluded from the page transition so it never fades or replays. */}
-  <aside
-    aria-label="Sidebar"
-    transition:name="nb-api-sidebar"
-    transition:animate="none"
-    class="sticky top-14 hidden h-[calc(100vh-3.5rem)] w-60 shrink-0 flex-col border-e border-border bg-background md:flex lg:w-(--nb-sidebar-width)"
-  >
-    <div
-      data-nb-api-tree
-      data-nb-nav-state={navKey}
-      data-nb-nav-build={navBuildId}
-      data-nb-nav-scroller="nav"
-      class="min-h-0 flex-1 overflow-y-auto overscroll-contain"
-    >
-      {/* A full tree filters in place, as the docs sidebar does. An on-demand
-          tree holds only part of the API, so its filter searches the
-          version's page list instead (`api-nav-filter.client`). */}
-      <div class="px-4 pb-12 pt-5" data-nb-sidebar={nav.listHref ? undefined : ""}>
-        <SidebarFilter data-nb-nav-list={nav.listHref && withBase(nav.listHref, import.meta.env.BASE_URL)} />
-        {nav.listHref && (
-          <>
-            <p data-nb-nav-status role="status" class="px-3 pb-2 text-xs text-muted-foreground empty:p-0"></p>
-            <ul data-nb-nav-results hidden class="flex list-none flex-col gap-0.5 p-0"></ul>
-            <template data-nb-nav-result>
-              <li>
-                <SidebarLink label="" href="/">
-                  <ApiMethodChip slot="leading" method="GET" display="label" />
-                </SidebarLink>
-              </li>
-            </template>
-          </>
-        )}
-        <ApiSidebar items={nav.items} groups={tooling.products}>
-          <li>
-            <SidebarLink label="Overview" href="/" isCurrent={page.kind === "api" && !homePart} />
-          </li>
-          <li>
-            <SidebarGroup label="Developer Tooling" items={tooling.global} collapsed />
-          </li>
-        </ApiSidebar>
-      </div>
-    </div>
-    <div class="pointer-events-none sticky bottom-0 h-8 bg-gradient-to-t from-background to-transparent"></div>
-  </aside>
-  {/* Inline and unbundled (`aria-hidden` keeps Astro from hoisting it) so it
-      runs before the page paints and before the disclosures mount. */}
-  <script is:inline aria-hidden="true" set:html={navStateScript} />
-
+{/* The page's content comes first in source order, so agents and text
+    readers reach it before the navigation. From md up a grid places the rail
+    in the first column. */}
+<div class="w-full md:grid md:grid-cols-[15rem_minmax(0,1fr)] lg:grid-cols-[var(--nb-sidebar-width)_minmax(0,1fr)]">
   {/* Reserve both desktop tracks before the streamed body/rail HTML arrives.
       Flex only reserves the rail's width once its later sibling is parsed,
       making long API bodies reflow sideways during navigation. */}
@@ -160,7 +106,7 @@ if (versionStatus?.isHidden || homePart) {
     tabindex="-1"
     data-api-layout
     class={cn(
-      "flex min-w-0 flex-1 flex-col",
+      "flex min-w-0 flex-1 flex-col md:col-start-2 md:row-start-1",
       hasRail && "min-[90rem]:grid min-[90rem]:justify-center min-[90rem]:[--nb-content-max:40rem] min-[90rem]:grid-cols-[minmax(0,var(--nb-content-max))_var(--nb-code-rail-width)]",
     )}
     {...pagefindAttrs}
@@ -189,7 +135,7 @@ if (versionStatus?.isHidden || homePart) {
         becomes the sticky right column. The left padding keeps overflow-y-auto
         from clipping the LayerCard's outset ring at the scroll edge. */}
     {hasRail && (
-      <div data-pagefind-ignore class="mx-auto w-full max-w-(--nb-content-max) px-4 pb-12 md:px-8 min-[90rem]:col-start-2 min-[90rem]:row-span-2 min-[90rem]:row-start-2 min-[90rem]:mx-0 min-[90rem]:max-w-none min-[90rem]:sticky min-[90rem]:top-14 min-[90rem]:max-h-[calc(100vh-3.5rem)] min-[90rem]:w-(--nb-code-rail-width) min-[90rem]:flex min-[90rem]:flex-col min-[90rem]:overflow-y-auto min-[90rem]:pt-8 min-[90rem]:pe-6 min-[90rem]:pb-8 min-[90rem]:ps-1">
+      <div data-pagefind-ignore class="mx-auto w-full max-w-(--nb-content-max) px-4 pb-12 md:px-8 min-[90rem]:col-start-2 min-[90rem]:row-start-2 min-[90rem]:mx-0 min-[90rem]:max-w-none min-[90rem]:sticky min-[90rem]:top-14 min-[90rem]:h-[calc(100vh-3.5rem)] min-[90rem]:w-(--nb-code-rail-width) min-[90rem]:flex min-[90rem]:flex-col min-[90rem]:overflow-y-auto min-[90rem]:pt-8 min-[90rem]:pe-6 min-[90rem]:pb-8 min-[90rem]:ps-1">
         <ApiCodeRail
           responses={page.responses}
           samples={page.samples}
@@ -201,22 +147,30 @@ if (versionStatus?.isHidden || homePart) {
     )}
 
     {/* With a rail, previous/next sits after it, so on narrow screens the
-        samples come before it; from 90rem it returns under the body. */}
+        samples come before it. From 90rem it spans the body and the rail on its
+        own row, from the body text's left edge to the rail card's right edge. */}
     {hasRail && nav.prevNext && (
-      <div class="mx-auto w-full max-w-(--nb-content-max) px-4 pb-12 -mt-12 md:px-8 min-[90rem]:col-start-1 min-[90rem]:row-start-3">
+      <div class="mx-auto w-full max-w-(--nb-content-max) px-4 pb-12 -mt-12 md:px-8 min-[90rem]:col-span-2 min-[90rem]:col-start-1 min-[90rem]:row-start-3 min-[90rem]:max-w-none min-[90rem]:pe-6">
         <Pagination prevNext={nav.prevNext} data-pagefind-ignore />
       </div>
     )}
   </main>
+  {/* The rail keeps its open groups and scroll across pages; ApiSidebarPanel
+      restores them before paint. It is excluded from the page transition so it
+      never fades or replays. */}
+  <aside
+    aria-label="Sidebar"
+    transition:name="nb-api-sidebar"
+    transition:animate="none"
+    class="sticky top-14 hidden h-[calc(100vh-3.5rem)] w-60 shrink-0 flex-col border-e border-border bg-background md:col-start-1 md:row-start-1 md:flex lg:w-(--nb-sidebar-width)"
+  >
+    <ApiNavigation nav={nav} version={version} overviewCurrent={page.kind === "api" && !homePart} />
+  </aside>
 </div>
 
 
 <script>
-  import { mount, lockScroll, unlockScroll, generateId, initNavSidebar } from "@cloudflare/nimbus-docs/client";
-  import "@/components/ui/sidebar/sidebar.client";
-  import "@/components/ui/api-sidebar/api-nav-filter.client";
-
-  mount("[data-nb-nav-state]", initNavSidebar);
+  import { mount, lockScroll, unlockScroll, generateId } from "@cloudflare/nimbus-docs/client";
 
   const CLOSE_DURATION_MS = 250;
   const DESKTOP_QUERY = "(min-width: 48rem)";
