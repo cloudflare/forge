@@ -20,6 +20,7 @@ import {
   placeholderValue,
   type SnippetInput,
   type SnippetOperation,
+  type SnippetParam,
   type SnippetProvider,
   type SnippetRequestRepresentation,
   type SnippetRenderer,
@@ -133,6 +134,25 @@ function httpRequestRepresentation(op: SnippetOperation): SnippetRequestRepresen
   );
 }
 
+function isEmptyObject(value: unknown): boolean {
+  return typeof value === 'object' && value !== null && !Array.isArray(value) && Object.keys(value).length === 0;
+}
+
+/**
+ * The JSON a sample sends: the body's required fields, or, when the spec marks
+ * none (as for many create and update bodies), the first option's top-level
+ * fields, so the sample shows the body's shape instead of `{}`.
+ */
+function sampleBody(schema: SnippetParam): unknown {
+  const required = placeholderValue(schema);
+  if (!isEmptyObject(required)) return required;
+  let shape = schema;
+  while (!shape.children?.length && shape.variants?.[0]) shape = shape.variants[0];
+  const fields = (shape.children ?? []).filter((field) => (field.apiFieldPath?.length ?? 1) <= 1);
+  if (fields.length === 0) return required;
+  return Object.fromEntries(fields.map((field) => [field.name, placeholderValue(field)]));
+}
+
 const renderCurl: SnippetRenderer = ({ op }) => {
   const url = `${CLOUDFLARE_API_BASE}${interpolatePath(op.path)}`;
   const verb = op.method.toUpperCase();
@@ -147,7 +167,7 @@ const renderCurl: SnippetRenderer = ({ op }) => {
     args.push(`-H ${shellSingleQuote(`Content-Type: ${representation.mediaType}`)}`);
     if (isJsonMediaType(representation.mediaType)) {
       if (representation.schema) {
-        args.push(`-d ${shellSingleQuote(JSON.stringify(placeholderValue(representation.schema)))}`);
+        args.push(`-d ${shellSingleQuote(JSON.stringify(sampleBody(representation.schema)))}`);
       } else args.push('--data-binary @request-body.json');
     } else {
       args.push('--data-binary @request-body');
