@@ -3,13 +3,15 @@ import CommandPage from '../../components/CommandPage.astro';
 import CommandReference from '../../components/commands/CommandReference.astro';
 import { commandProducts } from '../../command-sidebar.ts';
 import { commandTitle } from '../../command-reference/routing.ts';
+import { stripBase } from '@cloudflare/nimbus-docs/runtime';
 import { getCommandRouter } from '../../command-reference/server.ts';
 
 const router = await getCommandRouter();
 const command = router.resolve(Astro.url, commandProducts);
 if (!command) return new Response('Not found', { status: 404 });
+const markdownUrl = `${stripBase(Astro.url.pathname, import.meta.env.BASE_URL)}index.md`;
 ---
 
-<CommandPage title={commandTitle(command)} description={command.description} href="/">
+<CommandPage title={commandTitle(command)} description={command.description} href="/" markdownUrl={markdownUrl}>
   <CommandReference command={command} />
 </CommandPage>

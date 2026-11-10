@@ -12,14 +12,16 @@ interface Props {
   description?: string;
   /** The API page whose sidebar the command shows, base-free (`/`, `/d1/`). */
   href: string;
+  /** The command's Markdown version, base-free. */
+  markdownUrl?: string;
 }
 
-const { title, description, href } = Astro.props;
+const { title, description, href, markdownUrl } = Astro.props;
 const api = await getApiNav(Astro, { collection: 'api', href });
 if (!api) throw new Error(`No API sidebar for ${href}`);
 ---
 
-<DocsLayout title={title} description={description} sidebar={[]} headings={false} breadcrumbs={[]} showDescription={false}>
+<DocsLayout title={title} description={description} sidebar={[]} headings={false} breadcrumbs={[]} showDescription={false} markdownUrl={markdownUrl}>
   {/* The mobile drawer borrows `[data-nb-sidebar-nav]` from the desktop rail. */}
   <div slot="sidebar" data-nb-sidebar-nav class="flex min-h-0 flex-1 flex-col">
     <ApiNavigation nav={api.nav} version={api.version} />
