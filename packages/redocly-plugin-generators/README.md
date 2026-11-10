@@ -1,4 +1,4 @@
-# redocly-plugin-generators
+# @cloudflare/redocly-plugin-generators
 
 A [Redocly](https://redocly.com/docs/cli/) plugin bundling lint rules relevant to OpenAPI-driven code generators (Fern, Stainless, Forge, etc.). Vendor-specific rules sit alongside generator-agnostic ones in a single ruleset, and no-op on documents that don't exercise them.
 
@@ -23,7 +23,7 @@ A rule declares its vendor in its `RuleDefinition` (`vendor: 'fern'` etc., omitt
 ```yaml
 # redocly.yaml
 plugins:
-  - 'redocly-plugin-generators'
+  - '@cloudflare/redocly-plugin-generators'
 
 extends:
   - generators/recommended
@@ -44,11 +44,11 @@ rules:
 ## Development
 
 ```bash
-pnpm --filter redocly-plugin-generators typecheck
-pnpm --filter redocly-plugin-generators test
+pnpm --filter @cloudflare/redocly-plugin-generators typecheck
+pnpm --filter @cloudflare/redocly-plugin-generators test
 
 # Update fixture snapshots after an intentional change:
-pnpm --filter redocly-plugin-generators test:update
+pnpm --filter @cloudflare/redocly-plugin-generators test:update
 ```
 
 Tests use [Vitest](https://vitest.dev/). Fixtures live under `test/fixtures/<base-rule-name>/<case-name>/` with an `openapi.yaml` (or `.json` / `swagger.yaml`), an optional `redocly.yaml`, and a snapshotted `output.json`. Fixture directories are named by the rule's **base** name (without vendor prefix); the harness looks up the matching `RuleDefinition` and uses its prefixed Redocly ID when running the lint.
