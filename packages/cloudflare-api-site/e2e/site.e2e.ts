@@ -206,6 +206,40 @@ test('command pages keep their URLs with the command sidebar', async ({ page }) 
   await expect(page.locator('a[href="/api/tooling/"]').first()).toBeAttached();
 });
 
+test('command pages have a Markdown version, listed in llms.txt', async ({ page, request }) => {
+  await page.goto('/api/d1/tooling/migrations/list/');
+  await expect(page.getByRole('link', { name: 'View as Markdown' })).toHaveAttribute(
+    'href',
+    '/api/d1/tooling/migrations/list/index.md',
+  );
+  const markdown = await request.get('/api/d1/tooling/migrations/list/index.md');
+  expect(markdown.headers()['content-type']).toContain('text/markdown');
+  const body = await markdown.text();
+  expect(body).toContain('# List');
+  expect(body).toContain('cf d1 migrations list');
+  const llms = await (await request.get('/api/llms.txt')).text();
+  expect(llms).toContain('## Developer tooling');
+  expect(llms).toContain('/api/d1/tooling/migrations/list/index.md');
+});
+
+test('the sidebar filter finds cf commands beside API pages', async ({ page }) => {
+  await page.goto('/api/tooling/');
+  await page.getByPlaceholder('Filter sidebar').first().fill('migrations list');
+  const results = page.locator('[data-nb-nav-results] a');
+  await expect(results.filter({ hasText: 'cf d1 migrations list' })).toHaveAttribute(
+    'href',
+    '/api/d1/tooling/migrations/list/',
+  );
+});
+
+test('the phone menu lists the header links the header has no room for', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 800 });
+  await page.goto('/api/dns/records/methods/get/');
+  await expect(page.locator('.site-header nav')).toBeHidden();
+  await page.locator('[data-menu-btn]').click();
+  await expect(page.locator('dialog[open] .site-links a')).toHaveText(['Directory', 'API', 'SDKs', 'Changelog']);
+});
+
 test('llms.txt indexes the API', async ({ request }) => {
   const response = await request.get('/api/llms.txt');
   expect(await response.text()).toMatch(/^# Cloudflare API\n/);
