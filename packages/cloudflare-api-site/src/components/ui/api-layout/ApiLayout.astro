@@ -8,6 +8,7 @@
  */
 import Icon from "@cloudflare/nimbus-docs/components/Icon.astro";
 import ApiNavigation from "@/components/ApiNavigation.astro";
+import SiteLinks from "@/components/SiteLinks.astro";
 import { ApiCodeRail } from "@/components/ui/api-code-rail";
 import { Banner } from "@/components/ui/banner";
 import { Pagination } from "@/components/ui/pagination";
@@ -89,6 +90,7 @@ if (versionStatus?.isHidden || homePart) {
         <Icon name="ph:x" class="h-5 w-5" />
       </button>
     </div>
+    <SiteLinks />
     {/* The rail's tree is moved here while the drawer is open — one tree
         per page, one open/scroll state. */}
     <div data-nb-api-drawer-slot class="flex min-h-0 flex-1 flex-col [&>[data-nb-api-tree]]:min-h-0 [&>[data-nb-api-tree]]:flex-1 [&>[data-nb-api-tree]]:overflow-y-auto [&>[data-nb-api-tree]]:overscroll-contain"></div>
