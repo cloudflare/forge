@@ -686,7 +686,7 @@ fn model_used_only_by_a_header_is_a_model() {
     assert_eq!(models(&forge), ["StorageClass"]);
     let class = field(headers(&forge, "a.b.get"), "cf-r2-storage-class");
     assert_eq!(kind(class.ty()), "Model(StorageClass)");
-    let group = model(&forge, "StorageClass").group().unwrap();
+    let group = model(&forge, "StorageClass").group();
     assert_eq!(group.path().collect::<Vec<_>>(), [&Name::new("a"), &Name::new("b")]);
 }
 

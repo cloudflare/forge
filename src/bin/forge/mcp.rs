@@ -3,9 +3,10 @@
 //! TypeScript SDK, `@modelcontextprotocol/server`. It generates no server:
 //! each server lists and calls the tools in its own way.
 //!
-//! Every group with tools gets a `tools.ts` in its directory: the tools of
-//! its methods, each MCP's Tool, with the JSON Schema of its arguments, its
-//! output schema and its hints, as `tools/list` sends it. Under the runtime's
+//! Every group with tools, the root included, gets a `tools.ts` in its
+//! directory: the tools of its methods, each MCP's Tool, with the JSON Schema
+//! of its arguments, its output schema and its hints, as `tools/list` sends
+//! it. Under the runtime's
 //! `OPERATION` symbol, which `JSON.stringify` leaves out, each holds what only
 //! the server needs, as data: the API method, its path template, its query
 //! parameters, headers and body media types, and the JSON Schemas of its
@@ -15,17 +16,16 @@
 //! `index.ts` with every tool, `operation`, which reads a tool's operation,
 //! and `registerTools`, which registers the tools on an `McpServer`, for the
 //! SDK to validate each call's arguments against the input schema, and builds
-//! each call's request from the operation; the top-level models' schemas;
-//! and the runtime itself in `_/tool.ts`, which imports the SDK's
-//! `fromJsonSchema`.
+//! each call's request from the operation; and the runtime itself in
+//! `_/tool.ts`, which imports the SDK's `fromJsonSchema`.
 //!
-//! Each group's files depend only on the group, so they are generated in
-//! parallel with [`Plugin::generate_group`]. A tool is named after its
-//! groups and method, each in camelCase, joined by `_`, such as
-//! `webAssets_discovery_operations_bulkEdit`, so tools of different groups
-//! never share a name. Its arguments are objects by where they go: `path`,
-//! `query` and `headers`, each keyed by the parameters' names on the wire,
-//! and the JSON body as `body`, as the API takes it.
+//! Each group's files depend only on the group, so the groups are generated
+//! in parallel. A tool is named after its groups and method, each in
+//! camelCase, joined by `_`, such as `webAssets_discovery_operations_bulkEdit`,
+//! so tools of different groups never share a name. A tool of the root is
+//! named after its method alone. Its arguments are objects by where they go:
+//! `path`, `query` and `headers`, each keyed by the parameters' names on the
+//! wire, and the JSON body as `body`, as the API takes it.
 
 use std::borrow::Cow;
 use std::collections::HashSet;
@@ -36,6 +36,7 @@ use serde_json::{Map, Value, json};
 
 mod schema;
 
+use rayon::prelude::*;
 use schema::{Direction, Refs, Schemas, reach};
 
 /// Generates an MCP server.
@@ -44,44 +45,49 @@ pub struct Generator;
 impl Plugin for Generator {
     type File = File;
 
-    /// Returns the files of the root: `index.ts` with every tool, the
-    /// runtime, and the schemas of the top-level models.
+    /// Returns `index.ts` with every tool, and the runtime, then the files
+    /// of each group, which are generated in parallel.
     fn generate(&self, forge: &Forge) -> Result<impl Iterator<Item = File>, Err> {
         let groups: Vec<Group<'_>> = forge
             .groups()
             .filter(|&group| verdicts(group).iter().any(|(_, name)| name.is_some()))
             .collect();
 
-        let mut files = model_files(Module::ROOT, forge.models(), forge.groups());
-        files.push(File::Ts(index(forge, &groups)));
+        let mut files = vec![File::Ts(index(forge, &groups))];
         files.extend(RUNTIME.iter().map(|&(path, source)| File::Text {
             path: RUNTIME_DIR.sub(path).as_str().to_owned(),
             content: format!("{PREAMBLE}{source}"),
         }));
+        let all: Vec<Group<'_>> = forge.groups().collect();
+        let per_group = all
+            .par_iter()
+            .map(|&group| group_files(group))
+            .collect::<Result<Vec<_>, Err>>()?;
+        files.extend(per_group.into_iter().flatten());
         Ok(files.into_iter())
     }
+}
 
-    /// Returns the files of `group`: a `tools.ts` with the tools of its
-    /// methods, and the schemas of the models placed in it.
-    fn generate_group(&self, group: Group<'_>) -> Result<impl Iterator<Item = File>, Err> {
-        let mut tools = Vec::new();
-        for (m, name) in verdicts(group) {
-            if let Some(name) = name {
-                tools.push(Tool::new(m, name)?);
-            }
+/// Returns the files of `group`: a `tools.ts` with the tools of its methods,
+/// and the schemas of the models placed in it.
+fn group_files(group: Group<'_>) -> Result<Vec<File>, Err> {
+    let mut tools = Vec::new();
+    for (m, name) in verdicts(group) {
+        if let Some(name) = name {
+            tools.push(Tool::new(m, name)?);
         }
-        tools.sort_by(|a, b| a.name.cmp(&b.name));
-        let mut files = Vec::new();
-        if !tools.is_empty() {
-            files.push(File::Ts(tools_file(group, &tools)));
-        }
-        files.extend(model_files(
-            Module::group(group),
-            group.models(),
-            std::iter::once(group).chain(group.descendants()),
-        ));
-        Ok(files.into_iter())
     }
+    tools.sort_by(|a, b| a.name.cmp(&b.name));
+    let mut files = Vec::new();
+    if !tools.is_empty() {
+        files.push(File::Ts(tools_file(group, &tools)));
+    }
+    files.extend(model_files(
+        Module::group(group),
+        group.models(),
+        std::iter::once(group).chain(group.descendants()),
+    ));
+    Ok(files)
 }
 
 /// A file of the server.
@@ -514,11 +520,12 @@ impl SchemaFile {
 }
 
 /// Returns the constant with the schema of `model` in a file of `kind`,
-/// declared in its group's directory, or the root's for a top-level model.
-/// Forge places each model, so any file can name its constant.
+/// declared in its group's directory. Forge places each model, so any file
+/// can name its constant.
 fn model_ident(model: Model<'_>, kind: SchemaFile) -> Ident {
-    let dir = model.group().map_or(Module::ROOT, Module::group);
-    dir.sub(kind.file()).ident(constant_name(&schema::key(model)))
+    Module::group(model.group())
+        .sub(kind.file())
+        .ident(constant_name(&schema::key(model)))
 }
 
 /// Returns the name of the constant of the model whose `$defs` key is `key`:
@@ -672,8 +679,12 @@ fn tools_file(group: Group<'_>, tools: &[Tool<'_>]) -> ts::File {
     let tool = RUNTIME_TOOL.ident("Tool").ty();
     let operation = RUNTIME_TOOL.ident("OPERATION");
     let encode_path = RUNTIME_TOOL.ident("encodePath");
-    let dotted: Vec<String> = group.path().map(Name::camel).collect();
-    f.doc(&format!("The tools of `{}`.", dotted.join(".")));
+    if group.parent().is_none() {
+        f.doc("The tools of the methods in no group.");
+    } else {
+        let dotted: Vec<String> = group.path().map(Name::camel).collect();
+        f.doc(&format!("The tools of `{}`.", dotted.join(".")));
+    }
     p!(f, "export const tools: readonly ", tool, "[] = [");
     f.indent(|f| {
         for t in tools {
@@ -809,11 +820,16 @@ fn index(forge: &Forge, groups: &[Group<'_>]) -> ts::File {
     p!(f, "export const tools: readonly ", tool, "[] = [");
     f.indent(|f| {
         for group in groups {
-            let alias: Vec<String> = group.path().map(|name| name.camel()).collect();
+            let alias = if group.parent().is_none() {
+                "root".to_owned()
+            } else {
+                let names: Vec<String> = group.path().map(|name| name.camel()).collect();
+                ts_identifier(&names.join("_"))
+            };
             let ident = Module::group(*group)
                 .sub("tools.ts")
                 .ident("tools")
-                .alias(format!("{}Tools", ts_identifier(&alias.join("_"))));
+                .alias(format!("{alias}Tools"));
             p!(f, "...", ident, ",");
         }
     });
@@ -896,16 +912,16 @@ fn ts_identifier(s: &str) -> String {
 
 #[cfg(test)]
 mod tests {
-    use forge::{File as _, Forge};
+    use forge::{File as _, Forge, Plugin as _};
 
     use super::Generator;
 
     /// Returns the files the generator makes from `spec`, by path.
     fn generate(spec: &str) -> Vec<(String, String)> {
         let forge: Forge = serde_json::from_str(spec).unwrap();
-        let mut files: Vec<(String, String)> = forge::run(&forge, &Generator)
+        let mut files: Vec<(String, String)> = Generator
+            .generate(&forge)
             .unwrap()
-            .into_iter()
             .map(|f| {
                 let content = String::from_utf8(f.content().unwrap().into_owned()).unwrap();
                 (f.path().to_owned(), content)

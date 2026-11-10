@@ -14,9 +14,6 @@ pub fn dump(forge: &Forge) -> String {
     line(o, 0, format_args!("version {:?}", forge.version));
     line(o, 0, format_args!("description {:?}", forge.description));
     line(o, 0, format_args!("base url {:?}", forge.base_url));
-    for model in forge.models() {
-        self::model(o, 0, model);
-    }
     for group in forge.groups() {
         self::group(o, group);
     }
@@ -34,7 +31,7 @@ fn name(name: &Name) -> String {
 fn group(o: &mut String, group: Group<'_>) {
     let path: Vec<String> = group.path().map(name).collect();
     line(o, 0, format_args!("group {path:?} {:?}", group.description()));
-    let parent = group.parent().map(|parent| name(parent.name()));
+    let parent = group.parent().map(|parent| parent.path().map(name).collect::<Vec<_>>());
     let children: Vec<String> = group.children().map(|child| name(child.name())).collect();
     let descendants: Vec<String> = group.descendants().map(|d| name(d.name())).collect();
     line(
@@ -51,7 +48,7 @@ fn group(o: &mut String, group: Group<'_>) {
 }
 
 fn model(o: &mut String, depth: usize, model: Model<'_>) {
-    let group = model.group().map(|group| group.path().map(name).collect::<Vec<_>>());
+    let group: Vec<String> = model.group().path().map(name).collect();
     line(
         o,
         depth,
@@ -75,7 +72,7 @@ fn method(o: &mut String, method: Method<'_>) {
             name(method.name()),
             method.http_method().as_str(),
             method.path(),
-            name(method.group().name()),
+            method.group().path().map(name).collect::<Vec<_>>(),
         ),
     );
     line(

@@ -72,9 +72,14 @@ pub fn parse_err(json: &str) -> String {
 }
 
 /// Returns the group at `path`: the names from the top level down,
-/// separated by dots, such as `zones` or `zones.settings`.
+/// separated by dots, such as `zones` or `zones.settings`, or the root for
+/// the empty path.
 #[track_caller]
 pub fn group<'f>(forge: &'f Forge, path: &str) -> Group<'f> {
+    if path.is_empty() {
+        // The groups start with the root.
+        return forge.groups().next().unwrap();
+    }
     let names: Vec<Name> = path.split('.').map(Name::new).collect();
     let Some(group) = forge.groups().find(|group| group.path().eq(names.iter())) else {
         panic!("no group {path:?} in {:?}", forge.groups().collect::<Vec<_>>());
@@ -83,12 +88,10 @@ pub fn group<'f>(forge: &'f Forge, path: &str) -> Group<'f> {
 }
 
 /// Returns the method at `path`: its group's path, a dot and its name,
-/// such as `zones.get`.
+/// such as `zones.get`, or its name alone for a method of the root.
 #[track_caller]
 pub fn method<'f>(forge: &'f Forge, path: &str) -> Method<'f> {
-    let Some((group_path, name)) = path.rsplit_once('.') else {
-        panic!("method path {path:?} is not group.method");
-    };
+    let (group_path, name) = path.rsplit_once('.').unwrap_or(("", path));
     let group = group(forge, group_path);
     let name = Name::new(name);
     let Some(method) = group.methods().find(|method| *method.name() == name) else {
@@ -100,8 +103,8 @@ pub fn method<'f>(forge: &'f Forge, path: &str) -> Method<'f> {
 /// Returns the schema names of every model, wherever it is placed, sorted.
 pub fn models(forge: &Forge) -> Vec<&str> {
     let mut names: Vec<&str> = forge
-        .models()
-        .chain(forge.groups().flat_map(|group| group.models()))
+        .groups()
+        .flat_map(|group| group.models())
         .map(|model| model.schema_name())
         .collect();
     names.sort_unstable();
@@ -112,7 +115,7 @@ pub fn models(forge: &Forge) -> Vec<&str> {
 /// placed.
 #[track_caller]
 pub fn model<'f>(forge: &'f Forge, schema_name: &str) -> Model<'f> {
-    let models = || forge.models().chain(forge.groups().flat_map(|group| group.models()));
+    let models = || forge.groups().flat_map(|group| group.models());
     let Some(model) = models().find(|model| model.schema_name() == schema_name) else {
         panic!("no model {schema_name:?} in {:?}", models().collect::<Vec<_>>());
     };

@@ -171,18 +171,33 @@ fn alias_does_not_fall_back_to_the_operation() {
 }
 
 #[test]
-fn alias_without_a_group_or_name_is_not_a_method() {
+fn alias_without_a_name_is_not_a_method() {
     let forge = parse(&aliased(
         r#"[
           {"x-forge-group-name": "a", "x-forge-method-name": "pause"},
           {"x-forge-group-name": "a"},
-          {"x-forge-method-name": "resume"},
-          {"x-forge-group-name": [], "x-forge-method-name": "restart"}
+          {"x-forge-group-name": "a", "x-forge-method-name": ""}
         ]"#,
         "",
     ));
 
     assert_eq!(methods(&forge), ["a.pause"]);
+}
+
+#[test]
+fn alias_without_a_group_is_a_method_of_the_root() {
+    let forge = parse(&aliased(
+        r#"[
+          {"x-forge-group-name": "a", "x-forge-method-name": "pause"},
+          {"x-forge-method-name": "resume"},
+          {"x-forge-group-name": [], "x-forge-method-name": "restart"},
+          {"x-forge-group-name": "", "x-forge-method-name": "stop"}
+        ]"#,
+        "",
+    ));
+
+    assert_eq!(methods(&forge), ["restart", "resume", "stop", "a.pause"]);
+    assert_eq!(method(&forge, "resume").group(), group(&forge, ""));
 }
 
 #[test]
@@ -382,7 +397,7 @@ fn operation_without_aliases_keeps_its_own_method() {
 }
 
 #[test]
-fn model_used_by_aliases_in_two_top_level_groups_is_at_the_top_level() {
+fn model_used_by_aliases_in_two_top_level_groups_is_in_the_root() {
     let forge = parse(
         r##"{
           "openapi": "3.0.3",
@@ -411,8 +426,8 @@ fn model_used_by_aliases_in_two_top_level_groups_is_at_the_top_level() {
         }"##,
     );
 
-    assert_eq!(model(&forge, "M").group(), None);
-    assert_eq!(forge.models().count(), 1);
+    assert_eq!(model(&forge, "M").group(), group(&forge, ""));
+    assert_eq!(group(&forge, "").models().count(), 1);
     assert_eq!(group(&forge, "a.b").models().count(), 0);
 }
 
@@ -446,5 +461,5 @@ fn model_used_by_aliases_in_one_group_is_in_that_group() {
         }"##,
     );
 
-    assert_eq!(model(&forge, "M").group(), Some(group(&forge, "a")));
+    assert_eq!(model(&forge, "M").group(), group(&forge, "a"));
 }

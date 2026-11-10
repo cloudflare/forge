@@ -6,7 +6,8 @@
 use std::borrow::Cow;
 
 use forge::ts::{self, Ident, Module, PREAMBLE};
-use forge::{Err, Forge, Group, Method, Model, Plugin};
+use forge::{Err, Forge, Group, Model, Plugin};
+use rayon::prelude::*;
 
 pub(crate) mod client;
 mod codec;
@@ -21,29 +22,34 @@ pub struct Generator;
 impl Plugin for Generator {
     type File = File;
 
-    /// Returns the files of the root, and the runtime library.
+    /// Returns the runtime library, then the files of each group, which are
+    /// generated in parallel.
     fn generate(&self, forge: &Forge) -> Result<impl Iterator<Item = File>, Err> {
-        let mut files = files(Node::Root(forge))?;
-        files.extend(RUNTIME.iter().map(|&(path, source)| File::Runtime {
-            path: RUNTIME_DIR.sub(path).as_str().to_owned(),
-            content: format!("{PREAMBLE}{source}"),
-        }));
+        let mut files: Vec<File> = RUNTIME
+            .iter()
+            .map(|&(path, source)| File::Runtime {
+                path: RUNTIME_DIR.sub(path).as_str().to_owned(),
+                content: format!("{PREAMBLE}{source}"),
+            })
+            .collect();
+        let groups: Vec<Group<'_>> = forge.groups().collect();
+        let per_group = groups
+            .par_iter()
+            .map(|&group| group_files(group))
+            .collect::<Result<Vec<_>, Err>>()?;
+        files.extend(per_group.into_iter().flatten());
         Ok(files.into_iter())
-    }
-
-    fn generate_group(&self, group: Group<'_>) -> Result<impl Iterator<Item = File>, Err> {
-        Ok(files(Node::Group(group))?.into_iter())
     }
 }
 
-/// Returns the client.ts, models.ts and index.ts of `node`. A node without
+/// Returns the client.ts, models.ts and index.ts of `group`. A group without
 /// models has an empty models.ts, which isn't written.
-fn files(node: Node<'_>) -> Result<Vec<File>, Err> {
-    let models = models::models(node).map_err(|errs| errs.join("\n"))?;
+fn group_files(group: Group<'_>) -> Result<Vec<File>, Err> {
+    let models = models::models(group).map_err(|errs| errs.join("\n"))?;
     Ok(vec![
-        File::Ts(client::client(node)),
+        File::Ts(client::client(group)),
         File::Ts(models),
-        File::Ts(index::index(node)),
+        File::Ts(index::index(group)),
     ])
 }
 
@@ -74,69 +80,17 @@ impl forge::File for File {
     }
 }
 
-/// The root, or a group: what has a client.ts, models.ts and index.ts.
-// TODO: Remove once the library exposes the root as a `Group`, which
-// `Plugin::generate` could pass in. Then every function here takes a
-// `Group`.
-#[derive(Clone, Copy)]
-pub(crate) enum Node<'f> {
-    Root(&'f Forge),
-    Group(Group<'f>),
+/// Returns the names of the groups down to `group`, in camelCase and
+/// separated by dots, for errors: empty for the root.
+pub(crate) fn path(group: Group<'_>) -> String {
+    group.path().map(|name| name.camel()).collect::<Vec<_>>().join(".")
 }
 
-impl<'f> Node<'f> {
-    /// Returns the directory of the node's files.
-    pub(crate) fn dir(self) -> Module {
-        match self {
-            Node::Root(_) => Module::ROOT,
-            Node::Group(group) => Module::group(group),
-        }
-    }
-
-    /// Returns how many groups deep the node is: 0 for the root.
-    fn depth(self) -> usize {
-        match self {
-            Node::Root(_) => 0,
-            Node::Group(group) => group.path().len(),
-        }
-    }
-
-    /// Returns the names of the groups down to the node, in camelCase and
-    /// separated by dots, for errors.
-    pub(crate) fn path(self) -> String {
-        match self {
-            Node::Root(_) => String::new(),
-            Node::Group(group) => group.path().map(|name| name.camel()).collect::<Vec<_>>().join("."),
-        }
-    }
-
-    /// Returns the methods directly in the node, sorted by name. The root
-    /// has none.
-    pub(crate) fn methods(self) -> Vec<Method<'f>> {
-        match self {
-            Node::Root(_) => Vec::new(),
-            Node::Group(group) => group.methods().collect(),
-        }
-    }
-
-    /// Returns the groups directly in the node, sorted by name.
-    pub(crate) fn children(self) -> Vec<Group<'f>> {
-        match self {
-            Node::Root(forge) => forge.groups().filter(|g| g.parent().is_none()).collect(),
-            Node::Group(group) => group.children().collect(),
-        }
-    }
-
-    /// Returns the models placed directly in the node, sorted by schema
-    /// name.
-    fn models(self) -> Vec<Model<'f>> {
-        let mut models: Vec<Model<'f>> = match self {
-            Node::Root(forge) => forge.models().collect(),
-            Node::Group(group) => group.models().collect(),
-        };
-        models.sort_by_key(|m| m.schema_name());
-        models
-    }
+/// Returns the models placed directly in `group`, sorted by schema name.
+fn sorted_models(group: Group<'_>) -> Vec<Model<'_>> {
+    let mut models: Vec<Model<'_>> = group.models().collect();
+    models.sort_by_key(|m| m.schema_name());
+    models
 }
 
 /// The directory of the runtime library.

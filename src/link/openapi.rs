@@ -243,7 +243,7 @@ pub(super) struct Definition {
     /// The `x-forge-method-name`, or empty for none.
     pub(super) method_name: Str,
     /// The `x-forge-group-name`: the group path, top level first, or
-    /// empty for none.
+    /// empty for the root.
     pub(super) group_names: Span<Str>,
     /// `x-forge-skip`.
     pub(super) skip: bool,
@@ -852,7 +852,8 @@ impl Read for Types {
 }
 
 /// Reads an `x-forge-group-name`: a string split on dots, or an array of
-/// strings that are not split. The empty string is no group.
+/// strings that are not split. The empty string is no group names, as the
+/// empty array is: the root.
 struct GroupNames;
 
 impl Read for GroupNames {

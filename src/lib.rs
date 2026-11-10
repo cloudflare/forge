@@ -1,6 +1,6 @@
 //! Forge builds a language-neutral SDK tree from an OpenAPI document.
 
-use std::{iter, ptr};
+use std::{iter, ptr, slice};
 
 mod arena;
 mod json;
@@ -14,7 +14,7 @@ pub use method::{Body, Content, Location, Response};
 pub use name::Name;
 #[cfg(feature = "wasm")]
 pub use plugin::wasm;
-pub use plugin::{Err, File, Plugin, run, ts, write};
+pub use plugin::{Err, File, Plugin, ts, write};
 pub use types::{Array, Discriminator, Enum, EnumValue, Field, Intersection, Number, Object, Scalar, Type, Union};
 
 use arena::{List, Span, Str, Strings};
@@ -23,6 +23,8 @@ use types::{EnumData, FieldData, TypeData, TypeId};
 
 /// A high-level representation of an OpenAPI document, for generating an
 /// SDK tree.
+///
+/// The default is an empty `Forge`, whose only group is the root.
 #[derive(Default)]
 pub struct Forge {
     /// The version of the document.
@@ -43,16 +45,11 @@ pub struct Forge {
     /// with its server variables substituted.
     pub base_url: String, // Eventually we will support servers at descendants as well.
 
-    /// Every group, indexed by `GroupId`.
-    groups: Vec<GroupData>,
-    /// The top-level groups.
-    top: Vec<GroupId>,
+    groups: Groups,
     /// Every method, indexed by `MethodId`.
     methods: Vec<MethodData>,
     /// Every model, indexed by `ModelId`.
     models: Vec<ModelData>,
-    /// The models at the top level, in no group.
-    top_models: Vec<ModelId>,
     /// Every type, indexed by `TypeId`.
     types: Vec<TypeData>,
 
@@ -75,18 +72,12 @@ pub struct Forge {
 }
 
 impl Forge {
-    /// Returns every group, depth first: each group comes before its
-    /// subgroups, and all of them before its next sibling. Siblings are
-    /// sorted by name.
+    /// Returns every group, depth first, starting with the root: each group
+    /// comes before its subgroups, and all of them before its next sibling.
+    /// Siblings are sorted by name. There is always a root, so there is
+    /// always a first group.
     pub fn groups(&self) -> impl Iterator<Item = Group<'_>> {
-        self.depth_first(&self.top)
-    }
-
-    /// Returns the models at the top level, which are in no group, in an
-    /// unspecified order. These are the models used by methods in more than
-    /// one top-level group.
-    pub fn models(&self) -> impl ExactSizeIterator<Item = Model<'_>> {
-        self.top_models.iter().map(|&id| self.model(id))
+        self.depth_first(slice::from_ref(&GroupId::ROOT))
     }
 
     fn group(&self, id: GroupId) -> Group<'_> {
@@ -117,6 +108,13 @@ impl Forge {
 
 /// A named collection of subgroups, methods and models in a [`Forge`].
 ///
+/// Every `Forge` has a root group, which every other group is inside, and
+/// which [`Forge::groups`] returns first. It is the only group with an empty
+/// name, and the only one without a [`parent`](Group::parent). It holds the
+/// methods without a group name, and the models that methods in more than
+/// one of its subgroups use. The groups directly inside the root are the
+/// top-level groups.
+///
 /// A `Group` is a reference into the `Forge` it came from: it is cheap to
 /// copy, and cannot outlive the `Forge`. Two `Group`s are equal when they
 /// are the same group of the same `Forge`.
@@ -127,7 +125,8 @@ pub struct Group<'f> {
 }
 
 impl<'f> Group<'f> {
-    /// Returns the name of the group.
+    /// Returns the name of the group, which is empty for the root and only
+    /// for the root.
     pub fn name(self) -> &'f Name {
         &self.data().name
     }
@@ -142,22 +141,24 @@ impl<'f> Group<'f> {
     /// anywhere above it under a key with dots: `a.b` in the root, or `b.c`
     /// in the `groups` of `a`, both describe the group `c` in `b` in `a`.
     /// Names match when they are equal as [`Name`]s. Two entries for the
-    /// same group are an error.
+    /// same group are an error. The root group has no entry, and its
+    /// description is empty: the API's is [`Forge::description`].
     pub fn description(self) -> &'f str {
         &self.data().description
     }
 
     /// Returns the names of the groups from the top level down to this one,
-    /// ending with this group's own name.
+    /// ending with this group's own name. The root is not included, so its
+    /// path is empty and a top-level group's path is its name alone.
     pub fn path(self) -> impl ExactSizeIterator<Item = &'f Name> + DoubleEndedIterator {
-        self.data()
-            .path
+        // The stored path starts with the root.
+        self.data().path[1..]
             .iter()
             .map(move |&id| &self.forge.groups[id.index()].name)
     }
 
-    /// Returns the group this one is inside, or `None` for a top-level
-    /// group.
+    /// Returns the group this one is inside, which is the root for a
+    /// top-level group, or `None` for the root.
     pub fn parent(self) -> Option<Group<'f>> {
         // The path ends with this group, so its parent comes just before.
         let [.., parent, _] = self.data().path[..] else {
@@ -265,9 +266,11 @@ impl<'f> Method<'f> {
     /// of the alias the method comes from: a string of group names
     /// separated by dots, such as `accounts.members`, or an array with one
     /// group name per element, top level first, whose elements are not
-    /// split. An operation or alias without one, with an empty one, or
-    /// with `x-forge-skip: true` is not a method. A group name with no
-    /// letters or digits is an error.
+    /// split. An operation or alias without one, or with an empty string or
+    /// array, is a method of the [root](Group). One with
+    /// `x-forge-skip: true` is not a method. A group name with no letters
+    /// or digits, such as the empty one in `accounts..members`, is an
+    /// error.
     pub fn group(self) -> Group<'f> {
         self.forge.group(self.data().group)
     }
@@ -656,15 +659,15 @@ impl<'f> Model<'f> {
         &self.data().name
     }
 
-    /// Returns the group the model is placed in, or `None` if it is at the
-    /// top level.
+    /// Returns the group the model is placed in.
     ///
     /// A model is placed in the deepest group shared by every method that
     /// uses it, directly or through other models: a model used in `a.b.c`
     /// and `a.b.d` is in `a.b`, one used only in `a.b.e` is in `a.b.e`, and
-    /// one used in `a` and `x` is at the top level.
-    pub fn group(self) -> Option<Group<'f>> {
-        Some(self.forge.group(self.data().group?))
+    /// one used in `a` and `x`, or by a method of the root, is in the
+    /// [root](Group).
+    pub fn group(self) -> Group<'f> {
+        self.forge.group(self.data().group)
     }
 
     /// Returns a description of the model, or an empty string if it has
@@ -721,7 +724,7 @@ impl std::fmt::Display for Model<'_> {
 impl std::fmt::Debug for Model<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Model")
-            .field("group", &self.group().map(|group| group.path().collect::<Vec<_>>()))
+            .field("group", &self.group().path().collect::<Vec<_>>())
             .field("schema_name", &self.schema_name())
             .finish()
     }
@@ -732,6 +735,9 @@ impl std::fmt::Debug for Model<'_> {
 struct GroupId(u32);
 
 impl GroupId {
+    /// The root group, which is always the first.
+    const ROOT: GroupId = GroupId(0);
+
     fn index(self) -> usize {
         self.0 as usize
     }
@@ -743,13 +749,51 @@ struct GroupData {
     description: String,
     /// The groups directly inside this one.
     groups: Vec<GroupId>,
-    /// The groups from the top level down to this one, ending with this
-    /// group itself.
+    /// The groups from the root down to this one, ending with this group
+    /// itself, so the root's is the root alone.
     path: Vec<GroupId>,
     /// The methods directly in this group.
     methods: Vec<MethodId>,
     /// The models placed directly in this group.
     models: Vec<ModelId>,
+}
+
+/// Every group of a [`Forge`], indexed by `GroupId`, starting with the
+/// root. There is always a root, so the default has it.
+struct Groups(Vec<GroupData>);
+
+impl Default for Groups {
+    fn default() -> Groups {
+        Groups(vec![GroupData::root()])
+    }
+}
+
+impl std::ops::Deref for Groups {
+    type Target = Vec<GroupData>;
+
+    fn deref(&self) -> &Vec<GroupData> {
+        &self.0
+    }
+}
+
+impl std::ops::DerefMut for Groups {
+    fn deref_mut(&mut self) -> &mut Vec<GroupData> {
+        &mut self.0
+    }
+}
+
+impl GroupData {
+    /// Returns the data of the root group, before anything is added to it.
+    fn root() -> GroupData {
+        GroupData {
+            name: Name::default(),
+            description: String::new(),
+            groups: Vec::new(),
+            path: vec![GroupId::ROOT],
+            methods: Vec::new(),
+            models: Vec::new(),
+        }
+    }
 }
 
 /// The index of a method's data in its `Forge`.
@@ -809,8 +853,8 @@ struct ModelData {
     /// Where the schema is under `components.schemas`.
     schema_name: Str,
     name: Name,
-    /// The group the model is placed in, or none for the top level.
-    group: Option<GroupId>,
+    /// The group the model is placed in.
+    group: GroupId,
     description: Str,
     deprecated: bool,
     ty: TypeId,
