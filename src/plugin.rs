@@ -27,7 +27,8 @@ pub trait Plugin: Sync {
 
     /// Generates files for the given group.
     ///
-    /// This will be called exactly once for each group and in parallel with other groups.
+    /// This will be called exactly once for each group, including the root,
+    /// and in parallel with other groups.
     fn generate_group(&self, _: Group<'_>) -> Result<impl Iterator<Item = Self::File>, Err> {
         Ok(std::iter::empty())
     }
@@ -44,8 +45,8 @@ pub trait File: Send {
 /// Runs `plugin` on `forge` and returns every file it generates.
 ///
 /// Calls [`Plugin::generate`] once, then [`Plugin::generate_group`] for each
-/// group in parallel. The files from `generate` come first, then each
-/// group's files in the order of [`Forge::groups`].
+/// group, the root included, in parallel. The files from `generate` come
+/// first, then each group's files in the order of [`Forge::groups`].
 pub fn run<P: Plugin>(forge: &Forge, plugin: &P) -> Result<Vec<P::File>, Err> {
     let mut files: Vec<P::File> = plugin.generate(forge)?.collect();
 

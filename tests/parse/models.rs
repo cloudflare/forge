@@ -30,7 +30,7 @@ fn response_model_is_placed_in_its_group() {
         }"##,
     );
 
-    assert_eq!(model(&forge, "Zone").group(), Some(group(&forge, "zones")));
+    assert_eq!(model(&forge, "Zone").group(), group(&forge, "zones"));
 }
 
 #[test]
@@ -69,7 +69,7 @@ fn model_used_in_sibling_groups_is_in_their_parent() {
         }"##,
     );
 
-    assert_eq!(model(&forge, "M").group(), Some(group(&forge, "a.b")));
+    assert_eq!(model(&forge, "M").group(), group(&forge, "a.b"));
 }
 
 #[test]
@@ -108,11 +108,11 @@ fn model_used_in_a_group_and_its_subgroup_is_in_the_group() {
         }"##,
     );
 
-    assert_eq!(model(&forge, "M").group(), Some(group(&forge, "a")));
+    assert_eq!(model(&forge, "M").group(), group(&forge, "a"));
 }
 
 #[test]
-fn model_used_in_top_level_groups_is_at_the_top_level() {
+fn model_used_in_top_level_groups_is_in_the_root() {
     let forge = parse(
         r##"{
           "openapi": "3.0.3",
@@ -148,8 +148,46 @@ fn model_used_in_top_level_groups_is_at_the_top_level() {
     );
 
     let m = model(&forge, "M");
-    assert_eq!(m.group(), None);
-    assert_eq!(forge.models().collect::<Vec<_>>(), [m]);
+    assert_eq!(m.group(), group(&forge, ""));
+    assert_eq!(group(&forge, "").models().collect::<Vec<_>>(), [m]);
+}
+
+#[test]
+fn model_used_by_a_method_of_the_root_is_in_the_root() {
+    let forge = parse(
+        r##"{
+          "openapi": "3.0.3",
+          "info": {"title": "t", "version": "1"},
+          "paths": {
+            "/a": {
+              "get": {
+                "x-forge-group-name": "a.b",
+                "x-forge-method-name": "get",
+                "responses": {"200": {
+                  "description": "ok",
+                  "content": {"application/json": {"schema": {"$ref": "#/components/schemas/M"}}}
+                }}
+              }
+            },
+            "/m": {
+              "get": {
+                "x-forge-method-name": "get",
+                "responses": {"200": {
+                  "description": "ok",
+                  "content": {"application/json": {"schema": {"$ref": "#/components/schemas/M"}}}
+                }}
+              }
+            }
+          },
+          "components": {
+            "schemas": {
+              "M": {"type": "object", "properties": {"id": {"type": "string"}}}
+            }
+          }
+        }"##,
+    );
+
+    assert_eq!(model(&forge, "M").group(), group(&forge, ""));
 }
 
 #[test]
@@ -189,8 +227,8 @@ fn model_used_through_another_model_is_placed_by_every_use() {
         }"##,
     );
 
-    assert_eq!(model(&forge, "Outer").group(), Some(group(&forge, "a.b")));
-    assert_eq!(model(&forge, "Inner").group(), Some(group(&forge, "a")));
+    assert_eq!(model(&forge, "Outer").group(), group(&forge, "a.b"));
+    assert_eq!(model(&forge, "Inner").group(), group(&forge, "a"));
 }
 
 #[test]
@@ -229,7 +267,7 @@ fn params_bodies_and_errors_use_models() {
 
     let a = group(&forge, "a");
     for name in ["Filter", "Input", "Failure"] {
-        assert_eq!(model(&forge, name).group(), Some(a), "{name}");
+        assert_eq!(model(&forge, name).group(), a, "{name}");
     }
 }
 
@@ -261,12 +299,12 @@ fn schema_no_method_uses_is_not_a_model() {
                 }}
               }
             },
-            "/ungrouped": {
+            "/unnamed": {
               "get": {
-                "x-forge-method-name": "ungrouped",
+                "x-forge-group-name": ["a"],
                 "responses": {"200": {
                   "description": "ok",
-                  "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Ungrouped"}}}
+                  "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Unnamed"}}}
                 }}
               }
             }
@@ -275,7 +313,7 @@ fn schema_no_method_uses_is_not_a_model() {
             "schemas": {
               "Used": {"type": "string"},
               "Skipped": {"type": "string"},
-              "Ungrouped": {"type": "string"},
+              "Unnamed": {"type": "string"},
               "Unused": {"type": "string"}
             }
           }
@@ -294,7 +332,7 @@ fn model_can_refer_to_itself() {
 
     let node = model(&forge, "Node");
     assert_eq!(model_of(field(object(node.ty()), "next").ty()), node);
-    assert_eq!(node.group(), Some(group(&forge, "a")));
+    assert_eq!(node.group(), group(&forge, "a"));
 }
 
 #[test]
@@ -393,7 +431,7 @@ fn model_that_is_a_ref_is_the_other_model() {
     let base = model_of(model(&forge, "Alias").ty());
     assert_eq!(base.schema_name(), "Base");
     assert_eq!(scalar(base.ty()), Scalar::String);
-    assert_eq!(base.group(), Some(group(&forge, "a")));
+    assert_eq!(base.group(), group(&forge, "a"));
 }
 
 #[test]
@@ -428,8 +466,8 @@ fn schema_used_only_by_content_that_is_not_json_is_a_model() {
 
     assert_eq!(models(&forge), ["Report", "Upload"]);
     let files = group(&forge, "a.files");
-    assert_eq!(model(&forge, "Upload").group(), Some(files));
-    assert_eq!(model(&forge, "Report").group(), Some(files));
+    assert_eq!(model(&forge, "Upload").group(), files);
+    assert_eq!(model(&forge, "Report").group(), files);
     let upload = method(&forge, "a.files.upload")
         .body()
         .unwrap()
@@ -478,7 +516,7 @@ fn use_by_content_that_is_not_json_places_a_model() {
         }"##,
     );
 
-    assert_eq!(model(&forge, "M").group(), None);
+    assert_eq!(model(&forge, "M").group(), group(&forge, ""));
 }
 
 #[test]

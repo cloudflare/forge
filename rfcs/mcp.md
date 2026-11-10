@@ -40,8 +40,9 @@ registerTools(server, tools, {
 tools/
   index.ts          every tool, the API's base URL and version, and the runtime's functions
   _/tool.ts         the runtime: the Tool type, registering tools, building requests
-  schemas.ts        the schema of each top-level model used in arguments
-  outputs.ts        the schema of each top-level model used in responses
+  tools.ts          the tools of the root group's methods, those in no group
+  schemas.ts        the schema of each model placed in the root and used in arguments
+  outputs.ts        the schema of each model placed in the root and used in responses
   <group>/tools.ts  the tools of a group's methods
   <group>/schemas.ts  the schema of each model placed in the group and used in arguments
   <group>/outputs.ts  the schema of each model placed in the group and used in responses
@@ -91,6 +92,7 @@ A tool is named after its groups and its method, each in camelCase, joined by `_
 | `pet_stores.inventory.items` | `bulk_edit` | `petStores_inventory_items_bulkEdit` |
 | `a.b`                        | `c`         | `a_b_c`                              |
 | `a`                          | `b_c`       | `a_bC`                               |
+| the root, in no group        | `health`    | `health`                             |
 
 OpenAI and Anthropic only accept `[a-zA-Z0-9_-]` in tool names, which rules out `.` as the separator. `_` only separates names: forge treats `_` inside a name as a word break, so the words of a name never contain it. Group `a.b` method `c` and group `a` method `b_c` would both be `a_b_c` in snake_case; in camelCase they differ. Tools of different groups never share a name.
 

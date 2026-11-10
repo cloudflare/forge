@@ -293,7 +293,7 @@ fn extensions_in_paths_and_path_items_are_not_operations() {
         }"#,
     );
 
-    assert_eq!(forge.groups().count(), 1);
+    assert_eq!(group(&forge, "").children().count(), 1);
     assert_eq!(group(&forge, "a").methods().len(), 1);
 }
 
@@ -344,7 +344,8 @@ fn webhooks_are_not_methods() {
         }"#,
     );
 
-    assert_eq!(forge.groups().count(), 0);
+    assert_eq!(forge.groups().collect::<Vec<_>>(), [group(&forge, "")]);
+    assert_eq!(group(&forge, "").methods().len(), 0);
 }
 
 #[test]
@@ -534,5 +535,5 @@ fn x_forge_method_without_name_is_not_a_method_name() {
         }"#,
     );
 
-    assert_eq!(forge.groups().count(), 0);
+    assert_eq!(forge.groups().collect::<Vec<_>>(), [group(&forge, "")]);
 }

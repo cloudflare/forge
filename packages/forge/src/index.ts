@@ -12,7 +12,8 @@
  * export const { generate, generateGroup } = definePlugin({
  *   generateGroup(group) {
  *     const names = group.methods.map((m) => m.name.camel());
- *     return [{ path: `${group.name.kebab()}.txt`, content: names.join("\n") }];
+ *     const path = [...group.path.map((name) => name.kebab()), "methods.txt"].join("/");
+ *     return [{ path, content: names.join("\n") }];
  *   },
  * });
  * ```
@@ -32,8 +33,8 @@
 // classes behind them stay private, so the bindings never show in
 // index.d.ts.
 
-import * as host from 'forge:plugin/forge@0.3.0';
-import type * as hostPlugin from 'forge:plugin/plugin@0.3.0';
+import * as host from 'forge:plugin/forge@0.4.0';
+import type * as hostPlugin from 'forge:plugin/plugin@0.4.0';
 
 // ---------------------------------------------------------------------------
 // The API.
@@ -43,9 +44,10 @@ export interface Plugin {
   /** Generates files for the forge. Called exactly once. */
   generate?(forge: Forge): Iterable<File>;
   /**
-   * Generates files for a group. Called exactly once for each group, in
-   * parallel with other groups. Instances are reused across groups of the
-   * same forge, so module state may carry over between calls.
+   * Generates files for a group. Called exactly once for each group, the
+   * root included, in parallel with other groups. Instances are reused
+   * across groups of the same forge, so module state may carry over between
+   * calls.
    */
   generateGroup?(group: Group): Iterable<File>;
 }
@@ -102,20 +104,29 @@ export interface Forge {
   readonly description: string;
   /** The URL of the first server, with its variables substituted. */
   readonly baseUrl: string;
-  /** Every group, depth first. Siblings are sorted by name. */
+  /** Every group, depth first, starting with the root. Siblings are sorted by name. */
   readonly groups: readonly Group[];
-  /** The models in no group: those methods in more than one top-level group use. */
-  readonly models: readonly Model[];
 }
 
-/** A named collection of subgroups, methods and models. */
+/**
+ * A named collection of subgroups, methods and models.
+ *
+ * Every forge has a root group, which every other group is inside, and
+ * which `Forge.groups` has first. It is the only group with an empty name,
+ * and the only one without a `parent`. It holds the methods without a group
+ * name, and the models that methods in more than one of its subgroups use.
+ */
 export interface Group {
+  /** Empty for the root, and only for the root. */
   readonly name: Name;
   /** A short description, or an empty string. */
   readonly description: string;
-  /** The names of the groups from the top level down to this one, ending with its own. */
+  /**
+   * The names of the groups from the top level down to this one, ending
+   * with its own. The root is not included, so its path is empty.
+   */
   readonly path: readonly Name[];
-  /** The group this one is in, or undefined at the top level. */
+  /** The group this one is in, which is the root for a top-level group, or undefined for the root. */
   readonly parent: Group | undefined;
   /** The groups directly inside, sorted by name. */
   readonly children: readonly Group[];
@@ -245,8 +256,12 @@ export interface Model {
   /** Its key in `components.schemas`, such as `Account`, or a path such as `Tree/$defs/Node`. */
   readonly schemaName: string;
   readonly name: Name;
-  /** The group it is placed in, or undefined at the top level. */
-  readonly group: Group | undefined;
+  /**
+   * The group it is placed in: the deepest one every method using it
+   * shares, which is the root for a model used in more than one top-level
+   * group, or by a method of the root.
+   */
+  readonly group: Group;
   readonly description: string;
   readonly deprecated: boolean;
   readonly type: Type;
@@ -561,7 +576,6 @@ class ForgeImpl implements Forge {
   private readonly modelCache: (ModelImpl | undefined)[] = [];
   private readonly typeCache: (Type | undefined)[] = [];
   private readonly allGroups = lazy(() => ids(host.groups()).map((id) => this.group(id)));
-  private readonly topModels = lazy(() => ids(host.models()).map((id) => this.model(id)));
 
   get version(): string {
     return this.info().version;
@@ -577,10 +591,6 @@ class ForgeImpl implements Forge {
 
   get groups(): readonly Group[] {
     return this.allGroups();
-  }
-
-  get models(): readonly Model[] {
-    return this.topModels();
   }
 
   group(id: host.GroupId): GroupImpl {
@@ -605,6 +615,7 @@ class GroupImpl implements Group {
     name: Name;
     description: string;
     path: host.GroupId[];
+    parent: host.GroupId | undefined;
     children: host.GroupId[];
     methods: host.MethodId[];
     models: host.ModelId[];
@@ -620,6 +631,7 @@ class GroupImpl implements Group {
         name: new NameImpl(g.name),
         description: g.description,
         path: ids(g.path),
+        parent: opt(g.parent),
         children: ids(g.children),
         methods: ids(g.methods),
         models: ids(g.models),
@@ -640,8 +652,7 @@ class GroupImpl implements Group {
   }
 
   get parent(): Group | undefined {
-    const path = this.info().path;
-    const parent = path[path.length - 2];
+    const parent = this.info().parent;
     return parent === undefined ? undefined : this.forge.group(parent);
   }
 
@@ -871,7 +882,7 @@ class ModelImpl implements Model {
   private readonly info: () => {
     schemaName: string;
     name: Name;
-    group: host.GroupId | undefined;
+    group: host.GroupId;
     description: string;
     deprecated: boolean;
     ty: host.TypeId;
@@ -886,7 +897,7 @@ class ModelImpl implements Model {
       return {
         schemaName: m.schemaName,
         name: new NameImpl(m.name),
-        group: opt(m.group),
+        group: m.group,
         description: m.description,
         deprecated: m.deprecated,
         ty: m.ty,
@@ -902,9 +913,8 @@ class ModelImpl implements Model {
     return this.info().name;
   }
 
-  get group(): Group | undefined {
-    const group = this.info().group;
-    return group === undefined ? undefined : this.forge.group(group);
+  get group(): Group {
+    return this.forge.group(this.info().group);
   }
 
   get description(): string {

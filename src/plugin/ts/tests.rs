@@ -419,13 +419,13 @@ fn models() {
         forge
             .groups()
             .flat_map(|group| group.models())
-            .chain(forge.models())
             .find(|model| model.schema_name() == schema_name)
             .unwrap()
     };
     let (owner, two_fa) = (model("pet_owner"), model("2fa"));
 
     assert_eq!(Module::ROOT.sub("models.ts"), Module::new("models.ts"));
+    assert_eq!(Module::group(forge.groups().next().unwrap()), Module::ROOT);
     assert_eq!(Module::group(group(&["pet-store"])), Module::new("petStore"));
     assert_eq!(
         Module::group(group(&["pet-store", "list_all"])).sub("client.ts"),

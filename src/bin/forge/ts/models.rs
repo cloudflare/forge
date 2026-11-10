@@ -2,18 +2,18 @@
 
 use std::collections::HashMap;
 
-use forge::ts::{File, Ident, p};
-use forge::{Model, Object, Type};
+use forge::ts::{File, Ident, Module, p};
+use forge::{Group, Model, Object, Type};
 
-use super::Node;
 use super::codec::{declares_codec, model_codec};
 use super::types::{Prec, doc, fields, has_fields, kept, member, typ};
+use super::{path, sorted_models};
 
-/// Returns the models.ts of `node`: each model, then the codecs of the
+/// Returns the models.ts of `group`: each model, then the codecs of the
 /// models. It reports a model whose name has no letters or digits, and two
 /// models with the same name (specs/02-naming.md).
-pub(super) fn models(node: Node<'_>) -> Result<File, Vec<String>> {
-    let models = node.models();
+pub(super) fn models(group: Group<'_>) -> Result<File, Vec<String>> {
+    let models = sorted_models(group);
     // TODO: Move both checks into the library, next to the method checks in
     // src/link.rs. It accepts a model whose name has no letters or digits,
     // and two models in a group with equal names, such as schemas `Pet` and
@@ -30,7 +30,7 @@ pub(super) fn models(node: Node<'_>) -> Result<File, Vec<String>> {
         } else if let Some(other) = names.get(&name) {
             errs.push(format!(
                 "group {:?}: schemas {:?} and {:?} have the same name {name:?}",
-                node.path(),
+                path(group),
                 other.schema_name(),
                 m.schema_name(),
             ));
@@ -41,7 +41,7 @@ pub(super) fn models(node: Node<'_>) -> Result<File, Vec<String>> {
         return Err(errs);
     }
 
-    let mut f = File::new(node.dir().sub("models.ts"));
+    let mut f = File::new(Module::group(group).sub("models.ts"));
     for (i, &m) in models.iter().enumerate() {
         if i > 0 {
             p!(f);

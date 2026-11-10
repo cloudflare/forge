@@ -26,7 +26,7 @@ use forge::{Err, Forge, Group, Method, Plugin};
 
 use crate::ts::client::{Request, group_name, method_doc, method_name, request_name, response_name, skipped};
 use crate::ts::types::{doc, identifier, key};
-use crate::ts::{self, Node};
+use crate::ts::{self, path};
 
 /// Generates a Cap'n Web server.
 pub struct Generator;
@@ -34,20 +34,18 @@ pub struct Generator;
 impl Plugin for Generator {
     type File = ts::File;
 
-    /// Returns the server.ts and index.ts of the root, and the options.ts
-    /// every server imports.
-    fn generate(&self, forge: &Forge) -> Result<impl Iterator<Item = ts::File>, Err> {
-        let root = Node::Root(forge);
+    /// Returns the options.ts every server imports.
+    fn generate(&self, _: &Forge) -> Result<impl Iterator<Item = ts::File>, Err> {
         let (_, source) = OPTIONS_SOURCE.split_once('\n').unwrap_or_default();
         let options = ts::File::Runtime {
             path: OPTIONS.as_str().to_owned(),
             content: format!("{PREAMBLE}{source}"),
         };
-        Ok([ts::File::Ts(server(root)?), ts::File::Ts(index(root)), options].into_iter())
+        Ok([options].into_iter())
     }
 
+    /// Returns the server.ts and index.ts of `group`.
     fn generate_group(&self, group: Group<'_>) -> Result<impl Iterator<Item = ts::File>, Err> {
-        let group = Node::Group(group);
         Ok([ts::File::Ts(server(group)?), ts::File::Ts(index(group))].into_iter())
     }
 }
@@ -89,14 +87,15 @@ fn request_options() -> Ident {
     OPTIONS.ident("requestOptions")
 }
 
-/// Returns the module of the SDK that exports the Client of `node` and the
+/// Returns the module of the SDK that exports the Client of `group` and the
 /// request and response types of its methods: `#sdk` for the root, and
 /// `#sdk/` followed by the directory of the group otherwise, such as
 /// `#sdk/projects/members`.
-fn sdk(node: Node<'_>) -> Module {
-    match node {
-        Node::Root(_) => SDK,
-        Node::Group(_) => Module::from(format!("{SDK}/{}", node.dir())),
+fn sdk(group: Group<'_>) -> Module {
+    if group.parent().is_none() {
+        SDK
+    } else {
+        Module::from(format!("{SDK}/{}", Module::group(group)))
     }
 }
 
@@ -134,18 +133,19 @@ const RESERVED: [&str; 18] = [
     "onRpcBroken",
 ];
 
-/// Returns the server.ts of `node`, which declares its `Api`: its methods
+/// Returns the server.ts of `group`, which declares its `Api`: its methods
 /// that the SDK keeps, then its subgroups.
-fn server(node: Node<'_>) -> Result<File, Err> {
-    let methods: Vec<Method<'_>> = node.methods().into_iter().filter(|&m| !skipped(m)).collect();
-    let groups = node.children();
-    check(node, &methods, &groups)?;
+fn server(group: Group<'_>) -> Result<File, Err> {
+    let methods: Vec<Method<'_>> = group.methods().filter(|&m| !skipped(m)).collect();
+    let groups: Vec<Group<'_>> = group.children().collect();
+    check(group, &methods, &groups)?;
 
-    let mut f = File::new(node.dir().sub("server.ts"));
-    let client = sdk(node).ident("Client").ty();
-    let what = match node {
-        Node::Root(_) => "the API".to_owned(),
-        Node::Group(_) => format!("the {} group of the API", node.path()),
+    let mut f = File::new(Module::group(group).sub("server.ts"));
+    let client = sdk(group).ident("Client").ty();
+    let what = if group.parent().is_none() {
+        "the API".to_owned()
+    } else {
+        format!("the {} group of the API", path(group))
     };
     f.doc(&format!(
         "Serves {what} over Cap'n Web with a Client of the SDK. \
@@ -164,7 +164,7 @@ fn server(node: Node<'_>) -> Result<File, Err> {
         p!(f, "}");
         for &m in &methods {
             p!(f);
-            method(f, node, m);
+            method(f, group, m);
         }
         for &sub in &groups {
             p!(f);
@@ -175,11 +175,11 @@ fn server(node: Node<'_>) -> Result<File, Err> {
     Ok(f)
 }
 
-/// Reports the members of the server of `node` that it can't serve, naming
+/// Reports the members of the server of `group` that it can't serve, naming
 /// the group and the member: a name that Cap'n Web reserves, and a method
 /// and a subgroup with the same name.
-fn check(node: Node<'_>, methods: &[Method<'_>], groups: &[Group<'_>]) -> Result<(), Err> {
-    let path = node.path();
+fn check(group: Group<'_>, methods: &[Method<'_>], groups: &[Group<'_>]) -> Result<(), Err> {
+    let path = path(group);
     let prefix = if path.is_empty() {
         String::new()
     } else {
@@ -212,16 +212,16 @@ fn check(node: Node<'_>, methods: &[Method<'_>], groups: &[Group<'_>]) -> Result
 }
 
 /// Declares a method of a server that calls the method of the Client.
-fn method(f: &mut File, node: Node<'_>, m: Method<'_>) {
+fn method(f: &mut File, group: Group<'_>, m: Method<'_>) {
     let name = method_name(m);
     f.doc(&doc(&method_doc(m), m.is_deprecated()));
     p!(
         f,
         key(&name),
         "(",
-        params(node, m),
+        params(group, m),
         "): Promise<",
-        response_ident(node, m),
+        response_ident(group, m),
         "> {"
     );
     f.indent(|f| {
@@ -251,18 +251,18 @@ fn subgroup(f: &mut File, sub: Group<'_>) {
 
 /// Returns the parameters of a method of a server: the request of the SDK's
 /// method, optional when it is optional there, and the options.
-fn params(node: Node<'_>, m: Method<'_>) -> Fragment {
+fn params(group: Group<'_>, m: Method<'_>) -> Fragment {
     frag!(
         "request",
         if Request::new(m).optional() { "?: " } else { ": " },
-        sdk(node).ident(request_name(m)).ty(),
+        sdk(group).ident(request_name(m)).ty(),
         ", options?: ",
         options_type()
     )
 }
 
-fn response_ident(node: Node<'_>, m: Method<'_>) -> Ident {
-    sdk(node).ident(response_name(m)).ty()
+fn response_ident(group: Group<'_>, m: Method<'_>) -> Ident {
+    sdk(group).ident(response_name(m)).ty()
 }
 
 /// Returns the property access of `name`: `.name`, or `["name"]` when it
@@ -276,10 +276,10 @@ fn access(name: &str) -> String {
     }
 }
 
-/// Returns the index.ts of `node`, the module of its server, which exports
+/// Returns the index.ts of `group`, the module of its server, which exports
 /// only its `Api`.
-fn index(node: Node<'_>) -> File {
-    let mut f = File::new(node.dir().sub("index.ts"));
+fn index(group: Group<'_>) -> File {
+    let mut f = File::new(Module::group(group).sub("index.ts"));
     p!(f, "export { ", API, r#" } from "./server.js";"#);
     f
 }
@@ -525,7 +525,8 @@ mod tests {
               }}
             }}"#
         ));
-        let root = Generator.generate(&forge).err().unwrap().to_string();
+        let root = forge.groups().next().unwrap();
+        let root = Generator.generate_group(root).err().unwrap().to_string();
         assert!(
             root.contains(r#"group "toString" cannot be served over Cap'n Web"#),
             "{root}"

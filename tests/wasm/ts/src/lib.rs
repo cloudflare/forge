@@ -125,7 +125,6 @@ pub struct Forge {
     pub base_url: String,
 
     groups: OnceLock<Vec<u32>>,
-    top_models: OnceLock<Vec<u32>>,
 
     group_data: Vec<OnceLock<GroupData>>,
     method_data: Vec<OnceLock<MethodData>>,
@@ -148,7 +147,6 @@ impl Forge {
             description: info.description,
             base_url: info.base_url,
             groups: OnceLock::new(),
-            top_models: OnceLock::new(),
             group_data: slots(counts.groups),
             method_data: slots(counts.methods),
             model_data: slots(counts.models),
@@ -158,13 +156,6 @@ impl Forge {
 
     pub fn groups(&self) -> impl Iterator<Item = Group<'_>> {
         self.groups.get_or_init(host::groups).iter().map(|&id| self.group(id))
-    }
-
-    pub fn models(&self) -> impl ExactSizeIterator<Item = Model<'_>> {
-        self.top_models
-            .get_or_init(host::models)
-            .iter()
-            .map(|&id| self.model(id))
     }
 
     fn group(&self, id: u32) -> Group<'_> {
@@ -195,6 +186,7 @@ impl Forge {
                 name: Name::from_words(g.name),
                 description: g.description,
                 path: g.path,
+                parent: g.parent,
                 children: g.children,
                 methods: g.methods,
                 models: g.models,
@@ -366,6 +358,7 @@ struct GroupData {
     name: Name,
     description: String,
     path: Vec<u32>,
+    parent: Option<u32>,
     children: Vec<u32>,
     methods: Vec<u32>,
     models: Vec<u32>,
@@ -413,7 +406,7 @@ struct ContentData {
 struct ModelData {
     schema_name: String,
     name: Name,
-    group: Option<u32>,
+    group: u32,
     description: String,
     deprecated: bool,
     ty: u32,
@@ -495,10 +488,7 @@ impl<'f> Group<'f> {
     }
 
     pub fn parent(self) -> Option<Group<'f>> {
-        let [.., parent, _] = self.data().path[..] else {
-            return None;
-        };
-        Some(self.forge.group(parent))
+        Some(self.forge.group(self.data().parent?))
     }
 
     pub fn children(self) -> impl ExactSizeIterator<Item = Group<'f>> {
@@ -746,8 +736,8 @@ impl<'f> Model<'f> {
         &self.data().name
     }
 
-    pub fn group(self) -> Option<Group<'f>> {
-        Some(self.forge.group(self.data().group?))
+    pub fn group(self) -> Group<'f> {
+        self.forge.group(self.data().group)
     }
 
     pub fn description(self) -> &'f str {
@@ -791,7 +781,7 @@ impl fmt::Display for Model<'_> {
 impl fmt::Debug for Model<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("Model")
-            .field("group", &self.group().map(|group| group.path().collect::<Vec<_>>()))
+            .field("group", &self.group().path().collect::<Vec<_>>())
             .field("schema_name", &self.schema_name())
             .finish()
     }

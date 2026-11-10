@@ -30,15 +30,30 @@ mod bin {
     pub mod ts;
 }
 
-/// A document with nested groups, path and query parameters, bodies,
-/// errors, and models that are enums, unions with a discriminator,
-/// intersections, maps and nullable, and that refer to each other in a
-/// cycle.
+/// A document with nested groups, a method in no group, path and query
+/// parameters, bodies, errors, and models that are enums, unions with a
+/// discriminator, intersections, maps and nullable, and that refer to each
+/// other in a cycle.
 const SPEC: &str = r##"{
   "openapi": "3.1.0",
   "info": {"title": "Pets", "version": "2", "description": "A pet store."},
   "servers": [{"url": "https://api.example.com/v1"}],
   "paths": {
+    "/health": {
+      "get": {
+        "x-forge-method-name": "health",
+        "responses": {
+          "200": {
+            "description": "ok",
+            "content": {"application/json": {"schema": {"type": "object", "properties": {"ok": {"type": "boolean"}}}}}
+          },
+          "default": {
+            "description": "error",
+            "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}
+          }
+        }
+      }
+    },
     "/pets": {
       "get": {
         "x-forge-group-name": ["pets"],
@@ -259,7 +274,8 @@ const FEATURES: &str = r##"{
             "x-forge-group-name": ["admin", "pets"],
             "x-forge-method-name": "delete",
             "x-forge-require-confirmation": ""
-          }
+          },
+          {"x-forge-group-name": [], "x-forge-method-name": "delete pet"}
         ],
         "parameters": [
           {"name": "id", "in": "path", "required": true, "schema": {"type": "string"}}
@@ -377,6 +393,7 @@ fn reads_all_of_the_forge() {
                 "union exclusive false",
                 "union exclusive true",
                 "Pets, for admins.",
+                "method \"delete pet\" DELETE \"/pets/{id}\" in []",
             ] {
                 assert!(native.contains(seen), "the dump has no {seen:?}:\n{native}");
             }

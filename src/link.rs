@@ -25,8 +25,8 @@ use crate::types::{
     ArrayData, DiscriminatorData, EnumData, FieldData, NameId, ObjectData, TypeData, TypeId, UnionData,
 };
 use crate::{
-    Availability, EnumValue, Forge, GroupData, GroupId, HttpMethod, Location, MethodData, MethodId, ModelData, ModelId,
-    Name, Number, Scalar,
+    Availability, EnumValue, Forge, GroupData, GroupId, Groups, HttpMethod, Location, MethodData, MethodId, ModelData,
+    ModelId, Name, Number, Scalar,
 };
 use openapi::{
     Commands, ContentEncoding, Definition, Discriminator, Doc, Format, Info, Item, Literal, Operation, Parameter,
@@ -100,7 +100,6 @@ fn build(mut doc: Doc) -> Result<Forge, Vec<String>> {
     builder.add_paths(doc.paths);
     let Builder {
         mut groups,
-        mut top,
         methods,
         models,
         types,
@@ -115,8 +114,12 @@ fn build(mut doc: Doc) -> Result<Forge, Vec<String>> {
     if !errors.is_empty() {
         return Err(errors);
     }
-    sort(&mut groups, &mut top, &methods);
+    sort(&mut groups, &methods);
+    // The root has no entry: the top level of `x-forge-commands` holds the
+    // entries of the groups inside it.
+    let top = mem::take(&mut groups[GroupId::ROOT.index()].groups);
     describe(&mut groups, &top, &mut commands);
+    groups[GroupId::ROOT.index()].groups = top;
     let mut names = vec![Name::default(); name_ids.len()];
     for (name, id) in name_ids {
         names[id.index()] = name;
@@ -126,10 +129,8 @@ fn build(mut doc: Doc) -> Result<Forge, Vec<String>> {
         version: info.version,
         base_url: url,
         groups,
-        top,
         methods,
         models,
-        top_models: Vec::new(),
         types,
         strings,
         names,
@@ -139,7 +140,7 @@ fn build(mut doc: Doc) -> Result<Forge, Vec<String>> {
         extensions,
         defaults,
     };
-    forge.top_models = place_models(&mut forge);
+    place_models(&mut forge);
     Ok(forge)
 }
 
@@ -186,11 +187,9 @@ fn base_url(server: &Server) -> Result<String, String> {
     Ok(url)
 }
 
-/// Sorts the top-level groups `top`, and the subgroups and methods of each
-/// group, by name. Only the lists of IDs are sorted, so every ID stays the
-/// same.
-fn sort(groups: &mut [GroupData], top: &mut [GroupId], methods: &[MethodData]) {
-    top.sort_by(|a, b| groups[a.index()].name.cmp(&groups[b.index()].name));
+/// Sorts the subgroups and methods of each group by name. Only the lists of
+/// IDs are sorted, so every ID stays the same.
+fn sort(groups: &mut [GroupData], methods: &[MethodData]) {
     for i in 0..groups.len() {
         // Moved out while sorted, since the names are in the same slice.
         let mut children = mem::take(&mut groups[i].groups);
@@ -220,9 +219,8 @@ fn describe(groups: &mut [GroupData], ids: &[GroupId], commands: &mut Commands) 
 }
 
 /// Places each model in the deepest group shared by every method that uses
-/// it, directly or through other models, and returns the models placed at
-/// the top level.
-fn place_models(forge: &mut Forge) -> Vec<ModelId> {
+/// it, directly or through other models.
+fn place_models(forge: &mut Forge) {
     let Forge {
         groups,
         methods,
@@ -241,8 +239,8 @@ fn place_models(forge: &mut Forge) -> Vec<ModelId> {
         models_in(&types, model.ty, &mut used, &mut walk);
         uses.push(used);
     }
-    // The groups shared by every use of each model so far, from the top
-    // level down; none for a model not yet reached.
+    // The groups shared by every use of each model so far, from the root
+    // down; none for a model not yet reached.
     let mut shared: Vec<Option<Vec<GroupId>>> = vec![None; models.len()];
     // The last method that reached each model, so a method walks each
     // model once.
@@ -269,20 +267,14 @@ fn place_models(forge: &mut Forge) -> Vec<ModelId> {
             stack.extend_from_slice(&uses[m]);
         }
     }
-    let mut top = Vec::new();
     for (m, shared) in shared.into_iter().enumerate() {
-        let id = ModelId(m as u32);
-        let group = match shared {
-            Some(shared) => shared.last().copied(),
-            None => None,
-        };
+        // Every path starts with the root, so the shared one does too.
+        let group = shared
+            .and_then(|shared| shared.last().copied())
+            .unwrap_or(GroupId::ROOT);
         models[m].group = group;
-        match group {
-            Some(group) => groups[group.index()].models.push(id),
-            None => top.push(id),
-        }
+        groups[group.index()].models.push(ModelId(m as u32));
     }
-    top
 }
 
 /// The types of a `Forge`, and the arenas of their lists.
@@ -395,10 +387,9 @@ struct Builder<'d> {
     /// `$ref` are ignored.
     v30: bool,
 
-    groups: Vec<GroupData>,
-    top: Vec<GroupId>,
-    /// Each group by its parent, or none for a top-level group, and name.
-    group_index: HashMap<(Option<GroupId>, Name), GroupId>,
+    groups: Groups,
+    /// Each group but the root by its parent and name.
+    group_index: HashMap<(GroupId, Name), GroupId>,
     methods: Vec<MethodData>,
     /// Each method by group and name.
     method_index: HashMap<(GroupId, Name), MethodId>,
@@ -455,8 +446,7 @@ impl<'d> Builder<'d> {
             doc,
             index,
             v30,
-            groups: Vec::new(),
-            top: Vec::new(),
+            groups: Groups::default(),
             group_index: HashMap::new(),
             methods: Vec::new(),
             method_index: HashMap::new(),
@@ -569,11 +559,11 @@ impl<'d> Builder<'d> {
         if definition.method_name.is_empty() {
             return;
         }
-        let group_names = doc.list(definition.group_names);
-        if group_names.is_empty() {
-            return;
-        }
-        let group_names: Vec<Name> = group_names.iter().map(|&name| Name::new(doc.str(name))).collect();
+        let group_names: Vec<Name> = doc
+            .list(definition.group_names)
+            .iter()
+            .map(|&name| Name::new(doc.str(name)))
+            .collect();
         for name in &group_names {
             if name.is_empty() {
                 self.error("x-forge-group-name has a group name with no letters or digits");
@@ -595,13 +585,11 @@ impl<'d> Builder<'d> {
                 ));
             }
         }
-        let mut group = None;
+        // Without group names, the method is in the root.
+        let mut group = GroupId::ROOT;
         for group_name in group_names {
-            group = Some(self.child(group, group_name));
+            group = self.child(group, group_name);
         }
-        let Some(group) = group else {
-            return;
-        };
         let id = MethodId(u32::try_from(self.methods.len()).expect("fewer than 2^32 methods"));
         match self.method_index.entry((group, name.clone())) {
             Entry::Occupied(entry) => {
@@ -696,19 +684,16 @@ impl<'d> Builder<'d> {
         });
     }
 
-    /// Returns the group `name` inside `parent`, or at the top level if
-    /// `parent` is none, adding it if it is missing.
-    fn child(&mut self, parent: Option<GroupId>, name: Name) -> GroupId {
+    /// Returns the group `name` inside `parent`, adding it if it is
+    /// missing.
+    fn child(&mut self, parent: GroupId, name: Name) -> GroupId {
         let key = (parent, name);
         if let Some(&id) = self.group_index.get(&key) {
             return id;
         }
         let name = &key.1;
         let id = GroupId(u32::try_from(self.groups.len()).expect("fewer than 2^32 groups"));
-        let mut path = match parent {
-            Some(parent) => self.groups[parent.index()].path.clone(),
-            None => Vec::new(),
-        };
+        let mut path = self.groups[parent.index()].path.clone();
         path.push(id);
         self.groups.push(GroupData {
             name: name.clone(),
@@ -718,10 +703,7 @@ impl<'d> Builder<'d> {
             methods: Vec::new(),
             models: Vec::new(),
         });
-        match parent {
-            Some(parent) => self.groups[parent.index()].groups.push(id),
-            None => self.top.push(id),
-        }
+        self.groups[parent.index()].groups.push(id);
         self.group_index.insert(key, id);
         id
     }
@@ -1426,7 +1408,8 @@ impl<'d> Builder<'d> {
         self.models.push(ModelData {
             schema_name: self.strings.push(&schema_name),
             name,
-            group: None,
+            // Placed once every method is read.
+            group: GroupId::ROOT,
             description: self.strings.push(description),
             deprecated,
             ty: unknown,

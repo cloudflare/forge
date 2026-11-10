@@ -126,11 +126,12 @@ export const { generate, generateGroup } = definePlugin({
     return [{ path: 'README.md', content: `# API ${forge.version}\n` }];
   },
 
-  // Called once for each group, in parallel.
+  // Called once for each group, the root included, in parallel. The root's
+  // path is empty, so its models.ts is at the top of the output.
   generateGroup(group) {
-    const dir = group.path.map((name) => name.camel()).join('/');
+    const path = [...group.path.map((name) => name.camel()), 'models.ts'].join('/');
     const lines = group.models.map((m) => `export type ${m.name.pascal()} = ${ts(m.type)};`);
-    return [{ path: `${dir}/models.ts`, content: lines.join('\n') }];
+    return [{ path, content: lines.join('\n') }];
   },
 });
 ```
@@ -153,8 +154,16 @@ Array types expose `minItems` and `maxItems`; an absent bound is
 can handle it explicitly. Other unrecognized string formats remain
 `scalar: 'string'`. Forge does not validate request values.
 
-The plugin interface is `forge:plugin@0.3.0`. Rebuild plugins compiled
-against `0.2.0` with the updated package before running them with this
+Every forge has a root group, which every other group is inside, and which
+`forge.groups` has first. It is the only group with an empty name and path,
+and the only one without a `parent`: a top-level group's `parent` is the
+root. The root holds the methods whose operations have no
+`x-forge-group-name`, and the models that methods in more than one top-level
+group use, so every model has a `group`. `generateGroup` is called for the
+root too.
+
+The plugin interface is `forge:plugin@0.4.0`. Rebuild plugins compiled
+against `0.3.0` with the updated package before running them with this
 version of Forge.
 
 A plugin fails by throwing; forge stops and prints the message. Its files
@@ -281,8 +290,7 @@ function models(dir: Module, models: readonly Model[]): File {
 }
 
 export const { generate, generateGroup } = definePlugin({
-  // The models in no group, which more than one top-level group uses.
-  generate: (forge) => [models(module.ROOT, forge.models)],
+  // The root's directory is module.ROOT.
   generateGroup: (group) => [models(module.group(group), group.models)],
 });
 ```
@@ -301,7 +309,8 @@ export const { generate, generateGroup } = definePlugin({
   as `./models.js`, and `module("zod")` a package. `m.ident(name)`, or
   `ident(name, m)`, is an identifier it declares; `.ty()` marks it as a
   type, and `.as(alias)` imports it under another name. `module.group(group)`
-  is a group's directory, `module.ROOT` the output directory's, and
+  is a group's directory, `module.ROOT` the output directory's and the root
+  group's, and
   `ident.model(model)` a model's identifier.
 - `file(path)` returns a `File`, which is a plugin's file as it is: one with
   nothing printed isn't written, and its text starts with a preamble marking

@@ -60,7 +60,7 @@ macro_rules! wit {
 
 wit!(
     r#"
-package forge:plugin@0.3.0;
+package forge:plugin@0.4.0;
 
 /// Read-only access to the forge a plugin runs on, which the host keeps.
 /// Each id is an index the host gave out. An id the host never gave out
@@ -98,10 +98,14 @@ interface forge {
     }
 
     record group-info {
+        /// Empty for the root, and only for the root.
         name: name,
         description: string,
         /// The groups from the top level down to this one, ending with it.
+        /// The root is not included, so its path is empty.
         path: list<group-id>,
+        /// The group this one is inside, or none for the root.
+        parent: option<group-id>,
         /// The groups directly inside, sorted by name.
         children: list<group-id>,
         /// The methods directly inside, sorted by name.
@@ -178,7 +182,7 @@ interface forge {
     record model-info {
         schema-name: string,
         name: name,
-        group: option<group-id>,
+        group: group-id,
         description: string,
         deprecated: bool,
         ty: type-id,
@@ -252,10 +256,8 @@ interface forge {
 
     info: func() -> forge-info;
     counts: func() -> forge-counts;
-    /// Every group, depth first.
+    /// Every group, depth first, starting with the root.
     groups: func() -> list<group-id>;
-    /// The models at the top level, in no group.
-    models: func() -> list<model-id>;
     get-group: func(id: group-id) -> group-info;
     get-method: func(id: method-id) -> method-info;
     get-model: func(id: model-id) -> model-info;
@@ -279,9 +281,9 @@ world plugin {
 
     /// Generates files for the forge. Called exactly once.
     export generate: func() -> result<list<file>, string>;
-    /// Generates files for a group. Called exactly once for each group, in
-    /// parallel with other groups. Instances are reused across groups of
-    /// the same forge.
+    /// Generates files for a group. Called exactly once for each group,
+    /// the root included, in parallel with other groups. Instances are
+    /// reused across groups of the same forge.
     export generate-group: func(group: group-id) -> result<list<file>, string>;
 }
 "#
@@ -501,17 +503,16 @@ impl wit::Host for State {
         Ok(self.forge()?.groups().map(|group| group.id.0).collect())
     }
 
-    fn models(&mut self) -> wasmtime::Result<Vec<u32>> {
-        Ok(self.forge()?.top_models.iter().map(|id| id.0).collect())
-    }
-
     fn get_group(&mut self, id: u32) -> wasmtime::Result<wit::GroupInfo> {
         let forge = self.forge()?;
         let data = get(&forge.groups, id, "group")?;
+        // As in `Group::path` and `Group::parent`: the stored path starts
+        // with the root, and ends with the group.
         Ok(wit::GroupInfo {
             name: words(&data.name),
             description: data.description.clone(),
-            path: data.path.iter().map(|id| id.0).collect(),
+            path: data.path[1..].iter().map(|id| id.0).collect(),
+            parent: data.path.iter().rev().nth(1).map(|id| id.0),
             children: data.groups.iter().map(|id| id.0).collect(),
             methods: data.methods.iter().map(|id| id.0).collect(),
             models: data.models.iter().map(|id| id.0).collect(),
@@ -576,7 +577,7 @@ impl wit::Host for State {
         Ok(wit::ModelInfo {
             schema_name: forge.strings.get(data.schema_name).to_owned(),
             name: words(&data.name),
-            group: data.group.map(|id| id.0),
+            group: data.group.0,
             description: forge.strings.get(data.description).to_owned(),
             deprecated: data.deprecated,
             ty: data.ty.0,
