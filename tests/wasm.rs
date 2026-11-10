@@ -531,7 +531,9 @@ fn bench() {
             json.len() / 1_000_000,
             files.len(),
         );
-        println!("  first wasm run, instantiating: {cold:?}");
+        println!("  first wasm run: {cold:?}");
+        // The plugin runs on one thread whatever the pool, while the native
+        // generator generates groups in parallel.
         println!("  {:<22} {:>10} {:>10} {:>8}", "", "native", "wasm", "ratio");
         for (name, pool) in [
             (format!("{threads} threads"), None),
@@ -545,30 +547,6 @@ fn bench() {
             let wasm = median(|| run(&|| drop(wasm(&forge, &plugin).unwrap())));
             row(&name, native, wasm);
         }
-
-        // `run` calls `generate` alone before the groups, so it bounds
-        // how much the threads can help.
-        let native = median(|| {
-            let files = bin::ts::Generator.generate(&forge).unwrap();
-            files.for_each(|file| drop(file.content().unwrap()));
-        });
-        let wasm = median(|| plugin.generate(&forge).unwrap().for_each(drop));
-        row("serial `generate` only", native, wasm);
-
-        // A group runs on one thread, so the slowest one bounds it too.
-        let (native, wasm) = forge
-            .groups()
-            .map(|group| {
-                let native = median(|| {
-                    let files = bin::ts::Generator.generate_group(group).unwrap();
-                    files.for_each(|file| drop(file.content().unwrap()));
-                });
-                let wasm = median(|| plugin.generate_group(group).unwrap().for_each(drop));
-                (native, wasm)
-            })
-            .max()
-            .unwrap();
-        row("slowest group", native, wasm);
     }
 }
 
@@ -604,7 +582,7 @@ type Files = BTreeMap<String, Vec<u8>>;
 /// Runs `plugin` and renders its files as `forge::write` does, in
 /// parallel, without writing them.
 fn render<P: Plugin>(forge: &Forge, plugin: &P) -> Result<Files, Err> {
-    let files = forge::run(forge, plugin)?;
+    let files: Vec<P::File> = plugin.generate(forge)?.collect();
     files
         .into_par_iter()
         .map(|file| Ok((file.path().to_owned(), file.content()?.into_owned())))

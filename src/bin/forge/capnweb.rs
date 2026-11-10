@@ -24,6 +24,8 @@ use std::collections::HashSet;
 use forge::ts::{File, Fragment, Ident, Module, PREAMBLE, frag, p};
 use forge::{Err, Forge, Group, Method, Plugin};
 
+use rayon::prelude::*;
+
 use crate::ts::client::{Request, group_name, method_doc, method_name, request_name, response_name, skipped};
 use crate::ts::types::{doc, identifier, key};
 use crate::ts::{self, path};
@@ -34,19 +36,21 @@ pub struct Generator;
 impl Plugin for Generator {
     type File = ts::File;
 
-    /// Returns the options.ts every server imports.
-    fn generate(&self, _: &Forge) -> Result<impl Iterator<Item = ts::File>, Err> {
+    /// Returns the options.ts every server imports, then the server.ts and
+    /// index.ts of each group, which are generated in parallel.
+    fn generate(&self, forge: &Forge) -> Result<impl Iterator<Item = ts::File>, Err> {
         let (_, source) = OPTIONS_SOURCE.split_once('\n').unwrap_or_default();
-        let options = ts::File::Runtime {
+        let mut files = vec![ts::File::Runtime {
             path: OPTIONS.as_str().to_owned(),
             content: format!("{PREAMBLE}{source}"),
-        };
-        Ok([options].into_iter())
-    }
-
-    /// Returns the server.ts and index.ts of `group`.
-    fn generate_group(&self, group: Group<'_>) -> Result<impl Iterator<Item = ts::File>, Err> {
-        Ok([ts::File::Ts(server(group)?), ts::File::Ts(index(group))].into_iter())
+        }];
+        let groups: Vec<Group<'_>> = forge.groups().collect();
+        let per_group = groups
+            .par_iter()
+            .map(|&group| Ok(vec![ts::File::Ts(server(group)?), ts::File::Ts(index(group))]))
+            .collect::<Result<Vec<_>, Err>>()?;
+        files.extend(per_group.into_iter().flatten());
+        Ok(files.into_iter())
     }
 }
 
@@ -308,9 +312,9 @@ mod tests {
     /// Returns the content of every file of the server, by path, without
     /// the preamble.
     fn generate(forge: &Forge) -> BTreeMap<String, String> {
-        forge::run(forge, &Generator)
+        Generator
+            .generate(forge)
             .unwrap()
-            .into_iter()
             .map(|file| {
                 let content = forge::File::content(&file).unwrap();
                 let content = String::from_utf8(content.into_owned()).unwrap();
@@ -509,13 +513,6 @@ mod tests {
         // Cap'n Web never delivers a call to then or toString.
         let forge = build(&format!(
             r#"{{
-              "/a": {{
-                "get": {{
-                  "x-forge-group-name": "a",
-                  "x-forge-method-name": "then",
-                  {OK}
-                }}
-              }},
               "/b": {{
                 "get": {{
                   "x-forge-group-name": "to-string",
@@ -525,17 +522,27 @@ mod tests {
               }}
             }}"#
         ));
-        let root = forge.groups().next().unwrap();
-        let root = Generator.generate_group(root).err().unwrap().to_string();
+        let err = Generator.generate(&forge).err().unwrap().to_string();
         assert!(
-            root.contains(r#"group "toString" cannot be served over Cap'n Web"#),
-            "{root}"
+            err.contains(r#"group "toString" cannot be served over Cap'n Web"#),
+            "{err}"
         );
-        let a = forge.groups().find(|g| g.name().camel() == "a").unwrap();
-        let group = Generator.generate_group(a).err().unwrap().to_string();
+
+        let forge = build(&format!(
+            r#"{{
+              "/a": {{
+                "get": {{
+                  "x-forge-group-name": "a",
+                  "x-forge-method-name": "then",
+                  {OK}
+                }}
+              }}
+            }}"#
+        ));
+        let err = Generator.generate(&forge).err().unwrap().to_string();
         assert!(
-            group.contains(r#"group "a": method "then" cannot be served over Cap'n Web"#),
-            "{group}"
+            err.contains(r#"group "a": method "then" cannot be served over Cap'n Web"#),
+            "{err}"
         );
     }
 
@@ -562,8 +569,7 @@ mod tests {
               }}
             }}"#
         ));
-        let projects = forge.groups().find(|g| g.name().camel() == "projects").unwrap();
-        let err = Generator.generate_group(projects).err().unwrap().to_string();
+        let err = Generator.generate(&forge).err().unwrap().to_string();
         assert!(
             err.contains(r#"group "projects": a method and a group are both named "archive""#),
             "{err}"

@@ -31,9 +31,8 @@
  * }
  * ```
  *
- * A `File` is a plugin's file as it is: return it from `generate` or
- * `generateGroup`. One with nothing printed renders as nothing, so forge
- * doesn't write it.
+ * A `File` is a plugin's file as it is: return it from `generate`. One with
+ * nothing printed renders as nothing, so forge doesn't write it.
  *
  * This is forge's Rust `forge::ts`, and renders the same text, with tagged
  * templates in place of its macros: `` f`…` ``, calling the file, for `p!`, `` frag`…` ``

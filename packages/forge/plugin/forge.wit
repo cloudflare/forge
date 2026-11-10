@@ -208,7 +208,6 @@ interface forge {
 
 world plugin {
     import forge;
-    use forge.{group-id};
 
     /// A generated file: its path relative to the output directory, using
     /// `/` as a separator, and its content. A file with no content is not
@@ -218,10 +217,7 @@ world plugin {
         content: list<u8>,
     }
 
-    /// Generates files for the forge. Called exactly once.
+    /// Generates every file for the forge, in a fresh instance. Called
+    /// exactly once.
     export generate: func() -> result<list<file>, string>;
-    /// Generates files for a group. Called exactly once for each group,
-    /// the root included, in parallel with other groups. Instances are
-    /// reused across groups of the same forge.
-    export generate-group: func(group: group-id) -> result<list<file>, string>;
 }

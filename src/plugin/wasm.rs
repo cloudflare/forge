@@ -2,25 +2,26 @@
 //! targets the component model.
 //!
 //! A plugin is a component of the `plugin` world in [`WIT`]. It exports
-//! `generate` and `generate-group`, which [`WasmPlugin`] calls where
-//! [`Plugin::generate`] and [`Plugin::generate_group`] are, and imports
-//! the `forge` interface, which reads the [`Forge`] the host runs it on.
+//! `generate`, which [`WasmPlugin`] calls where [`Plugin::generate`] is,
+//! and imports the `forge` interface, which reads the [`Forge`] the host
+//! runs it on.
 //!
 //! The forge is never copied into a plugin. It stays in the host, and the
 //! plugin reads it a part at a time through ids: a group, method, model or
 //! type is a `u32`, and the plugin calls `get-group`, `get-method`,
-//! `get-model` or `get-type` for the part's data. Groups run in parallel,
-//! each in an instance of its own, and every instance reads the same
-//! forge.
+//! `get-model` or `get-type` for the part's data. Each call of `generate`
+//! runs in an instance of its own, on one thread: unlike a native plugin,
+//! a wasm plugin can't generate groups in parallel.
 //!
 //! A plugin gets no files, network, environment or clock, only standard
 //! error, so it can print why it panicked.
 //!
 //! ```no_run
+//! # use forge::Plugin;
 //! # fn main() -> Result<(), forge::Err> {
 //! # let forge = forge::Forge::default();
 //! let plugin = forge::wasm::WasmPlugin::from_file("ts.wasm")?;
-//! forge::write("sdk", forge::run(&forge, &plugin)?)?;
+//! forge::write("sdk", plugin.generate(&forge)?)?;
 //! # Ok(())
 //! # }
 //! ```
@@ -28,7 +29,6 @@
 use std::borrow::Cow;
 use std::path::Path;
 use std::ptr;
-use std::sync::Mutex;
 
 use wasmtime::component::{Component, HasSelf, Linker, ResourceTable};
 use wasmtime::{Config, Engine, Store};
@@ -37,7 +37,7 @@ use wasmtime_wasi::{WasiCtx, WasiCtxView, WasiView};
 use crate::arena::Str;
 use crate::method::{ContentData, ResponseData};
 use crate::types::{EnumData, FieldData, TypeData};
-use crate::{Availability, Err, File, Forge, Group, HttpMethod, Json, Location, Name, Number, Plugin, Scalar};
+use crate::{Availability, Err, File, Forge, HttpMethod, Json, Location, Name, Number, Plugin, Scalar};
 
 /// Defines [`WIT`] and its host bindings from one copy of the text.
 macro_rules! wit {
@@ -269,7 +269,6 @@ interface forge {
 
 world plugin {
     import forge;
-    use forge.{group-id};
 
     /// A generated file: its path relative to the output directory, using
     /// `/` as a separator, and its content. A file with no content is not
@@ -279,12 +278,9 @@ world plugin {
         content: list<u8>,
     }
 
-    /// Generates files for the forge. Called exactly once.
+    /// Generates every file for the forge, in a fresh instance. Called
+    /// exactly once.
     export generate: func() -> result<list<file>, string>;
-    /// Generates files for a group. Called exactly once for each group,
-    /// the root included, in parallel with other groups. Instances are
-    /// reused across groups of the same forge.
-    export generate-group: func(group: group-id) -> result<list<file>, string>;
 }
 "#
 );
@@ -294,42 +290,12 @@ use bindings::forge::plugin::forge as wit;
 /// A plugin compiled to a WebAssembly component of the `plugin` world in
 /// [`WIT`].
 ///
-/// It compiles the component once, then keeps a pool of instances for the
-/// current [`Forge`], so groups run in parallel without compiling or
-/// instantiating it again, and each instance only ever reads one [`Forge`].
-/// A call takes an instance from the pool, or makes one if none is free,
-/// and returns it unless the plugin trapped.
+/// It compiles the component once, and makes a new instance for each call
+/// of [`generate`](Plugin::generate), so an instance only ever reads one
+/// [`Forge`].
 pub struct WasmPlugin {
     engine: Engine,
     pre: bindings::PluginPre<State>,
-    pool: Mutex<Pool>,
-}
-
-#[derive(Default)]
-struct Pool {
-    forge: ForgeKey,
-    instances: Vec<Instance>,
-}
-
-#[derive(Clone, Copy, Default, PartialEq, Eq)]
-struct ForgeKey {
-    forge: usize,
-    groups: (usize, usize),
-    methods: (usize, usize),
-    models: (usize, usize),
-    types: (usize, usize),
-}
-
-impl ForgeKey {
-    fn of(forge: &Forge) -> Self {
-        ForgeKey {
-            forge: ptr::from_ref(forge).addr(),
-            groups: (forge.groups.as_ptr().addr(), forge.groups.len()),
-            methods: (forge.methods.as_ptr().addr(), forge.methods.len()),
-            models: (forge.models.as_ptr().addr(), forge.models.len()),
-            types: (forge.types.as_ptr().addr(), forge.types.len()),
-        }
-    }
 }
 
 /// A file a [`WasmPlugin`] generated, with its content already rendered.
@@ -359,75 +325,29 @@ impl WasmPlugin {
         let pre = linker.instantiate_pre(&component).map_err(error)?;
         let pre = bindings::PluginPre::new(pre).map_err(error)?;
 
-        Ok(WasmPlugin {
-            engine,
-            pre,
-            pool: Mutex::new(Pool::default()),
-        })
-    }
-
-    /// Calls `f` with an instance that reads `forge`.
-    fn call(
-        &self,
-        forge: &Forge,
-        f: impl FnOnce(&bindings::Plugin, &mut Store<State>) -> wasmtime::Result<Result<Vec<bindings::File>, String>>,
-    ) -> Result<std::vec::IntoIter<WasmFile>, Err> {
-        let forge_key = ForgeKey::of(forge);
-        let pooled = {
-            let mut pool = self.pool.lock().unwrap_or_else(|err| err.into_inner());
-            if pool.forge != forge_key {
-                pool.forge = forge_key;
-                pool.instances.clear();
-            }
-            pool.instances.pop()
-        };
-        let mut instance = match pooled {
-            Some(instance) => instance,
-            None => self.instantiate()?,
-        };
-
-        instance.store.data_mut().forge = forge;
-        let result = f(&instance.plugin, &mut instance.store);
-        instance.store.data_mut().forge = ptr::null();
-
-        // A trap can leave the instance broken, so it is dropped instead.
-        let files = result.map_err(error)?;
-        let mut pool = self.pool.lock().unwrap_or_else(|err| err.into_inner());
-        if pool.forge == forge_key {
-            pool.instances.push(instance);
-        }
-        drop(pool);
-
-        let files = files?.into_iter().map(|file| WasmFile {
-            path: file.path,
-            content: file.content,
-        });
-        Ok(files.collect::<Vec<_>>().into_iter())
-    }
-
-    fn instantiate(&self) -> Result<Instance, Err> {
-        let state = State {
-            forge: ptr::null(),
-            wasi: WasiCtx::builder().inherit_stderr().build(),
-            table: ResourceTable::new(),
-        };
-        let mut store = Store::new(&self.engine, state);
-        let plugin = self.pre.instantiate(&mut store).map_err(error)?;
-        Ok(Instance { store, plugin })
+        Ok(WasmPlugin { engine, pre })
     }
 }
 
 impl Plugin for WasmPlugin {
     type File = WasmFile;
 
+    /// Calls the plugin's `generate` in a new instance that reads `forge`.
     fn generate(&self, forge: &Forge) -> Result<impl Iterator<Item = WasmFile>, Err> {
-        self.call(forge, |plugin, store| plugin.call_generate(store))
-    }
-
-    fn generate_group(&self, group: Group<'_>) -> Result<impl Iterator<Item = WasmFile>, Err> {
-        self.call(group.forge, |plugin, store| {
-            plugin.call_generate_group(store, group.id.0)
-        })
+        let state = State {
+            forge,
+            wasi: WasiCtx::builder().inherit_stderr().build(),
+            table: ResourceTable::new(),
+        };
+        // The store, and the instance in it, are dropped before this
+        // returns, so the plugin never reads `forge` after the call.
+        let mut store = Store::new(&self.engine, state);
+        let plugin = self.pre.instantiate(&mut store).map_err(error)?;
+        let files = plugin.call_generate(&mut store).map_err(error)??;
+        Ok(files.into_iter().map(|file| WasmFile {
+            path: file.path,
+            content: file.content,
+        }))
     }
 }
 
@@ -441,16 +361,10 @@ impl File for WasmFile {
     }
 }
 
-/// An instance of a plugin, and the store it lives in.
-struct Instance {
-    store: Store<State>,
-    plugin: bindings::Plugin,
-}
-
 /// What an instance's host functions get.
 struct State {
-    /// The forge of the call running in the instance, or null between
-    /// calls.
+    /// The forge of the call the instance was made for. A store's data
+    /// can't borrow, so it is a pointer.
     forge: *const Forge,
     wasi: WasiCtx,
     table: ResourceTable,
@@ -470,18 +384,18 @@ impl WasiView for State {
 }
 
 impl State {
-    /// Returns the forge of the call running in the instance.
-    fn forge(&self) -> wasmtime::Result<&Forge> {
-        // SAFETY: `WasmPlugin::call` sets `forge` from a `&Forge` that
-        // outlives the call, and resets it to null before returning. Host
+    /// Returns the forge of the call the instance was made for.
+    fn forge(&self) -> &Forge {
+        // SAFETY: `WasmPlugin::generate` sets `forge` from a `&Forge` that
+        // outlives the call, and drops the store before returning. Host
         // functions only run during the call, while the plugin runs.
-        unsafe { self.forge.as_ref() }.ok_or_else(|| wasmtime::format_err!("no forge outside a call"))
+        unsafe { &*self.forge }
     }
 }
 
 impl wit::Host for State {
     fn info(&mut self) -> wasmtime::Result<wit::ForgeInfo> {
-        let forge = self.forge()?;
+        let forge = self.forge();
         Ok(wit::ForgeInfo {
             version: forge.version.clone(),
             description: forge.description.clone(),
@@ -490,7 +404,7 @@ impl wit::Host for State {
     }
 
     fn counts(&mut self) -> wasmtime::Result<wit::ForgeCounts> {
-        let forge = self.forge()?;
+        let forge = self.forge();
         Ok(wit::ForgeCounts {
             groups: forge.groups.len() as u32,
             methods: forge.methods.len() as u32,
@@ -500,11 +414,11 @@ impl wit::Host for State {
     }
 
     fn groups(&mut self) -> wasmtime::Result<Vec<u32>> {
-        Ok(self.forge()?.groups().map(|group| group.id.0).collect())
+        Ok(self.forge().groups().map(|group| group.id.0).collect())
     }
 
     fn get_group(&mut self, id: u32) -> wasmtime::Result<wit::GroupInfo> {
-        let forge = self.forge()?;
+        let forge = self.forge();
         let data = get(&forge.groups, id, "group")?;
         // As in `Group::path` and `Group::parent`: the stored path starts
         // with the root, and ends with the group.
@@ -520,7 +434,7 @@ impl wit::Host for State {
     }
 
     fn get_method(&mut self, id: u32) -> wasmtime::Result<wit::MethodInfo> {
-        let forge = self.forge()?;
+        let forge = self.forge();
         let data = get(&forge.methods, id, "method")?;
         let s = |s: Str| forge.strings.get(s).to_owned();
         Ok(wit::MethodInfo {
@@ -572,7 +486,7 @@ impl wit::Host for State {
     }
 
     fn get_model(&mut self, id: u32) -> wasmtime::Result<wit::ModelInfo> {
-        let forge = self.forge()?;
+        let forge = self.forge();
         let data = get(&forge.models, id, "model")?;
         Ok(wit::ModelInfo {
             schema_name: forge.strings.get(data.schema_name).to_owned(),
@@ -585,7 +499,7 @@ impl wit::Host for State {
     }
 
     fn get_type(&mut self, id: u32) -> wasmtime::Result<wit::TypeInfo> {
-        let forge = self.forge()?;
+        let forge = self.forge();
         let s = |s: Str| forge.strings.get(s).to_owned();
         Ok(match get(&forge.types, id, "type")? {
             TypeData::Scalar(scalar) => wit::TypeInfo::Scalar(match *scalar {
@@ -666,7 +580,7 @@ impl wit::Host for State {
     }
 
     fn get_location(&mut self, id: u32, object: u32, index: u32) -> wasmtime::Result<Option<wit::Location>> {
-        let forge = self.forge()?;
+        let forge = self.forge();
         let data = get(&forge.methods, id, "method")?;
         let TypeData::Object(object) = get(&forge.types, object, "type")? else {
             wasmtime::bail!("type {object} is not an object");

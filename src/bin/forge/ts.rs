@@ -7,6 +7,7 @@ use std::borrow::Cow;
 
 use forge::ts::{self, Ident, Module, PREAMBLE};
 use forge::{Err, Forge, Group, Model, Plugin};
+use rayon::prelude::*;
 
 pub(crate) mod client;
 mod codec;
@@ -21,25 +22,35 @@ pub struct Generator;
 impl Plugin for Generator {
     type File = File;
 
-    /// Returns the runtime library.
-    fn generate(&self, _: &Forge) -> Result<impl Iterator<Item = File>, Err> {
-        Ok(RUNTIME.iter().map(|&(path, source)| File::Runtime {
-            path: RUNTIME_DIR.sub(path).as_str().to_owned(),
-            content: format!("{PREAMBLE}{source}"),
-        }))
+    /// Returns the runtime library, then the files of each group, which are
+    /// generated in parallel.
+    fn generate(&self, forge: &Forge) -> Result<impl Iterator<Item = File>, Err> {
+        let mut files: Vec<File> = RUNTIME
+            .iter()
+            .map(|&(path, source)| File::Runtime {
+                path: RUNTIME_DIR.sub(path).as_str().to_owned(),
+                content: format!("{PREAMBLE}{source}"),
+            })
+            .collect();
+        let groups: Vec<Group<'_>> = forge.groups().collect();
+        let per_group = groups
+            .par_iter()
+            .map(|&group| group_files(group))
+            .collect::<Result<Vec<_>, Err>>()?;
+        files.extend(per_group.into_iter().flatten());
+        Ok(files.into_iter())
     }
+}
 
-    /// Returns the client.ts, models.ts and index.ts of `group`. A group
-    /// without models has an empty models.ts, which isn't written.
-    fn generate_group(&self, group: Group<'_>) -> Result<impl Iterator<Item = File>, Err> {
-        let models = models::models(group).map_err(|errs| errs.join("\n"))?;
-        Ok([
-            File::Ts(client::client(group)),
-            File::Ts(models),
-            File::Ts(index::index(group)),
-        ]
-        .into_iter())
-    }
+/// Returns the client.ts, models.ts and index.ts of `group`. A group without
+/// models has an empty models.ts, which isn't written.
+fn group_files(group: Group<'_>) -> Result<Vec<File>, Err> {
+    let models = models::models(group).map_err(|errs| errs.join("\n"))?;
+    Ok(vec![
+        File::Ts(client::client(group)),
+        File::Ts(models),
+        File::Ts(index::index(group)),
+    ])
 }
 
 /// A file of the SDK.

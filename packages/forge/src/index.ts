@@ -9,19 +9,21 @@
  * ```ts
  * import { definePlugin } from "@cloudflare/forge/plugin";
  *
- * export const { generate, generateGroup } = definePlugin({
- *   generateGroup(group) {
- *     const names = group.methods.map((m) => m.name.camel());
- *     const path = [...group.path.map((name) => name.kebab()), "methods.txt"].join("/");
- *     return [{ path, content: names.join("\n") }];
+ * export const { generate } = definePlugin({
+ *   generate(forge) {
+ *     return forge.groups.map((group) => {
+ *       const names = group.methods.map((m) => m.name.camel());
+ *       const path = [...group.path.map((name) => name.kebab()), "methods.txt"].join("/");
+ *       return { path, content: names.join("\n") };
+ *     });
  *   },
  * });
  * ```
  *
  * The forge stays in forge's process. Each part is fetched the first time
- * a plugin reads it, and kept in the instance across group calls, so
- * reading a part again is free, and the same part is always the same
- * object: compare groups, methods and models with `===`.
+ * a plugin reads it, and kept for the rest of the call, so reading a part
+ * again is free, and the same part is always the same object: compare
+ * groups, methods and models with `===`.
  *
  * @module
  */
@@ -41,15 +43,12 @@ import type * as hostPlugin from 'forge:plugin/plugin@0.4.0';
 
 /** A plugin: what {@link definePlugin} takes. */
 export interface Plugin {
-  /** Generates files for the forge. Called exactly once. */
-  generate?(forge: Forge): Iterable<File>;
   /**
-   * Generates files for a group. Called exactly once for each group, the
-   * root included, in parallel with other groups. Instances are reused
-   * across groups of the same forge, so module state may carry over between
-   * calls.
+   * Generates every file for the forge, such as some for each of
+   * `forge.groups`. Called exactly once, in a fresh instance, on one
+   * thread.
    */
-  generateGroup?(group: Group): Iterable<File>;
+  generate(forge: Forge): Iterable<File>;
 }
 
 /**
@@ -69,7 +68,6 @@ export interface File {
 /** What the entry module of a plugin exports, under these names. */
 export interface Exports {
   generate(): Array<{ path: string; content: Uint8Array }>;
-  generateGroup(group: number): Array<{ path: string; content: Uint8Array }>;
 }
 
 /**
@@ -391,21 +389,17 @@ export interface ModelType {
  * plugin's entry module:
  *
  * ```ts
- * export const { generate, generateGroup } = definePlugin({ ... });
+ * export const { generate } = definePlugin({ ... });
  * ```
  *
  * Throw to fail: forge stops and prints the error's message.
  */
 export function definePlugin(plugin: Plugin): Exports {
-  const forge = lazy(() => new ForgeImpl());
   const exports = {
     generate() {
-      return call(() => files(plugin.generate?.(forge()) ?? []));
+      return call(() => files(plugin.generate(new ForgeImpl())));
     },
-    generateGroup(id: host.GroupId) {
-      return call(() => files(plugin.generateGroup?.(forge().group(id)) ?? []));
-    },
-  } satisfies Pick<typeof hostPlugin, 'generate' | 'generateGroup'>;
+  } satisfies Pick<typeof hostPlugin, 'generate'>;
   return exports;
 }
 

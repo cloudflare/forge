@@ -17,7 +17,7 @@ pub(super) fn models(group: Group<'_>) -> Result<File, Vec<String>> {
     // TODO: Move both checks into the library, next to the method checks in
     // src/link.rs. It accepts a model whose name has no letters or digits,
     // and two models in a group with equal names, such as schemas `Pet` and
-    // `pet`. Then this function, `files` and `generate_group` can't fail.
+    // `pet`. Then this function, `group_files` and `generate` can't fail.
     let mut errs = Vec::new();
     let mut names: HashMap<String, Model<'_>> = HashMap::new();
     for &m in &models {

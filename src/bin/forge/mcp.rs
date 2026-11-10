@@ -19,13 +19,13 @@
 //! each call's request from the operation; and the runtime itself in
 //! `_/tool.ts`, which imports the SDK's `fromJsonSchema`.
 //!
-//! Each group's files depend only on the group, so they are generated in
-//! parallel with [`Plugin::generate_group`]. A tool is named after its
-//! groups and method, each in camelCase, joined by `_`, such as
-//! `webAssets_discovery_operations_bulkEdit`, so tools of different groups
-//! never share a name. A tool of the root is named after its method alone. Its arguments are objects by where they go: `path`,
-//! `query` and `headers`, each keyed by the parameters' names on the wire,
-//! and the JSON body as `body`, as the API takes it.
+//! Each group's files depend only on the group, so the groups are generated
+//! in parallel. A tool is named after its groups and method, each in
+//! camelCase, joined by `_`, such as `webAssets_discovery_operations_bulkEdit`,
+//! so tools of different groups never share a name. A tool of the root is
+//! named after its method alone. Its arguments are objects by where they go:
+//! `path`, `query` and `headers`, each keyed by the parameters' names on the
+//! wire, and the JSON body as `body`, as the API takes it.
 
 use std::borrow::Cow;
 use std::collections::HashSet;
@@ -36,6 +36,7 @@ use serde_json::{Map, Value, json};
 
 mod schema;
 
+use rayon::prelude::*;
 use schema::{Direction, Refs, Schemas, reach};
 
 /// Generates an MCP server.
@@ -44,7 +45,8 @@ pub struct Generator;
 impl Plugin for Generator {
     type File = File;
 
-    /// Returns `index.ts` with every tool, and the runtime.
+    /// Returns `index.ts` with every tool, and the runtime, then the files
+    /// of each group, which are generated in parallel.
     fn generate(&self, forge: &Forge) -> Result<impl Iterator<Item = File>, Err> {
         let groups: Vec<Group<'_>> = forge
             .groups()
@@ -56,30 +58,36 @@ impl Plugin for Generator {
             path: RUNTIME_DIR.sub(path).as_str().to_owned(),
             content: format!("{PREAMBLE}{source}"),
         }));
+        let all: Vec<Group<'_>> = forge.groups().collect();
+        let per_group = all
+            .par_iter()
+            .map(|&group| group_files(group))
+            .collect::<Result<Vec<_>, Err>>()?;
+        files.extend(per_group.into_iter().flatten());
         Ok(files.into_iter())
     }
+}
 
-    /// Returns the files of `group`: a `tools.ts` with the tools of its
-    /// methods, and the schemas of the models placed in it.
-    fn generate_group(&self, group: Group<'_>) -> Result<impl Iterator<Item = File>, Err> {
-        let mut tools = Vec::new();
-        for (m, name) in verdicts(group) {
-            if let Some(name) = name {
-                tools.push(Tool::new(m, name)?);
-            }
+/// Returns the files of `group`: a `tools.ts` with the tools of its methods,
+/// and the schemas of the models placed in it.
+fn group_files(group: Group<'_>) -> Result<Vec<File>, Err> {
+    let mut tools = Vec::new();
+    for (m, name) in verdicts(group) {
+        if let Some(name) = name {
+            tools.push(Tool::new(m, name)?);
         }
-        tools.sort_by(|a, b| a.name.cmp(&b.name));
-        let mut files = Vec::new();
-        if !tools.is_empty() {
-            files.push(File::Ts(tools_file(group, &tools)));
-        }
-        files.extend(model_files(
-            Module::group(group),
-            group.models(),
-            std::iter::once(group).chain(group.descendants()),
-        ));
-        Ok(files.into_iter())
     }
+    tools.sort_by(|a, b| a.name.cmp(&b.name));
+    let mut files = Vec::new();
+    if !tools.is_empty() {
+        files.push(File::Ts(tools_file(group, &tools)));
+    }
+    files.extend(model_files(
+        Module::group(group),
+        group.models(),
+        std::iter::once(group).chain(group.descendants()),
+    ));
+    Ok(files)
 }
 
 /// A file of the server.
@@ -904,16 +912,16 @@ fn ts_identifier(s: &str) -> String {
 
 #[cfg(test)]
 mod tests {
-    use forge::{File as _, Forge};
+    use forge::{File as _, Forge, Plugin as _};
 
     use super::Generator;
 
     /// Returns the files the generator makes from `spec`, by path.
     fn generate(spec: &str) -> Vec<(String, String)> {
         let forge: Forge = serde_json::from_str(spec).unwrap();
-        let mut files: Vec<(String, String)> = forge::run(&forge, &Generator)
+        let mut files: Vec<(String, String)> = Generator
+            .generate(&forge)
             .unwrap()
-            .into_iter()
             .map(|f| {
                 let content = String::from_utf8(f.content().unwrap().into_owned()).unwrap();
                 (f.path().to_owned(), content)

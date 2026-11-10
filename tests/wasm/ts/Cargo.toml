@@ -21,6 +21,9 @@ crate-type = ["cdylib"]
 dump = []
 
 [dependencies]
+# The generator generates groups in parallel. Without threads, rayon runs
+# them on the current one.
+rayon = "1.12.0"
 # Reads the JSON text the host sends for a `Json`, keeping objects in order.
 serde_json = { version = "1", features = ["preserve_order"] }
 wit-bindgen = "0.57"

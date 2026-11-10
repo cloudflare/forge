@@ -120,18 +120,18 @@ function ts(type: Type): string {
   }
 }
 
-export const { generate, generateGroup } = definePlugin({
+export const { generate } = definePlugin({
   // Called once, for the whole document.
   generate(forge) {
-    return [{ path: 'README.md', content: `# API ${forge.version}\n` }];
-  },
-
-  // Called once for each group, the root included, in parallel. The root's
-  // path is empty, so its models.ts is at the top of the output.
-  generateGroup(group) {
-    const path = [...group.path.map((name) => name.camel()), 'models.ts'].join('/');
-    const lines = group.models.map((m) => `export type ${m.name.pascal()} = ${ts(m.type)};`);
-    return [{ path, content: lines.join('\n') }];
+    const files = [{ path: 'README.md', content: `# API ${forge.version}\n` }];
+    // A models.ts for each group, the root included. The root's path is
+    // empty, so its models.ts is at the top of the output.
+    for (const group of forge.groups) {
+      const path = [...group.path.map((name) => name.camel()), 'models.ts'].join('/');
+      const lines = group.models.map((m) => `export type ${m.name.pascal()} = ${ts(m.type)};`);
+      files.push({ path, content: lines.join('\n') });
+    }
+    return files;
   },
 });
 ```
@@ -159,8 +159,7 @@ Every forge has a root group, which every other group is inside, and which
 and the only one without a `parent`: a top-level group's `parent` is the
 root. The root holds the methods whose operations have no
 `x-forge-group-name`, and the models that methods in more than one top-level
-group use, so every model has a `group`. `generateGroup` is called for the
-root too.
+group use, so every model has a `group`.
 
 The plugin interface is `forge:plugin@0.4.0`. Rebuild plugins compiled
 against `0.3.0` with the updated package before running them with this
@@ -172,9 +171,9 @@ have no `.` or `..` parts, and no two files may share one.
 
 Things to know:
 
-- **Groups run in parallel across a pool of instances.** Instances are
-  reused across groups of the same forge, so module state may carry over
-  between calls.
+- **A plugin runs once, on one thread.** forge calls `generate` once, in a
+  fresh instance, and doesn't split the work across groups: forge's own
+  generators run groups in parallel, but a plugin can't.
 - **There is no Node.** Plugins have no `fs`, `process`, network or clock.
   Libraries in plain JavaScript bundle in and work.
 - **QuickJS runs the plugin.** `forge-plugin build` compiles it in, for a
@@ -289,9 +288,9 @@ function models(dir: Module, models: readonly Model[]): File {
   return f;
 }
 
-export const { generate, generateGroup } = definePlugin({
+export const { generate } = definePlugin({
   // The root's directory is module.ROOT.
-  generateGroup: (group) => [models(module.group(group), group.models)],
+  generate: (forge) => forge.groups.map((group) => models(module.group(group), group.models)),
 });
 ```
 
