@@ -265,19 +265,24 @@ export function prepareForgeApi(
 }
 
 /**
- * The Terraform sample, worded as the old site's: every declaration's example,
- * each followed by its import command, or why there's none.
+ * The Terraform sample, worded as the old site's: every declaration's example
+ * (or that it has none), each followed by its import command.
  */
 function terraformSample(terraform: TerraformOperationData | undefined): string {
   if (!terraform || terraform.declarations.length === 0) return '# This operation is not implemented in Terraform.';
-  const examples = terraform.declarations.filter((declaration) => declaration.example);
-  if (examples.length === 0) return '# No HCL example is available for this operation.';
-  return examples
+  return terraform.declarations
     .map((declaration) => {
-      const command = declaration.importExample?.replace(/^\$\s*/, '');
-      return command
-        ? `${declaration.example!.trimEnd()}\n\n# Import an existing ${declaration.name}:\n# ${command}`
-        : declaration.example!;
+      const parts = [declaration.example?.trimEnd() ?? `# No HCL example is available for ${declaration.name}.`];
+      if (declaration.importExample) {
+        // A shell command, possibly with its own comments: every line becomes an
+        // HCL comment, without the prompt.
+        const lines = declaration.importExample
+          .trim()
+          .split('\n')
+          .map((line) => `# ${line.replace(/^\$\s*/, '').replace(/^#\s?/, '')}`.trimEnd());
+        parts.push([`# Import an existing ${declaration.name}:`, ...lines].join('\n'));
+      }
+      return parts.join('\n\n');
     })
     .join('\n\n');
 }

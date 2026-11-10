@@ -182,6 +182,16 @@ const terraform = defineFernExtension({
                 optional: [],
                 computed: [],
               },
+              {
+                kind: 'resource',
+                name: 'cloudflare_zone_setting',
+                importExample:
+                  "# One setting at a time.\n$ terraform import cloudflare_zone_setting.x '<zone_id>/<setting_id>'",
+                roles: ['update'],
+                required: [],
+                optional: [],
+                computed: [],
+              },
             ],
           },
         }
@@ -346,10 +356,16 @@ test('samples cover every target, with placeholders, one Terraform sample joinin
   assert.match(samples[1]!.source, /curl .*\/beta\/zones/s);
   assert.equal(
     samples.at(-1)!.source,
-    'resource "cloudflare_zone" "x" {}\n\n# Import an existing cloudflare_zone:\n# terraform import cloudflare_zone.x \'<zone_id>\'\n\ndata "cloudflare_zone" "x" {}',
+    [
+      'resource "cloudflare_zone" "x" {}',
+      "# Import an existing cloudflare_zone:\n# terraform import cloudflare_zone.x '<zone_id>'",
+      'data "cloudflare_zone" "x" {}',
+      '# No HCL example is available for cloudflare_zone_setting.',
+      "# Import an existing cloudflare_zone_setting:\n# One setting at a time.\n# terraform import cloudflare_zone_setting.x '<zone_id>/<setting_id>'",
+    ].join('\n\n'),
   );
   const extension = create[TERRAFORM_EXTENSION] as { declarations: unknown[] };
-  assert.equal(extension.declarations.length, 2);
+  assert.equal(extension.declarations.length, 3);
   const list = paths['/beta/zones']!.get!;
   const listSamples = list['x-codeSamples'] as { lang: string; source: string }[];
   assert.deepEqual(
