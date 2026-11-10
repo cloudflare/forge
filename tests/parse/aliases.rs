@@ -508,10 +508,11 @@ fn alias_does_not_take_the_operation_id_of_the_operation() {
 }
 
 #[test]
-fn alias_operation_id_without_a_dot_is_not_a_method() {
+fn alias_operation_id_without_a_dot_is_a_method_of_the_root() {
     let forge = parse(&aliased(r#"[{"operationId": "pause"}]"#, ""));
 
-    assert_eq!(methods(&forge), Vec::<String>::new());
+    assert_eq!(methods(&forge), ["pause"]);
+    assert_eq!(method(&forge, "pause").group(), group(&forge, ""));
 }
 
 #[test]

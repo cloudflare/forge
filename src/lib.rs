@@ -260,18 +260,19 @@ impl<'f> Method<'f> {
     ///
     /// 1. With the `x-forge-method-name` extension, not empty. The name is
     ///    the `x-forge-method-name`.
-    /// 2. Without one, with an `operationId` of the form
-    ///    `<group path>.<method name>`, split at the last dot. The name is
-    ///    the part after it: `pets.list` is the method `list` in the group
-    ///    `pets`, and `accounts.members.list` is the method `list` in the
-    ///    group `members` inside `accounts`.
+    /// 2. Without one, with an `operationId`, split at the last dot into
+    ///    `<group path>.<method name>`. The name is the part after it:
+    ///    `pets.list` is the method `list` in the group `pets`, and
+    ///    `accounts.members.list` is the method `list` in the group
+    ///    `members` inside `accounts`. An `operationId` with no dot, such
+    ///    as `listPets`, is the name of a method of the [root](Group).
     ///
-    /// An operation or alias named in neither way, such as one whose
-    /// `operationId` has no dot, like `listPets`, is not a method, and is
-    /// not an error. A name with no letters or digits, as in the
-    /// `operationId` `pets.`, is an error. Two methods in a group with
-    /// equal names are an error, however they are named, and whether they
-    /// are aliases or not.
+    /// An operation or alias named in neither way, without an
+    /// `x-forge-method-name` and with no `operationId` or an empty one, is
+    /// not a method, and is not an error. A name with no letters or digits,
+    /// as in the `operationId` `pets.` or `-`, is an error. Two methods in a
+    /// group with equal names are an error, however they are named, and
+    /// whether they are aliases or not.
     pub fn name(self) -> &'f Name {
         &self.data().name
     }
@@ -286,7 +287,8 @@ impl<'f> Method<'f> {
     /// elements are not split. A method named by `x-forge-method-name`
     /// without one, or with an empty string or array, is a method of the
     /// [root](Group). Otherwise it is the part of the `operationId` before
-    /// the last dot, with group names separated by dots the same way.
+    /// the last dot, with group names separated by dots the same way, and an
+    /// `operationId` with no dot makes a method of the root.
     ///
     /// An operation or alias with `x-forge-skip: true` is not a method,
     /// however it is named. A group name with no letters or digits, such as

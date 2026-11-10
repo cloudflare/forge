@@ -43,7 +43,8 @@ use openapi::{
 /// `additionalOperations` and in path items reached by `$ref`, and from
 /// their aliases, as [`Method`](crate::Method) says. Each is named by its
 /// `x-forge-group-name` and `x-forge-method-name`, or, without an
-/// `x-forge-method-name`, by an `operationId` such as `pets.list`, as
+/// `x-forge-method-name`, by an `operationId` such as `pets.list`, or
+/// `listPets` for a method of the root, as
 /// [`Method::name`](crate::Method::name) says. Webhooks, callbacks,
 /// response headers, cookie parameters, security, and extensions these
 /// docs do not mention are ignored, except that those of an operation or
@@ -560,8 +561,9 @@ impl<'d> Builder<'d> {
             return;
         }
         // `x-forge-method-name` names the method, with `x-forge-group-name`
-        // as its group path, or else an `operationId` with a dot does, as the
-        // group path and the name.
+        // as its group path, or else an `operationId` does, as the group path
+        // and the name, or as the name of a method of the root when it has no
+        // dot.
         let (group_names, name, group_error, name_error): (Vec<Name>, Name, &str, &str) =
             if !definition.method_name.is_empty() {
                 (
@@ -573,9 +575,14 @@ impl<'d> Builder<'d> {
                     "x-forge-group-name has a group name with no letters or digits",
                     "x-forge-method-name has no letters or digits",
                 )
-            } else if let Some((groups, name)) = doc.str(definition.operation_id).rsplit_once('.') {
+            } else if !definition.operation_id.is_empty() {
+                let operation_id = doc.str(definition.operation_id);
+                let (groups, name) = match operation_id.rsplit_once('.') {
+                    Some((groups, name)) => (groups.split('.').map(Name::new).collect(), name),
+                    None => (Vec::new(), operation_id),
+                };
                 (
-                    groups.split('.').map(Name::new).collect(),
+                    groups,
                     Name::new(name),
                     "operationId has a group name with no letters or digits",
                     "operationId has a method name with no letters or digits",
