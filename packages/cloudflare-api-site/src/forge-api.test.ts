@@ -167,6 +167,7 @@ const terraform = defineFernExtension({
                 kind: 'resource',
                 name: 'cloudflare_zone',
                 example: 'resource "cloudflare_zone" "x" {}',
+                importExample: "$ terraform import cloudflare_zone.x '<zone_id>'",
                 roles: ['create'],
                 required: [],
                 optional: [],
@@ -329,7 +330,7 @@ test('an alias path that is also a real section keeps the real page', () => {
   assert.equal(redirects['/b/items/'], undefined);
 });
 
-test('samples cover every target, with placeholders, one Terraform sample joining every declaration example, and an example per JSON response; Terraform data rides the extension', () => {
+test('samples cover every target, with placeholders, one Terraform sample joining every declaration example and its import command, and an example per JSON response; Terraform data rides the extension', () => {
   const { document } = prepare();
   const paths = document.paths as Record<string, Record<string, Record<string, unknown>>>;
   const create = paths['/beta/zones']!.post!;
@@ -343,7 +344,10 @@ test('samples cover every target, with placeholders, one Terraform sample joinin
     ],
   );
   assert.match(samples[1]!.source, /curl .*\/beta\/zones/s);
-  assert.equal(samples.at(-1)!.source, 'resource "cloudflare_zone" "x" {}\n\ndata "cloudflare_zone" "x" {}');
+  assert.equal(
+    samples.at(-1)!.source,
+    'resource "cloudflare_zone" "x" {}\n\n# Import an existing cloudflare_zone:\n# terraform import cloudflare_zone.x \'<zone_id>\'\n\ndata "cloudflare_zone" "x" {}',
+  );
   const extension = create[TERRAFORM_EXTENSION] as { declarations: unknown[] };
   assert.equal(extension.declarations.length, 2);
   const list = paths['/beta/zones']!.get!;
@@ -352,7 +356,7 @@ test('samples cover every target, with placeholders, one Terraform sample joinin
     listSamples.map((sample) => sample.lang),
     ['cf', 'curl', 'hcl'],
   );
-  assert.equal(listSamples.at(-1)!.source, '# A Terraform example is not available yet.');
+  assert.equal(listSamples.at(-1)!.source, '# This operation is not implemented in Terraform.');
   assert.equal(list[TERRAFORM_EXTENSION], undefined);
   type Responses = Record<string, { content?: Record<string, { example?: unknown }> }>;
   const example = (responses: Responses, code: string) => responses[code]!.content!['application/json']!.example;

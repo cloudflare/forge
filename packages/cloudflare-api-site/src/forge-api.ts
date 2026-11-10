@@ -19,7 +19,7 @@ import {
 } from './cloudflare.ts';
 import { loadForgeOpenApi } from './openapi-source.ts';
 import { cloudflareTerraformExtension } from './terraform-extension.ts';
-import { TERRAFORM_EXTENSION_NAME, terraformOperationDataSchema } from './terraform.ts';
+import { TERRAFORM_EXTENSION_NAME, type TerraformOperationData, terraformOperationDataSchema } from './terraform.ts';
 import { assertToolingRouteNamespace } from './command-reference/routing.ts';
 import { cloudflareApiVersionLabel, parseCloudflareApiVersion } from './version.ts';
 
@@ -224,16 +224,13 @@ export function prepareForgeApi(
         terraformOperationDataSchema,
       );
       if (terraform) op[TERRAFORM_EXTENSION] = terraform;
-      const declarations = terraform?.declarations.filter((declaration) => declaration.example) ?? [];
       const snippets = new Map(entry.snippets.map((snippet) => [snippet.targetId, snippet.code]));
       op['x-codeSamples'] = CLOUDFLARE_TARGETS.flatMap((target) => {
         const lang = target.id === 'terraform' ? 'hcl' : target.id;
         const code = snippets.get(target.id);
         if (code) return [{ lang, label: target.label, source: code }];
-        if (target.id === 'terraform' && declarations.length > 0) {
-          return [
-            { lang, label: target.label, source: declarations.map((declaration) => declaration.example!).join('\n\n') },
-          ];
+        if (target.id === 'terraform') {
+          return [{ lang, label: target.label, source: terraformSample(terraform) }];
         }
         return [
           {
@@ -265,6 +262,24 @@ export function prepareForgeApi(
         .map((product) => [product.slug, MOVED_PRODUCT_SLUGS[product.slug]!]),
     ),
   };
+}
+
+/**
+ * The Terraform sample, worded as the old site's: every declaration's example,
+ * each followed by its import command, or why there's none.
+ */
+function terraformSample(terraform: TerraformOperationData | undefined): string {
+  if (!terraform || terraform.declarations.length === 0) return '# This operation is not implemented in Terraform.';
+  const examples = terraform.declarations.filter((declaration) => declaration.example);
+  if (examples.length === 0) return '# No HCL example is available for this operation.';
+  return examples
+    .map((declaration) => {
+      const command = declaration.importExample?.replace(/^\$\s*/, '');
+      return command
+        ? `${declaration.example!.trimEnd()}\n\n# Import an existing ${declaration.name}:\n# ${command}`
+        : declaration.example!;
+    })
+    .join('\n\n');
 }
 
 /** Builds the prepared spec for every version and returns the Nimbus `api` entry. */
