@@ -20,7 +20,7 @@ const { nav, version = null, overviewCurrent = false } = Astro.props;
 const tooling = await getToolingSidebar(Astro.url);
 ---
 
-<ApiSidebarPanel nav={nav} version={version} groups={tooling.products}>
+<ApiSidebarPanel nav={nav} version={version} groups={tooling.products} extraListHref="/tooling/nav-list.json">
   <li>
     <SidebarLink label="Overview" href="/" isCurrent={overviewCurrent} />
   </li>

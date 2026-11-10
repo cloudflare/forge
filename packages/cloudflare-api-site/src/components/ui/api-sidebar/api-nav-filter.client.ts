@@ -23,6 +23,16 @@ mount("[data-nb-nav-list]", (filter) => {
     "template[data-nb-nav-result]",
   );
   const url = filter.dataset.nbNavList;
+  const extraUrl = filter.dataset.nbNavExtra;
+  // Both lists, as one; the site's own list is optional, so a failed fetch of it
+  // only leaves its rows out.
+  const loadRows = async (): Promise<NavListRow[]> => {
+    const [rows, extra] = await Promise.all([
+      loadNavList(url!),
+      extraUrl ? loadNavList(extraUrl).catch(() => []) : [],
+    ]);
+    return [...extra, ...rows];
+  };
   if (!input || !tree || !results || !status || !template || !url)
     return () => {};
 
@@ -72,7 +82,7 @@ mount("[data-nb-nav-list]", (filter) => {
     if (!query) return reset();
     let rows: NavListRow[];
     try {
-      rows = await loadNavList(url);
+      rows = await loadRows();
     } catch {
       reset();
       return say("Filter unavailable");
@@ -81,8 +91,7 @@ mount("[data-nb-nav-list]", (filter) => {
     if (input.value.trim() === query) show(matchNavList(rows, query));
   };
 
-  const load = () =>
-    void loadNavList(url).catch(() => say("Filter unavailable"));
+  const load = () => void loadRows().catch(() => say("Filter unavailable"));
   const onKeydown = (event: KeyboardEvent) => {
     if (event.key !== "Escape") return;
     input.value = "";
