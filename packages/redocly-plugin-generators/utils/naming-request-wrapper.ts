@@ -35,7 +35,7 @@ export interface WrapperItem {
   /** The name as written in OpenAPI: parameter `name` or property key. */
   openapiName: string;
   /** The extension that set {@link name}, if any. */
-  override?: 'x-fern-parameter-name' | 'x-fern-property-name';
+  override?: 'x-fern-parameter-name' | 'x-fern-property-name' | undefined;
   /** For inherited properties: the `allOf` `$ref` chain. */
   via?: string[];
   parameter?: ParameterInfo;

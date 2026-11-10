@@ -167,13 +167,15 @@ export interface FernEnumValue {
   /** Location of the value inside `enum` (or `const`). */
   location: Location;
   /** The name override Fern reads, before validation. */
-  override?: {
-    name: string;
-    source: 'x-fern-enum' | 'x-enum-varnames';
-    /** For `x-enum-varnames`, the entry before the shared prefix was removed. */
-    raw: string;
-    location: Location;
-  };
+  override?:
+    | {
+        name: string;
+        source: 'x-fern-enum' | 'x-enum-varnames';
+        /** For `x-enum-varnames`, the entry before the shared prefix was removed. */
+        raw: string;
+        location: Location;
+      }
+    | undefined;
   /** Whether the override passes {@link VALID_NAME_REGEX} (Fern ignores it otherwise). */
   overrideIsValid: boolean;
   /** The name Fern generates from the value. */
@@ -185,7 +187,7 @@ export interface FernEnumValue {
 export interface FernEnum {
   values: FernEnumValue[];
   /** The raw `x-fern-enum` object, when it is an object. */
-  fernEnum?: Record<string, AnyNode>;
+  fernEnum?: Record<string, AnyNode> | undefined;
   location: Location;
 }
 

@@ -257,10 +257,10 @@ function possibleDiscriminants(ctx: Ctx, member: Located, depth = 0): Map<string
     ) {
       result.set(name, property.enum[0]!);
     }
-    if (property.type === 'string' && property.const != null) {
+    if (property.type === 'string' && property.const !== null && property.const !== undefined) {
       result.set(name, String(property.const));
     }
-    if (name === 'type' && property.example != null) {
+    if (name === 'type' && property.example !== null && property.example !== undefined) {
       result.set(name, String(property.example));
     }
   }
@@ -318,17 +318,22 @@ export function isDiscriminatedUnion(ctx: Ctx, located: Located): boolean {
     return false;
   }
   const type = types[0];
-  if (schema.enum != null && (type === undefined || type === 'string' || type === 'enum')) {
+  if (
+    schema.enum !== null &&
+    schema.enum !== undefined &&
+    (type === undefined || type === 'string' || type === 'enum')
+  ) {
     return false;
   }
   if (type !== undefined && ['boolean', 'number', 'integer', 'float', 'string', 'array'].includes(type)) {
     return false;
   }
   if (
-    schema.additionalProperties != null &&
+    schema.additionalProperties !== null &&
+    schema.additionalProperties !== undefined &&
     schema.additionalProperties !== false &&
     hasNoProperties(schema) &&
-    (schema.allOf == null || schema.allOf.length === 0)
+    (schema.allOf === null || schema.allOf === undefined || schema.allOf.length === 0)
   ) {
     return false;
   }
@@ -341,7 +346,12 @@ export function isDiscriminatedUnion(ctx: Ctx, located: Located): boolean {
   if (oneOf !== undefined && oneOf.length > 0 && discriminated === false) {
     return false;
   }
-  if (type === 'object' && isPlainObject(schema.discriminator) && schema.discriminator.mapping != null) {
+  if (
+    type === 'object' &&
+    isPlainObject(schema.discriminator) &&
+    schema.discriminator.mapping !== null &&
+    schema.discriminator.mapping !== undefined
+  ) {
     return true;
   }
   if (oneOf !== undefined && oneOf.length > 0) {
@@ -400,7 +410,11 @@ function isValidAllOfObject(member: AnyNode, depth = 0): boolean {
   if (!isPlainObject(member) || depth > 16) {
     return false;
   }
-  if (isRefNode(member) || member.type === 'object' || member.properties != null) {
+  if (
+    isRefNode(member) ||
+    member.type === 'object' ||
+    (member.properties !== null && member.properties !== undefined)
+  ) {
     return true;
   }
   for (const key of ['allOf', 'oneOf', 'anyOf'] as const) {
@@ -469,10 +483,11 @@ function classifyOnce(ctx: Ctx, located: Located): Classification {
     return result('list');
   }
   if (
-    schema.additionalProperties != null &&
+    schema.additionalProperties !== null &&
+    schema.additionalProperties !== undefined &&
     schema.additionalProperties !== false &&
     hasNoProperties(schema) &&
-    schema.allOf == null
+    (schema.allOf === null || schema.allOf === undefined)
   ) {
     return result('map');
   }
@@ -511,14 +526,20 @@ function classifyOnce(ctx: Ctx, located: Located): Classification {
   if (hasMapping && Object.keys(schema.discriminator.mapping).length > 0) {
     return result('union');
   }
-  if (schema.allOf != null || schema.properties != null) {
+  if (
+    (schema.allOf !== null && schema.allOf !== undefined) ||
+    (schema.properties !== null && schema.properties !== undefined)
+  ) {
     const allOf: AnyNode[] = Array.isArray(schema.allOf) ? schema.allOf : [];
     const indexed = allOf.map((element, index) => ({ element, index }));
     const filtered = indexed.filter(
       ({ element }) => isRefNode(element) || (isPlainObject(element) && Object.keys(element).length > 0),
     );
     const canShortCircuit =
-      hasNoProperties(schema) && (schema.additionalProperties == null || schema.additionalProperties === false);
+      hasNoProperties(schema) &&
+      (schema.additionalProperties === null ||
+        schema.additionalProperties === undefined ||
+        schema.additionalProperties === false);
     if (canShortCircuit && filtered.length === 1) {
       return member('allOf', filtered[0]!.index);
     }
@@ -581,7 +602,10 @@ export function describeKind(kind: FernSchemaKind, schema: AnyNode): string {
     case 'object':
       return 'an object';
     case 'map':
-      return isPlainObject(schema) && schema.additionalProperties != null && schema.additionalProperties !== false
+      return isPlainObject(schema) &&
+        schema.additionalProperties !== null &&
+        schema.additionalProperties !== undefined &&
+        schema.additionalProperties !== false
         ? 'a map (additionalProperties without properties)'
         : 'an object without properties, which Fern imports as a map';
     case 'list':

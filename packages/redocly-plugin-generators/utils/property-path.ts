@@ -75,7 +75,7 @@ export interface PropertyLookup {
   /** Whether a property was found and satisfied the predicate. */
   valid: boolean;
   /** The first property schema the path resolved to, even if it failed the predicate. */
-  match?: Located;
+  match?: Located | undefined;
 }
 
 /** Walks `path` through object schemas starting at `schema`. */
@@ -180,10 +180,10 @@ export function streamingMode(operation: AnyNode): StreamingMode {
   if (!isPlainObject(streaming)) {
     return undefined;
   }
-  if (streaming['stream-condition'] != null) {
+  if (streaming['stream-condition'] !== null && streaming['stream-condition'] !== undefined) {
     return 'stream-condition';
   }
-  return streaming.format != null ? 'stream' : undefined;
+  return streaming.format !== null && streaming.format !== undefined ? 'stream' : undefined;
 }
 
 /** The response Fern imports for an operation. */

@@ -60,7 +60,10 @@ function checkCondition(ctx: UserContext, operation: OperationInfo, value: AnyNo
   const schema = resolved?.node;
   if (
     !isPlainObject(schema) ||
-    (schema.allOf == null && schema.properties == null && schema.oneOf == null && schema.anyOf == null)
+    ((schema.allOf === null || schema.allOf === undefined) &&
+      (schema.properties === null || schema.properties === undefined) &&
+      (schema.oneOf === null || schema.oneOf === undefined) &&
+      (schema.anyOf === null || schema.anyOf === undefined))
   ) {
     ctx.report({
       message: `stream-condition ${value} requires the JSON request body to be an object schema with properties; Fern drops a request body that is not, so endpoint ${endpointId(operation)} would lose its request body.`,
@@ -93,11 +96,16 @@ function checkObject(
   streaming: Record<string, AnyNode>,
   location: Location,
 ): void {
-  const hasCondition = streaming['stream-condition'] != null;
-  const hasResponse = streaming.response != null;
-  const hasResponseStream = streaming['response-stream'] != null;
+  const hasCondition = streaming['stream-condition'] !== null && streaming['stream-condition'] !== undefined;
+  const hasResponse = streaming.response !== null && streaming.response !== undefined;
+  const hasResponseStream = streaming['response-stream'] !== null && streaming['response-stream'] !== undefined;
 
-  if (streaming.format != null && streaming.format !== 'sse' && streaming.format !== 'json') {
+  if (
+    streaming.format !== null &&
+    streaming.format !== undefined &&
+    streaming.format !== 'sse' &&
+    streaming.format !== 'json'
+  ) {
     ctx.report({
       message: hasCondition
         ? `${EXTENSION} format must be 'sse' or 'json'.`
@@ -106,7 +114,7 @@ function checkObject(
     });
   }
   for (const field of STRING_FIELDS) {
-    if (streaming[field] != null && typeof streaming[field] !== 'string') {
+    if (streaming[field] !== null && streaming[field] !== undefined && typeof streaming[field] !== 'string') {
       ctx.report({
         message: `${EXTENSION} ${field} must be a string.`,
         location: location.child(field),
@@ -114,7 +122,7 @@ function checkObject(
       });
     }
   }
-  if (streaming.resumable != null && typeof streaming.resumable !== 'boolean') {
+  if (streaming.resumable !== null && streaming.resumable !== undefined && typeof streaming.resumable !== 'boolean') {
     ctx.report({
       message: `${EXTENSION} resumable must be a boolean. Fern treats any other value as false.`,
       location: location.child('resumable'),
@@ -127,7 +135,7 @@ function checkObject(
     });
   }
 
-  if (!hasCondition && streaming.format == null) {
+  if (!hasCondition && (streaming.format === null || streaming.format === undefined)) {
     ctx.report({
       message: `${EXTENSION} has neither format nor stream-condition, so Fern ignores it and endpoint ${endpointId(operation)} does not stream. Set format: sse or format: json, or use true.`,
       location,
@@ -160,7 +168,7 @@ function checkObject(
     return;
   }
   for (const field of ['response', 'response-stream']) {
-    if (streaming[field] != null) {
+    if (streaming[field] !== null && streaming[field] !== undefined) {
       ctx.report({
         message: `${EXTENSION} ${field} only applies together with stream-condition; Fern ignores it.`,
         location: location.child(field),
@@ -185,7 +193,7 @@ export const validStreamCondition: RuleDefinition = {
             continue;
           }
           const streaming = operation.node[EXTENSION];
-          if (streaming == null || typeof streaming === 'boolean') {
+          if (streaming === null || streaming === undefined || typeof streaming === 'boolean') {
             continue;
           }
           const location = operation.location.child(EXTENSION);

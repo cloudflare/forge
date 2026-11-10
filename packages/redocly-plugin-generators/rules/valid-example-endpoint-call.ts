@@ -282,8 +282,8 @@ export const validExampleEndpointCall: RuleDefinition = {
               return;
             }
             const response = entry.node.response;
-            const streams = isPlainObject(response) && response.stream != null;
-            const nonStreams = response != null && !streams;
+            const streams = isPlainObject(response) && response.stream !== null && response.stream !== undefined;
+            const nonStreams = response !== null && response !== undefined && !streams;
             // Examples without a response apply to both endpoints.
             if ((value && !streams) || (!value && !nonStreams)) {
               const endpoint = value

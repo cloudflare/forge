@@ -37,7 +37,11 @@ function droppedParents(ctx: UserContext, schema: Located): Located[] {
       }
       const location = current!.location.child(['allOf', index]);
       const target = resolveNode(ctx, member, location);
-      if (isPlainObject(target?.node) && (target.node.oneOf != null || target.node.anyOf != null)) {
+      if (
+        isPlainObject(target?.node) &&
+        ((target.node.oneOf !== null && target.node.oneOf !== undefined) ||
+          (target.node.anyOf !== null && target.node.anyOf !== undefined))
+      ) {
         return;
       }
       result.push({ node: member, location });

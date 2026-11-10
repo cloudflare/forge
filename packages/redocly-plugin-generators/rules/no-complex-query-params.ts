@@ -83,7 +83,9 @@ function findDiscriminatedUnion(ctx: UserContext, start: Located): Found | undef
     const allOfIsAlias =
       !hasProperties &&
       filteredAllOf.length === 1 &&
-      (schema.additionalProperties == null || schema.additionalProperties === false);
+      (schema.additionalProperties === null ||
+        schema.additionalProperties === undefined ||
+        schema.additionalProperties === false);
     for (const { member, index } of filteredAllOf) {
       const label = `allOf[${index}]`;
       if (allOfIsAlias || !isRefNode(member)) {
@@ -94,7 +96,11 @@ function findDiscriminatedUnion(ctx: UserContext, start: Located): Found | undef
       if (parent === undefined || !isPlainObject(parent.node)) {
         continue;
       }
-      if (isPlainObject(parent.node.discriminator) && parent.node.discriminator.mapping != null) {
+      if (
+        isPlainObject(parent.node.discriminator) &&
+        parent.node.discriminator.mapping !== null &&
+        parent.node.discriminator.mapping !== undefined
+      ) {
         continue;
       }
       const variants = Array.isArray(parent.node.oneOf)

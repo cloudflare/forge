@@ -299,7 +299,7 @@ function securityInfo(ctx: Ctx, root: Located): SecurityInfo {
 
 /** JSON schema for a Fern type string used in `x-fern-global-headers[].type`. */
 function fernTypeSchema(type: string): {
-  schema?: Record<string, unknown>;
+  schema?: Record<string, unknown> | undefined;
   optional: boolean;
 } {
   const wrapper = /^(optional|nullable)<(.+)>$/.exec(type.trim());
@@ -631,7 +631,7 @@ function conditionModel(operation: OperationInfo): ResponseModel {
   }
   const property = condition.startsWith('$request.') ? condition.slice('$request.'.length) : condition;
   const located = (key: string): Located | undefined =>
-    streaming[key] == null
+    streaming[key] === null || streaming[key] === undefined
       ? undefined
       : {
           node: streaming[key],

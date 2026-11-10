@@ -115,7 +115,7 @@ const SPECS: Record<PaginationKind, PropertySpec[]> = {
 
 /** The pagination kind Fern's importer picks for an object, in the importer's order. */
 function paginationKind(config: Record<string, AnyNode>): PaginationKind | undefined {
-  if (config.cursor != null) {
+  if (config.cursor !== null && config.cursor !== undefined) {
     return 'cursor';
   }
   if ('next_uri' in config) {
@@ -152,7 +152,7 @@ function checkShape(config: AnyNode, location: Location, ctx: UserContext): Pagi
   let valid = true;
   for (const spec of SPECS[kind]) {
     const value = config[spec.key];
-    if (value == null) {
+    if (value === null || value === undefined) {
       if (spec.required) {
         valid = false;
         ctx.report({
@@ -269,12 +269,12 @@ export const validPagination: RuleDefinition = {
               'Global pagination extension is a boolean, expected an object. Only endpoints may declare a boolean for x-fern-pagination.',
             location: rootLocation,
           });
-        } else if (rootConfig != null && !isPlainObject(rootConfig)) {
+        } else if (rootConfig !== null && rootConfig !== undefined && !isPlainObject(rootConfig)) {
           ctx.report({
             message: `The document-level ${EXTENSION} must be an object.`,
             location: rootLocation,
           });
-        } else if (rootConfig != null) {
+        } else if (rootConfig !== null && rootConfig !== undefined) {
           rootKind = checkShape(rootConfig, rootLocation, ctx);
         }
 
@@ -283,7 +283,7 @@ export const validPagination: RuleDefinition = {
             continue;
           }
           const value = operation.node[EXTENSION];
-          if (value == null) {
+          if (value === null || value === undefined) {
             continue;
           }
           const location = operation.location.child(EXTENSION);
@@ -295,7 +295,7 @@ export const validPagination: RuleDefinition = {
                 forceSeverity: 'warn',
               });
             }
-            if (rootConfig == null) {
+            if (rootConfig === null || rootConfig === undefined) {
               ctx.report({
                 message: `${EXTENSION}: ${value} inherits the document-level ${EXTENSION}, but the document does not declare one, so Fern generates no pagination for endpoint ${endpointId(operation)}.`,
                 location,

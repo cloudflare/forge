@@ -2,7 +2,6 @@
   "extends": "../../tsconfig.json",
   "compilerOptions": {
     "strictNullChecks": true,
-    "exactOptionalPropertyTypes": false,
     "types": ["node"]
   }
 }

@@ -160,7 +160,7 @@ function checkEndpoint(
     const configured = isPlainObject(properties) ? properties[spec.option] : undefined;
     const optionPath = `${optionName}.${spec.side}Properties.${spec.option}`;
     const example = spec.id.replace('-', '_');
-    if (configured != null && typeof configured !== 'string') {
+    if (configured !== null && configured !== undefined && typeof configured !== 'string') {
       ctx.report({
         message: `The ${optionPath} option of generators/valid-oauth must be a string selector such as '${spec.side === 'request' ? REQUEST_PREFIX : RESPONSE_PREFIX}${example}'.`,
         location: operation.location,
@@ -171,7 +171,7 @@ function checkEndpoint(
     if (selector === undefined) {
       return;
     }
-    const usesDefault = configured == null;
+    const usesDefault = configured === null || configured === undefined;
     const sidePrefix = spec.side === 'request' ? REQUEST_PREFIX : RESPONSE_PREFIX;
     const sideName = sidePrefix.slice(0, -1);
     const path = parseSelector(selector, sidePrefix);
@@ -195,7 +195,7 @@ function checkEndpoint(
       });
       return;
     }
-    let lookup: { valid: boolean; match?: Located };
+    let lookup: { valid: boolean; match?: Located | undefined };
     if (spec.side === 'request') {
       lookup = lookupRequestProperty(ctx, operation, path, spec.predicate);
     } else if (response.kind === 'json') {
@@ -251,7 +251,7 @@ export const validOauth: RuleDefinition = {
       leave(root: AnyNode, ctx: UserContext) {
         const getToken = options.getToken;
         const refreshToken = options.refreshToken;
-        if (getToken == null && refreshToken == null) {
+        if ((getToken === null || getToken === undefined) && (refreshToken === null || refreshToken === undefined)) {
           return;
         }
         const document = rootOf(root, ctx);
@@ -283,7 +283,7 @@ export const validOauth: RuleDefinition = {
           return undefined;
         };
 
-        if (getToken == null) {
+        if (getToken === null || getToken === undefined) {
           ctx.report({
             message:
               'OAuth client-credentials flow requires a `get-token` endpoint: set the getToken.endpoint option of generators/valid-oauth.',
@@ -295,7 +295,7 @@ export const validOauth: RuleDefinition = {
             checkEndpoint(ctx, operation, getToken, 'getToken', TOKEN_REQUEST);
           }
         }
-        if (refreshToken != null) {
+        if (refreshToken !== null && refreshToken !== undefined) {
           const operation = resolve('refreshToken', refreshToken);
           if (operation !== undefined) {
             checkEndpoint(ctx, operation, refreshToken, 'refreshToken', REFRESH_REQUEST);

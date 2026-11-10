@@ -115,7 +115,7 @@ export interface Declaration {
    * The Fern definition file (without extension) a type is declared in, when known. Fern keeps
    * only the last of several types with the same name in one file.
    */
-  file?: string;
+  file?: string | undefined;
   /** Names the declaration for messages, e.g. `the schema components.schemas.Plant`. */
   subject: string;
   /** {@link subject} plus how Fern arrived at the name. */
@@ -410,8 +410,8 @@ function streamConditionOf(operation: AnyNode): Record<string, AnyNode> | undefi
 
 interface RequestBodyMedia {
   requestBody: Located;
-  json?: Located;
-  multipart?: Located;
+  json?: Located | undefined;
+  multipart?: Located | undefined;
 }
 
 /** The request body media type Fern converts: JSON (or form-urlencoded), else multipart. */

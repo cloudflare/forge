@@ -137,9 +137,9 @@ export const onlyObjectExtensions: RuleDefinition = {
         }
         const discriminator = target.node.discriminator;
         if (
-          (isPlainObject(discriminator) && discriminator.mapping != null) ||
-          target.node.oneOf != null ||
-          target.node.anyOf != null
+          (isPlainObject(discriminator) && discriminator.mapping !== null && discriminator.mapping !== undefined) ||
+          (target.node.oneOf !== null && target.node.oneOf !== undefined) ||
+          (target.node.anyOf !== null && target.node.anyOf !== undefined)
         ) {
           return;
         }

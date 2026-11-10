@@ -26,7 +26,7 @@ interface FernTypeUsage {
   /** Whether the type sits on a header (`x-fern-global-headers` / `x-fern-idempotency-headers`). */
   header: boolean;
   /** A special type that has no effect at this location because Fern ignores the schema there. */
-  ignoredSpecialType?: string;
+  ignoredSpecialType?: string | undefined;
 }
 
 const SPECIAL_TYPES: Record<string, string> = {

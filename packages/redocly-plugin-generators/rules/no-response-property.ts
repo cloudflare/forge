@@ -22,7 +22,7 @@ function targetSchema(ctx: UserContext, operation: OperationInfo): Target {
   const mode = streamingMode(operation.node);
   const streaming = operation.node['x-fern-streaming'];
   if (mode === 'stream-condition') {
-    return isPlainObject(streaming) && streaming.response != null
+    return isPlainObject(streaming) && streaming.response !== null && streaming.response !== undefined
       ? {
           kind: 'schema',
           schema: {

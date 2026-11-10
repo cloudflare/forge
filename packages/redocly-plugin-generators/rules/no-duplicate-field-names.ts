@@ -25,7 +25,7 @@ type Ctx = Pick<UserContext, 'resolve'>;
 interface Field {
   key: string;
   name: string;
-  override?: string;
+  override?: string | undefined;
   /** Location of the property key. */
   location: Location;
   /** Location of what decides the name: the `x-fern-property-name`, else the property key. */
