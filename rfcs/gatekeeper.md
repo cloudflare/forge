@@ -68,7 +68,7 @@ The config says which operations the gatekeeper covers, and what the spec does n
 
   - `omitParameters` lists parameters of the operation to leave out, by name.
   - `failure` says what marks a 2XX response of the operation as a failure, in place of the config's.
-- **`properties`** gives a field name to properties whose wire names do not make one, by wire name. GitHub's `+1` and `-1` are both the name "1" otherwise, which is an error.
+- **`properties`** gives a name to properties whose wire names do not make one, by wire name. GitHub's `+1` and `-1` are both the name "1" otherwise, which is an error when the document is read. The name only tells them apart: the generated field keeps the wire name.
 
 - **`omitParameters`** lists parameters to leave out of every operation that has them, by name. It is for a parameter that takes a credential, as Slack's `token` does: the provider has the credentials, and a request type should have no field for one. A path parameter cannot be left out, and a name that no operation has is an error.
 - **`failure`** says what marks a 2XX response as a failure, for an API that answers one with a 2XX: `{ "property": "ok", "equals": false }` for Slack. Such a response is thrown like one whose status is not 2XX.
@@ -151,7 +151,9 @@ A path parameter that is `.` or `..` is refused before anything is sent. It is t
 
 A call can add query parameters the spec does not declare, in its options. One replaces the parameter of the request that has its name.
 
-The clients keep every property and query parameter that has a name. The `ts` target leaves out one whose wire name has a character other than a letter, a digit, `-` or `_`, such as `name.exact` or `+1`, and lets it be sent untyped. A gatekeeper covers few operations and is written against all of what they take and return, so its clients have `nameExact` and `plusOne`.
+The clients keep every property and query parameter that has a name. The `ts` target leaves out one whose wire name has a character other than a letter, a digit, `-` or `_`, such as `name.exact` or `+1`, and lets it be sent untyped. A gatekeeper covers few operations and is written against all of what they take and return, so its clients have `"name.exact"` and `"+1"`.
+
+The fields have the provider's names. The `ts` target names a field in camel case and renames it as it encodes and decodes. The clients of a provider do not: a request has `team_ids[]` and a response has `created_at`, as the provider documents them. With dates as strings and an `int64` as a number, nothing in a body is converted, so the models have no codecs and a body is what `JSON.parse` returns.
 
 A method returns the decoded body with the status and the headers of the response, so that a gatekeeper can read an `ETag` or a `Link` header. The method of a conditional operation returns a 304 as a result whose `notModified` is true, with the headers and no body, and the gatekeeper answers from its own cache. Caching itself is not generated: among today's gatekeepers only GitHub's revalidates.
 
@@ -188,7 +190,7 @@ A 2XX response whose body is not JSON, or is empty where the operation has one, 
 }
 ```
 
-`operations.json` is what the rest of the target will be built from, and what an agent reads to see which decisions each operation needs. A `pagination` has the names of the generated fields: `field` for `items`, the request fields for `offset`, `limit` and `cursor`, and the response fields for `next`, `more` and `last`. An operation whose response the document gives no type is marked `untyped`, and one whose body can say it failed has the `failure` property.
+`operations.json` is what the rest of the target will be built from, and what an agent reads to see which decisions each operation needs. A `pagination` has the names the config gave, which are those of the generated fields. An operation whose response the document gives no type is marked `untyped`, and one whose body can say it failed has the `failure` property.
 
 An operation that declares header parameters has them in `headers`, each with its `name`, whether it is `required` and its `default`. Forge's model of an API has no header parameters, so a request type has no field for one and the clients do not send it. `Content-Type` and `Authorization` are left out, as OpenAPI says to. `Accept` is kept, since an API can ask for a media type of its own in it, as PagerDuty does for its version. The worksheet asks, for each, whether the provider sets it or each call does.
 
@@ -261,6 +263,8 @@ Proposed, in the order they would be built:
 
 **The approval plumbing is not generated.** It was considered, as a guard around each read and a draft action for each write. Existing gatekeepers show why not. A read is authorized once per session method, after its provider calls, often with subresources taken from the response, and reads that only prepare an action are not logged at all. An action's payload is the agent's type, not the provider's request, several kinds of action share one endpoint, and its tag is permanent once shipped. What Forge can do deterministically is enforce the rules by how the client is split, and check them with tests.
 
+**The fields keep the provider's names.** The first clients renamed fields to camel case, as the SDK does. Porting the PagerDuty gatekeeper to them showed what that costs. Its normalizers, its simulation, its caches and its test fake are written against the provider's names, and a webhook delivers the same objects under them, so a file was needed only to map the names back. A property the document does not declare where it appears cannot be renamed, so one object arrived with names of both kinds, and a later document that declares it would change its key with no compile error.
+
 **The contract is not generated.** `types.d.ts` is the API an agent sees and the first thing a person reviews. It is designed above the provider's API, not derived from it. A later step could take an existing contract as an input, to keep a gatekeeper's API when it is regenerated.
 
 **The config is a file of its own, not an OpenAPI overlay.** Forge has no overlay support, and a gatekeeper needs to say less than an overlay can: which operations, their names, and a few facts. A list keyed by `operationId` is small enough to review line by line.
@@ -274,7 +278,6 @@ Proposed, in the order they would be built:
 - **`Temporal` in the runtime library.** The models no longer use it, but the date codecs the clients share with the SDK still name it, so a project needs a TypeScript `lib` that declares it.
 - **The transport is a copy.** The clients' transport builds paths and bodies and reads error messages as the SDK's does, in code of its own. The two should share that code once the provider interface has settled.
 - **Sending a request, in the kit.** Every gatekeeper writes its own `fetch` wrapper today. One function in the kit that returns the status, the headers and the capped text, with hooks for the URL, redirects and headers, would make a provider a few lines.
-- **Routes in `operations.json`.** Its `path` has the wire names of the path parameters, and a request's `route` has their field names. A provider that matches on one cannot use the other as it is.
 - **`$ref`s into `paths`.** Forge follows a `$ref` to a schema in `components.schemas`, and to the schema of a parameter, a request body or a response in `components`, such as `#/components/responses/Conflict/content/application~1json/schema`, which PagerDuty's document has on every operation. It does not follow one into `paths`. PagerDuty's document has two schemas with one, which no operation tried so far uses. This is a limit of Forge, not of this target.
 - **Other ways to page.** A page number cannot be declared yet.
 - **Swagger 2.0.** Forge does not read it. Slack's document is one, and was tried from a conversion.

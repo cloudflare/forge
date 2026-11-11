@@ -225,7 +225,7 @@ check(!('remove' in reads.a) && !('get' in writes.a), 'a client has a method of 
 answers.push({ status: 200, headers: new Headers({ etag: '"e"' }), text: '{"full_name":"x"}' });
 const first = await reads.a.get({ id: '1' });
 if (first.notModified) throw new Error('a 200 is not modified');
-check(first.data.fullName === 'x', 'the body is not decoded');
+check(first.data.full_name === 'x', 'the body is not decoded');
 check(first.headers.get('etag') === '"e"', 'the headers are missing');
 const request = sent[0];
 check(request?.operationId === 'a/get' && request.kind === 'read', 'the request has no operation');

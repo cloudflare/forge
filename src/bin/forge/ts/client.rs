@@ -10,7 +10,7 @@ use forge::{Field, Group, Json, Location, Method, Model, Type};
 use super::models::print_fields;
 use super::operation::operation;
 use super::types::{
-    Prec, all_optional, alternatives, doc, has_fields, identifier, js_string, kept, key, object_like, typ,
+    Prec, all_optional, alternatives, doc, field_name, has_fields, identifier, js_string, kept, key, object_like, typ,
 };
 use super::{PROVIDER_EXTENSION, Transport, request_options, runtime};
 
@@ -503,7 +503,7 @@ impl<'f> Request<'f> {
             if matches!(location, Location::Query { .. }) && !kept(field) {
                 continue;
             }
-            let mut name = field.name().camel();
+            let mut name = field_name(field);
             if !flat && name == "body" {
                 name.push('$');
             }

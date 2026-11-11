@@ -631,8 +631,8 @@ fn worksheet(forge: &Forge) -> String {
 /// what operations.json says of it.
 fn paging_line(pagination: &Value) -> String {
     let string = |key: &str| pagination.get(key).and_then(Value::as_str);
-    let items = match string("field") {
-        Some(field) => format!("the items are in `data.{field}`"),
+    let items = match string("items") {
+        Some(items) => format!("the items are in `data.{items}`"),
         None => "the response is the array of items".to_owned(),
     };
     let end = match (string("more"), string("last")) {
@@ -668,7 +668,7 @@ fn response_lines(method: Method<'_>) -> String {
     }
     if untyped(method) {
         text.push_str(
-            "- The document gives its response no type, so `data` is what the provider sent, with the provider's names. What you check of it before you map it:\n",
+            "- The document gives its response no type, so `data` is what the provider sent. What you check of it before you map it:\n",
         );
     }
     text
@@ -845,10 +845,9 @@ fn entry(method: Method<'_>) -> Result<Value, Err> {
 
 /// Returns how the operation `id` of `method` pages, for operations.json,
 /// from the `pagination` of its extension, which has the names the API
-/// uses. Next to `items` it gives `field`, the generated field that holds
-/// them. In place of every other name it gives the generated field: of the
-/// request for `offset`, `limit` and `cursor`, and of the response for
-/// `next`, `more` and `last`, with dots between the fields of a path.
+/// uses, which are also those of the generated fields: `items`, `next`,
+/// `more` and `last` of the response, with dots between the fields of a
+/// path, and `offset`, `limit` and `cursor` of the request.
 ///
 /// It is an error when the operation does not have what its pagination
 /// names.
@@ -865,26 +864,23 @@ fn paging(method: Method<'_>, id: &str, pagination: &Json) -> Result<Value, Err>
             };
             return Err(format!("{id} pages, but no response of it is {what}").into());
         }
-        (Some(items), Some(field)) => {
-            value["items"] = json!(items);
-            value["field"] = json!(field);
-        }
+        (Some(items), Some(_)) => value["items"] = json!(items),
         (None, Some(_)) => {}
     }
     for key in ["offset", "limit", "cursor"] {
         if let Some(name) = string(key) {
-            let Some(field) = request_field(method, name) else {
+            if request_field(method, name).is_none() {
                 return Err(format!("{id} pages by {style}, but has no parameter {name}").into());
-            };
-            value[key] = json!(field);
+            }
+            value[key] = json!(name);
         }
     }
     for key in ["next", "more", "last"] {
         if let Some(name) = string(key) {
-            let Some(field) = response_field(method, Some(name), false) else {
+            if response_field(method, Some(name), false).is_none() {
                 return Err(format!("{id} pages by {style}, but no response of it has the property {name}").into());
-            };
-            value[key] = json!(field);
+            }
+            value[key] = json!(name);
         }
     }
     Ok(value)
@@ -972,14 +968,14 @@ fn request_field(method: Method<'_>, wire_name: &str) -> Option<String> {
             field.wire_name() == wire_name && matches!(method.location(field), Some(Location::Query { .. }))
         });
     if let Some(field) = parameter {
-        return Some(field.name().camel());
+        return Some(field.wire_name().to_owned());
     }
     let body = method.body()?.json()?.ty();
     match shape(body) {
         Shape::Fields(fields) => fields
             .into_iter()
             .find(|field| field.wire_name() == wire_name)
-            .map(|field| field.name().camel()),
+            .map(|field| field.wire_name().to_owned()),
         Shape::Untyped => Some(wire_name.to_owned()),
         Shape::Other => None,
     }
@@ -1007,7 +1003,7 @@ fn response_field(method: Method<'_>, property: Option<&str>, array: bool) -> Op
             match at.map(shape) {
                 Some(Shape::Fields(fields)) => {
                     let field = fields.into_iter().find(|field| field.wire_name() == wire_name)?;
-                    names.push(field.name().camel());
+                    names.push(field.wire_name().to_owned());
                     at = Some(field.ty());
                 }
                 Some(Shape::Untyped) | None => {
@@ -1324,7 +1320,7 @@ mod tests {
             "{reads}"
         );
         assert!(
-            reads.contains("- Paging: it pages by `link-header`: the items are in `data.workRuns`."),
+            reads.contains("- Paging: it pages by `link-header`: the items are in `data.work_runs`."),
             "{reads}"
         );
         // A read that is not sent with GET is asked why it is one.
@@ -1365,7 +1361,7 @@ mod tests {
             .unwrap();
         assert_eq!(
             runs["pagination"],
-            serde_json::json!({"style": "link-header", "items": "work_runs", "field": "workRuns"})
+            serde_json::json!({"style": "link-header", "items": "work_runs"})
         );
         assert!(files["GUIDE.md"].starts_with("# Building a gatekeeper on these files\n"));
     }
@@ -1537,24 +1533,22 @@ mod tests {
             r#"{"style": "offset", "items": "incidents", "limit": "page_size", "more": "has_more"}"#,
         ))
         .unwrap();
-        // The items are found in a member of an allOf, and the names are
-        // those of the generated fields.
+        // The items are found in a member of an allOf.
         let operations: Value = serde_json::from_str(&files["operations.json"]).unwrap();
         assert_eq!(
             operations["operations"][0]["pagination"],
             serde_json::json!({
                 "style": "offset",
                 "items": "incidents",
-                "field": "incidents",
                 "offset": "offset",
-                "limit": "pageSize",
-                "more": "hasMore"
+                "limit": "page_size",
+                "more": "has_more"
             })
         );
         let worksheet = &files["WORKSHEET.md"];
         assert!(
             worksheet.contains(
-                "- Paging: it pages by `offset`: a call asks for a page with `offset` and `pageSize`, the items are in `data.incidents`, and `data.hasMore` is true when there is another page."
+                "- Paging: it pages by `offset`: a call asks for a page with `offset` and `page_size`, the items are in `data.incidents`, and `data.has_more` is true when there is another page."
             ),
             "{worksheet}"
         );
@@ -1601,17 +1595,16 @@ mod tests {
             serde_json::json!({
                 "style": "cursor",
                 "items": "messages",
-                "field": "messages",
                 "limit": "limit",
                 "cursor": "cursor",
-                "next": "meta.nextCursor",
-                "last": "isLast"
+                "next": "meta.next_cursor",
+                "last": "is_last"
             })
         );
         let worksheet = &files["WORKSHEET.md"];
         assert!(
             worksheet.contains(
-                "- Paging: it pages by `cursor`: a call asks for the next page with `cursor`, set to the `data.meta.nextCursor` of the page before and `limit`, the items are in `data.messages`, and `data.isLast` is true when the page is the last."
+                "- Paging: it pages by `cursor`: a call asks for the next page with `cursor`, set to the `data.meta.next_cursor` of the page before and `limit`, the items are in `data.messages`, and `data.is_last` is true when the page is the last."
             ),
             "{worksheet}"
         );
@@ -1658,8 +1651,7 @@ mod tests {
             serde_json::json!({
                 "style": "cursor",
                 "items": "results",
-                "field": "results",
-                "cursor": "startCursor",
+                "cursor": "start_cursor",
                 "next": "next_cursor",
                 "more": "has_more"
             })
@@ -1812,8 +1804,7 @@ mod tests {
         }"#;
         let files = generate(config).unwrap();
         let models = &files["issues/models.ts"];
-        assert!(models.contains("props?: "), "{models}");
-        assert!(models.contains("props?: { shape?: string };"), "{models}");
+        assert!(models.contains("properties?: { format?: string };"), "{models}");
     }
 
     #[test]
@@ -1879,7 +1870,7 @@ mod tests {
     fn a_date_that_can_be_null_is_a_string() {
         let files = generate(CONFIG).unwrap();
         let models = &files["issues/models.ts"];
-        assert!(models.contains("closedAt?: string | null;"), "{models}");
+        assert!(models.contains("closed_at?: string | null;"), "{models}");
         assert!(!models.contains("Temporal"), "{models}");
     }
 
@@ -1889,10 +1880,12 @@ mod tests {
         let models = &files["issues/models.ts"];
         // Without the names, `+1` and `-1` are both the name "1", which is
         // an error.
-        assert!(models.contains("plusOne?: number;"), "{models}");
-        assert!(models.contains("minusOne?: number;"), "{models}");
-        assert!(models.contains(r#"["+1", "plusOne"],"#), "{models}");
-        assert!(models.contains("createdAt?: string;"), "{models}");
+        // The fields have the wire names all the same, so nothing is
+        // renamed and the models have no codec.
+        assert!(models.contains(r#""+1"?: number;"#), "{models}");
+        assert!(models.contains(r#""-1"?: number;"#), "{models}");
+        assert!(models.contains("created_at?: string;"), "{models}");
+        assert!(!models.contains("Codec"), "{models}");
         assert!(!models.contains("Temporal"), "{models}");
     }
 
@@ -1902,9 +1895,9 @@ mod tests {
     fn a_field_whose_wire_name_is_not_valid_is_kept() {
         let files = generate(CONFIG).unwrap();
         let client = &files["issues/client.ts"];
-        assert!(client.contains("titleContains?: string;"), "{client}");
+        assert!(client.contains(r#""title.contains"?: string;"#), "{client}");
         assert!(
-            client.contains(r#"query: { titleContains: "title.contains" },"#),
+            client.contains(r#"query: { "title.contains": "title.contains" },"#),
             "{client}"
         );
         assert!(

@@ -9,7 +9,7 @@ Do not edit the files here. They are replaced the next time Forge runs. To cover
 ## What is here
 
 - `read.ts`, which exports `createReadClient`, and `write.ts`, which exports `createWriteClient`.
-- `index.ts` and a directory for each group: the request and response types of every operation, and the types of the runtime.
+- `index.ts` and a directory for each group: the request and response types of every operation, and the types of the runtime. Every field has the name the provider gives it, such as `created_at` or `team_ids[]`, so the types match the provider's documentation and what its webhooks send.
 - `client.ts` in each directory, which the files above import. Do not import it.
 - `_/`: the runtime the clients import. It has no dependencies.
 - `operations.json`: each operation with its `operationId`, the method that calls it, whether it reads or writes, and how it pages.
@@ -99,18 +99,18 @@ Session code gets the client of reads and nothing else. It imports `./api/read.j
 - Run each call through `CredentialSource.run()` with `replayable: true`. A read can be sent twice. For a read that is sent with `POST`, be sure of that first.
 - Fix what the binding fixes. A session bound to one repository passes its own owner and name, or the id it pinned, and never takes them from the caller.
 - A method returns `{ data, status, headers }`. Map `data` to the type in `types.d.ts` with a function you write. Do not return it as it is, and do not spread it: the provider can add a field tomorrow.
-- When `operations.json` marks an operation `untyped`, the provider's document gives its response no type. `data` is then what the provider sent, with the provider's names and no check at all. Check every field you read as you map it.
+- When `operations.json` marks an operation `untyped`, the provider's document gives its response no type. `data` is then what the provider sent, with no check at all. Check every field you read as you map it.
 - An `int64` of the provider is a `bigint` in the generated types, unless the config makes it a number. `JSON.stringify` throws on one, and Cap'n Web, storage and action payloads may not take one. Turn it into a string, or a number when it is known to fit, as you map.
 - Every session method that returns information to its caller awaits the helper that authorizes its observation, with `subresources`, before it returns. That is once for each session method, after its provider calls, and not once for each call of a client. A read that only prepares an action is not an observation.
 - The clients know nothing of pending actions. A session method reads through the client, then applies the simulation.
 
 **Conditional operations.** A method whose operation is marked conditional returns either a result or `{ notModified: true }`. Send `if-none-match` in the options of the call with the `ETag` you stored, and answer from your own cache on `notModified`. Store the `ETag` with the mapped value, and partition the cache by credential. Use this only where the provider counts a 304 for less than a full read; otherwise a `KvTtlCache` with a TTL is enough.
 
-**Paged operations.** `operations.json` says how an operation pages, with the names of the generated fields. When its `pagination` has a `field`, the items are in that field of `data`, and otherwise `data` is the array. Wrap either style in one of the kit's cursors, and authorize every page it hands out.
+**Paged operations.** `operations.json` says how an operation pages. When its `pagination` has `items`, the items are in that field of `data`, and otherwise `data` is the array. Wrap either style in one of the kit's cursors, and authorize every page it hands out.
 
 - `link-header`: the next page is the `rel="next"` URL of the `link` header of a result. Take its query parameters and send them as the `query` of the options of the next call, which replace those of the request. Do not count pages yourself: the link can carry a cursor the request type does not have.
 - `offset`: a call asks for a page with the request fields that `offset` and `limit` name. Check what the provider documents as the largest offset, and stop there.
-- `cursor`: a call asks for the next page with the request field that `cursor` names, set to what `next` names in the `data` of the page before. `next` can be a path, such as `responseMetadata.nextCursor`. A cursor is the provider's: do not hand it to a caller as it is, since a caller could send back another.
+- `cursor`: a call asks for the next page with the request field that `cursor` names, set to what `next` names in the `data` of the page before. `next` can be a path, such as `response_metadata.next_cursor`. A cursor is the provider's: do not hand it to a caller as it is, since a caller could send back another.
 
 For `offset` and `cursor`, `more` names the field of `data` that is true when there is another page, and `last` the one that is true when the page is the last. Without either, a page with no items, or with no cursor, is the last.
 
