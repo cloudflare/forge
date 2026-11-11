@@ -47,9 +47,11 @@ It reads the document as JSON and does not link it, so it works on a document Fo
 
 - **The API**: its title and version, its servers with their variables, and its security schemes with their flows and scopes.
 - **What will limit the clients**: a document that is not OpenAPI 3, one with no shared schemas, whose types are written in place, and `$ref`s Forge does not follow.
-- **Every operation**: its `operationId`, method, path, tags and summary, whether it reads or writes, its parameters by where they go, the scopes it asks for, its success and error statuses, and whether it can be generated. A `POST` whose name or summary reads like a search is marked as a candidate for a read.
+- **Every operation**: its `operationId`, method, path, tags and summary, whether it reads or writes, its parameters by where they go and the fields of its body, each with its type in a few words (`string`, `array of integer`, the values of an enum), the scopes it asks for, its success and error statuses, and whether it can be generated. A `POST` whose name or summary reads like a search is marked as a candidate for a read.
 - **How each operation pages**, with its basis. `declared` is for a `Link` header the document declares on the response. `guessed` is for the rest, from the names of parameters and of properties of the response, and the evidence is listed. A guess is checked against the provider's documentation before the config says it.
 - **What a response gives no type to rely on**: parts with no type, objects none of whose fields are required, and path parameters with a closed set of values.
+
+`CATALOG.md` has a line for each operation, and with a config it writes out what each operation of the config takes. The second gatekeeper for Sentry showed the need: the catalog had the names of the parameters and nothing of a body, so what an update takes was found only in the generated types.
 
 Then it lists **questions**: what the document leaves open and a person has to answer. They are not a fixed list. Each is asked only when the document gives cause:
 

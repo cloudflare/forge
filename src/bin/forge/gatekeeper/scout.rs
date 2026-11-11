@@ -142,6 +142,17 @@ impl Catalog {
             let tag = operation["tags"][0].as_str().unwrap_or("(no tag)");
             tags.entry(tag).or_default().push(operation);
         }
+        let selected: Vec<&Value> = self
+            .operations
+            .iter()
+            .filter(|operation| operation["selected"] == true)
+            .collect();
+        if !selected.is_empty() {
+            text.push_str("\n## Operations of the config\n\nWhat each takes. A type is a summary: the generated request type has the whole of it.\n");
+            for operation in selected {
+                text.push_str(&operation_detail(operation));
+            }
+        }
         text.push_str("\n## Operations\n");
         for (tag, operations) in tags {
             text.push_str(&format!("\n### {tag}\n\n"));
@@ -156,7 +167,7 @@ impl Catalog {
 const CATALOG_INTRO: &str = "\
 # Catalog
 
-Forge wrote this from the provider's OpenAPI document, before any operation was chosen. It is what the document says that a gatekeeper needs, so that nobody has to search the document for it. catalog.json has the same, with the parameters, the statuses and the scopes of each operation.
+Forge wrote this from the provider's OpenAPI document, before any operation was chosen. It is what the document says that a gatekeeper needs, so that nobody has to search the document for it. catalog.json has the same, with the parameters and the body fields of each operation and their types, its statuses and its scopes. With a config, the operations of the config have theirs here too.
 
 What the document declares is given as it is. Two things are guesses, and are marked: how an operation pages, and that an operation sent with `POST` may only read. Check a guess against the provider's documentation before the config says it.
 
@@ -221,6 +232,54 @@ pub fn question_lines(questions: &[Question]) -> String {
     }
     if text.is_empty() {
         text.push_str("- None.\n");
+    }
+    text
+}
+
+/// Returns the section of CATALOG.md for an operation of the config: its
+/// parameters and the fields of its body, each with its type.
+fn operation_detail(operation: &Value) -> String {
+    let string = |value: &Value, key: &str| value[key].as_str().unwrap_or_default().to_owned();
+    let mut text = format!(
+        "\n### `{}`\n\n`{} {}`\n\n",
+        string(operation, "operationId"),
+        string(operation, "method"),
+        string(operation, "path")
+    );
+    let line = |field: &Value| {
+        let ty = string(field, "type");
+        if ty.is_empty() {
+            // The count of the fields that are not listed.
+            return format!("  - {}\n", string(field, "name"));
+        }
+        let required = if field["required"] == true { ", required" } else { "" };
+        format!("  - `{}`: {ty}{required}\n", string(field, "name"))
+    };
+    let mut any = false;
+    for location in ["path", "query", "header"] {
+        let Some(parameters) = operation["parameters"][location].as_array() else {
+            continue;
+        };
+        any = true;
+        text.push_str(&format!("- In the {location}:\n"));
+        text.extend(parameters.iter().map(line));
+    }
+    match &operation["body"] {
+        Value::Null => {}
+        body => {
+            any = true;
+            let required = if body["required"] == true { ", required" } else { "" };
+            match body["fields"].as_array() {
+                Some(fields) => {
+                    text.push_str(&format!("- In the body{required}:\n"));
+                    text.extend(fields.iter().map(line));
+                }
+                None => text.push_str(&format!("- The body is {}{required}.\n", string(body, "type"))),
+            }
+        }
+    }
+    if !any {
+        text.push_str("- It takes nothing.\n");
     }
     text
 }
@@ -500,7 +559,11 @@ fn operation_facts(doc: &Value, path: &str, method: &str, item: &Value, operatio
                 if location == "path" && schema.get("enum").is_some() {
                     closed.push(parameter["name"].clone());
                 }
-                json!({"name": parameter["name"], "required": parameter["required"] == true})
+                json!({
+                    "name": parameter["name"],
+                    "required": parameter["required"] == true,
+                    "type": type_of(doc, schema, 0),
+                })
             })
             .collect();
         if !names.is_empty() {
@@ -542,7 +605,35 @@ fn operation_facts(doc: &Value, path: &str, method: &str, item: &Value, operatio
         }
     }
     facts["responses"] = json!({"success": success, "errors": errors});
-    let (body, body_content) = json_content(doc, follow(doc, &operation["requestBody"]));
+    let request_body = follow(doc, &operation["requestBody"]);
+    let (body, body_content) = json_content(doc, request_body);
+    // The fields of a JSON body, or its type when it is not an object.
+    if let Some(body) = body {
+        let mut described = json!({"required": request_body["required"] == true});
+        let properties = fields(doc, body);
+        if properties.is_empty() {
+            described["type"] = json!(type_of(doc, body, 0));
+        } else {
+            let required = required_of(doc, body);
+            let more = properties.len().saturating_sub(FIELDS);
+            let mut listed: Vec<Value> = properties
+                .iter()
+                .take(FIELDS)
+                .map(|&(name, schema)| {
+                    json!({
+                        "name": name,
+                        "required": required.contains(name),
+                        "type": type_of(doc, schema, 0),
+                    })
+                })
+                .collect();
+            if more > 0 {
+                listed.push(json!({"name": format!("and {more} more")}));
+            }
+            described["fields"] = Value::Array(listed);
+        }
+        facts["body"] = described;
+    }
     if body_content == "other" {
         facts["notGenerated"] = json!("its request body is not JSON");
     } else if let Some(status) = other_content {
@@ -630,6 +721,87 @@ fn fields<'a>(doc: &'a Value, schema: &'a Value) -> Vec<(&'a str, &'a Value)> {
     let mut out = Vec::new();
     add(doc, schema, 0, &mut out);
     out
+}
+
+/// The most fields of a request body that the catalog lists.
+const FIELDS: usize = 60;
+/// The most values of an enum that a type lists.
+const VALUES: usize = 8;
+
+/// Returns the names of the properties that `schema` requires, with those
+/// of the members of its `allOf`.
+fn required_of<'a>(doc: &'a Value, schema: &'a Value) -> BTreeSet<&'a str> {
+    fn add<'a>(doc: &'a Value, schema: &'a Value, depth: usize, out: &mut BTreeSet<&'a str>) {
+        let schema = follow(doc, schema);
+        out.extend(
+            schema["required"]
+                .as_array()
+                .into_iter()
+                .flatten()
+                .filter_map(Value::as_str),
+        );
+        if depth < 8 {
+            for member in schema["allOf"].as_array().into_iter().flatten() {
+                add(doc, member, depth + 1, out);
+            }
+        }
+    }
+    let mut out = BTreeSet::new();
+    add(doc, schema, 0, &mut out);
+    out
+}
+
+/// Returns the type of `schema` in a few words, for a reader who chooses
+/// operations and writes a config: `string`, `integer`, `array of string`,
+/// `"a" | "b"` for an enum, `object`, `unknown` where it has none.
+fn type_of(doc: &Value, schema: &Value, depth: usize) -> String {
+    let schema = follow(doc, schema);
+    let nullable = |text: String| {
+        // An enum that can be null often lists it too.
+        if schema["nullable"] == true && !text.ends_with("null") {
+            format!("{text} or null")
+        } else {
+            text
+        }
+    };
+    if let Some(values) = schema["enum"].as_array() {
+        let mut listed: Vec<String> = values.iter().take(VALUES).map(Value::to_string).collect();
+        if values.len() > VALUES {
+            listed.push(format!("and {} more", values.len() - VALUES));
+        }
+        return nullable(listed.join(" | "));
+    }
+    for key in ["oneOf", "anyOf"] {
+        if let Some(members) = schema[key].as_array() {
+            if depth >= 2 {
+                return "one of several types".to_owned();
+            }
+            let mut listed: Vec<String> = Vec::new();
+            for member in members {
+                let member = type_of(doc, member, depth + 1);
+                if !listed.contains(&member) {
+                    listed.push(member);
+                }
+            }
+            return nullable(listed.join(" or "));
+        }
+    }
+    if is_array(schema) {
+        return match schema.get("items") {
+            Some(items) if depth < 2 => nullable(format!("array of {}", type_of(doc, items, depth + 1))),
+            _ => nullable("array".to_owned()),
+        };
+    }
+    match &schema["type"] {
+        Value::String(name) => {
+            let format = schema["format"].as_str().map(|format| format!(" ({format})"));
+            nullable(format!("{name}{}", format.unwrap_or_default()))
+        }
+        // OpenAPI 3.1 lists the types.
+        Value::Array(names) => names.iter().filter_map(Value::as_str).collect::<Vec<_>>().join(" or "),
+        _ if schema.get("properties").is_some() || schema.get("allOf").is_some() => nullable("object".to_owned()),
+        _ => "unknown".to_owned(),
+    }
 }
 
 /// Reports whether `schema` is an array.
@@ -1239,8 +1411,8 @@ mod tests {
         assert_eq!(
             list["parameters"],
             serde_json::json!({
-                "path": [{"name": "org", "required": true}],
-                "query": [{"name": "cursor", "required": false}]
+                "path": [{"name": "org", "required": true, "type": "string"}],
+                "query": [{"name": "cursor", "required": false, "type": "string"}]
             })
         );
         // The document's security, since it has none of its own.
@@ -1255,6 +1427,20 @@ mod tests {
             search["responses"]["errors"],
             serde_json::json!([{"status": "422", "body": "json"}])
         );
+        // The fields of a body, and the values of an enum.
+        assert_eq!(
+            search["body"],
+            serde_json::json!({
+                "required": false,
+                "fields": [
+                    {"name": "offset", "required": false, "type": "integer"},
+                    {"name": "limit", "required": false, "type": "integer"}
+                ]
+            })
+        );
+        let event = catalog.operation("getEvent").unwrap();
+        assert_eq!(event["parameters"]["path"][2]["type"], r#""latest""#);
+        assert!(list.get("body").is_none());
         let export = catalog.operation("export").unwrap();
         assert_eq!(export["notGenerated"], "its 200 response is not JSON");
     }
@@ -1421,7 +1607,16 @@ mod tests {
 
     #[test]
     fn the_catalog_lists_every_operation_by_tag() {
+        // What an operation of the config takes is written out.
+        let chosen = catalog(Some(r#"{"operations": {"searchIssues": {"name": "search"}}}"#)).markdown();
+        assert!(
+            chosen.contains(
+                "\n### `searchIssues`\n\n`POST /orgs/{org}/issues`\n\n- In the path:\n  - `org`: string, required\n- In the body:\n  - `offset`: integer\n  - `limit`: integer\n"
+            ),
+            "{chosen}"
+        );
         let markdown = catalog(None).markdown();
+        assert!(!markdown.contains("## Operations of the config"));
         assert!(markdown.contains("- Server: `https://{region}.example.com`, with `region`, one of `us`, `de`.\n"));
         assert!(markdown.contains("\n### Issues\n\n- `listIssues`: `GET /orgs/{org}/issues`. List issues. read, pages by link-header (guessed).\n"));
         assert!(

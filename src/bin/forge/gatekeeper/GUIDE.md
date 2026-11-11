@@ -14,7 +14,7 @@ Forge is run twice. The first run is the scout, which needs no config and reads 
 forge <document> --target gatekeeper --scout --out <directory>
 ```
 
-It writes `CATALOG.md` and `catalog.json`: the servers, the security schemes, every operation with its parameters, scopes, statuses and a guess at how it pages, what in the document will limit the clients, and the questions the document leaves open. Read `CATALOG.md` in place of the document. Give `--config` as well and it also asks the questions about the operations of the config.
+It writes `CATALOG.md` and `catalog.json`: the servers, the security schemes, every operation with its parameters, scopes, statuses and a guess at how it pages, what in the document will limit the clients, and the questions the document leaves open. Read `CATALOG.md` in place of the document. `catalog.json` has the parameters and the body fields of every operation, each with its type in a few words. Give `--config` as well and it also asks the questions about the operations of the config, and writes out in `CATALOG.md` what each of them takes.
 
 Then write the config, a JSON file, and run Forge with `--config` and without `--scout` to generate these files. Its keys:
 
