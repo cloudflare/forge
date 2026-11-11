@@ -68,12 +68,14 @@ pub(crate) fn generate(
 /// Returns the client.ts, models.ts and index.ts of `group`. A group without
 /// models has an empty models.ts, which isn't written.
 fn group_files(group: Group<'_>, transport: Transport) -> Result<Vec<File>, Err> {
-    let models = models::models(group).map_err(|errs| errs.join("\n"))?;
-    Ok(vec![
-        File::Ts(client::client(group, transport)),
-        File::Ts(models),
-        File::Ts(index::index(group, transport)),
-    ])
+    types::with_transport(transport, || {
+        let models = models::models(group).map_err(|errs| errs.join("\n"))?;
+        Ok(vec![
+            File::Ts(client::client(group, transport)),
+            File::Ts(models),
+            File::Ts(index::index(group, transport)),
+        ])
+    })
 }
 
 /// A file of the SDK.

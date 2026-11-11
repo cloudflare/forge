@@ -112,6 +112,8 @@ The provider owns what the spec does not describe and what differs between gatek
 
 A request has its `method`, its `path` with the query, and its `headers` and `body`. It also has the `route` of its operation, such as `/repos/{owner}/{repo}/issues/{issueNumber}`, and the values of its path parameters before they are encoded. A provider that rewrites paths, as GitHub's does to address a repository by its id, can do so from those, and not by matching the encoded path.
 
+The clients keep every property and query parameter that has a name. The `ts` target leaves out one whose wire name has a character other than a letter, a digit, `-` or `_`, such as `name.exact` or `+1`, and lets it be sent untyped. A gatekeeper covers few operations and is written against all of what they take and return, so its clients have `nameExact` and `plusOne`.
+
 A method returns the decoded body with the status and the headers of the response, so that a gatekeeper can read an `ETag` or a `Link` header. A response whose status is not 2XX is thrown as an `ApiError`, which has the status and the response. That includes a 304: a gatekeeper that sends `If-None-Match` catches it and answers from its cache.
 
 ### operations.json
@@ -164,7 +166,7 @@ Proposed, in the order they would be built:
 ## Open questions
 
 - **Pinning the spec.** The config should name the spec it was written for, by URL and hash, so that an update is deliberate.
-- **Properties the SDK leaves out.** The SDK drops a property whose wire name is not a valid name, such as `+1`, even when it is given a field name. It is still in the response, untyped.
+- **Parameters whose names collide.** The config names properties, not parameters. Two parameters of one operation with the same name, such as `account_id` and `accountId`, are an error until the config can name them.
 - **`Temporal` in the runtime library.** The models no longer use it, but the date codecs the clients share with the SDK still name it, so a project needs a TypeScript `lib` that declares it.
 - **The transport is a copy.** The clients' transport builds paths and bodies and decodes errors as the SDK's does, in code of its own. The two should share that code once the provider interface has settled.
 - **Paging by `Link`.** GitHub's `next` link carries a cursor the spec does not declare, next to the page number. A cursor should follow the link, not count pages, which needs a way to send a request to a URL the provider gave.

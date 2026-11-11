@@ -325,6 +325,9 @@ mod tests {
         "/issues": {
           "get": {
             "operationId": "issues/list",
+            "parameters": [
+              {"name": "title.contains", "in": "query", "schema": {"type": "string"}}
+            ],
             "responses": {
               "200": {"description": "ok", "content": {"application/json": {"schema": {
                 "type": "array",
@@ -510,11 +513,30 @@ mod tests {
         let files = generate(CONFIG).unwrap();
         let models = &files["issues/models.ts"];
         // Without the names, `+1` and `-1` are both the name "1", which is
-        // an error. The SDK then leaves `+1` out, as it does any property
-        // whose wire name is not a valid name.
+        // an error.
+        assert!(models.contains("plusOne?: number;"), "{models}");
         assert!(models.contains("minusOne?: number;"), "{models}");
+        assert!(models.contains(r#"["+1", "plusOne"],"#), "{models}");
         assert!(models.contains("createdAt?: string;"), "{models}");
         assert!(!models.contains("Temporal"), "{models}");
+    }
+
+    /// The SDK leaves out a property or a query parameter whose wire name
+    /// has a character such as `.` or `+`.
+    #[test]
+    fn a_field_whose_wire_name_is_not_valid_is_kept() {
+        let files = generate(CONFIG).unwrap();
+        let client = &files["issues/client.ts"];
+        assert!(client.contains("titleContains?: string;"), "{client}");
+        assert!(
+            client.contains(r#"query: { titleContains: "title.contains" },"#),
+            "{client}"
+        );
+        assert!(
+            !files["issues/models.ts"].contains("[key: string]: unknown"),
+            "{}",
+            files["issues/models.ts"]
+        );
     }
 
     #[test]

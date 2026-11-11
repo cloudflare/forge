@@ -10,7 +10,7 @@ use forge::{Field, Group, Location, Method, Model, Type};
 use super::models::print_fields;
 use super::operation::operation;
 use super::types::{
-    Prec, all_optional, alternatives, doc, has_fields, identifier, js_string, key, object_like, typ, valid_name,
+    Prec, all_optional, alternatives, doc, has_fields, identifier, js_string, kept, key, object_like, typ,
 };
 use super::{Transport, request_options, runtime};
 
@@ -386,7 +386,7 @@ pub(super) struct Body<'f> {
 
 impl<'f> Request<'f> {
     /// Returns the request of `m`, as [`Method::request`] lays it out. A
-    /// query parameter whose name is not valid has no field, and one named
+    /// query parameter that is not [`kept`] has no field, and one named
     /// like another parameter gets a `$`. A parameter named `body` next to a
     /// body that is not flat gets a `$` too.
     pub(crate) fn new(m: Method<'f>) -> Request<'f> {
@@ -423,7 +423,7 @@ impl<'f> Request<'f> {
         let mut taken = HashSet::new();
         let mut params = Vec::new();
         for (field, location) in located {
-            if matches!(location, Location::Query { .. }) && !valid_name(field.wire_name()) {
+            if matches!(location, Location::Query { .. }) && !kept(field) {
                 continue;
             }
             let mut name = field.name().camel();

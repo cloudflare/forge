@@ -1,9 +1,12 @@
 //! TypeScript types, following specs/03-schema-types.md.
 
+use std::cell::Cell;
 use std::collections::HashSet;
 
 use forge::ts::{Fragment, Ident, frag, join};
 use forge::{EnumValue, Field, Model, Number, Object, Scalar, Type};
+
+use super::Transport;
 
 /// Where a type is printed, which decides whether a union or an
 /// intersection needs parentheses. An intersection inside a union has them.
@@ -147,11 +150,38 @@ pub(super) fn has_fields(t: Type<'_>) -> bool {
     matches!(t, Type::Object(object) if object.fields().any(kept))
 }
 
-/// Reports whether the SDK keeps a property: its name is valid
-/// (specs/02-naming.md). An object that leaves out a property allows other
-/// keys.
+thread_local! {
+    /// Whether the clients being printed on this thread keep every property
+    /// that has a name. See [`with_transport`].
+    static KEEPS_EVERY_NAME: Cell<bool> = const { Cell::new(false) };
+}
+
+/// Runs `print`, which prints the files of clients on `transport`, with the
+/// rule of that transport for which properties are [`kept`].
+///
+/// The rule is not a parameter because almost every function of the
+/// printers would take it. Every file is printed on the thread that calls
+/// this, so the rule is kept for that thread while `print` runs.
+pub(super) fn with_transport<T>(transport: Transport, print: impl FnOnce() -> T) -> T {
+    struct Restore(bool);
+    impl Drop for Restore {
+        fn drop(&mut self) {
+            KEEPS_EVERY_NAME.set(self.0);
+        }
+    }
+    let _restore = Restore(KEEPS_EVERY_NAME.replace(transport == Transport::Provider));
+    print()
+}
+
+/// Reports whether the clients keep a property, or a query parameter. An
+/// object that leaves out a property allows other keys.
+///
+/// The SDK keeps one whose wire name is valid (specs/02-naming.md), and
+/// leaves out one such as `name.eq` or `@type`. The clients of a provider
+/// keep every one that has a name, since a gatekeeper covers few operations
+/// and is written against all of what they take and return.
 pub(super) fn kept(field: Field<'_>) -> bool {
-    valid_name(field.wire_name())
+    valid_name(field.wire_name()) || KEEPS_EVERY_NAME.get() && !field.name().is_empty()
 }
 
 /// Reports whether `t` is an object type with fields, a model of one, or a
