@@ -120,6 +120,16 @@ describe('Transport', () => {
     assert.equal(requests[0]?.signal, signal);
   });
 
+  test("a path parameter a connection is bound to is the client's", async () => {
+    const { transport, requests } = fakeWith({ bound: { owner: 'mine' } }, json({}), json({}));
+    await transport.send(get, { repo: 'r', path: 'p' }, undefined);
+    assert.equal(requests[0]?.params['owner'], 'mine');
+    assert.ok(requests[0]?.path.startsWith('/repos/mine/r/'), requests[0]?.path);
+    // A request cannot say another.
+    await transport.send(get, { owner: 'theirs', repo: 'r', path: 'p' }, undefined);
+    assert.equal(requests[1]?.params['owner'], 'mine');
+  });
+
   test('a path parameter is required', async () => {
     const { transport } = fake();
     await assert.rejects(transport.send(get, { owner: 'o', path: 'p' }, undefined), new TypeError('repo is required'));

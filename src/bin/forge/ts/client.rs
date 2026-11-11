@@ -2,7 +2,7 @@
 //! the requests (specs/05-requests.md), responses (specs/06-responses.md)
 //! and operations of its methods.
 
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeSet, HashMap, HashSet};
 
 use forge::ts::{File, Fragment, Ident, Module, frag, p};
 use forge::{Field, Group, Json, Location, Method, Model, Type};
@@ -31,7 +31,7 @@ pub(super) fn client(group: Group<'_>, transport: Transport, roles: &[Role]) -> 
         .collect();
 
     let mut f = File::new(Module::group(group).sub("client.ts"));
-    client_options(&mut f, transport);
+    client_options(&mut f, transport, group);
     for role in roles {
         let methods: Vec<(Method<'_>, Request<'_>)> = methods
             .iter()
@@ -115,8 +115,29 @@ fn every_method(_: Method<'_>) -> bool {
 
 /// Declares the ClientOptions of a group: the options every client takes,
 /// and baseUrl, which is required.
-fn client_options(f: &mut File, transport: Transport) {
+fn client_options(f: &mut File, transport: Transport, group: Group<'_>) {
     if transport == Transport::Provider {
+        // The path parameters a connection is bound to are options of the
+        // client, and no request has them.
+        let mut bound = BTreeSet::new();
+        bound_of(group, &mut bound);
+        if !bound.is_empty() {
+            p!(
+                f,
+                "export interface ",
+                f.ident("ClientOptions"),
+                " extends ",
+                runtime("BaseClientOptions").ty(),
+                " {"
+            );
+            f.indent(|f| {
+                f.doc("The path parameters a connection is bound to. No request has them.");
+                let fields: Vec<String> = bound.iter().map(|name| format!("{}: string", key(name))).collect();
+                p!(f, "bound: { ", fields.join("; "), " };");
+            });
+            p!(f, "}");
+            return;
+        }
         p!(
             f,
             "export type ",
@@ -248,6 +269,17 @@ fn send(f: &File, m: Method<'_>, transport: Transport) -> Fragment {
     frag!("transport.", send, "(", operation_ident(f, m), ", request, options)")
 }
 
+/// Adds the path parameters that the methods of `group` and of its groups
+/// have and a connection is bound to.
+fn bound_of(group: Group<'_>, bound: &mut BTreeSet<String>) {
+    for m in group.methods().filter(|&m| !skipped(m)) {
+        bound.extend(Request::new(m).params.into_iter().filter(|p| p.bound).map(|p| p.name));
+    }
+    for sub in group.children() {
+        bound_of(sub, bound);
+    }
+}
+
 /// Returns the value of `key` in what a provider is told of `m`.
 pub(crate) fn provider_fact<'a>(m: Method<'a>, key: &str) -> Option<&'a Json> {
     m.extension(PROVIDER_EXTENSION).and_then(|extension| extension.get(key))
@@ -365,7 +397,9 @@ fn result(f: &File, m: Method<'_>, transport: Transport) -> Fragment {
 /// `body`.
 fn request_type(f: &mut File, m: Method<'_>, request: &Request<'_>) {
     let name = request_ident(f, m);
-    let params = &request.params;
+    // A parameter a connection is bound to is not a field.
+    let params: Vec<&Param<'_>> = request.params.iter().filter(|param| !param.bound).collect();
+    let params = params.as_slice();
     if let Some(body) = &request.body
         && request.flat
         && !has_fields(body.ty)
@@ -455,6 +489,9 @@ pub(super) struct Param<'f> {
     pub(super) field: Field<'f>,
     pub(super) name: String,
     pub(super) location: Location,
+    /// Whether a connection is bound to it, so that the client has it and
+    /// the request does not.
+    pub(super) bound: bool,
 }
 
 /// The JSON request body of a method.
@@ -514,7 +551,16 @@ impl<'f> Request<'f> {
             while !taken.insert(name.clone()) {
                 name.push('$');
             }
-            params.push(Param { field, name, location });
+            let bound = location == Location::Path
+                && provider_fact(m, "bound")
+                    .and_then(Json::as_array)
+                    .is_some_and(|bound| bound.iter().any(|name| name.as_str() == Some(field.wire_name())));
+            params.push(Param {
+                field,
+                name,
+                location,
+                bound,
+            });
         }
         Request { params, body, flat }
     }
@@ -522,7 +568,7 @@ impl<'f> Request<'f> {
     /// Reports whether the request can be left out: no parameter is
     /// required, and an empty object is a body.
     pub(crate) fn optional(&self) -> bool {
-        let params = !self.params.iter().any(|p| p.field.is_required());
+        let params = !self.params.iter().any(|p| p.field.is_required() && !p.bound);
         let body = match &self.body {
             None => true,
             Some(body) if self.flat => all_optional(body.ty),
@@ -534,7 +580,7 @@ impl<'f> Request<'f> {
 
 /// Prints the parameters of a request, each on a line of its own after its
 /// documentation.
-fn print_params(f: &mut File, params: &[Param<'_>]) {
+fn print_params(f: &mut File, params: &[&Param<'_>]) {
     f.indent(|f| {
         for param in params {
             let field = param.field;

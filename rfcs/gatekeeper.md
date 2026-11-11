@@ -109,7 +109,10 @@ The config says which operations the gatekeeper covers, and what the spec does n
 
 - **`omitParameters`** lists parameters to leave out of every operation that has them, by name. It is for a parameter that takes a credential, as Slack's `token` does: the provider has the credentials, and a request type should have no field for one. A path parameter cannot be left out, and a name that no operation has is an error.
 - **`failure`** says what marks a 2XX response as a failure, for an API that answers one with a 2XX: `{ "property": "ok", "equals": false }` for Slack. Such a response is thrown like one whose status is not 2XX.
-- **`bound`** lists the path parameters a connection is bound to, by name, such as Sentry's `organization_id_or_slug`. A session passes those itself and never takes them from a caller. The clients do not change: `operations.json` and the worksheet list them for each operation. A name that no operation of the config has is an error.
+- **`bound`** lists the path parameters a connection is bound to, by name, such as Sentry's `organization_id_or_slug`. A session passes those itself and never takes them from a caller, so no request type has a field for one. A client takes them once, when it is created, as `bound: { organization_id_or_slug: string }`, which its options require, and sends every operation that has the parameter with that value. A request that names one anyway is overruled. `operations.json` and the worksheet list them for each operation. A name that no operation of the config has is an error.
+
+  The first version only listed them. A second gatekeeper for Sentry then passed the organization by hand at a dozen call sites, each one a place to take it from a caller by mistake.
+
 - **`int64`** is `"number"` to make an `int64` a `number` in the generated types, and not a `bigint`. It is for an API whose `int64`s are counts and positions, as Jira's `startAt` is.
 
 Unknown keys are errors, so a typo is not silently ignored.

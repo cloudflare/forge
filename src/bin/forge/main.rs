@@ -169,7 +169,11 @@ fn generate(spec: &Path, target: Target, config: Option<&Path>, out: &Path) -> R
             // changes it.
             let mut catalog = None;
             let forge = read_with(spec, |doc| {
-                catalog = Some(gatekeeper::Catalog::new(doc, Some(&config)));
+                let found = gatekeeper::Catalog::new(doc, Some(&config));
+                for warning in &found.warnings {
+                    eprintln!("warning: {warning}");
+                }
+                catalog = Some(found);
                 config.apply(doc)
             })?;
             let generator = catalog.map(gatekeeper::Generator::new).unwrap_or_default();

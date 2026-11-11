@@ -2180,6 +2180,19 @@ mod tests {
         // Only an operation that has the parameter in its path.
         assert_eq!(bound("issues/delete"), Some(serde_json::json!(["id"])));
         assert_eq!(bound("issues/list"), None);
+        // The client has it, and the request does not.
+        let client = &files["issues/client.ts"];
+        assert!(
+            client.contains("export interface ClientOptions extends BaseClientOptions {"),
+            "{client}"
+        );
+        assert!(client.contains("  bound: { id: string };\n"), "{client}");
+        assert!(client.contains("export interface DeleteRequest {}\n"), "{client}");
+        assert!(
+            client.contains("delete(request?: DeleteRequest, options?: RequestOptions)"),
+            "{client}"
+        );
+        assert!(client.contains(r#"route: "/issues/{id}","#), "{client}");
         assert!(
             files["WORKSHEET.md"].contains("- The config says that a connection is bound to `id`."),
             "{}",

@@ -26,20 +26,44 @@ Then write the config, a JSON file, and run Forge with `--config` and without `-
   - `parameters`: a schema for a parameter, by name, in place of the document's, where the document is wrong.
   - `omitParameters`: parameters to leave out.
   - `failure`: `property` and `equals`, for an API that answers a failure with a 2XX.
-- `bound`: the path parameters a connection is bound to.
+- `bound`: the path parameters a connection is bound to, as an array of names. No request type has a field for one: the client takes them once, as `bound`, when it is created.
 - `int64`: `"number"` when the API's `int64`s fit a number. They are `bigint` otherwise.
 - `omitParameters` and `failure`, for every operation.
 - `properties`: a name for a property whose wire name makes none, such as `+1`, which is otherwise an error.
+
+An example:
+
+```json
+{
+  "bound": ["organization_id_or_slug"],
+  "int64": "number",
+  "operations": {
+    "listOrganizationIssues": {
+      "group": "issues",
+      "name": "list",
+      "pagination": { "style": "link-header", "more": "results" }
+    },
+    "getOrganizationIssueEvent": {
+      "group": "issues.events",
+      "name": "get",
+      "parameters": { "event_id": { "type": "string" } }
+    },
+    "updateOrganizationIssue": { "group": "issues", "name": "update" }
+  }
+}
+```
+
+An operation pages only when the config gives it a `pagination`. One that the scout guesses pages, and has none in the config, gets no pager: Forge warns of each when it generates.
 
 A guess of the scout is not a fact. Check how an operation pages against the provider's documentation before the config says it. The questions of the scout are in `WORKSHEET.md` too, under "The provider": answer them with the person who reviews your work, before you design the contract.
 
 ## What is here
 
-- `read.ts`, which exports `createReadClient`, and `write.ts`, which exports `createWriteClient`.
+- `read.ts`, which exports `createReadClient` and the type `ReadClient`, and `write.ts`, which exports `createWriteClient` and the type `WriteClient`.
 - `index.ts`, which has the types of the runtime, and a directory for each group, whose `index.ts` has the request and response types of its operations. Import those from `./api/<group>/index.js`. Types of the same name in two groups, such as `GetResponse`, need an alias. A type from a document with no shared schemas is written in place and can be one very long line: read it through the compiler or the editor, not by eye. Every field has the name the provider gives it, such as `created_at` or `team_ids[]`, so the types match the provider's documentation and what its webhooks send.
 - `client.ts` in each directory, which the files above import. Do not import it.
 - `_/`: the runtime the clients import. It has no dependencies.
-- `pages.ts`, when an operation pages: a pager for each such operation, named after its groups and its method, as `issuesList` is for `reads.issues.list`.
+- `pages.ts`, when the config gives an operation a `pagination`: a pager for each such operation, named after its groups and its method, as `issuesList` is for `reads.issues.list`.
 - `operations.json`: the servers and security schemes of the API, and each operation with its `operationId`, the method that calls it, whether it reads or writes, how it pages, the path parameters the binding fixes (`bound`), what it asks of a credential (`security`), the errors it declares (`errors`), and what of its response has no type to rely on (`trust`).
 - `WORKSHEET.md`: the decisions each operation needs from you.
 - `GUIDE.md`: this file.
@@ -156,7 +180,7 @@ function reasonOf(failure: Failure): 'credential' | 'denied' | 'missing' | 'rate
 Session code gets the client of reads and nothing else. It imports `./api/read.js`, and never `./api/write.js`.
 
 - Run each call through `CredentialSource.run()` with `replayable: true`. A read can be sent twice. For a read that is sent with `POST`, be sure of that first.
-- Fix what the binding fixes. A session bound to one repository passes its own owner and name, or the id it pinned, and never takes them from the caller. `operations.json` lists them for each operation as `bound`, when the config says what a connection is bound to.
+- Fix what the binding fixes. A session bound to one repository passes its own owner and name, or the id it pinned, and never takes them from the caller. A path parameter the config lists under `bound` is fixed for you: give it to `createReadClient` and `createWriteClient` as `bound: { <name>: <value> }`, from the binding and never from a caller. No request type has it, and a request that names it anyway is overruled. `operations.json` lists them for each operation as `bound`.
 - A method returns `{ data, status, headers }`. Map `data` to the type in `types.d.ts` with a function you write. Do not return it as it is, and do not spread it: the provider can add a field tomorrow.
 - `operations.json` lists under `trust` the parts of a response the document gives no type (`untyped`), and the objects none of whose fields it requires (`allOptional`). Those are where a type says the least, and the worksheet asks what you check of each.
 - When `operations.json` marks an operation `untyped`, the provider's document gives its response no type. `data` is then what the provider sent, with no check at all. Check every field you read as you map it.
@@ -179,11 +203,11 @@ const page = pages.issuesList.page(result, request);
 // page.items are typed. page.next is undefined on the last page.
 ```
 
-`next` is JSON: the query of the `rel="next"` link, an offset, or the provider's cursor. Put it in the kit's cursor. What a caller gives back is the caller's input, so seal it or check it before you pass it to `resume`: a `next` of a link is sent as the whole query of the request. The pager decides nothing else: the largest offset to allow, and how many pages one call may read, are yours.
+`next` is JSON: the query of the `rel="next"` link, an offset, or the provider's cursor. Put it in the kit's cursor. A cursor that takes a string token, as `TokenCursor` does, gets it as `JSON.stringify(next)`, parsed and checked for its shape on the way back. What a caller gives back is the caller's input, so seal it or check it before you pass it to `resume`: a `next` of a link is sent as query parameters of the request, over those of the same name. The pager decides nothing else: the largest offset to allow, and how many pages one call may read, are yours.
 
 What the pagers go by, for each style:
 
-- `link-header`: the next page is the `rel="next"` URL of the `link` header of a result. Take its query parameters and send them as the `query` of the options of the next call, which replace those of the request. Do not count pages yourself: the link can carry a cursor the request type does not have. Some APIs send that link with the last page too. The pagination then has `more`, the parameter of the link that is `true` when there is another page, as in `<url>; rel="next"; results="false"`. Without it, a page with no `rel="next"` link is the last. The pager of the operation reads the header for you.
+- `link-header`: the next page is the `rel="next"` URL of the `link` header of a result. Take its query parameters and send them as the `query` of the options of the next call. Each replaces the parameter of the request that has its name, and the other parameters of the request are still sent. Do not count pages yourself: the link can carry a cursor the request type does not have. Some APIs send that link with the last page too. The pagination then has `more`, the parameter of the link that is `true` when there is another page, as in `<url>; rel="next"; results="false"`. Without it, a page with no `rel="next"` link is the last. The pager of the operation reads the header for you.
 - `offset`: a call asks for a page with the request fields that `offset` and `limit` name. Check what the provider documents as the largest offset, and stop there.
 - `cursor`: a call asks for the next page with the request field that `cursor` names, set to what `next` names in the `data` of the page before. `next` can be a path, such as `response_metadata.next_cursor`. A cursor is the provider's: do not hand it to a caller as it is, since a caller could send back another.
 

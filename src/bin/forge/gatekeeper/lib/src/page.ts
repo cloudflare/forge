@@ -155,7 +155,7 @@ export function linkPages<Request, Response, P extends string = ''>(spec: {
       return { items, next: next.length === 0 ? undefined : next };
     },
     resume(request, next) {
-      // The query of the link replaces that of the request.
+      // Each parameter of the link replaces that of the request with its name.
       return {
         request,
         options: next === undefined ? {} : { query: new URLSearchParams(next.map(([name, value]) => [name, value])) },

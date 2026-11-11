@@ -93,6 +93,11 @@ export interface BaseClientOptions {
    */
   provider: Provider;
   /**
+   * The path parameters a connection is bound to, by name. No request has
+   * them: every operation that takes one is sent with this value.
+   */
+  bound?: { readonly [parameter: string]: string };
+  /**
    * Headers sent with every request.
    */
   headers?: HeadersInit;
@@ -458,7 +463,10 @@ export class Transport {
   // path parameter.
   #path(operation: Operation, request: Fields, params: { [field: string]: string }): string {
     return operation.route.replace(/\{([^}]+)\}/g, (_, field: string) => {
-      const value = request[field];
+      // What the connection is bound to is the client's, and a request
+      // cannot say another.
+      const bound = this.#options.bound;
+      const value = bound !== undefined && Object.hasOwn(bound, field) ? bound[field] : request[field];
       if (value === undefined || value === null || value === '') {
         throw new TypeError(`${field} is required`);
       }

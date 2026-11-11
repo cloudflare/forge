@@ -42,6 +42,9 @@ pub struct Catalog {
     pub operations: Vec<Value>,
     /// What it leaves open.
     pub questions: Vec<Question>,
+    /// What to tell whoever generates from the config: the operations of
+    /// the config that look like they page, and have no pagination there.
+    pub warnings: Vec<String>,
 }
 
 impl Catalog {
@@ -78,10 +81,29 @@ impl Catalog {
                 operation.as_object_mut().map(|operation| operation.remove("trust"));
             }
         }
+        // How an operation of the config pages is what the config says,
+        // and no longer a guess.
+        let mut warnings = Vec::new();
+        for operation in &mut operations {
+            let id = operation["operationId"].as_str().unwrap_or_default().to_owned();
+            let Some(chosen) = config.and_then(|config| config.operations.get(&id)) else {
+                continue;
+            };
+            match (&chosen.pagination, operation["pagination"]["style"].as_str()) {
+                (Some(pagination), _) => {
+                    operation["pagination"] = json!({"style": pagination.style.as_str(), "basis": "config"});
+                }
+                (None, Some(style)) => warnings.push(format!(
+                    "{id} looks like it pages by {style}, and the config has no pagination for it, so it has no pager"
+                )),
+                (None, None) => {}
+            }
+        }
         Catalog {
             api,
             operations,
             questions,
+            warnings,
         }
     }
 
@@ -893,7 +915,9 @@ fn questions(api: &Value, operations: &[Value], config: Option<&Config>) -> Vec<
     let identity: Vec<&str> = operations
         .iter()
         .filter(|operation| {
-            operation["method"] == "GET" && names_the_caller(operation["path"].as_str().unwrap_or_default())
+            operation["method"] == "GET"
+                && (names_the_caller(operation["path"].as_str().unwrap_or_default())
+                    || says_the_caller(operation["summary"].as_str().unwrap_or_default()))
         })
         .filter_map(|operation| operation["operationId"].as_str())
         .take(3)
@@ -927,6 +951,20 @@ fn questions(api: &Value, operations: &[Value], config: Option<&Config>) -> Vec<
     );
 
     let Some(config) = config else {
+        // Before a config, of the API as a whole. A config answers for
+        // each of its operations.
+        let by_link = operations
+            .iter()
+            .filter(|operation| operation["pagination"]["style"] == "link-header")
+            .count();
+        if by_link > 0 {
+            ask(
+                None,
+                format!(
+                    "Some operations look like they page by a `Link` header ({by_link} of them). Does the API send the `rel=\"next\"` link with the last page too? If so, which parameter of the link says that there is another page? The `more` of a pagination names it, and without it such a listing never ends."
+                ),
+            );
+        }
         return questions;
     };
     let selected: Vec<&Value> = operations
@@ -984,7 +1022,7 @@ fn questions(api: &Value, operations: &[Value], config: Option<&Config>) -> Vec<
             (None, Some(style)) => ask(
                 about,
                 format!(
-                    "It looks like it pages by `{style}` ({}), and the config does not say so. Does it page?",
+                    "It looks like it pages by `{style}` ({}), and the config does not say so. Does it page? Without a `pagination` in the config, it has no pager.",
                     guess["evidence"].as_str().unwrap_or_default()
                 ),
             ),
@@ -1025,6 +1063,21 @@ fn questions(api: &Value, operations: &[Value], config: Option<&Config>) -> Vec<
         );
     }
     questions
+}
+
+/// Reports whether the summary of an operation says that it returns the
+/// user or the credential of the request.
+fn says_the_caller(summary: &str) -> bool {
+    let summary = summary.to_lowercase();
+    [
+        "current user",
+        "current credential",
+        "current token",
+        "authenticated user",
+        "who am i",
+    ]
+    .iter()
+    .any(|words| summary.contains(words))
 }
 
 /// Reports whether `path` looks like that of the operation that returns
@@ -1277,8 +1330,16 @@ mod tests {
             asked[2].starts_with("No operation looks like one that returns the user"),
             "{asked:?}"
         );
+        // Asked before a config, since a listing that never ends is found late.
+        assert!(
+            asked[6].starts_with("Some operations look like they page by a `Link` header (1 of them)."),
+            "{asked:?}"
+        );
         // Nothing is asked of an operation before a config picks it.
-        assert_eq!(asked.len(), 6, "{asked:?}");
+        assert_eq!(asked.len(), 7, "{asked:?}");
+        // A summary can say which operation returns the caller.
+        assert!(super::says_the_caller("Retrieve the Current Credentials"));
+        assert!(!super::says_the_caller("List issues"));
     }
 
     #[test]
@@ -1301,6 +1362,12 @@ mod tests {
             "{asked:?}"
         );
         assert!(has("listIssues: It looks like it pages by `link-header`"), "{asked:?}");
+        // Generation warns of the same, since the operation gets no pager.
+        assert!(
+            catalog.warnings[0].starts_with("listIssues looks like it pages by link-header, and the config has no"),
+            "{:?}",
+            catalog.warnings
+        );
         assert!(has("searchIssues: It looks like it pages by `offset`"), "{asked:?}");
         assert!(
             has("searchIssues: It is sent with `POST` and its name suggests"),
@@ -1329,6 +1396,11 @@ mod tests {
             }"#,
         ));
         let asked = questions(&catalog);
+        assert_eq!(catalog.warnings, Vec::<String>::new());
+        assert_eq!(
+            catalog.operation("listIssues").unwrap()["pagination"],
+            serde_json::json!({"style": "link-header", "basis": "config"})
+        );
         assert!(
             !asked.iter().any(|question| question.contains("It looks like it pages")),
             "{asked:?}"
