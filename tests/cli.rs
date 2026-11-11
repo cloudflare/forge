@@ -121,6 +121,36 @@ const GATEKEEPER_SPEC: &str = r#"{
 }"#;
 
 #[test]
+fn gatekeeper_scout() {
+    let dir = std::env::temp_dir().join(format!("forge-cli-scout-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    let out = dir.join("scout");
+    // It needs no config.
+    let result = forge(
+        &["-", "--target", "gatekeeper", "--scout", "--out", out.to_str().unwrap()],
+        GATEKEEPER_SPEC,
+    );
+    assert!(result.status.success(), "{}", String::from_utf8_lossy(&result.stderr));
+    let catalog = std::fs::read_to_string(out.join("CATALOG.md")).unwrap();
+    assert!(catalog.starts_with("# Catalog\n"), "{catalog}");
+    let json: serde_json::Value = serde_json::from_slice(&std::fs::read(out.join("catalog.json")).unwrap()).unwrap();
+    assert!(!json["operations"].as_array().unwrap().is_empty(), "{json}");
+    assert!(!out.join("index.ts").exists());
+
+    let result = forge(
+        &["-", "--target", "ts", "--scout", "--out", out.to_str().unwrap()],
+        GATEKEEPER_SPEC,
+    );
+    assert!(!result.status.success());
+    assert!(
+        String::from_utf8_lossy(&result.stderr).contains("--scout is only for --target gatekeeper"),
+        "{}",
+        String::from_utf8_lossy(&result.stderr)
+    );
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
 fn gatekeeper() {
     let dir = std::env::temp_dir().join(format!("forge-cli-gatekeeper-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&dir);

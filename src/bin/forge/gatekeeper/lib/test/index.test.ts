@@ -10,13 +10,17 @@ test('exports the runtime of the generated clients', () => {
     'Transport',
     'array',
     'bytes',
+    'cursorPages',
     'date',
     'discriminated',
     'instant',
     'int64',
     'intersection',
+    'linkPages',
     'map',
     'object',
+    'offsetPages',
+    'parseLinks',
     'union',
   ]);
 });

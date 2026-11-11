@@ -41,9 +41,16 @@ struct Args {
     #[arg(long, value_parser = Target::parse, required = true)]
     target: Option<Target>,
     /// The JSON file that says which operations a gatekeeper covers, and
-    /// how they are named. Only for, and required by, `--target gatekeeper`.
+    /// how they are named. Only for, and required by, `--target gatekeeper`,
+    /// but with --scout, which can do without it.
     #[arg(long)]
     config: Option<PathBuf>,
+    /// Write what the document says that a gatekeeper needs, and the
+    /// questions it leaves open, in place of an SDK: CATALOG.md and
+    /// catalog.json. With --config, the questions about its operations are
+    /// asked too. Only for `--target gatekeeper`.
+    #[arg(long)]
+    scout: bool,
     /// The directory to write the SDK to.
     #[arg(long, required = true)]
     out: Option<PathBuf>,
@@ -124,7 +131,23 @@ fn run(args: Args) -> Result<(), Err> {
     let (Some(spec), Some(target), Some(out)) = (args.spec, args.target, args.out) else {
         unreachable!("clap asks for a spec, a target and an out when there is no command");
     };
+    if args.scout {
+        if !matches!(target, Target::Gatekeeper) {
+            return Err("--scout is only for --target gatekeeper".into());
+        }
+        return scout(&spec, args.config.as_deref(), &out);
+    }
     generate(&spec, target, args.config.as_deref(), &out)
+}
+
+/// Writes to `out` what the document at `spec` says that a gatekeeper
+/// needs. The document is read as JSON and not linked, so one that Forge
+/// cannot generate from is still read.
+fn scout(spec: &Path, config: Option<&Path>, out: &Path) -> Result<(), Err> {
+    let config = config.map(gatekeeper::Config::read).transpose()?;
+    let doc: serde_json::Value =
+        serde_json::from_slice(&read_bytes(spec)?).map_err(|err| format!("{}: {err}", spec.display()))?;
+    forge::write(out, gatekeeper::Catalog::new(&doc, config.as_ref()).files())
 }
 
 /// Generates the SDK for the document at `spec`, and writes it to `out`.
@@ -142,8 +165,15 @@ fn generate(spec: &Path, target: Target, config: Option<&Path>, out: &Path) -> R
                 return Err("--target gatekeeper needs --config, the file that says which operations to cover".into());
             };
             let config = gatekeeper::Config::read(config)?;
-            let forge = read_with(spec, |doc| config.apply(doc))?;
-            forge::write(out, gatekeeper::Generator.generate(&forge)?)
+            // The scout reads the document as it is, before the config
+            // changes it.
+            let mut catalog = None;
+            let forge = read_with(spec, |doc| {
+                catalog = Some(gatekeeper::Catalog::new(doc, Some(&config)));
+                config.apply(doc)
+            })?;
+            let generator = catalog.map(gatekeeper::Generator::new).unwrap_or_default();
+            forge::write(out, generator.generate(&forge)?)
         }
         #[cfg(feature = "wasm")]
         Target::Wasm(path) => {

@@ -447,7 +447,7 @@ pub(crate) struct Request<'f> {
     pub(super) body: Option<Body<'f>>,
     /// Whether the body's fields sit next to the parameters, rather than in
     /// the field `body`.
-    pub(super) flat: bool,
+    pub(crate) flat: bool,
 }
 
 /// A parameter of a method, and the name of its field in the request.

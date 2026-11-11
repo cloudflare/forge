@@ -31,6 +31,40 @@ forge api.github.com.json --target gatekeeper --config github.gatekeeper.json --
 
 `--config` is required by this target, and no other target takes it.
 
+Forge is run twice. The first run is the scout, which reads the document and generates nothing:
+
+```sh
+forge api.github.com.json --target gatekeeper --scout --out scout
+```
+
+It needs no config, and takes one if there is one. See [The scout](#the-scout). Forge does not fetch the document in either run: the agent downloads it and pins it.
+
+## The scout
+
+The config holds facts about the API, and somebody has to find them. Building a gatekeeper for Sentry with no scout showed how that goes: the agent read a document of several megabytes to choose operations, guessed how they page, and found out what the document does not say only when its code met it. The scout does the reading, and says what is left to ask.
+
+It reads the document as JSON and does not link it, so it works on a document Forge cannot generate from yet, and it says why not. It writes two files, `CATALOG.md` for the agent and `catalog.json` with the same facts:
+
+- **The API**: its title and version, its servers with their variables, and its security schemes with their flows and scopes.
+- **What will limit the clients**: a document that is not OpenAPI 3, one with no shared schemas, whose types are written in place, and `$ref`s Forge does not follow.
+- **Every operation**: its `operationId`, method, path, tags and summary, whether it reads or writes, its parameters by where they go, the scopes it asks for, its success and error statuses, and whether it can be generated. A `POST` whose name or summary reads like a search is marked as a candidate for a read.
+- **How each operation pages**, with its basis. `declared` is for a `Link` header the document declares on the response. `guessed` is for the rest, from the names of parameters and of properties of the response, and the evidence is listed. A guess is checked against the provider's documentation before the config says it.
+- **What a response gives no type to rely on**: parts with no type, objects none of whose fields are required, and path parameters with a closed set of values.
+
+Then it lists **questions**: what the document leaves open and a person has to answer. They are not a fixed list. Each is asked only when the document gives cause:
+
+| Asked when                                                    | Question                                                                   |
+| ------------------------------------------------------------- | -------------------------------------------------------------------------- |
+| There are several servers, or one with variables              | Which server a connection uses, and what chooses it                        |
+| There are several security schemes, or an OAuth flow, or none | How a connection authenticates, and with which scopes                      |
+| No operation looks like "who am I"                            | What identifies the account of a credential                                |
+| No response declares a rate-limit header                      | How the API says a caller is limited                                       |
+| Always                                                        | What a rejected credential looks like, and whether a 404 can hide a denial |
+
+With a config, it asks about the operations of the config too: which path parameters a connection is bound to, how a listing pages when nothing could be guessed, whether a `POST` that looks like a read is one, what a path parameter with a closed set of values is, and what the last page of a `link-header` listing looks like. A question the config answers is not asked.
+
+The agent drafts the config from the catalog, asks the person the questions, and writes the answers into the config where it has a key for them. The rest are answered in the worksheet, which repeats them.
+
 ## The config
 
 The config says which operations the gatekeeper covers, and what the spec does not say about them. It holds facts about the API, not judgements, and a person reviews it before anything is generated. An agent can draft it from a prompt such as "cover issues, pull requests and checks".
@@ -66,12 +100,16 @@ The config says which operations the gatekeeper covers, and what the spec does n
 
     For `offset` and `cursor`, `more` names the property of the response that is true when there is another page, or `last` the one that is true when the page is the last. The operation must have everything its pagination names. Where the document gives a response no type, a property is taken to be there.
 
+    For `link-header`, `more` names a parameter of the `rel="next"` link, not a property: the one that is `true` when there is another page. Sentry sends the link with every page, as `<url>; rel="next"; results="false"` with the last.
+
+  - `parameters` gives a parameter of the operation a schema, by name, in place of the document's. It is for a document that is wrong: Sentry's declares the id of an event as one of two words, where it is any id. A name the operation does not have is an error.
   - `omitParameters` lists parameters of the operation to leave out, by name.
   - `failure` says what marks a 2XX response of the operation as a failure, in place of the config's.
 - **`properties`** gives a name to properties whose wire names do not make one, by wire name. GitHub's `+1` and `-1` are both the name "1" otherwise, which is an error when the document is read. The name only tells them apart: the generated field keeps the wire name.
 
 - **`omitParameters`** lists parameters to leave out of every operation that has them, by name. It is for a parameter that takes a credential, as Slack's `token` does: the provider has the credentials, and a request type should have no field for one. A path parameter cannot be left out, and a name that no operation has is an error.
 - **`failure`** says what marks a 2XX response as a failure, for an API that answers one with a 2XX: `{ "property": "ok", "equals": false }` for Slack. Such a response is thrown like one whose status is not 2XX.
+- **`bound`** lists the path parameters a connection is bound to, by name, such as Sentry's `organization_id_or_slug`. A session passes those itself and never takes them from a caller. The clients do not change: `operations.json` and the worksheet list them for each operation. A name that no operation of the config has is an error.
 - **`int64`** is `"number"` to make an `int64` a `number` in the generated types, and not a `bigint`. It is for an API whose `int64`s are counts and positions, as Jira's `startAt` is.
 
 Unknown keys are errors, so a typo is not silently ignored.
@@ -80,13 +118,13 @@ Unknown keys are errors, so a typo is not silently ignored.
 
 The config is applied to the spec before Forge links it, as a change to the document:
 
-- A listed operation gets `x-forge-group-name` and `x-forge-method-name`, and an `x-gatekeeper` extension with its `operationId`, `kind`, `conditional`, `pagination` and `failure`, and the header parameters it declares.
+- A listed operation gets `x-forge-group-name` and `x-forge-method-name`, and an `x-gatekeeper` extension with its `operationId`, `kind`, `conditional`, `pagination`, `failure` and `bound`, and the header parameters it declares.
 - Every other operation gets `x-forge-skip: true`, and a listed one loses it.
 - That covers the path items under `components.pathItems`, which a path can refer to.
 - Every operation loses its `x-forge-aliases`, since the config is what names methods.
 - A listed property gets `x-forge-property-name`, unless it has one.
 - A string loses its `date-time` or `date` format, and so does a string that can be null. An integer loses its `int64` format when the config says so.
-- The parameters of a path item are given to each of its operations, and an operation loses those the config leaves out.
+- The parameters of a path item are given to each of its operations, and an operation loses those the config leaves out. A parameter the config gives a schema gets it.
 
 Doing this before linking means the operations left out, and the models only they use, are never part of the generated code. It also means the target needs nothing new from Forge's model of the API or from the plugin interface: the generator reads `x-gatekeeper` the way any plugin reads an extension.
 
@@ -94,7 +132,7 @@ Dates are strings because the TypeScript SDK otherwise decodes them to `Temporal
 
 ## Output
 
-The target writes TypeScript clients for the chosen operations, `operations.json`, and two files for the agent that writes the rest: `GUIDE.md` and `WORKSHEET.md`.
+The target writes TypeScript clients for the chosen operations, a pager for each one that pages, `operations.json`, and two files for the agent that writes the rest: `GUIDE.md` and `WORKSHEET.md`.
 
 ### The clients
 
@@ -174,10 +212,38 @@ When the config says what marks a 2XX response as a failure, such a response is 
 
 A 2XX response whose body is not JSON, or is empty where the operation has one, is thrown as a `DecodeError`. It has no `status`, so nothing reads it as an answer of the API, and it has neither the body nor the parser's error, which quotes it. The clients do not validate a body against its type: JSON with other fields is returned as it is. A write is the exception for an empty body: a 2XX says that the change was made, and an error would let it be taken for one that may not have been. Its `data` is `undefined`, which the return type of a write says.
 
+### pages.ts
+
+Every gatekeeper wrote by hand how to find the items of a page and how to ask for the next one, and those that page by a `Link` header each wrote a parser of it. `pages.ts` has that for every operation that pages, as one line that gives a pager of the runtime the types of the operation and what its pagination names:
+
+```ts
+export const issuesList = linkPages<IssuesListRequest, IssuesListResponse, ''>({ more: 'results' });
+export const incidentsList = offsetPages<IncidentsListRequest, IncidentsListResponse, 'incidents'>({
+  items: 'incidents',
+  offset: 'offset',
+  limit: 'limit',
+  more: 'more',
+});
+```
+
+A pager has two functions. `page(result, request)` returns the items, with their type, and `next`, which names the page after it and is undefined for the last. `resume(request, next)` returns the request and the options that get that page. `next` is JSON, so that it fits in one of the kit's cursors: the query of the `rel="next"` link, an offset, or the provider's cursor.
+
+```ts
+const { request, options } = pages.issuesList.resume(first, next);
+const result = await reads.issues.list(request, options);
+const page = pages.issuesList.page(result, request);
+```
+
+A pager does not call the client, so the session method still decides when a page is read and authorizes it. It does not loop, and it does not check a `next` that a caller gives back: the guide says to seal it or check it. The file is written only when an operation pages.
+
 ### operations.json
 
 ```json
 {
+  "api": {
+    "servers": [{ "url": "https://api.github.com" }],
+    "security": []
+  },
   "operations": [
     {
       "operationId": "issues/list-for-repo",
@@ -186,13 +252,20 @@ A 2XX response whose body is not JSON, or is empty where the operation has one, 
       "method": "GET",
       "path": "/repos/{owner}/{repo}/issues",
       "kind": "read",
-      "pagination": { "style": "link-header" }
+      "pagination": { "style": "link-header" },
+      "bound": ["owner", "repo"],
+      "errors": [
+        { "status": "404", "body": "json" },
+        { "status": "422", "body": "json" }
+      ]
     }
   ]
 }
 ```
 
 `operations.json` is what the rest of the target will be built from, and what an agent reads to see which decisions each operation needs. A `pagination` has the names the config gave, which are those of the generated fields. An operation whose response the document gives no type is marked `untyped`, and one whose body can say it failed has the `failure` property.
+
+The scout's facts about the chosen operations are here too, so that the agent does not go back to the document for them: the servers and security schemes of the API under `api`, and for each operation the path parameters the binding fixes (`bound`), what it asks of a credential (`security`), the errors it declares (`errors`), and what of its response has no type to rely on (`trust`). A key with nothing to say is left out.
 
 An operation that declares header parameters has them in `headers`, each with its `name`, whether it is `required` and its `default`. Forge's model of an API has no header parameters, so a request type has no field for one and the clients do not send it. `Content-Type` and `Authorization` are left out, as OpenAPI says to. `Accept` is kept, since an API can ask for a media type of its own in it, as PagerDuty does for its version. The worksheet asks, for each, whether the provider sets it or each call does.
 
@@ -210,7 +283,7 @@ An operation that declares header parameters has them in `headers`, each with it
 
 It ends by asking the agent to keep a `GAPS.md` of what it had to work around, which is the gap write-up FORGE-45 asks for.
 
-`WORKSHEET.md` has the decisions the spec cannot make. It asks the questions every read has once, then lists the operations that read, each with a line for the answers that are its own and the questions only it has. The operations that write follow in the same way. An observation is authorized once for each session method, not for each operation, so most answers are shared, and the worksheet has a place for those.
+`WORKSHEET.md` has the decisions the spec cannot make. It starts with the scout's questions about the provider. It then asks the questions every read has once, then lists the operations that read, each with a line for the answers that are its own and the questions only it has. The operations that write follow in the same way. An observation is authorized once for each session method, not for each operation, so most answers are shared, and the worksheet has a place for those.
 
 ```md
 ## Reads
@@ -237,7 +310,7 @@ List workflow runs for a repository
 - Paging: it pages by `link-header`: the items are in `data.workflowRuns`. The kit cursor that wraps it, and what each page reports:
 ```
 
-Every write is asked for the session methods that stage it, its action definitions and their kinds, the `autoApprovable` verdict with the rule of the skill's opt-out policy, what the approver sees, how pending reads show it, what a retry does, and its revert. An operation has a line of its own when it is conditional, pages, is a read sent with `POST`, is sent with `DELETE`, has a response with no type, can fail in its body, or declares headers.
+Every write is asked for the session methods that stage it, its action definitions and their kinds, the `autoApprovable` verdict with the rule of the skill's opt-out policy, what the approver sees, how pending reads show it, what a retry does, and its revert. An operation has a line of its own when it is conditional, pages, is a read sent with `POST`, is sent with `DELETE`, has a response with no type, can fail in its body, or declares headers, and one for the parts of its response the scout found no type for.
 
 The agent copies the worksheet next to `types.d.ts` and fills it in there, since the generated copy is replaced on every run. A person reviews it with the contract.
 
@@ -253,19 +326,24 @@ Implemented:
 - A client of reads and a client of writes for every group.
 - The provider interface: a response as status, headers and text, the operation and the split path and query on a request, conditional operations, the error function, and `DecodeError`.
 - `GUIDE.md` and `WORKSHEET.md`.
+- The scout, its catalog and its questions, and its facts in `operations.json` and the worksheet.
+- `bound`, a schema for a parameter, and the last page of a `link-header` listing, in the config.
+- `pages.ts`, with a pager for every operation that pages, and a parser of the `Link` header.
 
-Next is a first gatekeeper built by an agent on these files, in Cloudflare OS, to show what they lack.
+Two gatekeepers were built by an agent on these files in Cloudflare OS, to show what they lack: a port of the PagerDuty one, and a new one for Sentry. The scout and the three config keys come from the second.
 
 Proposed, in the order they would be built:
 
 1. **A fake provider that records calls.** It is generated from `operations.json`, and answers the routes of the chosen operations in the kit's worker tests.
-2. **Tests of the approval rules**, over the recorder: no write reaches the provider before an action is applied, every session read authorizes an observation with subresources before it returns, and an action that deletes is not approved automatically unless it says why. The agent gives the session methods and example arguments.
+1. **Tests of the approval rules**, over the recorder: no write reaches the provider before an action is applied, every session read authorizes an observation with subresources before it returns, and an action that deletes is not approved automatically unless it says why. The agent gives the session methods and example arguments.
 
 ## Decisions
 
 **The approval plumbing is not generated.** It was considered, as a guard around each read and a draft action for each write. Existing gatekeepers show why not. A read is authorized once per session method, after its provider calls, often with subresources taken from the response, and reads that only prepare an action are not logged at all. An action's payload is the agent's type, not the provider's request, several kinds of action share one endpoint, and its tag is permanent once shipped. What Forge can do deterministically is enforce the rules by how the client is split, and check them with tests.
 
 **The fields keep the provider's names.** The first clients renamed fields to camel case, as the SDK does. Porting the PagerDuty gatekeeper to them showed what that costs. Its normalizers, its simulation, its caches and its test fake are written against the provider's names, and a webhook delivers the same objects under them, so a file was needed only to map the names back. A property the document does not declare where it appears cannot be renamed, so one object arrived with names of both kinds, and a later document that declares it would change its key with no compile error.
+
+**The scout asks; it does not sample.** It was considered to have Forge call the API with a credential and see how it answers: what a denial looks like, how the last page is marked. That would settle most of the questions without a person. It needs a credential and network access in a code generator, the answers depend on the account, and a call that looks like a read may not be one. The scout reads only the document, and the questions go to a person.
 
 **The contract is not generated.** `types.d.ts` is the API an agent sees and the first thing a person reviews. It is designed above the provider's API, not derived from it. A later step could take an existing contract as an input, to keep a gatekeeper's API when it is regenerated.
 

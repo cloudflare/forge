@@ -28,12 +28,17 @@ use serde_json::{Map, Value, json};
 use crate::ts;
 use crate::ts::client::Role;
 
+mod scout;
+
+pub use scout::Catalog;
+
 /// The sources of the runtime library, by path in the generated `_/`: the
 /// codecs of the TypeScript SDK's, and errors and a transport of its own.
-const RUNTIME: [(&str, &str); 4] = [
+const RUNTIME: [(&str, &str); 5] = [
     ("codec.ts", include_str!("ts/lib/src/codec.ts")),
     ("error.ts", include_str!("gatekeeper/lib/src/error.ts")),
     ("index.ts", include_str!("gatekeeper/lib/src/index.ts")),
+    ("page.ts", include_str!("gatekeeper/lib/src/page.ts")),
     ("transport.ts", include_str!("gatekeeper/lib/src/transport.ts")),
 ];
 
@@ -100,6 +105,11 @@ pub struct Config {
     /// What an `int64` is in the generated types: a `bigint` without this,
     /// since a number does not hold every one.
     int64: Option<Int64>,
+    /// The path parameters that a connection is bound to, by name, such as
+    /// the organization of every path. operations.json gives those of each
+    /// operation, for a session to set and never take from its caller.
+    #[serde(default)]
+    bound: Vec<String>,
 }
 
 /// What says that a 2XX response is a failure: the property of its body
@@ -148,6 +158,12 @@ struct Operation {
     failure: Option<Failure>,
     /// How the operation pages, if it does.
     pagination: Option<Pagination>,
+    /// Schemas for parameters of the operation, by name, in place of those
+    /// the document gives them, where the document is wrong: such as a
+    /// path parameter that it says is one of a few words, and that also
+    /// takes an id.
+    #[serde(default)]
+    parameters: BTreeMap<String, Value>,
 }
 
 /// Whether an operation only reads, or changes something.
@@ -188,7 +204,9 @@ struct Pagination {
     /// cursor of the next page.
     next: Option<String>,
     /// The property of the response that is true when there is another
-    /// page, if it has one.
+    /// page, if it has one. For the style `link-header`, the parameter of
+    /// the `rel="next"` link that is `true` when there is another page,
+    /// for an API that sends the link with the last page too.
     more: Option<String>,
     /// The property of the response that is true when the page is the
     /// last, if it has one. A pagination has this or `more`, not both.
@@ -196,6 +214,11 @@ struct Pagination {
 }
 
 impl Pagination {
+    /// Reports whether the next page is in the `Link` header of a response.
+    fn is_link_header(&self) -> bool {
+        self.style == PaginationStyle::LinkHeader
+    }
+
     /// Returns what the pagination names, by key, in the order
     /// operations.json has them.
     fn names(&self) -> [(&'static str, &Option<String>); 6] {
@@ -260,10 +283,11 @@ impl Config {
         // a path refers to it.
         let parameters = doc.pointer("/components/parameters").cloned();
         let mut omitted = BTreeSet::new();
+        let mut bound = BTreeSet::new();
         for pointer in ["/paths", "/components/pathItems"] {
             let items = doc.pointer_mut(pointer).and_then(Value::as_object_mut);
             for item in items.into_iter().flat_map(Map::values_mut) {
-                self.apply_to_path_item(item, parameters.as_ref(), &mut found, &mut omitted)?;
+                self.apply_to_path_item(item, parameters.as_ref(), &mut found, &mut omitted, &mut bound)?;
             }
         }
         if let Some(name) = self
@@ -272,6 +296,9 @@ impl Config {
             .find(|name| !omitted.contains(name.as_str()))
         {
             return Err(format!("no operation of the config has the parameter {name}").into());
+        }
+        if let Some(name) = self.bound.iter().find(|name| !bound.contains(name.as_str())) {
+            return Err(format!("no operation of the config has the path parameter {name}, which the config says a connection is bound to").into());
         }
         let missing: Vec<&str> = self
             .operations
@@ -297,6 +324,7 @@ impl Config {
         components: Option<&Value>,
         found: &mut BTreeSet<&'a str>,
         omitted: &mut BTreeSet<&'a str>,
+        bound: &mut BTreeSet<&'a str>,
     ) -> Result<(), Err> {
         // The parameters of the path item are given to each operation, so
         // that one can be left out of an operation and not of the others.
@@ -331,6 +359,11 @@ impl Config {
                     return Err(format!("{id} has no parameter {name}").into());
                 }
             }
+            for (name, schema) in &selected.parameters {
+                if !retype(&mut parameters, name, schema, components) {
+                    return Err(format!("{id} has no parameter {name}").into());
+                }
+            }
             lists(&mut parameters, components);
             // The config is what says which operations there are.
             operation.shift_remove("x-forge-skip");
@@ -345,6 +378,20 @@ impl Config {
                     .into());
                 }
                 extension["failure"] = json!({"property": failure.property, "equals": failure.equals});
+            }
+            let fixed: Vec<&str> = self
+                .bound
+                .iter()
+                .map(String::as_str)
+                .filter(|&name| {
+                    parameters
+                        .iter()
+                        .any(|parameter| named(parameter, components) == Some((name, "path")))
+                })
+                .collect();
+            if !fixed.is_empty() {
+                bound.extend(&fixed);
+                extension["bound"] = json!(fixed);
             }
             let headers = headers(&parameters, components);
             if !headers.is_empty() {
@@ -422,6 +469,24 @@ fn resolved<'a>(parameter: &'a Value, components: Option<&'a Value>) -> Option<&
 fn named<'a>(parameter: &'a Value, components: Option<&'a Value>) -> Option<(&'a str, &'a str)> {
     let parameter = resolved(parameter, components)?;
     Some((parameter.get("name")?.as_str()?, parameter.get("in")?.as_str()?))
+}
+
+/// Gives the parameters named `name` among `parameters` the schema
+/// `schema`, and reports whether there was one. A parameter that is a
+/// `$ref` is written in place, so that the others that refer to it are
+/// left as they are.
+fn retype(parameters: &mut [Value], name: &str, schema: &Value, components: Option<&Value>) -> bool {
+    let mut found = false;
+    for parameter in parameters {
+        if named(parameter, components).is_some_and(|(other, _)| other == name)
+            && let Some(mut resolved) = resolved(parameter, components).cloned()
+        {
+            resolved["schema"] = schema.clone();
+            *parameter = resolved;
+            found = true;
+        }
+    }
+    found
 }
 
 /// Makes each query parameter among `parameters` whose name ends in `[]`
@@ -566,7 +631,7 @@ impl Operation {
             }
             let style = pagination.style;
             let (allowed, needed, defaults): (&[&str], &[&str], &[&str]) = match style {
-                PaginationStyle::LinkHeader => (&[], &[], &[]),
+                PaginationStyle::LinkHeader => (&["more"], &[], &[]),
                 PaginationStyle::Offset => (&["offset", "limit", "more", "last"], &[], &["offset", "limit"]),
                 PaginationStyle::Cursor => (&["cursor", "next", "limit", "more", "last"], &["cursor", "next"], &[]),
             };
@@ -596,7 +661,36 @@ impl Operation {
 
 /// Generates the files of a gatekeeper from a document a [`Config`] was
 /// applied to.
-pub struct Generator;
+#[derive(Default)]
+pub struct Generator {
+    /// What the scout found in the document before the config was applied
+    /// to it, which operations.json and the worksheet give for the
+    /// operations of the config.
+    catalog: Option<Catalog>,
+}
+
+impl Generator {
+    /// Returns a generator that gives what `catalog` found.
+    pub fn new(catalog: Catalog) -> Generator {
+        Generator { catalog: Some(catalog) }
+    }
+}
+
+impl Catalog {
+    /// Returns the files of the scout: CATALOG.md and catalog.json.
+    pub fn files(&self) -> [File; 2] {
+        [
+            File::Text {
+                path: "CATALOG.md".to_owned(),
+                content: self.markdown(),
+            },
+            File::Text {
+                path: "catalog.json".to_owned(),
+                content: self.json(),
+            },
+        ]
+    }
+}
 
 impl Plugin for Generator {
     type File = File;
@@ -609,13 +703,118 @@ impl Plugin for Generator {
             content,
         };
         let texts = [
-            text("operations.json", manifest(forge)?),
+            text("operations.json", manifest(forge, self.catalog.as_ref())?),
             text("GUIDE.md", GUIDE.to_owned()),
-            text("WORKSHEET.md", worksheet(forge)),
+            text("WORKSHEET.md", worksheet(forge, self.catalog.as_ref())),
         ];
+        let pages = pagers(forge)?.map(|content| text("pages.ts", content));
         let clients = ts::generate(forge, ts::Transport::Provider, &ROLES, &RUNTIME)?;
-        Ok(clients.map(File::Sdk).chain(texts))
+        Ok(clients.map(File::Sdk).chain(texts).chain(pages))
     }
+}
+
+/// Returns pages.ts, which has a pager of the runtime for every operation
+/// that pages: what reads the items and the next page of a result, with
+/// the types of the operation. `None` when no operation pages.
+fn pagers(forge: &Forge) -> Result<Option<String>, Err> {
+    let mut imports = String::new();
+    let mut pagers = String::new();
+    let mut functions = BTreeSet::new();
+    let mut names = BTreeSet::new();
+    for method in forge.groups().flat_map(|group| group.methods()) {
+        let Some(pagination) = ts::client::provider_fact(method, "pagination") else {
+            continue;
+        };
+        let id = ts::client::provider_fact(method, "operationId")
+            .and_then(Json::as_str)
+            .unwrap_or_default();
+        let facts = paging(method, id, pagination)?;
+        let fact = |key: &str| facts.get(key).and_then(Value::as_str);
+
+        let groups: Vec<String> = method
+            .group()
+            .path()
+            .map(|group| ts::types::identifier(group.camel()))
+            .collect();
+        // The pager is named after the groups of the method, then the method.
+        let mut name = String::new();
+        for part in method.group().path().chain([method.name()]) {
+            name.push_str(&if name.is_empty() { part.camel() } else { part.pascal() });
+        }
+        let name = ts::types::identifier(name);
+        if !names.insert(name.clone()) {
+            return Err(format!("two operations that page have the pager {name}: {id} is the second").into());
+        }
+        let alias = {
+            let mut letters = name.chars();
+            let first = letters.next().map(|letter| letter.to_ascii_uppercase());
+            first.into_iter().chain(letters).collect::<String>()
+        };
+        let from: String = groups.iter().map(|group| format!("{group}/")).collect();
+        // A type of a group is named after its method alone.
+        let imported = |own: String, alias: String| {
+            if own == alias { own } else { format!("{own} as {alias}") }
+        };
+        imports.push_str(&format!(
+            "import type {{ {}, {} }} from \"./{from}client.js\";\n",
+            imported(ts::client::request_name(method), format!("{alias}Request")),
+            imported(ts::client::response_name(method), format!("{alias}Response")),
+        ));
+
+        // A field of a body that is not flat is under `body`.
+        let request = ts::client::Request::new(method);
+        let field = |wire_name: &str| {
+            if query_parameter(method, wire_name) || request.flat {
+                wire_name.to_owned()
+            } else {
+                format!("body.{wire_name}")
+            }
+        };
+        let style = fact("style").unwrap_or_default();
+        let (function, keys): (&str, &[&str]) = match style {
+            "offset" => ("offsetPages", &["offset", "limit", "more", "last"]),
+            "cursor" => ("cursorPages", &["cursor", "next", "more", "last"]),
+            _ => ("linkPages", &["more"]),
+        };
+        functions.insert(function);
+        let items = fact("items").unwrap_or_default();
+        let mut spec = Vec::new();
+        if !items.is_empty() {
+            spec.push(format!("items: {}", Value::from(items)));
+        }
+        for &key in keys {
+            if let Some(value) = fact(key) {
+                let value = match key {
+                    "offset" | "limit" | "cursor" => field(value),
+                    _ => value.to_owned(),
+                };
+                spec.push(format!("{key}: {}", Value::from(value)));
+            }
+        }
+        let call: Vec<String> = groups
+            .iter()
+            .cloned()
+            .chain([ts::client::method_name(method)])
+            .collect();
+        let spec = if spec.is_empty() {
+            "{}".to_owned()
+        } else {
+            format!("{{ {} }}", spec.join(", "))
+        };
+        pagers.push_str(&format!(
+            "\n/**\n * How `reads.{}` pages, which is `{id}`.\n */\nexport const {name} = {function}<{alias}Request, {alias}Response, {}>({spec});\n",
+            call.join("."),
+            Value::from(items),
+        ));
+    }
+    if pagers.is_empty() {
+        return Ok(None);
+    }
+    let functions: Vec<&str> = functions.into_iter().collect();
+    Ok(Some(format!(
+        "// Code generated by forge. DO NOT EDIT.\n/* eslint-disable */\n\nimport {{ {} }} from \"./_/index.js\";\n{imports}\nexport {{ parseLinks }} from \"./_/index.js\";\nexport type {{ ItemOf, Link, LinkNext, Page, Pages }} from \"./_/index.js\";\n{pagers}",
+        functions.join(", ")
+    )))
 }
 
 /// The guide for the agent that writes the gatekeeper: what the generated
@@ -627,9 +826,13 @@ const GUIDE: &str = include_str!("gatekeeper/GUIDE.md");
 /// asked once, before the operations that read, each of which has the
 /// questions that are its own. The operations that write follow, in the
 /// same way.
-fn worksheet(forge: &Forge) -> String {
+fn worksheet(forge: &Forge, catalog: Option<&Catalog>) -> String {
     let methods: Vec<Method<'_>> = forge.groups().flat_map(|group| group.methods()).collect();
     let mut text = String::from(WORKSHEET_INTRO);
+    if let Some(catalog) = catalog {
+        text.push_str(WORKSHEET_PROVIDER);
+        text.push_str(&scout::question_lines(&catalog.questions));
+    }
     text.push_str(WORKSHEET_READS);
     for &method in methods.iter().filter(|&&method| reads(method)) {
         heading(&mut text, method, "reads");
@@ -650,6 +853,7 @@ fn worksheet(forge: &Forge) -> String {
             text.push_str(&paging_line(&pagination));
         }
         text.push_str(&response_lines(method));
+        text.push_str(&trust_lines(method, catalog));
         text.push_str(&headers_line(method));
     }
     text.push_str(WORKSHEET_WRITES);
@@ -662,7 +866,50 @@ fn worksheet(forge: &Forge) -> String {
             );
         }
         text.push_str(&response_lines(method));
+        text.push_str(&trust_lines(method, catalog));
         text.push_str(&headers_line(method));
+    }
+    text
+}
+
+/// Returns the lines of the worksheet about what of the response of
+/// `method` its type cannot be relied on for, from what the scout found:
+/// the parts the document gives no type, and the objects none of whose
+/// fields it requires.
+fn trust_lines(method: Method<'_>, catalog: Option<&Catalog>) -> String {
+    let id = ts::client::provider_fact(method, "operationId").and_then(Json::as_str);
+    let Some(trust) = id.and_then(|id| catalog?.operation(id)).map(|facts| &facts["trust"]) else {
+        return String::new();
+    };
+    let paths = |key: &str| {
+        let paths: Vec<String> = trust[key]
+            .as_array()
+            .into_iter()
+            .flatten()
+            .filter_map(Value::as_str)
+            .map(|path| {
+                if path.starts_with("and ") {
+                    path.to_owned()
+                } else {
+                    format!("`{path}`")
+                }
+            })
+            .collect();
+        paths.join(", ")
+    };
+    let mut text = String::new();
+    // The whole response has a line of its own.
+    if !untyped(method) && !paths("untyped").is_empty() {
+        text.push_str(&format!(
+            "- The document gives no type to these parts of its response: {}. Which of them you read, and what you check of each:\n",
+            paths("untyped")
+        ));
+    }
+    if !paths("allOptional").is_empty() {
+        text.push_str(&format!(
+            "- The document requires no field of {}, so every one is optional in its type. Which fields you depend on, and what you do when one is missing:\n",
+            paths("allOptional")
+        ));
     }
     text
 }
@@ -689,7 +936,13 @@ fn paging_line(pagination: &Value) -> String {
         (_, Some(cursor), Some(next)) => format!(
             "a call asks for the next page with `{cursor}`, set to the `data.{next}` of the page before{limit}, {items}, and {end}"
         ),
-        _ => items,
+        // Of a `Link` header, `more` is a parameter of the link.
+        _ => match string("more") {
+            Some(more) => {
+                format!("{items}, and the `rel=\"next\"` link has `{more}=\"true\"` when there is another page")
+            }
+            None => items,
+        },
     };
     let style = string("style").unwrap_or_default();
     format!("- Paging: it pages by `{style}`: {how}. The kit cursor that wraps it, and what each page reports:\n")
@@ -781,6 +1034,13 @@ Copy this file out of the generated directory before you fill it in: this copy i
 Each section asks its questions once, and then lists its operations. Give an answer that several operations share once, under the shared answers, and say which operations it covers. Under an operation, give the answers that are its own, and answer the lines that only it has. Leave no question without an answer for any operation: \"none\" is an answer.
 ";
 
+const WORKSHEET_PROVIDER: &str = "
+## The provider
+
+What the provider's document leaves open. Answer each from the provider's documentation, with the person who reviews this, before you design the contract. An answer that the config has a key for goes in the config, and the rest stay here. Say of each answer whether you checked it against the real API or took it from the documentation.
+
+";
+
 const WORKSHEET_READS: &str = "
 ## Reads
 
@@ -821,18 +1081,26 @@ For every write:
 
 /// Returns operations.json: the methods in the order of their groups, each
 /// with where the SDK has it, its request line, and what the config says.
-fn manifest(forge: &Forge) -> Result<String, Err> {
+fn manifest(forge: &Forge, catalog: Option<&Catalog>) -> Result<String, Err> {
     let mut operations = Vec::new();
     for method in forge.groups().flat_map(|group| group.methods()) {
-        operations.push(entry(method)?);
+        operations.push(entry(method, catalog)?);
     }
-    let mut text = serde_json::to_string_pretty(&json!({"operations": operations}))?;
+    let mut manifest = Map::new();
+    if let Some(catalog) = catalog {
+        manifest.insert(
+            "api".to_owned(),
+            json!({"servers": catalog.api["servers"], "security": catalog.api["security"]}),
+        );
+    }
+    manifest.insert("operations".to_owned(), Value::Array(operations));
+    let mut text = serde_json::to_string_pretty(&Value::Object(manifest))?;
     text.push('\n');
     Ok(text)
 }
 
 /// Returns the entry of `method` in operations.json.
-fn entry(method: Method<'_>) -> Result<Value, Err> {
+fn entry(method: Method<'_>, catalog: Option<&Catalog>) -> Result<Value, Err> {
     let group: Vec<String> = method.group().path().map(|name| name.camel()).collect();
     let name = method.name().camel();
     let request_line = format!("{} {}", method.http_method().as_str(), method.path());
@@ -858,6 +1126,9 @@ fn entry(method: Method<'_>) -> Result<Value, Err> {
     if extension.get("conditional").and_then(Json::as_bool) == Some(true) {
         entry["conditional"] = json!(true);
     }
+    if let Some(bound) = extension.get("bound").and_then(Json::as_array) {
+        entry["bound"] = bound.iter().filter_map(Json::as_str).collect();
+    }
     if let Some(headers) = extension.get("headers").and_then(Json::as_array) {
         let headers = headers.iter().map(|header| {
             let mut value = json!({
@@ -879,6 +1150,21 @@ fn entry(method: Method<'_>) -> Result<Value, Err> {
     }
     if untyped(method) {
         entry["untyped"] = json!(true);
+    }
+    // What the document says of it that the clients do not use: what it
+    // asks of a credential, the errors it declares, and what of its
+    // response has no type to rely on.
+    if let Some(facts) = catalog.and_then(|catalog| catalog.operation(&id)) {
+        for (key, value) in [
+            ("security", &facts["security"]),
+            ("errors", &facts["responses"]["errors"]),
+            ("trust", &facts["trust"]),
+        ] {
+            let empty = value.as_array().is_some_and(Vec::is_empty);
+            if !value.is_null() && !empty {
+                entry[key] = value.clone();
+            }
+        }
     }
     Ok(entry)
 }
@@ -917,7 +1203,9 @@ fn paging(method: Method<'_>, id: &str, pagination: &Json) -> Result<Value, Err>
     }
     for key in ["next", "more", "last"] {
         if let Some(name) = string(key) {
-            if response_field(method, Some(name), false).is_none() {
+            // Of a `Link` header, it names a parameter of the link, and not
+            // a property of the response.
+            if style != "link-header" && response_field(method, Some(name), false).is_none() {
                 return Err(format!("{id} pages by {style}, but no response of it has the property {name}").into());
             }
             value[key] = json!(name);
@@ -987,28 +1275,31 @@ fn untyped(method: Method<'_>) -> bool {
     types.into_iter().any(|ty| matches!(shape(ty), Shape::Untyped))
 }
 
-/// Returns the name of the field, in the request of `method`, of the
-/// parameter or the property of the body whose wire name is `wire_name`.
-/// It is the name the clients give the field, unless another has the same.
-fn request_field(method: Method<'_>, wire_name: &str) -> Option<String> {
+/// Reports whether `method` has a query parameter with the wire name
+/// `wire_name`.
+fn query_parameter(method: Method<'_>, wire_name: &str) -> bool {
     // The parameters are the fields of the request, or of its first member
     // when a body is next to them.
-    let parameters = match method.request()? {
-        Type::Object(object) => Some(object),
-        Type::Intersection(intersection) => match intersection.members().next()? {
-            Type::Object(object) => Some(object),
+    let parameters = match method.request() {
+        Some(Type::Object(object)) => Some(object),
+        Some(Type::Intersection(intersection)) => match intersection.members().next() {
+            Some(Type::Object(object)) => Some(object),
             _ => None,
         },
         _ => None,
     };
-    let parameter = parameters
+    parameters
         .into_iter()
         .flat_map(|object| object.fields())
-        .find(|&field| {
-            field.wire_name() == wire_name && matches!(method.location(field), Some(Location::Query { .. }))
-        });
-    if let Some(field) = parameter {
-        return Some(field.wire_name().to_owned());
+        .any(|field| field.wire_name() == wire_name && matches!(method.location(field), Some(Location::Query { .. })))
+}
+
+/// Returns the name of the field, in the request of `method`, of the
+/// parameter or the property of the body whose wire name is `wire_name`.
+/// It is the name the clients give the field, unless another has the same.
+fn request_field(method: Method<'_>, wire_name: &str) -> Option<String> {
+    if query_parameter(method, wire_name) {
+        return Some(wire_name.to_owned());
     }
     let body = method.body()?.json()?.ty();
     match shape(body) {
@@ -1090,7 +1381,7 @@ mod tests {
     use forge::{Forge, Plugin};
     use serde_json::Value;
 
-    use super::{Config, Generator};
+    use super::{Catalog, Config, Generator};
 
     /// A document with operations of each kind, among them one that is
     /// skipped and one of a path item that a path refers to, a property
@@ -1274,9 +1565,12 @@ mod tests {
     fn generate(config: &str) -> Result<BTreeMap<String, String>, String> {
         let config: Config = serde_json::from_str(config).map_err(|err| err.to_string())?;
         let mut doc: Value = serde_json::from_str(SPEC).unwrap();
+        // As the command does: the scout reads the document as it is.
+        let catalog = Catalog::new(&doc, Some(&config));
         config.apply(&mut doc).map_err(|err| err.to_string())?;
         let forge: Forge = serde_json::from_value(doc).map_err(|err| err.to_string())?;
-        let files = Generator.generate(&forge).map_err(|err| err.to_string())?;
+        let generator = Generator::new(catalog);
+        let files = generator.generate(&forge).map_err(|err| err.to_string())?;
         Ok(files
             .map(|file| {
                 let content = forge::File::content(&file).unwrap().into_owned();
@@ -1608,8 +1902,8 @@ mod tests {
             "incidents/list pages by offset, but no response of it has the property more"
         );
         assert_eq!(
-            error(r#"{"style": "link-header", "items": "incidents", "more": "has_more"}"#),
-            "incidents/list: more is not for pagination of the style link-header"
+            error(r#"{"style": "link-header", "items": "incidents", "last": "is_last"}"#),
+            "incidents/list: last is not for pagination of the style link-header"
         );
     }
 
@@ -1710,6 +2004,41 @@ mod tests {
     }
 
     #[test]
+    fn an_operation_that_pages_has_a_pager() {
+        let config = r#"{
+          "operations": {
+            "messages/query": {
+              "group": "messages",
+              "name": "query",
+              "kind": "read",
+              "pagination": {"style": "cursor", "items": "results", "cursor": "start_cursor", "next": "next_cursor", "more": "has_more"}
+            },
+            "issues/list": {"group": "issues", "name": "list", "pagination": {"style": "link-header", "more": "results"}},
+            "runs/list": {"name": "listRuns", "pagination": {"style": "link-header", "items": "work_runs"}},
+            "incidents/list": {"group": "incidents", "name": "list", "pagination": {"style": "offset", "items": "incidents", "limit": "page_size", "more": "has_more"}}
+          },
+          "properties": {"+1": "plus_one", "-1": "minus_one"}
+        }"#;
+        let files = generate(config).unwrap();
+        let pages = &files["pages.ts"];
+        for line in [
+            r#"import { cursorPages, linkPages, offsetPages } from "./_/index.js";"#,
+            r#"import type { ListRequest as IssuesListRequest, ListResponse as IssuesListResponse } from "./issues/client.js";"#,
+            // A method of the root.
+            r#"import type { ListRunsRequest, ListRunsResponse } from "./client.js";"#,
+            r#"export const listRuns = linkPages<ListRunsRequest, ListRunsResponse, "work_runs">({ items: "work_runs" });"#,
+            r#"export const issuesList = linkPages<IssuesListRequest, IssuesListResponse, "">({ more: "results" });"#,
+            r#"export const incidentsList = offsetPages<IncidentsListRequest, IncidentsListResponse, "incidents">({ items: "incidents", offset: "offset", limit: "page_size", more: "has_more" });"#,
+            r#"export const messagesQuery = cursorPages<MessagesQueryRequest, MessagesQueryResponse, "results">({ items: "results", cursor: "start_cursor", next: "next_cursor", more: "has_more" });"#,
+        ] {
+            assert!(pages.lines().any(|found| found == line), "{line}\n{pages}");
+        }
+        // No file when no operation pages.
+        let files = generate(r#"{"operations": {"issues/create": {"name": "create"}}}"#).unwrap();
+        assert!(!files.contains_key("pages.ts"));
+    }
+
+    #[test]
     fn a_parameter_of_the_config_is_left_out() {
         // Of every operation that has it, among them one that has it from
         // its path item.
@@ -1770,6 +2099,95 @@ mod tests {
         assert_eq!(
             generate(&messages("", r#", "failure": {"property": "ok", "equals": []}"#)).unwrap_err(),
             "messages/list: the failure of a response equals a string, a number, a boolean or null"
+        );
+    }
+
+    #[test]
+    fn a_link_can_say_that_there_is_another_page() {
+        let config = r#"{
+          "operations": {
+            "issues/list": {
+              "group": "issues",
+              "name": "list",
+              "pagination": {"style": "link-header", "more": "results"}
+            }
+          },
+          "properties": {"+1": "plus_one", "-1": "minus_one"}
+        }"#;
+        let files = generate(config).unwrap();
+        // It names a parameter of the link, which no response has to have.
+        let operations: Value = serde_json::from_str(&files["operations.json"]).unwrap();
+        assert_eq!(
+            operations["operations"][0]["pagination"],
+            serde_json::json!({"style": "link-header", "more": "results"})
+        );
+        let worksheet = &files["WORKSHEET.md"];
+        assert!(
+            worksheet.contains(
+                "- Paging: it pages by `link-header`: the response is the array of items, and the `rel=\"next\"` link has `results=\"true\"` when there is another page."
+            ),
+            "{worksheet}"
+        );
+        // The question about the last page is answered.
+        assert!(!worksheet.contains("is the last page the one with no"), "{worksheet}");
+    }
+
+    #[test]
+    fn a_parameter_can_be_given_a_schema() {
+        let config = |parameters: &str| {
+            format!(
+                r#"{{
+                  "operations": {{
+                    "issues/delete": {{"group": "issues", "name": "delete", "parameters": {parameters}}}
+                  }},
+                  "properties": {{"+1": "plus_one", "-1": "minus_one"}}
+                }}"#
+            )
+        };
+        let files = generate(&config(r#"{"id": {"type": "integer"}}"#)).unwrap();
+        let client = &files["issues/client.ts"];
+        assert!(client.contains("  id: number;\n"), "{client}");
+        assert_eq!(
+            generate(&config(r#"{"number": {"type": "integer"}}"#)).unwrap_err(),
+            "issues/delete has no parameter number"
+        );
+    }
+
+    #[test]
+    fn the_path_parameters_a_connection_is_bound_to_are_listed() {
+        let config = |bound: &str| {
+            format!(
+                r#"{{
+                  "operations": {{
+                    "issues/list": {{"group": "issues", "name": "list"}},
+                    "issues/delete": {{"group": "issues", "name": "delete"}}
+                  }},
+                  "properties": {{"+1": "plus_one", "-1": "minus_one"}},
+                  "bound": ["{bound}"]
+                }}"#
+            )
+        };
+        let files = generate(&config("id")).unwrap();
+        let operations: Value = serde_json::from_str(&files["operations.json"]).unwrap();
+        let operations = operations["operations"].as_array().unwrap();
+        let bound = |id: &str| {
+            let operation = operations
+                .iter()
+                .find(|operation| operation["operationId"] == id)
+                .unwrap();
+            operation.get("bound").cloned()
+        };
+        // Only an operation that has the parameter in its path.
+        assert_eq!(bound("issues/delete"), Some(serde_json::json!(["id"])));
+        assert_eq!(bound("issues/list"), None);
+        assert!(
+            files["WORKSHEET.md"].contains("- The config says that a connection is bound to `id`."),
+            "{}",
+            files["WORKSHEET.md"]
+        );
+        assert_eq!(
+            generate(&config("org")).unwrap_err(),
+            "no operation of the config has the path parameter org, which the config says a connection is bound to"
         );
     }
 
@@ -1881,9 +2299,15 @@ mod tests {
     #[test]
     fn operations_json_lists_the_operations_of_the_config() {
         let files = generate(CONFIG).unwrap();
+        // After what the config says of an operation is what the scout found
+        // of it in the document.
         assert_eq!(
             files["operations.json"],
             r#"{
+  "api": {
+    "servers": [],
+    "security": []
+  },
   "operations": [
     {
       "operationId": "issues/list",
@@ -1896,6 +2320,13 @@ mod tests {
       "kind": "read",
       "pagination": {
         "style": "link-header"
+      },
+      "trust": {
+        "allOptional": [
+          "[]",
+          "[].properties",
+          "[].reactions"
+        ]
       }
     },
     {
@@ -1906,11 +2337,41 @@ mod tests {
       "name": "search",
       "method": "POST",
       "path": "/search",
-      "kind": "read"
+      "kind": "read",
+      "trust": {
+        "allOptional": [
+          "(the response)"
+        ]
+      }
     }
   ]
 }
 "#
+        );
+    }
+
+    #[test]
+    fn the_worksheet_asks_what_the_document_leaves_open() {
+        let worksheet = &generate(CONFIG).unwrap()["WORKSHEET.md"];
+        let provider = worksheet.find("\n## The provider\n").expect("the provider");
+        let reads = worksheet.find("\n## Reads\n").expect("reads");
+        assert!(provider < reads, "{worksheet}");
+        assert!(
+            worksheet.contains("- The document names no server. What is the URL of the API?\n"),
+            "{worksheet}"
+        );
+        // The config says that issues/list pages, so that is not asked, and
+        // how its last page is told is.
+        assert!(!worksheet.contains("It looks like it pages"), "{worksheet}");
+        assert!(
+            worksheet.contains("- For the operations that page by `link-header`: is the last page"),
+            "{worksheet}"
+        );
+        assert!(
+            worksheet.contains(
+                "- The document requires no field of `[]`, `[].properties`, `[].reactions`, so every one is optional in its type."
+            ),
+            "{worksheet}"
         );
     }
 

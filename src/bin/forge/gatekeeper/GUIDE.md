@@ -6,19 +6,47 @@ Follow the `write-gatekeeper` skill. This guide says only what these files chang
 
 Do not edit the files here. They are replaced the next time Forge runs. To cover another operation, add it to the config and run Forge again.
 
+## Before these files: the scout and the config
+
+Forge is run twice. The first run is the scout, which needs no config and reads the whole document:
+
+```
+forge <document> --target gatekeeper --scout --out <directory>
+```
+
+It writes `CATALOG.md` and `catalog.json`: the servers, the security schemes, every operation with its parameters, scopes, statuses and a guess at how it pages, what in the document will limit the clients, and the questions the document leaves open. Read `CATALOG.md` in place of the document. Give `--config` as well and it also asks the questions about the operations of the config.
+
+Then write the config, a JSON file, and run Forge with `--config` and without `--scout` to generate these files. Its keys:
+
+- `operations`: the operations to cover, by `operationId`. Each has a `name`, and can have:
+  - `group`: the group of the method, with dots between groups.
+  - `kind`: `"read"` for a `POST` that changes nothing.
+  - `conditional`: `true` for a read that can be asked for only if it changed.
+  - `pagination`: how it pages. `style` is `link-header`, `offset` or `cursor`. `items` is the property of the response that has the items, when the response is not the array itself. `offset`, `limit` and `cursor` name request fields. `next`, `more` and `last` name properties of the response, and can be paths with dots. With `link-header`, `more` is the parameter of the `rel="next"` link that is `true` when there is another page.
+  - `parameters`: a schema for a parameter, by name, in place of the document's, where the document is wrong.
+  - `omitParameters`: parameters to leave out.
+  - `failure`: `property` and `equals`, for an API that answers a failure with a 2XX.
+- `bound`: the path parameters a connection is bound to.
+- `int64`: `"number"` when the API's `int64`s fit a number. They are `bigint` otherwise.
+- `omitParameters` and `failure`, for every operation.
+- `properties`: a name for a property whose wire name makes none, such as `+1`, which is otherwise an error.
+
+A guess of the scout is not a fact. Check how an operation pages against the provider's documentation before the config says it. The questions of the scout are in `WORKSHEET.md` too, under "The provider": answer them with the person who reviews your work, before you design the contract.
+
 ## What is here
 
 - `read.ts`, which exports `createReadClient`, and `write.ts`, which exports `createWriteClient`.
-- `index.ts` and a directory for each group: the request and response types of every operation, and the types of the runtime. Every field has the name the provider gives it, such as `created_at` or `team_ids[]`, so the types match the provider's documentation and what its webhooks send.
+- `index.ts`, which has the types of the runtime, and a directory for each group, whose `index.ts` has the request and response types of its operations. Import those from `./api/<group>/index.js`. Types of the same name in two groups, such as `GetResponse`, need an alias. A type from a document with no shared schemas is written in place and can be one very long line: read it through the compiler or the editor, not by eye. Every field has the name the provider gives it, such as `created_at` or `team_ids[]`, so the types match the provider's documentation and what its webhooks send.
 - `client.ts` in each directory, which the files above import. Do not import it.
 - `_/`: the runtime the clients import. It has no dependencies.
-- `operations.json`: each operation with its `operationId`, the method that calls it, whether it reads or writes, and how it pages.
+- `pages.ts`, when an operation pages: a pager for each such operation, named after its groups and its method, as `issuesList` is for `reads.issues.list`.
+- `operations.json`: the servers and security schemes of the API, and each operation with its `operationId`, the method that calls it, whether it reads or writes, how it pages, the path parameters the binding fixes (`bound`), what it asks of a credential (`security`), the errors it declares (`errors`), and what of its response has no type to rely on (`trust`).
 - `WORKSHEET.md`: the decisions each operation needs from you.
 - `GUIDE.md`: this file.
 
 ## What these files change in the skill's steps
 
-**Step 1, understand the service.** The operations are already chosen and sorted into reads and writes. Read `WORKSHEET.md` for the list. If the gatekeeper needs an operation that is not there, stop and say so; do not write a `fetch` call for it.
+**Step 1, understand the service.** The operations of the config are sorted into reads and writes. Read `WORKSHEET.md` for the list. Design turns up operations the config does not have: find each in `CATALOG.md`, add it to the config, run Forge again, and say in your report which you added and why. Do not write a `fetch` call for an operation the document has. `operations.json` has the scopes each operation needs, in `security`: a requirement lists scopes without saying whether all or any of them are needed, so check that against the provider's documentation before you ask for them.
 
 **Steps 2 and 3, design the session types and stop for review.** Nothing changes. `types.d.ts` is designed for the agent that will use it, above the provider's API, and a person approves it before you implement. The generated types never appear in it: it must be self-contained, and the provider's shapes are not what an agent should see. Copy `WORKSHEET.md` out of this directory, next to `types.d.ts`, and fill it in as you design. Present it with the contract. The copy here is replaced on every run, so a later run shows new operations as a diff against yours.
 
@@ -61,7 +89,9 @@ function provider(token: string): Provider {
         throw new Error('Could not reach Example; please try again.', { cause: error });
       }
       if (response.status >= 300 && response.status < 400) {
+        // Not followed, and its body is not read.
         await response.body?.cancel();
+        return { status: response.status, headers: response.headers, text: '' };
       }
       return {
         status: response.status,
@@ -103,7 +133,7 @@ const reads = createReadClient({
 
 // What the failure means, from what the provider documents.
 function reasonOf(failure: Failure): 'credential' | 'denied' | 'missing' | 'rate-limit' | 'other' {
-  if (failure.status === 429 || failure.headers.get('retry-after') !== null) return 'rate-limit';
+  if (failure.status === 429) return 'rate-limit';
   if (failure.status === 401) return 'credential';
   if (failure.status === 403) return 'denied';
   if (failure.status === 404) return 'missing';
@@ -126,8 +156,9 @@ function reasonOf(failure: Failure): 'credential' | 'denied' | 'missing' | 'rate
 Session code gets the client of reads and nothing else. It imports `./api/read.js`, and never `./api/write.js`.
 
 - Run each call through `CredentialSource.run()` with `replayable: true`. A read can be sent twice. For a read that is sent with `POST`, be sure of that first.
-- Fix what the binding fixes. A session bound to one repository passes its own owner and name, or the id it pinned, and never takes them from the caller.
+- Fix what the binding fixes. A session bound to one repository passes its own owner and name, or the id it pinned, and never takes them from the caller. `operations.json` lists them for each operation as `bound`, when the config says what a connection is bound to.
 - A method returns `{ data, status, headers }`. Map `data` to the type in `types.d.ts` with a function you write. Do not return it as it is, and do not spread it: the provider can add a field tomorrow.
+- `operations.json` lists under `trust` the parts of a response the document gives no type (`untyped`), and the objects none of whose fields it requires (`allOptional`). Those are where a type says the least, and the worksheet asks what you check of each.
 - When `operations.json` marks an operation `untyped`, the provider's document gives its response no type. `data` is then what the provider sent, with no check at all. Check every field you read as you map it.
 - An `int64` of the provider is a `bigint` in the generated types, unless the config makes it a number. `JSON.stringify` throws on one, and Cap'n Web, storage and action payloads may not take one. Turn it into a string, or a number when it is known to fit, as you map.
 - Every session method that returns information to its caller awaits the helper that authorizes its observation, with `subresources`, before it returns. That is once for each session method, after its provider calls, and not once for each call of a client. A read that only prepares an action is not an observation.
@@ -137,7 +168,22 @@ Session code gets the client of reads and nothing else. It imports `./api/read.j
 
 **Paged operations.** `operations.json` says how an operation pages. When its `pagination` has `items`, the items are in that field of `data`, and otherwise `data` is the array. Wrap either style in one of the kit's cursors, and authorize every page it hands out.
 
-- `link-header`: the next page is the `rel="next"` URL of the `link` header of a result. Take its query parameters and send them as the `query` of the options of the next call, which replace those of the request. Do not count pages yourself: the link can carry a cursor the request type does not have.
+`pages.ts` has a pager for each paged operation. It reads the items of a result and what names the next page, and builds the request for that page, so do not write either by hand:
+
+```ts
+import * as pages from './api/pages.js';
+
+const { request, options } = pages.issuesList.resume(first, next); // `next` is undefined for the first page
+const result = await reads.issues.list(request, options);
+const page = pages.issuesList.page(result, request);
+// page.items are typed. page.next is undefined on the last page.
+```
+
+`next` is JSON: the query of the `rel="next"` link, an offset, or the provider's cursor. Put it in the kit's cursor. What a caller gives back is the caller's input, so seal it or check it before you pass it to `resume`: a `next` of a link is sent as the whole query of the request. The pager decides nothing else: the largest offset to allow, and how many pages one call may read, are yours.
+
+What the pagers go by, for each style:
+
+- `link-header`: the next page is the `rel="next"` URL of the `link` header of a result. Take its query parameters and send them as the `query` of the options of the next call, which replace those of the request. Do not count pages yourself: the link can carry a cursor the request type does not have. Some APIs send that link with the last page too. The pagination then has `more`, the parameter of the link that is `true` when there is another page, as in `<url>; rel="next"; results="false"`. Without it, a page with no `rel="next"` link is the last. The pager of the operation reads the header for you.
 - `offset`: a call asks for a page with the request fields that `offset` and `limit` name. Check what the provider documents as the largest offset, and stop there.
 - `cursor`: a call asks for the next page with the request field that `cursor` names, set to what `next` names in the `data` of the page before. `next` can be a path, such as `response_metadata.next_cursor`. A cursor is the provider's: do not hand it to a caller as it is, since a caller could send back another.
 
