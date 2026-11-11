@@ -206,23 +206,34 @@ An operation that declares header parameters has them in `headers`, each with it
 
 It ends by asking the agent to keep a `GAPS.md` of what it had to work around, which is the gap write-up FORGE-45 asks for.
 
-`WORKSHEET.md` lists every operation under the method that calls it, reads first, with the decisions the spec cannot make as lines to fill in:
+`WORKSHEET.md` has the decisions the spec cannot make. It asks the questions every read has once, then lists the operations that read, each with a line for the answers that are its own and the questions only it has. The operations that write follow in the same way. An observation is authorized once for each session method, not for each operation, so most answers are shared, and the worksheet has a place for those.
 
 ```md
+## Reads
+
+For every read:
+
+1. Request fields the binding fixes, and those a caller gives, with how each of those is checked.
+2. Session methods that return its data. Or that it only prepares an action, and is not an observation.
+3. Subresources each of those methods reports.
+4. How `verifyObserverAccess` checks each kind of those for an observer, or that the data is private-only.
+5. Whether the observation sets `containsRestrictedData` or `ownerInvitesOnly`.
+6. Statuses and bodies that mean no access, and those that are indeterminate and are thrown again.
+7. Cache: a TTL or none, and what the cache is partitioned by.
+
+### Shared answers
+
 ### `reads.actions.listWorkflowRuns`
 
 `actions/list-workflow-runs-for-repo`: `GET /repos/{owner}/{repo}/actions/runs`
 
 List workflow runs for a repository
 
-- Session methods that return its data:
-- Subresources each of them reports:
-- Or it only prepares an action, and is not an observation:
-- Cache: a TTL or none, and what the cache is partitioned by:
-- Cursor: it pages by `link-header`, and the items are in `workflow_runs`. The kit cursor that wraps it, and what each page reports:
+- Answers, by number, that are not among the shared ones:
+- Paging: it pages by `link-header`: the items are in `data.workflowRuns`. The kit cursor that wraps it, and what each page reports:
 ```
 
-Every operation asks which request fields the binding fixes and which a caller gives. A read also asks how an observer's access to what it reports is checked, and which failures are a denial. A read sent with `POST` asks why it changes nothing. A write asks for the session methods that stage it, its action definitions and their kinds, the `autoApprovable` verdict with the rule of the skill's opt-out policy, what the approver sees, how pending reads show it, what a retry does, and its revert. A `DELETE` is told that the rule about deleting applies unless the agent says why not. An operation whose response has no type, or can fail in its body, or that declares headers, has a line for each.
+Every write is asked for the session methods that stage it, its action definitions and their kinds, the `autoApprovable` verdict with the rule of the skill's opt-out policy, what the approver sees, how pending reads show it, what a retry does, and its revert. An operation has a line of its own when it is conditional, pages, is a read sent with `POST`, is sent with `DELETE`, has a response with no type, can fail in its body, or declares headers.
 
 The agent copies the worksheet next to `types.d.ts` and fills it in there, since the generated copy is replaced on every run. A person reviews it with the contract.
 

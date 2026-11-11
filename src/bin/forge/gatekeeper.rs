@@ -582,39 +582,28 @@ impl Plugin for Generator {
 /// files change in the steps of the kit's `write-gatekeeper` skill.
 const GUIDE: &str = include_str!("gatekeeper/GUIDE.md");
 
-/// Returns WORKSHEET.md: the operations that read, then those that write,
-/// each with the decisions the spec cannot make, for an agent to fill in
-/// and a person to review.
+/// Returns WORKSHEET.md, for an agent to fill in and a person to review:
+/// the decisions the spec cannot make. The questions every read has are
+/// asked once, before the operations that read, each of which has the
+/// questions that are its own. The operations that write follow, in the
+/// same way.
 fn worksheet(forge: &Forge) -> String {
     let methods: Vec<Method<'_>> = forge.groups().flat_map(|group| group.methods()).collect();
     let mut text = String::from(WORKSHEET_INTRO);
-    text.push_str("\n## Reads\n\n");
     text.push_str(WORKSHEET_READS);
     for &method in methods.iter().filter(|&&method| reads(method)) {
         heading(&mut text, method, "reads");
+        text.push_str(ANSWERS);
         if method.http_method().as_str() == "POST" {
             text.push_str(
                 "- It is sent with `POST`, and the config says it reads. Why it changes nothing and can be sent twice:\n",
             );
         }
-        text.push_str(FIELDS);
-        text.push_str("- Session methods that return its data:\n");
-        text.push_str("- Subresources each of them reports:\n");
-        text.push_str(
-            "- How `verifyObserverAccess` checks each kind of those for an observer, or that the data is private-only:\n",
-        );
-        text.push_str("- Whether the observation sets `containsRestrictedData` or `ownerInvitesOnly`:\n");
-        text.push_str(
-            "- Statuses and bodies that mean no access, and those that are indeterminate and are thrown again:\n",
-        );
-        text.push_str("- Or it only prepares an action, and is not an observation:\n");
         let fact = |key| ts::client::provider_fact(method, key);
         if fact("conditional").and_then(Json::as_bool) == Some(true) {
             text.push_str(
-                "- Cache: it is conditional. Revalidated with its `ETag`, a TTL, or none, and what the cache is partitioned by:\n",
+                "- It is conditional. Whether its cache revalidates with the `ETag`, and where that is kept:\n",
             );
-        } else {
-            text.push_str("- Cache: a TTL or none, and what the cache is partitioned by:\n");
         }
         // The manifest has already said what is wrong with a pagination.
         if let Some(Ok(pagination)) = fact("pagination").map(|pagination| paging(method, "", pagination)) {
@@ -623,27 +612,15 @@ fn worksheet(forge: &Forge) -> String {
         text.push_str(&response_lines(method));
         text.push_str(&headers_line(method));
     }
-    text.push_str("\n## Writes\n\n");
     text.push_str(WORKSHEET_WRITES);
     for &method in methods.iter().filter(|&&method| writes(method)) {
         heading(&mut text, method, "writes");
-        text.push_str(FIELDS);
-        text.push_str("- Session methods that stage it:\n");
-        text.push_str("- Action definitions, by name. A name is permanent once it ships:\n");
-        text.push_str("- Kind of each, as a tag and a label a user would enable, such as \"Edit labels\":\n");
+        text.push_str(ANSWERS);
         if method.http_method().as_str() == "DELETE" {
             text.push_str(
-                "- `autoApprovable` of each. It is sent with `DELETE`, so rule 1 of the skill's opt-out policy (it deletes or removes content) applies unless you say why not:\n",
-            );
-        } else {
-            text.push_str(
-                "- `autoApprovable` of each: `true`, or `false` with the number of the rule of the skill's opt-out policy. Check each of its seven rules, such as passing a governance gate or changing permissions, and not only deletion:\n",
+                "- It is sent with `DELETE`, so rule 1 of the skill's opt-out policy (it deletes or removes content) applies to question 5. Why not, if its `autoApprovable` is `true`:\n",
             );
         }
-        text.push_str("- What the description shows the person who approves, and the reads that build it:\n");
-        text.push_str("- How reads show it while it is pending:\n");
-        text.push_str("- What a second attempt does, and what a timeout means:\n");
-        text.push_str("- Revert, if it has one:\n");
         text.push_str(&response_lines(method));
         text.push_str(&headers_line(method));
     }
@@ -675,7 +652,7 @@ fn paging_line(pagination: &Value) -> String {
         _ => items,
     };
     let style = string("style").unwrap_or_default();
-    format!("- Cursor: it pages by `{style}`: {how}. The kit cursor that wraps it, and what each page reports:\n")
+    format!("- Paging: it pages by `{style}`: {how}. The kit cursor that wraps it, and what each page reports:\n")
 }
 
 /// Returns the lines of the worksheet about what a response of `method`
@@ -750,25 +727,56 @@ fn heading(text: &mut String, method: Method<'_>, client: &str) {
     text.push('\n');
 }
 
-/// The line of the worksheet that asks where the fields of a request come
-/// from.
-const FIELDS: &str =
-    "- Request fields the binding fixes, and those a caller gives, with how each of those is checked:\n";
+/// The line of an operation in the worksheet for its answers to the
+/// questions of its section.
+const ANSWERS: &str = "- Answers, by number, that are not among the shared ones:\n";
 
 const WORKSHEET_INTRO: &str = "\
 # Worksheet
 
 Forge generated this list from the config of the gatekeeper. It has every operation the generated clients cover, with what the spec cannot decide about it. GUIDE.md says how to use it.
 
-Copy this file out of the generated directory before you fill it in: this copy is replaced each time Forge runs. Answer every line, with \"none\" where that is the answer. A person reviews the answers with `types.d.ts`.
+Copy this file out of the generated directory before you fill it in: this copy is replaced each time Forge runs. A person reviews the answers with `types.d.ts`.
+
+Each section asks its questions once, and then lists its operations. Give an answer that several operations share once, under the shared answers, and say which operations it covers. Under an operation, give the answers that are its own, and answer the lines that only it has. Leave no question without an answer for any operation: \"none\" is an answer.
 ";
 
-const WORKSHEET_READS: &str = "\
-An operation that reads is called from session code, through the client of reads. The observation is authorized once for each session method, not for each operation, so one answer can cover several of these.
+const WORKSHEET_READS: &str = "
+## Reads
+
+An operation that reads is called from session code, through the client of reads. The observation is authorized once for each session method, not for each operation, so one answer often covers several of these.
+
+For every read:
+
+1. Request fields the binding fixes, and those a caller gives, with how each of those is checked.
+2. Session methods that return its data. Or that it only prepares an action, and is not an observation.
+3. Subresources each of those methods reports.
+4. How `verifyObserverAccess` checks each kind of those for an observer, or that the data is private-only.
+5. Whether the observation sets `containsRestrictedData` or `ownerInvitesOnly`.
+6. Statuses and bodies that mean no access, and those that are indeterminate and are thrown again.
+7. Cache: a TTL or none, and what the cache is partitioned by.
+
+### Shared answers
 ";
 
-const WORKSHEET_WRITES: &str = "\
+const WORKSHEET_WRITES: &str = "
+## Writes
+
 An operation that writes is called only from the apply handler of an action, through the client of writes. One operation can serve several actions, and one action can call several operations.
+
+For every write:
+
+1. Request fields the binding fixes, and those a caller gives, with how each of those is checked.
+2. Session methods that stage it.
+3. Action definitions, by name. A name is permanent once it ships.
+4. Kind of each, as a tag and a label a user would enable, such as \"Edit labels\".
+5. `autoApprovable` of each: `true`, or `false` with the number of the rule of the skill's opt-out policy. Check each of its seven rules, such as passing a governance gate or changing permissions, and not only deletion.
+6. What the description shows the person who approves, and the reads that build it.
+7. How reads show it while it is pending.
+8. What a second attempt does, and what a timeout means.
+9. Revert, if it has one.
+
+### Shared answers
 ";
 
 /// Returns operations.json: the methods in the order of their groups, each
@@ -1310,13 +1318,13 @@ mod tests {
             reads.contains("### `reads.issues.list`\n\n`issues/list`: `GET /issues`\n"),
             "{reads}"
         );
-        assert!(reads.contains("- Cache: it is conditional."), "{reads}");
+        assert_eq!(reads.matches("- It is conditional.").count(), 1, "{reads}");
         assert!(
-            reads.contains("- Cursor: it pages by `link-header`: the response is the array of items."),
+            reads.contains("- Paging: it pages by `link-header`: the response is the array of items."),
             "{reads}"
         );
         assert!(
-            reads.contains("- Cursor: it pages by `link-header`: the items are in `data.workRuns`."),
+            reads.contains("- Paging: it pages by `link-header`: the items are in `data.workRuns`."),
             "{reads}"
         );
         // A read that is not sent with GET is asked why it is one.
@@ -1326,15 +1334,24 @@ mod tests {
             "{search}"
         );
         assert_eq!(reads.matches("- It is sent with `POST`").count(), 1, "{reads}");
-        assert!(reads.contains("- Request fields the binding fixes"), "{reads}");
-        assert!(reads.contains("- How `verifyObserverAccess` checks"), "{reads}");
+        // The questions every read has are asked once.
+        assert_eq!(
+            reads.matches("1. Request fields the binding fixes").count(),
+            1,
+            "{reads}"
+        );
+        assert_eq!(reads.matches("- Answers, by number").count(), 3, "{reads}");
+        assert!(reads.contains("4. How `verifyObserverAccess` checks"), "{reads}");
         assert!(!reads.contains("issues.create"), "{reads}");
         assert!(
             writes.contains("### `writes.issues.create`\n\n`issues/create`: `POST /issues`\n"),
             "{writes}"
         );
         assert!(
-            writes.contains("- `autoApprovable` of each: `true`, or `false`"),
+            writes
+                .matches("5. `autoApprovable` of each: `true`, or `false`")
+                .count()
+                == 1,
             "{writes}"
         );
         let delete = &writes[writes.find("### `writes.issues.delete`").unwrap()..];
@@ -1537,7 +1554,7 @@ mod tests {
         let worksheet = &files["WORKSHEET.md"];
         assert!(
             worksheet.contains(
-                "- Cursor: it pages by `offset`: a call asks for a page with `offset` and `pageSize`, the items are in `data.incidents`, and `data.hasMore` is true when there is another page."
+                "- Paging: it pages by `offset`: a call asks for a page with `offset` and `pageSize`, the items are in `data.incidents`, and `data.hasMore` is true when there is another page."
             ),
             "{worksheet}"
         );
@@ -1594,7 +1611,7 @@ mod tests {
         let worksheet = &files["WORKSHEET.md"];
         assert!(
             worksheet.contains(
-                "- Cursor: it pages by `cursor`: a call asks for the next page with `cursor`, set to the `data.meta.nextCursor` of the page before and `limit`, the items are in `data.messages`, and `data.isLast` is true when the page is the last."
+                "- Paging: it pages by `cursor`: a call asks for the next page with `cursor`, set to the `data.meta.nextCursor` of the page before and `limit`, the items are in `data.messages`, and `data.isLast` is true when the page is the last."
             ),
             "{worksheet}"
         );
