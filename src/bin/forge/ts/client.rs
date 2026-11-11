@@ -5,14 +5,14 @@
 use std::collections::{HashMap, HashSet};
 
 use forge::ts::{File, Fragment, Ident, Module, frag, p};
-use forge::{Field, Group, Location, Method, Model, Type};
+use forge::{Field, Group, Json, Location, Method, Model, Type};
 
 use super::models::print_fields;
 use super::operation::operation;
 use super::types::{
     Prec, all_optional, alternatives, doc, has_fields, identifier, js_string, kept, key, object_like, typ,
 };
-use super::{Transport, request_options, runtime};
+use super::{PROVIDER_EXTENSION, Transport, request_options, runtime};
 
 /// Returns the client.ts of `group`: its ClientOptions and Client,
 /// createClient and bind, the request and response types of each method,
@@ -73,7 +73,7 @@ pub(super) fn client(group: Group<'_>, transport: Transport, roles: &[Role]) -> 
     }
     for (m, request) in &methods {
         p!(f);
-        operation(&mut f, *m, request);
+        operation(&mut f, *m, request, transport);
     }
     f
 }
@@ -190,7 +190,7 @@ fn bind(
             for &(m, _) in methods {
                 let name = method_name(m);
                 if !shared.contains_key(&name) {
-                    p!(f, key(&name), ": (request, options) => ", send(f, m), ",");
+                    p!(f, key(&name), ": (request, options) => ", send(f, m, transport), ",");
                 }
             }
             for &sub in groups {
@@ -209,7 +209,7 @@ fn bind(
                                 "): ",
                                 result(f, m, transport),
                                 " => ",
-                                send(f, m),
+                                send(f, m, transport),
                                 ","
                             );
                             p!(f, bind_ident(sub, role), "(transport),");
@@ -234,8 +234,23 @@ fn bind(
 }
 
 /// Returns the call that sends the operation of `m`.
-fn send(f: &File, m: Method<'_>) -> Fragment {
-    frag!("transport.send(", operation_ident(f, m), ", request, options)")
+fn send(f: &File, m: Method<'_>, transport: Transport) -> Fragment {
+    let send = if conditional(m, transport) {
+        "sendConditional"
+    } else {
+        "send"
+    };
+    frag!("transport.", send, "(", operation_ident(f, m), ", request, options)")
+}
+
+/// Returns the value of `key` in what a provider is told of `m`.
+pub(crate) fn provider_fact<'a>(m: Method<'a>, key: &str) -> Option<&'a Json> {
+    m.extension(PROVIDER_EXTENSION).and_then(|extension| extension.get(key))
+}
+
+/// Reports whether a 304 response to `m` is returned, and not thrown.
+fn conditional(m: Method<'_>, transport: Transport) -> bool {
+    transport == Transport::Provider && provider_fact(m, "conditional").and_then(Json::as_bool) == Some(true)
 }
 
 /// Returns the bind of group `g`, imported under the name of the group.
@@ -316,11 +331,22 @@ fn method_params(f: &File, m: Method<'_>, request: &Request<'_>) -> Fragment {
 }
 
 /// Returns what `m` returns: a promise of its response, which a provider
-/// returns with its status and headers.
+/// returns with its status and headers, or with a 304 when the method is
+/// conditional.
 fn result(f: &File, m: Method<'_>, transport: Transport) -> Fragment {
+    let response = response_ident(f, m);
     match transport {
-        Transport::Fetch => frag!("Promise<", response_ident(f, m), ">"),
-        Transport::Provider => frag!("Promise<", runtime("Result").ty(), "<", response_ident(f, m), ">>"),
+        Transport::Fetch => frag!("Promise<", response, ">"),
+        Transport::Provider if conditional(m, transport) => frag!(
+            "Promise<",
+            runtime("Result").ty(),
+            "<",
+            response,
+            "> | ",
+            runtime("NotModified").ty(),
+            ">"
+        ),
+        Transport::Provider => frag!("Promise<", runtime("Result").ty(), "<", response, ">>"),
     }
 }
 

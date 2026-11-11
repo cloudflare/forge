@@ -1,5 +1,5 @@
 import { type Codec, isRecord, parse, set, toBase64 } from './codec.js';
-import { ApiError, errorMessage } from './error.js';
+import { ApiError, DecodeError, errorMessage, type Failure } from './error.js';
 
 /**
  * What a gatekeeper gives the generated clients to send their requests
@@ -10,15 +10,42 @@ export interface Provider {
    * Sends a request to the API and returns its response, whatever its
    * status. The provider adds what the request does not have: the URL the
    * path is relative to, the credentials, and what else the API asks of
-   * every request, such as a timeout or a limit on the size of the body.
+   * every request, such as a timeout. It reads the body, so it is what
+   * limits its size.
    */
-  send(request: ProviderRequest): Promise<Response>;
+  send(request: ProviderRequest): Promise<ProviderResponse>;
+}
+
+/**
+ * A response of the API, with its body read.
+ */
+export interface ProviderResponse {
+  /**
+   * The status.
+   */
+  status: number;
+  /**
+   * The headers.
+   */
+  headers: Headers;
+  /**
+   * The body as text, which is empty when the response has none.
+   */
+  text: string;
 }
 
 /**
  * A request of a generated client, for a provider to send.
  */
 export interface ProviderRequest {
+  /**
+   * The `operationId` of the operation.
+   */
+  operationId: string;
+  /**
+   * Whether the operation reads or writes.
+   */
+  kind: 'read' | 'write';
   /**
    * The HTTP method.
    */
@@ -33,10 +60,14 @@ export interface ProviderRequest {
    */
   params: { readonly [field: string]: string };
   /**
-   * The path of the URL: the route with each path parameter encoded, then
-   * the query. It is relative to the URL of the API.
+   * The path of the URL, without the query: the route with each path
+   * parameter encoded. It is relative to the URL of the API.
    */
   path: string;
+  /**
+   * The query parameters, which are empty when the request has none.
+   */
+  query: URLSearchParams;
   /**
    * The headers of the request, without credentials.
    */
@@ -63,6 +94,11 @@ export interface BaseClientOptions {
    * Headers sent with every request.
    */
   headers?: HeadersInit;
+  /**
+   * Returns the error to throw for a response whose status is not 2XX.
+   * Without it, the error is an ApiError.
+   */
+  error?: (failure: Failure) => Error;
 }
 
 /**
@@ -78,7 +114,8 @@ export interface RequestOptions {
    */
   headers?: HeadersInit;
   /**
-   * Query parameters appended after those of the request.
+   * Query parameters. One replaces the parameter of the request that has
+   * its name.
    */
   query?: URLSearchParams;
 }
@@ -99,12 +136,43 @@ export interface Result<T> {
    * The headers of the response.
    */
   headers: Headers;
+  /**
+   * Never set. It tells a success response from a NotModified.
+   */
+  notModified?: undefined;
+}
+
+/**
+ * A 304 response to a conditional operation: what the request named with
+ * `If-None-Match` or `If-Modified-Since` has not changed.
+ */
+export interface NotModified {
+  /**
+   * Always true.
+   */
+  notModified: true;
+  /**
+   * The status of the response.
+   */
+  status: 304;
+  /**
+   * The headers of the response.
+   */
+  headers: Headers;
 }
 
 /**
  * An operation of the API, as the generated clients describe it.
  */
 export interface Operation {
+  /**
+   * The `operationId`.
+   */
+  id: string;
+  /**
+   * Whether the operation reads or writes.
+   */
+  kind: 'read' | 'write';
   /**
    * The HTTP method.
    */
@@ -186,8 +254,8 @@ function lookup(errors: Operation['errors'], status: number): Codec | boolean | 
   return Object.hasOwn(errors, 'default') ? errors['default'] : undefined;
 }
 
-async function apiError(operation: Operation, response: Response): Promise<ApiError> {
-  const text = await response.text();
+function failure(operation: Operation, response: ProviderResponse): Failure {
+  const { text } = response;
   let body: unknown;
   let json = false;
   if (text !== '') {
@@ -201,10 +269,22 @@ async function apiError(operation: Operation, response: Response): Promise<ApiEr
   const declared = lookup(operation.errors, response.status);
   let details: unknown = text === '' ? undefined : text;
   if (json && declared !== undefined && declared !== false) {
-    details = declared === true ? body : declared.decode(body);
+    details = body;
+    if (declared !== true) {
+      try {
+        details = declared.decode(body);
+      } catch {
+        // The body is kept as it parsed.
+      }
+    }
   }
-  const message = (json ? errorMessage(body) : undefined) ?? `${response.status} ${response.statusText}`.trim();
-  return new ApiError(message, response, details);
+  return {
+    operationId: operation.id,
+    status: response.status,
+    headers: response.headers,
+    message: json ? errorMessage(body) : undefined,
+    details,
+  };
 }
 
 /**
@@ -225,18 +305,53 @@ export class Transport {
 
   /**
    * Sends a request for operation and returns its response, with the body
-   * decoded. A response whose status is not 2XX is thrown as an ApiError,
-   * and so is a 304: it has the status and the response.
+   * decoded. A response whose status is not 2XX is thrown, as an ApiError
+   * unless the options of the client say otherwise. A 2XX response whose
+   * body does not decode is thrown as a DecodeError.
    */
   async send<T>(
     operation: Operation,
     request: object | undefined,
     options: RequestOptions | undefined,
   ): Promise<Result<T>> {
+    return this.#result(operation, await this.#exchange(operation, request, options));
+  }
+
+  /**
+   * Sends a request as send does, for an operation that the config says
+   * is conditional: a 304 response is returned as a NotModified, and not
+   * thrown.
+   */
+  async sendConditional<T>(
+    operation: Operation,
+    request: object | undefined,
+    options: RequestOptions | undefined,
+  ): Promise<Result<T> | NotModified> {
+    const response = await this.#exchange(operation, request, options);
+    if (response.status === 304) {
+      return { notModified: true, status: 304, headers: response.headers };
+    }
+    return this.#result(operation, response);
+  }
+
+  async #exchange(
+    operation: Operation,
+    request: object | undefined,
+    options: RequestOptions | undefined,
+  ): Promise<ProviderResponse> {
     const fields = (request ?? {}) as Fields;
     const headers = new Headers({ accept: 'application/json' });
-    const sent: ProviderRequest = { method: operation.method, route: operation.route, params: {}, path: '', headers };
-    sent.path = this.#path(operation, fields, options, sent.params as { [field: string]: string });
+    const params: { [field: string]: string } = {};
+    const sent: ProviderRequest = {
+      operationId: operation.id,
+      kind: operation.kind,
+      method: operation.method,
+      route: operation.route,
+      params,
+      path: this.#path(operation, fields, params),
+      query: this.#query(operation, fields, options),
+      headers,
+    };
     const body = this.#body(operation, fields);
     if (body !== undefined) {
       headers.set('content-type', operation.contentType ?? 'application/json');
@@ -251,39 +366,31 @@ export class Transport {
     if (options?.signal !== undefined) {
       sent.signal = options.signal;
     }
-    const response = await this.#options.provider.send(sent);
+    return this.#options.provider.send(sent);
+  }
+
+  #result<T>(operation: Operation, response: ProviderResponse): Result<T> {
     if (response.status < 200 || response.status > 299) {
-      throw await apiError(operation, response);
+      const failed = failure(operation, response);
+      throw this.#options.error === undefined ? new ApiError(failed) : this.#options.error(failed);
     }
-    const result = { data: undefined as T, status: response.status, headers: response.headers };
-    if (operation.response === undefined) {
+    const result: Result<T> = { data: undefined as T, status: response.status, headers: response.headers };
+    if (operation.response === undefined || response.text === '') {
       return result;
     }
-    const text = await response.text();
-    if (text === '') {
-      return result;
-    }
-    let value: unknown;
     try {
-      value = parse(text);
+      const value = parse(response.text);
+      result.data = (operation.response === null ? value : operation.response.decode(value)) as T;
     } catch (e) {
-      throw new ApiError('the response body is not valid JSON', response, text, {
-        cause: e,
-      });
+      throw new DecodeError(operation.id, { cause: e });
     }
-    result.data = (operation.response === null ? value : operation.response.decode(value)) as T;
     return result;
   }
 
-  // Returns the path and query of a request, and sets in `params` the value
-  // of each path parameter.
-  #path(
-    operation: Operation,
-    request: Fields,
-    options: RequestOptions | undefined,
-    params: { [field: string]: string },
-  ): string {
-    const path = operation.route.replace(/\{([^}]+)\}/g, (_, field: string) => {
+  // Returns the path of a request, and sets in `params` the value of each
+  // path parameter.
+  #path(operation: Operation, request: Fields, params: { [field: string]: string }): string {
+    return operation.route.replace(/\{([^}]+)\}/g, (_, field: string) => {
       const value = request[field];
       if (value === undefined || value === null || value === '') {
         throw new TypeError(`${field} is required`);
@@ -292,6 +399,11 @@ export class Transport {
       params[field] = param;
       return encodeURIComponent(param);
     });
+  }
+
+  // Returns the query of a request: its query parameters, then those of the
+  // options, each in place of the parameters that have its name.
+  #query(operation: Operation, request: Fields, options: RequestOptions | undefined): URLSearchParams {
     const query = new URLSearchParams();
     for (const [field, wire] of Object.entries(operation.query ?? {})) {
       const value = request[field];
@@ -308,11 +420,14 @@ export class Transport {
         }
       }
     }
-    options?.query?.forEach((value, key) => {
-      query.append(key, value);
-    });
-    const search = query.toString();
-    return search === '' ? path : `${path}?${search}`;
+    const extra = options?.query;
+    for (const key of new Set(extra?.keys())) {
+      query.delete(key);
+      for (const value of extra!.getAll(key)) {
+        query.append(key, value);
+      }
+    }
+    return query;
   }
 
   #body(operation: Operation, request: Fields): unknown {

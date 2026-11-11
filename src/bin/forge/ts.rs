@@ -37,9 +37,16 @@ pub(crate) enum Transport {
     Fetch,
     /// A transport that sends requests through a provider, which has the
     /// URL of the API and its credentials. A method returns the body of its
-    /// response with its status and headers.
+    /// response with its status and headers. What the provider is told of
+    /// an operation is in its [`PROVIDER_EXTENSION`].
     Provider,
 }
+
+/// The extension of an operation that says what a provider is told of it:
+/// its `operationId`, its `kind`, which is `read` or `write`, and whether it
+/// is `conditional`, which is to say that a 304 response is returned and not
+/// thrown.
+pub(crate) const PROVIDER_EXTENSION: &str = "x-gatekeeper";
 
 /// Returns the files of the clients of `forge` on `transport`: the runtime
 /// library, whose sources are `runtime` by path, then the files of each

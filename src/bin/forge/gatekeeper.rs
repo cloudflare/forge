@@ -27,10 +27,10 @@ use crate::ts;
 use crate::ts::client::Role;
 
 /// The sources of the runtime library, by path in the generated `_/`: the
-/// codecs and the error of the TypeScript SDK's, and a transport of its own.
+/// codecs of the TypeScript SDK's, and errors and a transport of its own.
 const RUNTIME: [(&str, &str); 4] = [
     ("codec.ts", include_str!("ts/lib/src/codec.ts")),
-    ("error.ts", include_str!("ts/lib/src/error.ts")),
+    ("error.ts", include_str!("gatekeeper/lib/src/error.ts")),
     ("index.ts", include_str!("gatekeeper/lib/src/index.ts")),
     ("transport.ts", include_str!("gatekeeper/lib/src/transport.ts")),
 ];
@@ -56,8 +56,7 @@ const ROLES: [Role; 2] = [
 /// Reports whether `method` reads, as the config says or else as its HTTP
 /// method does.
 fn reads(method: Method<'_>) -> bool {
-    let kind = method.extension(EXTENSION).and_then(|extension| extension.get("kind"));
-    kind.and_then(Json::as_str) == Some(Kind::Read.as_str())
+    ts::client::provider_fact(method, "kind").and_then(Json::as_str) == Some(Kind::Read.as_str())
 }
 
 fn writes(method: Method<'_>) -> bool {
@@ -66,7 +65,7 @@ fn writes(method: Method<'_>) -> bool {
 
 /// The extension that carries what the config says about an operation from
 /// [`Config::apply`] to the generator.
-const EXTENSION: &str = "x-gatekeeper";
+const EXTENSION: &str = ts::PROVIDER_EXTENSION;
 
 /// The fixed fields of a Path Item Object that are operations.
 const METHODS: [&str; 8] = ["get", "put", "post", "delete", "options", "head", "patch", "trace"];
@@ -98,12 +97,18 @@ struct Operation {
     /// Whether the operation reads or writes. Without it, GET and HEAD
     /// read, and every other method writes.
     kind: Option<Kind>,
+    /// Whether a request can ask for the response only if it has changed,
+    /// with `If-None-Match` or `If-Modified-Since`. The method then returns
+    /// a 304 response, which is otherwise thrown. Only for an operation
+    /// that reads.
+    #[serde(default)]
+    conditional: bool,
     /// How the operation pages, if it does.
     pagination: Option<Pagination>,
 }
 
 /// Whether an operation only reads, or changes something.
-#[derive(Clone, Copy, Deserialize)]
+#[derive(Clone, Copy, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "lowercase")]
 enum Kind {
     Read,
@@ -165,7 +170,7 @@ impl Config {
     ///   keeps it as the string it is on the wire.
     ///
     /// An operation of the config that the document does not have is an
-    /// error.
+    /// error, and so is one that writes and is conditional.
     pub fn apply(&self, doc: &mut Value) -> Result<(), Err> {
         let mut found = BTreeSet::new();
         let items = doc.get_mut("paths").and_then(Value::as_object_mut);
@@ -184,7 +189,7 @@ impl Config {
                 found.insert(id.as_str());
                 operation.insert("x-forge-group-name".to_owned(), json!(selected.group));
                 operation.insert("x-forge-method-name".to_owned(), json!(selected.name));
-                operation.insert(EXTENSION.to_owned(), selected.extension(id, method));
+                operation.insert(EXTENSION.to_owned(), selected.extension(id, method)?);
             }
         }
         let missing: Vec<&str> = self
@@ -235,12 +240,18 @@ impl Config {
 impl Operation {
     /// Returns the `x-gatekeeper` extension of the operation `id`, whose
     /// field in the Path Item Object is `method`.
-    fn extension(&self, id: &str, method: &str) -> Value {
+    fn extension(&self, id: &str, method: &str) -> Result<Value, Err> {
         let kind = self.kind.unwrap_or(match method {
             "get" | "head" => Kind::Read,
             _ => Kind::Write,
         });
         let mut extension = json!({"operationId": id, "kind": kind.as_str()});
+        if self.conditional {
+            if kind == Kind::Write {
+                return Err(format!("{id} writes, so it cannot be conditional").into());
+            }
+            extension["conditional"] = json!(true);
+        }
         if let Some(pagination) = &self.pagination {
             let mut value = json!({"style": pagination.style.as_str()});
             if let Some(items) = &pagination.items {
@@ -248,7 +259,7 @@ impl Operation {
             }
             extension["pagination"] = value;
         }
-        extension
+        Ok(extension)
     }
 }
 
@@ -306,6 +317,9 @@ fn entry(method: Method<'_>) -> Result<Value, Err> {
         "path": method.path(),
         "kind": string(extension, "kind"),
     });
+    if extension.get("conditional").and_then(Json::as_bool) == Some(true) {
+        entry["conditional"] = json!(true);
+    }
     if let Some(pagination) = extension.get("pagination") {
         let mut value = json!({"style": string(pagination, "style")});
         if let Some(items) = string(pagination, "items") {
@@ -450,7 +464,7 @@ mod tests {
             .unwrap()
             .map(|entry| entry.unwrap().file_name().into_string().unwrap())
             .collect();
-        own.extend(["codec.ts", "error.ts"].map(String::from));
+        own.push("codec.ts".to_owned());
         own.sort();
         let embedded: Vec<&str> = super::RUNTIME.iter().map(|&(path, _)| path).collect();
         assert_eq!(own, embedded);
@@ -473,12 +487,58 @@ mod tests {
         assert!(!client.contains("baseUrl"), "{client}");
         let index = &files["issues/index.ts"];
         assert!(
-            index.contains("  Provider,\n  ProviderRequest,\n  RequestOptions,\n  Result,\n"),
+            index.contains("  Provider,\n  ProviderRequest,\n  ProviderResponse,\n  RequestOptions,\n  Result,\n"),
             "{index}"
+        );
+        assert!(index.contains("  ApiError,\n  DecodeError,\n"), "{index}");
+        assert!(
+            client.contains("const ListOperation: Operation = {\n  id: \"issues/list\",\n  kind: \"read\",\n"),
+            "{client}"
         );
         let transport = &files["_/transport.ts"];
         assert!(transport.contains("export interface Provider {"), "{transport}");
         assert!(!files.contains_key("_/hooks/envelope.ts"));
+    }
+
+    #[test]
+    fn a_conditional_operation_returns_a_304() {
+        let config = r#"{
+          "operations": {
+            "issues/list": {"group": "issues", "name": "list", "conditional": true},
+            "search/issues": {"group": "issues", "name": "search", "kind": "read"}
+          },
+          "properties": {"+1": "plus_one", "-1": "minus_one"}
+        }"#;
+        let files = generate(config).unwrap();
+        let client = &files["issues/client.ts"];
+        assert!(
+            client.contains("options?: RequestOptions): Promise<Result<ListResponse> | NotModified>;"),
+            "{client}"
+        );
+        assert!(
+            client.contains("list: (request, options) => transport.sendConditional(ListOperation, request, options),"),
+            "{client}"
+        );
+        assert!(
+            client.contains("search: (request, options) => transport.send(SearchOperation, request, options),"),
+            "{client}"
+        );
+        let operations: Value = serde_json::from_str(&files["operations.json"]).unwrap();
+        assert_eq!(operations["operations"][0]["conditional"], true);
+        assert_eq!(operations["operations"][1].get("conditional"), None);
+    }
+
+    #[test]
+    fn an_operation_that_writes_cannot_be_conditional() {
+        let config = r#"{
+          "operations": {
+            "issues/create": {"group": "issues", "name": "create", "conditional": true}
+          }
+        }"#;
+        assert_eq!(
+            generate(config).unwrap_err(),
+            "issues/create writes, so it cannot be conditional"
+        );
     }
 
     #[test]

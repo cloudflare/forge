@@ -2,16 +2,18 @@
 //! (specs/12-runtime-library.md).
 
 use forge::ts::{File, frag, join, p};
-use forge::{Location, Method};
+use forge::{Json, Location, Method};
 
-use super::client::{Param, Request, operation_ident, response};
+use super::Transport;
+use super::client::{Param, Request, operation_ident, provider_fact, response};
 use super::codec::{codec, members_codec};
 use super::runtime;
 use super::types::{js_string, key};
 
 /// Declares the operation of `m`: its HTTP method and route, where its
-/// parameters and body go, and the codecs of its body and responses.
-pub(super) fn operation(f: &mut File, m: Method<'_>, request: &Request<'_>) {
+/// parameters and body go, and the codecs of its body and responses. For a
+/// provider, it starts with the `operationId` and the kind of the operation.
+pub(super) fn operation(f: &mut File, m: Method<'_>, request: &Request<'_>, transport: Transport) {
     p!(
         f,
         "const ",
@@ -21,6 +23,11 @@ pub(super) fn operation(f: &mut File, m: Method<'_>, request: &Request<'_>) {
         " = {"
     );
     f.indent(|f| {
+        if transport == Transport::Provider {
+            let fact = |key| provider_fact(m, key).and_then(Json::as_str).unwrap_or_default();
+            p!(f, "id: ", js_string(fact("operationId")), ",");
+            p!(f, "kind: ", js_string(fact("kind")), ",");
+        }
         p!(f, "method: ", js_string(m.http_method().as_str()), ",");
         p!(f, "route: ", js_string(&route(m, &request.params)), ",");
         let mut query = Vec::new();

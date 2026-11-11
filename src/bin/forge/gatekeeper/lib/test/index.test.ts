@@ -6,6 +6,7 @@ import * as lib from '../src/index.js';
 test('exports the runtime of the generated clients', () => {
   assert.deepEqual(Object.keys(lib).toSorted(), [
     'ApiError',
+    'DecodeError',
     'Transport',
     'array',
     'bytes',

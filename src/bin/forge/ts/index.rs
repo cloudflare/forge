@@ -8,7 +8,7 @@ use forge::ts::{File, Ident, Module, p};
 use super::client::{Role, request_name, response_name, skipped};
 use super::{Transport, sorted_models};
 
-/// Returns the index.ts of `group`: ApiError and RequestOptions from the
+/// Returns the index.ts of `group`: the errors and RequestOptions from the
 /// runtime library, so that every entry point is complete, and the types of
 /// a provider and of what a method returns when the transport is one, then
 /// what creates each of its clients and their types, then its models. A model named
@@ -20,11 +20,23 @@ pub(super) fn index(group: Group<'_>, transport: Transport, roles: &[Role]) -> F
     if depth == 0 {
         runtime.insert_str(0, "./");
     }
-    export(&mut f, "export", &["ApiError".to_owned()], &runtime);
-    let types: &[&str] = match transport {
-        Transport::Fetch => &["RequestOptions"],
-        Transport::Provider => &["Provider", "ProviderRequest", "RequestOptions", "Result"],
+    let (errors, types): (&[&str], &[&str]) = match transport {
+        Transport::Fetch => (&["ApiError"], &["RequestOptions"]),
+        Transport::Provider => (
+            &["ApiError", "DecodeError"],
+            &[
+                "Failure",
+                "NotModified",
+                "Provider",
+                "ProviderRequest",
+                "ProviderResponse",
+                "RequestOptions",
+                "Result",
+            ],
+        ),
     };
+    let errors: Vec<String> = errors.iter().map(|&name| name.to_owned()).collect();
+    export(&mut f, "export", &errors, &runtime);
     let types: Vec<String> = types.iter().map(|&name| name.to_owned()).collect();
     export(&mut f, "export type", &types, &runtime);
 
@@ -40,7 +52,7 @@ pub(super) fn index(group: Group<'_>, transport: Transport, roles: &[Role]) -> F
     }
     export(&mut f, "export type", &names, "./client.js");
 
-    let mut taken: HashSet<String> = HashSet::from(["ApiError".to_owned()]);
+    let mut taken: HashSet<String> = errors.into_iter().collect();
     taken.extend(types);
     taken.extend(names);
     let mut models = Vec::new();
