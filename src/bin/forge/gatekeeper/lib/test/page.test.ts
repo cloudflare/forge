@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
 
-import { cursorPages, linkPages, offsetPages, parseLinks } from '../src/page.js';
-import type { Result } from '../src/transport.js';
+import { cursorPages, linkPages, offsetPages, parseLinks, withClient } from '../src/page.js';
+import type { NotModified, RequestOptions, Result } from '../src/transport.js';
 
 function result<T>(data: T, headers: HeadersInit = {}): Result<T> {
   return { data, status: 200, headers: new Headers(headers) };
@@ -145,5 +145,53 @@ describe('cursorPages', () => {
     });
     assert.equal(pages.page(result<unknown>({ results: [1], next_cursor: 'n', has_more: false }), {}).next, undefined);
     assert.deepEqual(pages.page(result<unknown>('no'), {}), { items: [], next: undefined });
+  });
+});
+
+describe('withClient', () => {
+  interface Request {
+    q?: string;
+  }
+  type Row = { id: number };
+  interface Calls {
+    list(request: Request, options?: RequestOptions): Promise<Result<Row[]>>;
+  }
+
+  test('fetch gets the first page, then the one that next names', async () => {
+    const sent: { request: Request; query: string | undefined }[] = [];
+    const client: Calls = {
+      async list(request, options) {
+        sent.push({ request, query: options?.query?.toString() });
+        const link = sent.length === 1 ? { link: '</items?page=2>; rel="next"' } : {};
+        return result([{ id: sent.length }], link);
+      },
+    };
+    const pages = withClient(linkPages<Request, Row[]>({}), (calls: Calls, request, options) =>
+      calls.list(request, options),
+    );
+    const first = await pages.fetch(client, { q: 'x' });
+    assert.deepEqual(first.items, [{ id: 1 }]);
+    assert.deepEqual(first.next, [['page', '2']]);
+    assert.equal(first.result.status, 200);
+    const second = await pages.fetch(client, { q: 'x' }, first.next, { query: new URLSearchParams('page=9') });
+    assert.equal(second.next, undefined);
+    // The query of the page replaces that of the options.
+    assert.deepEqual(sent, [
+      { request: { q: 'x' }, query: undefined },
+      { request: { q: 'x' }, query: 'page=2' },
+    ]);
+    // It is still a pager.
+    assert.deepEqual(pages.resume({}, undefined), { request: {}, options: {} });
+  });
+
+  test('a conditional operation can answer that nothing changed', async () => {
+    const unchanged: NotModified = { notModified: true, status: 304, headers: new Headers() };
+    const pages = withClient(
+      offsetPages<{ offset?: number }, string[]>({ offset: 'offset' }),
+      async (answer: Result<string[]> | NotModified) => answer,
+    );
+    const page = await pages.fetch(result(['a']), {});
+    assert.equal(page.notModified === true ? undefined : page.next, 1);
+    assert.equal(await pages.fetch(unchanged, {}), unchanged);
   });
 });

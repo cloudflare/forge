@@ -220,24 +220,21 @@ A 2XX response whose body is not JSON, or is empty where the operation has one, 
 Every gatekeeper wrote by hand how to find the items of a page and how to ask for the next one, and those that page by a `Link` header each wrote a parser of it. `pages.ts` has that for every operation that pages, as one line that gives a pager of the runtime the types of the operation and what its pagination names:
 
 ```ts
-export const issuesList = linkPages<IssuesListRequest, IssuesListResponse, ''>({ more: 'results' });
-export const incidentsList = offsetPages<IncidentsListRequest, IncidentsListResponse, 'incidents'>({
-  items: 'incidents',
-  offset: 'offset',
-  limit: 'limit',
-  more: 'more',
-});
+export const issuesList = withClient(
+  linkPages<IssuesListRequest, IssuesListResponse, ''>({ more: 'results' }),
+  (reads: ReadClient, request, options) => reads.issues.list(request, options),
+);
 ```
 
-A pager has two functions. `page(result, request)` returns the items, with their type, and `next`, which names the page after it and is undefined for the last. `resume(request, next)` returns the request and the options that get that page. `next` is JSON, so that it fits in one of the kit's cursors: the query of the `rel="next"` link, an offset, or the provider's cursor.
+A pager has three functions. `page(result, request)` returns the items, with their type, and `next`, which names the page after it and is undefined for the last. `resume(request, next)` returns the request and the options that get that page. `fetch(reads, request, next)` is the two around the call of the client, and returns the page with its result. `next` is JSON, so that it fits in one of the kit's cursors: the query of the `rel="next"` link, an offset, or the provider's cursor.
 
 ```ts
-const { request, options } = pages.issuesList.resume(first, next);
-const result = await reads.issues.list(request, options);
-const page = pages.issuesList.page(result, request);
+const page = await pages.issuesList.fetch(reads, first, next);
 ```
 
-A pager does not call the client, so the session method still decides when a page is read and authorizes it. It does not loop, and it does not check a `next` that a caller gives back: the guide says to seal it or check it. The file is written only when an operation pages.
+`fetch` came from the second gatekeeper for Sentry, where every listing repeated the same three lines and a function to call its own method. It is optional: `page` and `resume` stay, for a call made another way. It fits every pager, since an operation that pages is a read, and every read is a method of the client of reads with a request and options. It takes the client, so it runs inside whatever gives a session its credential. For a conditional operation it can return a `NotModified` in place of a page.
+
+A pager reads one page. The session method still decides when a page is read and authorizes it. It does not loop, and it does not check a `next` that a caller gives back: the guide says to seal it or check it. The file is written only when an operation pages.
 
 ### operations.json
 

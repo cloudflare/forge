@@ -1,5 +1,5 @@
 import { isRecord } from './codec.js';
-import type { RequestOptions, Result } from './transport.js';
+import type { NotModified, RequestOptions, Result } from './transport.js';
 
 /**
  * A link of a `Link` header.
@@ -66,6 +66,72 @@ export interface Pages<Request, Response, Item, Next> {
    * for a first request. Without `next`, they get the first page.
    */
   resume(request: Request, next: Next | undefined): { request: Request; options: RequestOptions };
+}
+
+/**
+ * A page that a pager got from the client: its items, what names the page
+ * after it, and the result they are from.
+ */
+export interface FetchedPage<Response, Item, Next> extends Page<Item, Next> {
+  /**
+   * The result of the call, for its status and its headers.
+   */
+  result: Result<Response>;
+  /**
+   * Never set. It tells a page from a NotModified.
+   */
+  notModified?: undefined;
+}
+
+/**
+ * A pager that also calls its operation. `Got` is what the operation
+ * returns, which for a conditional one can be a NotModified.
+ */
+export interface ClientPages<
+  Client,
+  Request,
+  Response,
+  Item,
+  Next,
+  Got extends Result<Response> | NotModified = Result<Response>,
+> extends Pages<Request, Response, Item, Next> {
+  /**
+   * Gets one page with `client`: the first for `request`, or the one
+   * `next` names. It is `resume`, the call, then `page`. A query of the
+   * page replaces that of `options`. It reads one page, and neither
+   * loops nor checks a `next` that a caller gave back.
+   */
+  fetch(
+    client: Client,
+    request: Request,
+    next?: Next,
+    options?: RequestOptions,
+  ): Promise<Got extends NotModified ? NotModified : FetchedPage<Response, Item, Next>>;
+}
+
+/**
+ * Returns `pages` with a `fetch` that calls its operation through `call`.
+ */
+export function withClient<Client, Request, Response, Item, Next, Got extends Result<Response> | NotModified>(
+  pages: Pages<Request, Response, Item, Next>,
+  call: (client: Client, request: Request, options: RequestOptions) => Promise<Got>,
+): ClientPages<Client, Request, Response, Item, Next, Got> {
+  type Fetched = Got extends NotModified ? NotModified : FetchedPage<Response, Item, Next>;
+  return {
+    page: (result, request) => pages.page(result, request),
+    resume: (request, next) => pages.resume(request, next),
+    async fetch(client, request, next, options) {
+      const resumed = pages.resume(request, next);
+      const result: Result<Response> | NotModified = await call(client, resumed.request, {
+        ...options,
+        ...resumed.options,
+      });
+      if (result.notModified === true) {
+        return result as Fetched;
+      }
+      return { ...pages.page(result, resumed.request), result } as Fetched;
+    },
+  };
 }
 
 /**

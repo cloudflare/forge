@@ -22,5 +22,6 @@ test('exports the runtime of the generated clients', () => {
     'offsetPages',
     'parseLinks',
     'union',
+    'withClient',
   ]);
 });

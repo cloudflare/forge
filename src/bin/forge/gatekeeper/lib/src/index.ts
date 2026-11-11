@@ -15,7 +15,9 @@ export {
 } from './codec.js';
 export { ApiError, DecodeError, type Failure } from './error.js';
 export {
+  type ClientPages,
   cursorPages,
+  type FetchedPage,
   type ItemOf,
   type Link,
   type LinkNext,
@@ -24,6 +26,7 @@ export {
   type Page,
   type Pages,
   parseLinks,
+  withClient,
 } from './page.js';
 export {
   type BaseClientOptions,

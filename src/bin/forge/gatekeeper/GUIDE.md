@@ -197,11 +197,20 @@ Session code gets the client of reads and nothing else. It imports `./api/read.j
 ```ts
 import * as pages from './api/pages.js';
 
-const { request, options } = pages.issuesList.resume(first, next); // `next` is undefined for the first page
+// `next` is undefined for the first page.
+const page = await pages.issuesList.fetch(reads, first, next);
+// page.items are typed. page.next is undefined on the last page. page.result has the status and headers.
+```
+
+`fetch` gets one page. It is `resume`, the call of the client, then `page`, which a pager also has for a call you make yourself:
+
+```ts
+const { request, options } = pages.issuesList.resume(first, next);
 const result = await reads.issues.list(request, options);
 const page = pages.issuesList.page(result, request);
-// page.items are typed. page.next is undefined on the last page.
 ```
+
+For a conditional operation, `fetch` can return `{ notModified: true }` in place of a page.
 
 `next` is JSON: the query of the `rel="next"` link, an offset, or the provider's cursor. Put it in the kit's cursor. A cursor that takes a string token, as `TokenCursor` does, gets it as `JSON.stringify(next)`, parsed and checked for its shape on the way back. What a caller gives back is the caller's input, so seal it or check it before you pass it to `resume`: a `next` of a link is sent as query parameters of the request, over those of the same name. The pager decides nothing else: the largest offset to allow, and how many pages one call may read, are yours.
 
