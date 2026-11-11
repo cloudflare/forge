@@ -337,7 +337,8 @@ fn method_params(f: &File, m: Method<'_>, request: &Request<'_>) -> Fragment {
 
 /// Returns what `m` returns: a promise of its response, which a provider
 /// returns with its status and headers, or with a 304 when the method is
-/// conditional.
+/// conditional. The response of a write can be undefined, since a 2XX with
+/// no body is not thrown: the change was made.
 fn result(f: &File, m: Method<'_>, transport: Transport) -> Fragment {
     let response = response_ident(f, m);
     match transport {
@@ -351,6 +352,9 @@ fn result(f: &File, m: Method<'_>, transport: Transport) -> Fragment {
             runtime("NotModified").ty(),
             ">"
         ),
+        Transport::Provider if provider_fact(m, "kind").and_then(Json::as_str) == Some("write") => {
+            frag!("Promise<", runtime("Result").ty(), "<", response, " | undefined>>")
+        }
         Transport::Provider => frag!("Promise<", runtime("Result").ty(), "<", response, ">>"),
     }
 }

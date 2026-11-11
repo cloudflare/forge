@@ -99,7 +99,7 @@ describe('Transport', () => {
     assert.equal(requests[0]?.query.toString(), 'per_page=2&ids=7&ids=8');
   });
 
-  test('sends the headers of the client, then of the call, and no credentials', async () => {
+  test('sends the headers of the client, then of the call, and no credentials or accept', async () => {
     const { transport, requests } = fake(json({}));
     await transport.send(
       get,
@@ -107,7 +107,7 @@ describe('Transport', () => {
       { headers: { 'x-client': 'b', 'if-none-match': '"e"' } },
     );
     const headers = requests[0]?.headers;
-    assert.equal(headers?.get('accept'), 'application/json');
+    assert.equal(headers?.has('accept'), false);
     assert.equal(headers?.get('x-client'), 'b');
     assert.equal(headers?.get('if-none-match'), '"e"');
     assert.equal(headers?.has('authorization'), false);
@@ -178,6 +178,25 @@ describe('Transport', () => {
   test('an empty body where the operation declares one is thrown', async () => {
     const { transport } = fake(response('', 200));
     await assert.rejects(transport.send(get, { owner: 'o', repo: 'r', path: 'p' }, undefined), DecodeError);
+  });
+
+  test('an empty body of a write that declares one is not thrown, since the change was made', async () => {
+    const { transport } = fake(response('', 201), response('<html>', 201));
+    const write: Operation = { id: 'issues/snooze', kind: 'write', method: 'POST', route: '/snooze', response: null };
+    const result = await transport.send(write, undefined, undefined);
+    assert.equal(result.status, 201);
+    assert.equal(result.data, undefined);
+    // A body that is not JSON is still not what the operation declares.
+    await assert.rejects(transport.send(write, undefined, undefined), DecodeError);
+  });
+
+  test('a JSON error body is given parsed, whether or not the operation declares the status', async () => {
+    const { transport } = fake(json({ error: { message: 'no' } }, 500));
+    await assert.rejects(transport.send(get, { owner: 'o', repo: 'r', path: 'p' }, undefined), (error) => {
+      assert.ok(error instanceof ApiError);
+      assert.deepEqual(error.details, { error: { message: 'no' } });
+      return true;
+    });
   });
 
   test('a status that is not a number is not a success', async () => {

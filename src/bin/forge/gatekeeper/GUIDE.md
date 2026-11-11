@@ -22,7 +22,7 @@ Do not edit the files here. They are replaced the next time Forge runs. To cover
 
 **Steps 2 and 3, design the session types and stop for review.** Nothing changes. `types.d.ts` is designed for the agent that will use it, above the provider's API, and a person approves it before you implement. The generated types never appear in it: it must be self-contained, and the provider's shapes are not what an agent should see. Copy `WORKSHEET.md` out of this directory, next to `types.d.ts`, and fill it in as you design. Present it with the contract. The copy here is replaced on every run, so a later run shows new operations as a diff against yours.
 
-**Step 4, implement.** There is no `<name>-api.ts` to write. Write a provider, create the clients on it, and write the session classes on the clients. The rules are below.
+**Step 4, implement.** `<name>-api.ts` has no method for each endpoint any more. It keeps what is the gatekeeper's own: the provider, the error class and what classifies it, and helpers that page. Create the clients on the provider, and write the session classes on the clients. The rules are below.
 
 **Phase 2, actions.** The client of writes is what an action's apply handler calls. Nothing else may hold it.
 
@@ -35,37 +35,65 @@ import { readTextCapped } from '@gadgets/gatekeeper-kit/response-body';
 import type { Failure, Provider } from './api/index.js';
 import { createReadClient } from './api/read.js';
 
+// The largest page asked for is well under this.
+const MAX_RESPONSE_BYTES = 4 * 1024 * 1024;
+
 function provider(token: string): Provider {
   return {
     async send(request) {
       const headers = new Headers(request.headers);
       headers.set('authorization', `Bearer ${token}`);
+      headers.set('accept', 'application/json');
       const url = new URL(`https://api.example.com${request.path}`);
       url.search = request.query.toString();
       const timeout = AbortSignal.timeout(30_000);
-      const response = await fetch(url, {
-        method: request.method,
-        headers,
-        body: request.body,
-        redirect: 'manual',
-        signal: request.signal ? AbortSignal.any([request.signal, timeout]) : timeout,
-      });
-      return { status: response.status, headers: response.headers, text: await readTextCapped(response) };
+      let response: Response;
+      try {
+        response = await fetch(url, {
+          method: request.method,
+          headers,
+          body: request.body,
+          redirect: 'manual',
+          signal: request.signal ? AbortSignal.any([request.signal, timeout]) : timeout,
+        });
+      } catch (error) {
+        // No response: a timeout, or the network. It has no status.
+        throw new Error('Could not reach Example; please try again.', { cause: error });
+      }
+      if (response.status >= 300 && response.status < 400) {
+        await response.body?.cancel();
+      }
+      return {
+        status: response.status,
+        headers: response.headers,
+        text: await readTextCapped(response, MAX_RESPONSE_BYTES),
+      };
     },
   };
 }
 ```
 
 - Make a provider for each use of a credential, inside `CredentialSource.run()`, with the credential it was given. Do not keep one across calls.
+- Set `accept`. The clients set no header but `content-type` for a body, so without it `fetch` asks for anything. An API that versions by media type takes its version here.
+- The imports above end in `.js`. Leave the extension out where the repository imports that way.
 - Do not follow redirects with the credential attached. Return the redirect and let the call fail, unless the provider documents the redirect and you check where it goes.
 - Limit the size of the body. The provider is the only place it is read.
 - A request has `operationId`, `kind`, `route` and `params` next to its `path` and `query`. Use them to rewrite a path, such as to address a resource by an id you pinned, and not a match on the encoded path.
 - A provider that is only ever given to the client of reads should refuse a request whose `kind` is `write`, and one whose `method` is not `GET`, `HEAD` or a `POST` you know. The `kind` is what the config says, so check the method too.
-- The clients refuse a path parameter that is `.` or `..`, which would make the path another operation's. Every other value is percent-encoded. Still check an identifier a caller gives against the shape the provider documents before you send it.
+- The clients refuse a path parameter that is `.` or `..`, which would make the path another operation's. Every other value is percent-encoded, so a path needs nothing from the kit's `pathSegment`. Still check an identifier a caller gives against the shape the provider documents before you send it.
+
+## Requests
+
+A request is one object: the path and query parameters of the operation, and the fields of its body next to them, or in `body` when the request type has that field. Every field has the provider's name. Write one that is not an identifier in quotes, as `{ 'team_ids[]': ids }`.
+
+- An array in a query parameter is sent as the parameter repeated, `a=1&a=2`, or joined with commas where the document says so. A parameter whose name ends in `[]` takes an array, even where the document gives it the schema of one value.
+- The types are what the provider's document says, and a document is often looser than the API, or wrong. A field the API always sends can be optional in its type, one that can be null can lack `null`, and a body can have another shape than its type. Do not assert a field with `!`: check it as you map, and throw when what you depend on is missing.
+- When a request type cannot hold what the API takes, send a query parameter in the `query` of the options of the call, which replaces the parameter of that name, and cast a body in one place with a comment that says what the document has wrong. Report it in `GAPS.md`.
+- A field of a body that its type does not have is sent as it is. A misspelled optional field is therefore sent too, and the compiler is what catches it: do not build a request as `Record<string, unknown>`.
 
 ## Errors
 
-A response that is not 2XX is thrown. Give the clients an `error` function that returns the gatekeeper's own error class. It gets the status, the headers and the decoded body, and it is where you decide what kind of failure this was:
+A response that is not 2XX is thrown. Give the clients an `error` function that returns the gatekeeper's own error class. It gets the status, the headers and the body, and it is where you decide what kind of failure this was. `details` is the body as it parsed when it is JSON, and as text when it is not:
 
 ```ts
 const reads = createReadClient({
@@ -90,6 +118,7 @@ function reasonOf(failure: Failure): 'credential' | 'denied' | 'missing' | 'rate
 - Without an `error` function the clients throw `ApiError`, whose message has the first 200 characters of the provider's message. That is for tests and scripts.
 - Some providers answer a failure with a 2XX and say so in the body. When the config names what says so, such a response is thrown like any other failure, with `source: 'body'` and its 2XX `status`. No status tells you what it means, so classify it from `details`, and do not let a check for `status >= 400` take it for a success.
 - A 2XX response whose body is not JSON, or is empty where the operation has one, is thrown as a `DecodeError`, which has no `status`. The clients do not check that a body has the fields its type says. Check what you depend on when you map it.
+- A write that answers a 2XX with no body, where the operation has one, is not thrown: `data` is `undefined`, which its type says. A `DecodeError` from a write still means that the provider answered a 2XX, so the change was made. Do not report it as an outcome that is unknown, or as a change that was not made.
 - The kit's `readTextCapped` throws an error of its own, without a status, for a body over its limit, which is 1 MiB unless you give one. Choose the limit from the largest page you ask for, and decide what that error means.
 
 ## Reads
@@ -114,12 +143,12 @@ Session code gets the client of reads and nothing else. It imports `./api/read.j
 
 For `offset` and `cursor`, `more` names the field of `data` that is true when there is another page, and `last` the one that is true when the page is the last. Without either, a page with no items, or with no cursor, is the last.
 
-**Headers.** A request type has no field for a header the operation declares, and the clients do not send one. `operations.json` lists them in `headers`, with whether each is required and its default. Set one that is the same for every request, such as a versioned `accept`, in the provider. Set one that differs by call in the `headers` of the options of the call. A required header that nothing sets fails at the provider, not at compile time.
+**Headers.** A request type has no field for a header the operation declares, and the clients do not send one. The only header they set is `content-type`, for a request with a body. `operations.json` lists them in `headers`, with whether each is required and its default. Set one that is the same for every request, such as a versioned `accept`, in the provider. Set one that differs by call in the `headers` of the options of the call. A required header that nothing sets fails at the provider, not at compile time.
 
 ## Writes
 
 - Import `./api/write.js` in one module, the one that has the apply handlers, and nowhere else. Add a lint rule that says so if the repository has a way to.
-- Create the client of writes only inside an action's apply handler. A session method that changes something stages an action with the kit's `defineActions` and `stageAction` and returns.
+- Create the client of writes only for an action's apply handler. The module of the apply handlers exports the function that creates it from a provider, and what runs a handler calls that function inside `CredentialSource.run()`, with the credential it was given. A session method that changes something stages an action with the kit's `defineActions` and `stageAction` and returns.
 - The payload of an action is the type you designed, not the provider's request type. The apply handler builds the request from the payload. A request type can change when the provider's document does, and a stored payload cannot.
 - One operation can serve several kinds of action, and one action can call several operations. The worksheet lists operations, and the action table is yours.
 - A write is not replayable. Do not pass `replayable: true`, and decide what a timeout means: after the provider was reached, the outcome is unknown. Throw the kit's `ActionOutcomeUnknownError` for that, on a definition with `claimBeforeApply`, and `ActionApplyError` only when the effect is known to be absent.

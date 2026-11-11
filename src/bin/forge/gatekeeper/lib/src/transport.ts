@@ -69,7 +69,9 @@ export interface ProviderRequest {
    */
   query: URLSearchParams;
   /**
-   * The headers of the request, without credentials.
+   * The headers of the request: `content-type` when it has a body, then
+   * those of the client and of the call. It has no credentials and no
+   * `accept`, which the provider sets.
    */
   headers: Headers;
   /**
@@ -127,7 +129,9 @@ export interface RequestOptions {
  */
 export interface Result<T> {
   /**
-   * The decoded body, or undefined when the response has none.
+   * The decoded body, or undefined when the response has none. A write
+   * that answers a 2XX with no body where the operation declares one has
+   * none either, since the change was made.
    */
   data: T;
   /**
@@ -275,9 +279,11 @@ function failure(operation: Operation, response: ProviderResponse): Failure {
   }
   const declared = lookup(operation.errors, response.status);
   let details: unknown = text === '' ? undefined : text;
-  if (json && declared !== undefined && declared !== false) {
+  if (json) {
+    // A body that is JSON is given parsed, whether or not the operation
+    // declares the status.
     details = body;
-    if (declared !== true) {
+    if (typeof declared === 'object') {
       try {
         details = declared.decode(body);
       } catch {
@@ -327,7 +333,7 @@ export class Transport {
    * decoded. A response whose status is not 2XX is thrown, as an ApiError
    * unless the options of the client say otherwise. A 2XX response whose
    * body cannot be read as the operation declares is thrown as a
-   * DecodeError. A path parameter that is `.` or `..` is refused.
+   * DecodeError, but for a write with no body, whose data is undefined. A path parameter that is `.` or `..` is refused.
    */
   async send<T>(
     operation: Operation,
@@ -360,7 +366,7 @@ export class Transport {
     options: RequestOptions | undefined,
   ): Promise<ProviderResponse> {
     const fields = (request ?? {}) as Fields;
-    const headers = new Headers({ accept: 'application/json' });
+    const headers = new Headers();
     const params: { [field: string]: string } = {};
     const sent: ProviderRequest = {
       operationId: operation.id,
@@ -426,8 +432,10 @@ export class Transport {
     }
     if (response.text === '') {
       // Only a response that says it has no content, or one to a HEAD, may
-      // be empty where the operation declares a body.
-      if (status === 204 || status === 205 || operation.method === 'HEAD') {
+      // be empty where the operation declares a body. A write is not
+      // thrown either: the status says that the change was made, and an
+      // error would say that it may not have been.
+      if (status === 204 || status === 205 || operation.method === 'HEAD' || operation.kind === 'write') {
         return result;
       }
       throw new DecodeError(operation.id);

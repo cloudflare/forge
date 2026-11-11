@@ -331,6 +331,7 @@ impl Config {
                     return Err(format!("{id} has no parameter {name}").into());
                 }
             }
+            lists(&mut parameters, components);
             // The config is what says which operations there are.
             operation.shift_remove("x-forge-skip");
             operation.insert("x-forge-group-name".to_owned(), json!(selected.group));
@@ -421,6 +422,45 @@ fn resolved<'a>(parameter: &'a Value, components: Option<&'a Value>) -> Option<&
 fn named<'a>(parameter: &'a Value, components: Option<&'a Value>) -> Option<(&'a str, &'a str)> {
     let parameter = resolved(parameter, components)?;
     Some((parameter.get("name")?.as_str()?, parameter.get("in")?.as_str()?))
+}
+
+/// Makes each query parameter among `parameters` whose name ends in `[]`
+/// and whose schema is one value a list of that value.
+///
+/// The name is how an API takes a list, as `statuses[]=a&statuses[]=b`. A
+/// document can still give such a parameter the schema of one of its
+/// values, as PagerDuty's does for `statuses[]` and `include[]`, and a
+/// request type could then not have the list. A parameter that is a
+/// `$ref` is written in place, so that the others that refer to it are
+/// left as they are.
+fn lists(parameters: &mut [Value], components: Option<&Value>) {
+    for parameter in parameters {
+        let Some(found) = resolved(parameter, components) else {
+            continue;
+        };
+        let list = found.get("in").and_then(Value::as_str) == Some("query")
+            && found
+                .get("name")
+                .and_then(Value::as_str)
+                .is_some_and(|name| name.ends_with("[]"));
+        let Some(Value::Object(schema)) = found.get("schema") else {
+            continue;
+        };
+        let scalar = matches!(
+            schema.get("type").and_then(Value::as_str),
+            Some("string" | "integer" | "number" | "boolean")
+        );
+        if !list || !scalar || schema.contains_key("$ref") {
+            continue;
+        }
+        let mut items = schema.clone();
+        // A keyword of an array, which the schema of a value has no use
+        // for.
+        items.shift_remove("uniqueItems");
+        let mut found = found.clone();
+        found["schema"] = json!({"type": "array", "items": items});
+        *parameter = found;
+    }
 }
 
 /// Returns the parameters of an operation: those of its path item,
@@ -1063,7 +1103,12 @@ mod tests {
           "get": {
             "operationId": "issues/list",
             "parameters": [
-              {"name": "title.contains", "in": "query", "schema": {"type": "string"}}
+              {"name": "title.contains", "in": "query", "schema": {"type": "string"}},
+              {
+                "name": "states[]",
+                "in": "query",
+                "schema": {"type": "string", "enum": ["open", "closed"], "uniqueItems": true}
+              }
             ],
             "responses": {
               "200": {"description": "ok", "content": {"application/json": {"schema": {
@@ -1729,6 +1774,32 @@ mod tests {
     }
 
     #[test]
+    fn a_query_parameter_named_as_a_list_is_one() {
+        let files = generate(CONFIG).unwrap();
+        let client = &files["issues/client.ts"];
+        // The document gives `states[]` the schema of one of its values.
+        assert!(client.contains(r#""states[]"?: ("open" | "closed")[];"#), "{client}");
+    }
+
+    #[test]
+    fn the_response_of_a_write_can_be_undefined() {
+        let config = r#"{
+          "operations": {
+            "issues/list": {"group": "issues", "name": "list"},
+            "issues/create": {"group": "issues", "name": "create"}
+          },
+          "properties": {"+1": "plus_one", "-1": "minus_one"}
+        }"#;
+        let files = generate(config).unwrap();
+        let client = &files["issues/client.ts"];
+        assert!(
+            client.contains("Promise<Result<CreateResponse | undefined>>"),
+            "{client}"
+        );
+        assert!(client.contains("Promise<Result<ListResponse>>"), "{client}");
+    }
+
+    #[test]
     fn an_int64_is_a_number_when_the_config_says_so() {
         let client = &generate(&messages("", "")).unwrap()["messages/client.ts"];
         assert!(client.contains("limit?: bigint;"), "{client}");
@@ -1897,7 +1968,7 @@ mod tests {
         let client = &files["issues/client.ts"];
         assert!(client.contains(r#""title.contains"?: string;"#), "{client}");
         assert!(
-            client.contains(r#"query: { "title.contains": "title.contains" },"#),
+            client.contains(r#"query: { "title.contains": "title.contains", "states[]": "states[]" },"#),
             "{client}"
         );
         assert!(

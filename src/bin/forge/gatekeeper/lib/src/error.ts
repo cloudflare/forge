@@ -29,9 +29,8 @@ export interface Failure {
    */
   message: string | undefined;
   /**
-   * The body decoded as the error the API declares for the status, or the
-   * body as text when it declares none or the body does not parse, or
-   * undefined when the body is empty.
+   * The body as it parsed, when it is JSON, or as text when it is not, or
+   * undefined when it is empty.
    */
   details: unknown;
 }
@@ -62,10 +61,9 @@ export class ApiError extends Error {
    */
   readonly headers: Headers;
   /**
-   * The body decoded as the error the API declares for the status, or the
-   * body as text when it declares none or the body does not parse, or
-   * undefined when the body is empty. It is what the API sent, so it is
-   * not for a message or a log that an agent reads.
+   * The body as it parsed, when it is JSON, or as text when it is not, or
+   * undefined when it is empty. It is what the API sent, so it is not for
+   * a message or a log that an agent reads.
    */
   readonly details: unknown;
 

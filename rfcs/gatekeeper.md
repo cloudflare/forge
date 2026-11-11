@@ -153,11 +153,13 @@ A call can add query parameters the spec does not declare, in its options. One r
 
 The clients keep every property and query parameter that has a name. The `ts` target leaves out one whose wire name has a character other than a letter, a digit, `-` or `_`, such as `name.exact` or `+1`, and lets it be sent untyped. A gatekeeper covers few operations and is written against all of what they take and return, so its clients have `"name.exact"` and `"+1"`.
 
+A query parameter whose name ends in `[]` is a list, even where the document gives it the schema of one value, as PagerDuty's does for `statuses[]` and `include[]`. The clients set no header but `content-type` for a body: the provider sets `accept`, since an API can take a version in it.
+
 The fields have the provider's names. The `ts` target names a field in camel case and renames it as it encodes and decodes. The clients of a provider do not: a request has `team_ids[]` and a response has `created_at`, as the provider documents them. With dates as strings and an `int64` as a number, nothing in a body is converted, so the models have no codecs and a body is what `JSON.parse` returns.
 
 A method returns the decoded body with the status and the headers of the response, so that a gatekeeper can read an `ETag` or a `Link` header. The method of a conditional operation returns a 304 as a result whose `notModified` is true, with the headers and no body, and the gatekeeper answers from its own cache. Caching itself is not generated: among today's gatekeepers only GitHub's revalidates.
 
-A response whose status is not 2XX is thrown. By default the error is an `ApiError`, with the `operationId`, the status, the headers and the decoded body as `details`. Its message is the status and at most the first 200 characters of the message the API sent, and it does not hold the `Response`. The kit tells errors apart by a numeric `status`, which this has, so the runtime does not import the kit.
+A response whose status is not 2XX is thrown. By default the error is an `ApiError`, with the `operationId`, the status, the headers and the body as `details`, parsed when it is JSON and as text when it is not. Its message is the status and at most the first 200 characters of the message the API sent, and it does not hold the `Response`. The kit tells errors apart by a numeric `status`, which this has, so the runtime does not import the kit.
 
 A gatekeeper that has an error class of its own gives the clients an `error` function, which gets the same facts and returns what to throw:
 
@@ -170,7 +172,7 @@ const reads = createReadClient({
 
 When the config says what marks a 2XX response as a failure, such a response is thrown the same way. The error has its 2XX status and `source: 'body'`, so that code which tells failures apart by status sees that it has to read the body.
 
-A 2XX response whose body is not JSON, or is empty where the operation has one, is thrown as a `DecodeError`. It has no `status`, so nothing reads it as an answer of the API, and it has neither the body nor the parser's error, which quotes it. The clients do not validate a body against its type: JSON with other fields is returned as it is.
+A 2XX response whose body is not JSON, or is empty where the operation has one, is thrown as a `DecodeError`. It has no `status`, so nothing reads it as an answer of the API, and it has neither the body nor the parser's error, which quotes it. The clients do not validate a body against its type: JSON with other fields is returned as it is. A write is the exception for an empty body: a 2XX says that the change was made, and an error would let it be taken for one that may not have been. Its `data` is `undefined`, which the return type of a write says.
 
 ### operations.json
 
