@@ -104,3 +104,83 @@ fn capnweb() {
     );
     std::fs::remove_dir_all(&out).unwrap();
 }
+
+/// A config that names the one operation of [`GATEKEEPER_SPEC`].
+const GATEKEEPER_CONFIG: &str = r#"{"operations": {"a/get": {"group": "a", "name": "get"}}}"#;
+
+/// A document with one operation, `a/get`, and one the config leaves out.
+const GATEKEEPER_SPEC: &str = r#"{
+  "openapi": "3.0.3",
+  "info": {"title": "t", "version": "1"},
+  "paths": {
+    "/a": {
+      "get": {"operationId": "a/get", "responses": {"200": {"description": "ok"}}},
+      "delete": {"operationId": "a/delete", "responses": {"204": {"description": "ok"}}}
+    }
+  }
+}"#;
+
+#[test]
+fn gatekeeper() {
+    let dir = std::env::temp_dir().join(format!("forge-cli-gatekeeper-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    let config = dir.join("gatekeeper.json");
+    std::fs::write(&config, GATEKEEPER_CONFIG).unwrap();
+    let out = dir.join("api");
+    let result = forge(
+        &[
+            "-",
+            "--target",
+            "gatekeeper",
+            "--config",
+            config.to_str().unwrap(),
+            "--out",
+            out.to_str().unwrap(),
+        ],
+        GATEKEEPER_SPEC,
+    );
+    assert!(result.status.success(), "{}", String::from_utf8_lossy(&result.stderr));
+    for name in ["index.ts", "a/client.ts", "_/index.ts", "operations.json"] {
+        assert!(out.join(name).is_file(), "{name} is missing");
+    }
+    let client = std::fs::read_to_string(out.join("a/client.ts")).unwrap();
+    assert!(
+        client.contains("get(request?: GetRequest, options?: RequestOptions): Promise<GetResponse>;"),
+        "{client}"
+    );
+    assert!(!client.contains("delete("), "{client}");
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
+#[test]
+fn gatekeeper_needs_a_config() {
+    let err = failure(forge(&["-", "--target", "gatekeeper", "--out", "api"], GATEKEEPER_SPEC));
+    assert!(err.starts_with("forge: --target gatekeeper needs --config"), "{err}");
+}
+
+#[test]
+fn config_is_only_for_gatekeeper() {
+    let err = failure(forge(
+        &["-", "--target", "ts", "--config", "c.json", "--out", "sdk"],
+        SPEC,
+    ));
+    assert_eq!(err, "forge: --config is only for --target gatekeeper\n");
+}
+
+#[test]
+fn missing_config() {
+    let err = failure(forge(
+        &[
+            "-",
+            "--target",
+            "gatekeeper",
+            "--config",
+            "missing.json",
+            "--out",
+            "api",
+        ],
+        GATEKEEPER_SPEC,
+    ));
+    assert!(err.starts_with("forge: missing.json: "), "{err}");
+}
