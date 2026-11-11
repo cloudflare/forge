@@ -65,10 +65,10 @@ approved zone mapping.
 - `src/pages/[...slug].astro` renders every API page with Nimbus's
   `getApiRoute`; `src/plain-text.ts` turns a description into its meta
   description.
-- `src/pages/[...slug].md.ts`, `llms.txt.ts`, `[...section]/llms.txt.ts`, and
-  `llms-full.txt.ts` are Nimbus's agent routes. A Markdown twin lives at
-  `/<page>/index.md`; the old `/<page>.md` URLs 301 to it. Its frontmatter
-  leaves out the description, which the body repeats.
+- `src/pages/[...slug]/index.md.ts`, `llms.txt.ts`, `[...section]/llms.txt.ts`,
+  and `llms-full.txt.ts` are Nimbus's agent routes. A Markdown twin lives at
+  `/<page>/index.md`; `[...slug].md.ts` 301s the old `/<page>.md` URLs to it.
+  Its frontmatter leaves out the description, which the body repeats.
 - `src/middleware.ts` 302s the URLs in `.forge/redirects.json` to their pages.
 - `src/command-reference/`, `src/command-sidebar.ts`, `src/pages/tooling/`, and
   `src/pages/[product]/tooling/` own the `cf` command pages. They render on
