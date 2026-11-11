@@ -12,6 +12,10 @@ export interface Provider {
    * path is relative to, the credentials, and what else the API asks of
    * every request, such as a timeout. It reads the body, so it is what
    * limits its size.
+   *
+   * @param request The request to send.
+   * @returns The status, the headers and the body of the response, whatever its status.
+   * @throws When there is no response to return.
    */
   send(request: ProviderRequest): Promise<ProviderResponse>;
 }
@@ -106,6 +110,9 @@ export interface BaseClientOptions {
    * status is not 2XX, or one whose body says so.
    * Without it, or when it does not return an Error, the error is an
    * ApiError.
+   *
+   * @param failure The response that is a failure.
+   * @returns The error to throw.
    */
   error?: (failure: Failure) => Error;
 }
@@ -325,6 +332,9 @@ export class Transport {
 
   /**
    * Checks the options of a client.
+   *
+   * @param options The options of the client.
+   * @throws TypeError when they have no provider.
    */
   constructor(options: BaseClientOptions) {
     if (typeof options?.provider?.send !== 'function') {
@@ -339,6 +349,12 @@ export class Transport {
    * unless the options of the client say otherwise. A 2XX response whose
    * body cannot be read as the operation declares is thrown as a
    * DecodeError, but for a write with no body, whose data is undefined. A path parameter that is `.` or `..` is refused.
+   *
+   * @param operation The operation to send.
+   * @param request The request, as the type of the operation has it.
+   * @param options The options of the call.
+   * @returns The decoded body, with the status and the headers.
+   * @throws The error of the options, or an ApiError, for a failure; a DecodeError; a TypeError for a path parameter; and what the provider throws.
    */
   async send<T>(
     operation: Operation,
@@ -352,6 +368,12 @@ export class Transport {
    * Sends a request as send does, for an operation that the config says
    * is conditional: a 304 response is returned as a NotModified, and not
    * thrown.
+   *
+   * @param operation The operation to send.
+   * @param request The request, as the type of the operation has it.
+   * @param options The options of the call, with the header that makes it conditional.
+   * @returns The result, or a NotModified for a 304.
+   * @throws What `send` throws.
    */
   async sendConditional<T>(
     operation: Operation,

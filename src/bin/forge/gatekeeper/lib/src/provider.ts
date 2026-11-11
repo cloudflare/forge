@@ -14,6 +14,8 @@ export interface FetchProviderOptions {
    * Adds the credential to a request, as a header or a query parameter.
    * It is called for each request, after the headers of the client are
    * set, so nothing a caller sends can replace what it sets.
+   *
+   * @param request The headers and the query of the request, to add to.
    */
   authorize(request: { headers: Headers; query: URLSearchParams }): void;
   /**
@@ -56,6 +58,9 @@ export class ResponseTooLargeError extends Error {
    */
   readonly operationId: string;
 
+  /**
+   * @param operationId The `operationId` of the operation.
+   */
   constructor(operationId: string) {
     super(`${operationId}: the response is larger than the provider reads`);
     this.name = 'ResponseTooLargeError';
@@ -73,6 +78,10 @@ export class UnreachableError extends Error {
    */
   readonly operationId: string;
 
+  /**
+   * @param operationId The `operationId` of the operation.
+   * @param cause What `fetch` threw.
+   */
   constructor(operationId: string, cause: unknown) {
     super(`${operationId}: the API could not be reached`, { cause });
     this.name = 'UnreachableError';
@@ -89,6 +98,10 @@ const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1', '[::1]']);
  * reads no more of a body than its limit.
  *
  * Make one for each use of a credential, and do not keep it.
+ *
+ * @param options Where the API is, how a request is authorized, and the limits.
+ * @returns The provider.
+ * @throws TypeError when the base URL is not `https`, or has a query, a fragment or a credential.
  */
 export function fetchProvider(options: FetchProviderOptions): Provider {
   const base = new URL(options.baseUrl);
@@ -166,6 +179,12 @@ export interface ServerVariable {
  * or as its default. A value is one the document lists. Where it lists
  * none, it is letters, digits, `.`, `_` and `-`, so that a value cannot
  * name another host or path.
+ *
+ * @param template The URL of the server, with its variables in braces.
+ * @param variables What the document says of each variable.
+ * @param given The values to use.
+ * @returns The URL.
+ * @throws TypeError when a variable has no value, or one the server does not take.
  */
 export function serverUrl(
   template: string,
@@ -262,6 +281,10 @@ const REASONS: { readonly [status: number]: Reason } = {
  *
  * It is a default, not a fact about the provider. A failure that the body
  * says, with a 2XX, is `other` unless a rule names its status.
+ *
+ * @param failure The failure, or its status.
+ * @param rules The reason of a status, where the provider documents another than the default.
+ * @returns The reason.
  */
 export function reasonOf(failure: Pick<Failure, 'status'>, rules?: { readonly [status: number]: Reason }): Reason {
   const { status } = failure;
@@ -278,6 +301,10 @@ export function reasonOf(failure: Pick<Failure, 'status'>, rules?: { readonly [s
  * Returns how long the `retry-after` header of a response says to wait,
  * in seconds, or undefined when it has none that can be read. The header
  * is seconds or a date.
+ *
+ * @param headers The headers of the response.
+ * @param now The time to count from, in milliseconds, which is the current time without it.
+ * @returns The seconds to wait, or undefined.
  */
 export function retryAfterSeconds(headers: Headers, now: number = Date.now()): number | undefined {
   const value = headers.get('retry-after')?.trim();
@@ -294,6 +321,10 @@ export function retryAfterSeconds(headers: Headers, now: number = Date.now()): n
 /**
  * Returns a message for a reason that has nothing the provider sent, for
  * an error that an agent reads. `name` is the name of the provider.
+ *
+ * @param reason The reason.
+ * @param name The name of the provider, as a person knows it.
+ * @returns The message.
  */
 export function reasonMessage(reason: Reason, name: string): string {
   switch (reason) {

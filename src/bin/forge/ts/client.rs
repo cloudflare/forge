@@ -41,6 +41,12 @@ pub(super) fn client(group: Group<'_>, transport: Transport, roles: &[Role]) -> 
         p!(f);
         client_interface(&mut f, &methods, &groups, &group_names, transport, role);
         p!(f);
+        if transport == Transport::Provider {
+            f.doc(&format!(
+                "Returns the {} of this group and of its groups, which sends its requests through the provider of the options.\n\n@param options The provider, and what the client adds to every request.\n@returns The client.\n@throws TypeError when the options have no provider.",
+                role.client
+            ));
+        }
         p!(
             f,
             "export function ",
@@ -280,6 +286,32 @@ fn bound_of(group: Group<'_>, bound: &mut BTreeSet<String>) {
     }
 }
 
+/// Returns the documentation of a method of a client of a provider:
+/// `text`, then what it takes, returns and throws.
+fn provider_tags(mut text: String, m: Method<'_>, request: &Request<'_>) -> String {
+    let fact = |key: &str| provider_fact(m, key);
+    if !text.is_empty() {
+        text.push_str("\n\n");
+    }
+    text.push_str(if request.optional() {
+        "@param request What the operation takes. It can be left out.\n"
+    } else {
+        "@param request What the operation takes.\n"
+    });
+    text.push_str("@param options The options of this call: a signal, headers, and query parameters.\n");
+    text.push_str(if fact("conditional").and_then(Json::as_bool) == Some(true) {
+        "@returns The body of the response, with its status and headers, or a NotModified for a 304.\n"
+    } else if fact("kind").and_then(Json::as_str) == Some("write") {
+        "@returns The body of the response, with its status and headers. The body is undefined when a 2XX has none.\n"
+    } else {
+        "@returns The body of the response, with its status and headers.\n"
+    });
+    text.push_str(
+        "@throws The error of the client's options, or an ApiError, for a response that is a failure, and a DecodeError for a 2XX whose body cannot be read.",
+    );
+    text
+}
+
 /// Returns the value of `key` in what a provider is told of `m`.
 pub(crate) fn provider_fact<'a>(m: Method<'a>, key: &str) -> Option<&'a Json> {
     m.extension(PROVIDER_EXTENSION).and_then(|extension| extension.get(key))
@@ -323,7 +355,11 @@ fn client_interface(
     f.indent(|f| {
         for (m, request) in methods {
             let m = *m;
-            f.doc(&doc(&method_doc(m), m.is_deprecated()));
+            let mut text = method_doc(m);
+            if transport == Transport::Provider {
+                text = provider_tags(text, m, request);
+            }
+            f.doc(&doc(&text, m.is_deprecated()));
             let name = method_name(m);
             let params = method_params(f, m, request);
             match group_names.get(&name) {

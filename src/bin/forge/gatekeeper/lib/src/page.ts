@@ -21,6 +21,9 @@ const PARAM = /;\s*([^\s;=,"]+)(?:\s*=\s*(?:"([^"]*)"|([^\s;,"]*)))?/g;
 
 /**
  * Returns the links of a `Link` header. What is not a link is left out.
+ *
+ * @param header The value of the header, or null when the response has none.
+ * @returns The links, in the order of the header.
  */
 export function parseLinks(header: string | null): Link[] {
   const links: Link[] = [];
@@ -59,11 +62,19 @@ export interface Pages<Request, Response, Item, Next> {
   /**
    * Returns the items of a result, and what names the page after it.
    * `request` is the request that got the result.
+   *
+   * @param result The result of a call of the operation.
+   * @param request The request that got it.
+   * @returns The items of the page, and what names the next page.
    */
   page(result: Result<Response>, request: Request): Page<Item, Next>;
   /**
    * Returns the request and the options that get the page `next` names,
    * for a first request. Without `next`, they get the first page.
+   *
+   * @param request The first request of the listing.
+   * @param next What a page before gave as its `next`, or undefined for the first page.
+   * @returns The request and the options to call the operation with.
    */
   resume(request: Request, next: Next | undefined): { request: Request; options: RequestOptions };
 }
@@ -100,6 +111,13 @@ export interface ClientPages<
    * `next` names. It is `resume`, the call, then `page`. A query of the
    * page replaces that of `options`. It reads one page, and neither
    * loops nor checks a `next` that a caller gave back.
+   *
+   * @param client The client of reads.
+   * @param request The first request of the listing.
+   * @param next What a page before gave as its `next`. Without it, the first page.
+   * @param options The options of the call.
+   * @returns The page with its result, or a NotModified from a conditional operation.
+   * @throws What the call of the client throws.
    */
   fetch(
     client: Client,
@@ -111,6 +129,10 @@ export interface ClientPages<
 
 /**
  * Returns `pages` with a `fetch` that calls its operation through `call`.
+ *
+ * @param pages The pager of the operation.
+ * @param call Calls the operation on a client, with a request and options.
+ * @returns The pager, with `fetch`.
  */
 export function withClient<Client, Request, Response, Item, Next, Got extends Result<Response> | NotModified>(
   pages: Pages<Request, Response, Item, Next>,
@@ -200,6 +222,9 @@ function ended(data: unknown, spec: { more?: string; last?: string }): boolean {
  * of the items in a response, when it is not the array itself. `more` is
  * the parameter of the `rel="next"` link that is `true` when there is
  * another page, for an API that sends that link with the last page too.
+ *
+ * @param spec Where the items are, and what says that there is another page.
+ * @returns The pager of the operation.
  */
 export function linkPages<Request, Response, P extends string = ''>(spec: {
   items?: P;
@@ -236,6 +261,9 @@ export function linkPages<Request, Response, P extends string = ''>(spec: {
  * true when there is another page, and `last` of what is true when the
  * page is the last. Without either, a page that is empty, or shorter than
  * the limit of the request, is the last.
+ *
+ * @param spec Where the items are, the fields of the request, and what says that there is another page.
+ * @returns The pager of the operation.
  */
 export function offsetPages<Request, Response, P extends string = ''>(spec: {
   items?: P;
@@ -270,6 +298,9 @@ export function offsetPages<Request, Response, P extends string = ''>(spec: {
  * the request, and `next` the path in a response of the cursor of the
  * next page. `more` and `last` are as for an offset. A response with no
  * cursor is the last page.
+ *
+ * @param spec Where the items and the next cursor are, the field of the request, and what says that there is another page.
+ * @returns The pager of the operation.
  */
 export function cursorPages<Request, Response, P extends string = ''>(spec: {
   items?: P;

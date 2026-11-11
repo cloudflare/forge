@@ -69,6 +69,8 @@ export class ApiError extends Error {
 
   /**
    * The message is the status, then the start of the message of the API.
+   *
+   * @param failure The response that is a failure.
    */
   constructor(failure: Failure) {
     let message = `${failure.operationId}: status ${failure.status}`;
@@ -100,6 +102,9 @@ export class DecodeError extends Error {
    */
   readonly operationId: string;
 
+  /**
+   * @param operationId The `operationId` of the operation.
+   */
   constructor(operationId: string) {
     super(`${operationId}: the response body is not what the operation declares`);
     this.name = 'DecodeError';
@@ -115,6 +120,9 @@ function text(value: unknown): string | undefined {
  * Returns the message of a JSON error body: a string `message`, `error`,
  * `detail` or `title`, then `error.message` or `error.detail`, then the
  * messages of an `errors` array.
+ *
+ * @param body The body, as it parsed.
+ * @returns The message, or undefined when the body has none.
  */
 export function errorMessage(body: unknown): string | undefined {
   if (!isRecord(body)) {
