@@ -11,7 +11,8 @@ use super::{Transport, sorted_models};
 /// Returns the index.ts of `group`: the errors and RequestOptions from the
 /// runtime library, so that every entry point is complete, and the types of
 /// a provider and of what a method returns when the transport is one, then
-/// what creates each of its clients and their types, then its models. A model named
+/// what creates each of its clients, unless a file of its own does, and
+/// their types, then its models. A model named
 /// like another export is exported with a `$` added.
 pub(super) fn index(group: Group<'_>, transport: Transport, roles: &[Role]) -> File {
     let mut f = File::new(Module::group(group).sub("index.ts"));
@@ -40,7 +41,11 @@ pub(super) fn index(group: Group<'_>, transport: Transport, roles: &[Role]) -> F
     let types: Vec<String> = types.iter().map(|&name| name.to_owned()).collect();
     export(&mut f, "export type", &types, &runtime);
 
-    let creates: Vec<String> = roles.iter().map(|role| role.create.to_owned()).collect();
+    let creates: Vec<String> = roles
+        .iter()
+        .filter(|role| role.entry.is_none())
+        .map(|role| role.create.to_owned())
+        .collect();
     export(&mut f, "export", &creates, "./client.js");
     let mut names: Vec<String> = roles.iter().map(|role| role.client.to_owned()).collect();
     names.push("ClientOptions".to_owned());
@@ -71,6 +76,15 @@ pub(super) fn index(group: Group<'_>, transport: Transport, roles: &[Role]) -> F
     }
     export(&mut f, "export type", &models, "./models.js");
     f
+}
+
+/// Returns the file of `group` that exports what creates the client `role`,
+/// and its type, or `None` when the group's index.ts does.
+pub(super) fn entry(group: Group<'_>, role: &Role) -> Option<File> {
+    let mut f = File::new(Module::group(group).sub(role.entry?));
+    export(&mut f, "export", &[role.create.to_owned()], "./client.js");
+    export(&mut f, "export type", &[role.client.to_owned()], "./client.js");
+    Some(f)
 }
 
 /// Prints an export of `names` from the module at `spec`, with each name on

@@ -96,7 +96,8 @@ export interface BaseClientOptions {
   headers?: HeadersInit;
   /**
    * Returns the error to throw for a response whose status is not 2XX.
-   * Without it, the error is an ApiError.
+   * Without it, or when it does not return an Error, the error is an
+   * ApiError.
    */
   error?: (failure: Failure) => Error;
 }
@@ -307,7 +308,8 @@ export class Transport {
    * Sends a request for operation and returns its response, with the body
    * decoded. A response whose status is not 2XX is thrown, as an ApiError
    * unless the options of the client say otherwise. A 2XX response whose
-   * body does not decode is thrown as a DecodeError.
+   * body cannot be read as the operation declares is thrown as a
+   * DecodeError. A path parameter that is `.` or `..` is refused.
    */
   async send<T>(
     operation: Operation,
@@ -370,19 +372,30 @@ export class Transport {
   }
 
   #result<T>(operation: Operation, response: ProviderResponse): Result<T> {
-    if (response.status < 200 || response.status > 299) {
+    const { status } = response;
+    // A status that is not a number is not a success.
+    if (typeof status !== 'number' || !(status >= 200 && status <= 299)) {
       const failed = failure(operation, response);
-      throw this.#options.error === undefined ? new ApiError(failed) : this.#options.error(failed);
+      const error = this.#options.error?.(failed);
+      throw error instanceof Error ? error : new ApiError(failed);
     }
-    const result: Result<T> = { data: undefined as T, status: response.status, headers: response.headers };
-    if (operation.response === undefined || response.text === '') {
+    const result: Result<T> = { data: undefined as T, status, headers: response.headers };
+    if (operation.response === undefined) {
       return result;
+    }
+    if (response.text === '') {
+      // Only a response that says it has no content, or one to a HEAD, may
+      // be empty where the operation declares a body.
+      if (status === 204 || status === 205 || operation.method === 'HEAD') {
+        return result;
+      }
+      throw new DecodeError(operation.id);
     }
     try {
       const value = parse(response.text);
       result.data = (operation.response === null ? value : operation.response.decode(value)) as T;
-    } catch (e) {
-      throw new DecodeError(operation.id, { cause: e });
+    } catch {
+      throw new DecodeError(operation.id);
     }
     return result;
   }
@@ -396,6 +409,11 @@ export class Transport {
         throw new TypeError(`${field} is required`);
       }
       const param = toParam(value);
+      // A dot segment is not encoded, and what resolves the URL removes it
+      // with the segment before it, which makes the path another route's.
+      if (param === '.' || param === '..') {
+        throw new TypeError(`${field} cannot be "${param}"`);
+      }
       params[field] = param;
       return encodeURIComponent(param);
     });

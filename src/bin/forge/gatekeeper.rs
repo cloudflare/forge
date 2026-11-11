@@ -5,7 +5,9 @@
 //! linked, so that the operations it leaves out, and the models only they
 //! use, are never part of the [`Forge`]. The generator then writes the
 //! TypeScript clients of what is left, and operations.json, which says what
-//! the config says about each operation.
+//! the config says about each operation. For the agent that writes the rest
+//! of the gatekeeper, it also writes a guide, and a worksheet of the
+//! decisions each operation needs.
 //!
 //! The clients are those of the TypeScript SDK, with another transport: it
 //! sends each request through a provider, which the gatekeeper implements
@@ -19,7 +21,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 use std::path::Path;
 
-use forge::{Err, Forge, Json, Method, Plugin};
+use forge::{Err, Forge, Json, Method, Plugin, Type};
 use serde::Deserialize;
 use serde_json::{Map, Value, json};
 
@@ -37,19 +39,23 @@ const RUNTIME: [(&str, &str); 4] = [
 
 /// The clients of a group: one of the operations that read, for the code
 /// of a session, and one of those that write, for the code that applies an
-/// approved action. A client does not have the methods of the other.
+/// approved action. A client does not have the methods of the other, and
+/// each is created from a file of its own, so that a lint rule can say
+/// which modules may import the one that writes.
 const ROLES: [Role; 2] = [
     Role {
         client: "ReadClient",
         bind: "bindRead",
         create: "createReadClient",
         has: reads,
+        entry: Some("read.ts"),
     },
     Role {
         client: "WriteClient",
         bind: "bindWrite",
         create: "createWriteClient",
         has: writes,
+        entry: Some("write.ts"),
     },
 ];
 
@@ -173,23 +179,12 @@ impl Config {
     /// error, and so is one that writes and is conditional.
     pub fn apply(&self, doc: &mut Value) -> Result<(), Err> {
         let mut found = BTreeSet::new();
-        let items = doc.get_mut("paths").and_then(Value::as_object_mut);
-        for item in items.into_iter().flat_map(Map::values_mut) {
-            for method in METHODS {
-                let Some(operation) = item.get_mut(method).and_then(Value::as_object_mut) else {
-                    continue;
-                };
-                // An alias is a method even when its operation is skipped.
-                operation.shift_remove("x-forge-aliases");
-                let id = operation.get("operationId").and_then(Value::as_str);
-                let Some((id, selected)) = id.and_then(|id| self.operations.get_key_value(id)) else {
-                    operation.insert("x-forge-skip".to_owned(), Value::Bool(true));
-                    continue;
-                };
-                found.insert(id.as_str());
-                operation.insert("x-forge-group-name".to_owned(), json!(selected.group));
-                operation.insert("x-forge-method-name".to_owned(), json!(selected.name));
-                operation.insert(EXTENSION.to_owned(), selected.extension(id, method)?);
+        // A path item is under `paths`, or under `components.pathItems` when
+        // a path refers to it.
+        for pointer in ["/paths", "/components/pathItems"] {
+            let items = doc.pointer_mut(pointer).and_then(Value::as_object_mut);
+            for item in items.into_iter().flat_map(Map::values_mut) {
+                self.apply_to_path_item(item, &mut found)?;
             }
         }
         let missing: Vec<&str> = self
@@ -205,26 +200,63 @@ impl Config {
         Ok(())
     }
 
+    /// Names and marks the operations of the path item `item`, and adds to
+    /// `found` those that are of the config.
+    fn apply_to_path_item<'a>(&'a self, item: &mut Value, found: &mut BTreeSet<&'a str>) -> Result<(), Err> {
+        for method in METHODS {
+            let Some(operation) = item.get_mut(method).and_then(Value::as_object_mut) else {
+                continue;
+            };
+            // An alias is a method even when its operation is skipped.
+            operation.shift_remove("x-forge-aliases");
+            let id = operation.get("operationId").and_then(Value::as_str);
+            let Some((id, selected)) = id.and_then(|id| self.operations.get_key_value(id)) else {
+                operation.insert("x-forge-skip".to_owned(), Value::Bool(true));
+                continue;
+            };
+            found.insert(id.as_str());
+            // The config is what says which operations there are.
+            operation.shift_remove("x-forge-skip");
+            operation.insert("x-forge-group-name".to_owned(), json!(selected.group));
+            operation.insert("x-forge-method-name".to_owned(), json!(selected.name));
+            operation.insert(EXTENSION.to_owned(), selected.extension(id, method)?);
+        }
+        Ok(())
+    }
+
     /// Names the properties of the config, and removes the date formats, in
     /// `value` and everything inside it.
     fn apply_to_schemas(&self, value: &mut Value) {
         match value {
             Value::Object(map) => {
                 let format = map.get("format").and_then(Value::as_str);
-                if matches!(format, Some("date-time" | "date"))
-                    && map.get("type").and_then(Value::as_str) == Some("string")
-                {
+                // A type is a string, or since OpenAPI 3.1 an array of them,
+                // as for a string that can be null.
+                let is_string = match map.get("type") {
+                    Some(Value::String(ty)) => ty == "string",
+                    Some(Value::Array(types)) => types.iter().any(|ty| ty == "string"),
+                    _ => false,
+                };
+                if matches!(format, Some("date-time" | "date")) && is_string {
                     map.shift_remove("format");
                 }
-                if let Some(Value::Object(properties)) = map.get_mut("properties") {
-                    for (wire_name, name) in &self.properties {
-                        if let Some(Value::Object(property)) = properties.get_mut(wire_name) {
-                            property.entry("x-forge-property-name").or_insert_with(|| json!(name));
+                for (key, value) in map.iter_mut() {
+                    match value {
+                        // The keys of `properties` are the names of
+                        // properties, not keywords of a schema: one can be
+                        // named `properties` or `format`.
+                        Value::Object(properties) if key == "properties" => {
+                            for (wire_name, name) in &self.properties {
+                                if let Some(Value::Object(property)) = properties.get_mut(wire_name) {
+                                    property.entry("x-forge-property-name").or_insert_with(|| json!(name));
+                                }
+                            }
+                            for property in properties.values_mut() {
+                                self.apply_to_schemas(property);
+                            }
                         }
+                        value => self.apply_to_schemas(value),
                     }
-                }
-                for value in map.values_mut() {
-                    self.apply_to_schemas(value);
                 }
             }
             Value::Array(values) => {
@@ -245,12 +277,25 @@ impl Operation {
             "get" | "head" => Kind::Read,
             _ => Kind::Write,
         });
+        // The client of reads is what the code of a session has, and a read
+        // can be sent twice. Only a POST can be said to read, as a search
+        // or a query is.
+        if kind == Kind::Read && !matches!(method, "get" | "head" | "post") {
+            return Err(format!("{id} is sent with {}, so it cannot be a read", method.to_uppercase()).into());
+        }
+        // A client that has a `then` is taken for a promise when awaited.
+        if self.name == "then" {
+            return Err(format!("{id} cannot be named then").into());
+        }
         let mut extension = json!({"operationId": id, "kind": kind.as_str()});
         if self.conditional {
             if kind == Kind::Write {
                 return Err(format!("{id} writes, so it cannot be conditional").into());
             }
             extension["conditional"] = json!(true);
+        }
+        if self.pagination.is_some() && kind == Kind::Write {
+            return Err(format!("{id} writes, so it cannot have pagination").into());
         }
         if let Some(pagination) = &self.pagination {
             let mut value = json!({"style": pagination.style.as_str()});
@@ -270,16 +315,139 @@ pub struct Generator;
 impl Plugin for Generator {
     type File = File;
 
-    /// Returns the files of the TypeScript clients, then operations.json.
+    /// Returns the files of the TypeScript clients, then operations.json,
+    /// the guide and the worksheet.
     fn generate(&self, forge: &Forge) -> Result<impl Iterator<Item = File>, Err> {
-        let manifest = File::Text {
-            path: "operations.json".to_owned(),
-            content: manifest(forge)?,
+        let text = |path: &str, content: String| File::Text {
+            path: path.to_owned(),
+            content,
         };
+        let texts = [
+            text("operations.json", manifest(forge)?),
+            text("GUIDE.md", GUIDE.to_owned()),
+            text("WORKSHEET.md", worksheet(forge)),
+        ];
         let clients = ts::generate(forge, ts::Transport::Provider, &ROLES, &RUNTIME)?;
-        Ok(clients.map(File::Sdk).chain(std::iter::once(manifest)))
+        Ok(clients.map(File::Sdk).chain(texts))
     }
 }
+
+/// The guide for the agent that writes the gatekeeper: what the generated
+/// files change in the steps of the kit's `write-gatekeeper` skill.
+const GUIDE: &str = include_str!("gatekeeper/GUIDE.md");
+
+/// Returns WORKSHEET.md: the operations that read, then those that write,
+/// each with the decisions the spec cannot make, for an agent to fill in
+/// and a person to review.
+fn worksheet(forge: &Forge) -> String {
+    let methods: Vec<Method<'_>> = forge.groups().flat_map(|group| group.methods()).collect();
+    let mut text = String::from(WORKSHEET_INTRO);
+    text.push_str("\n## Reads\n\n");
+    text.push_str(WORKSHEET_READS);
+    for &method in methods.iter().filter(|&&method| reads(method)) {
+        heading(&mut text, method, "reads");
+        if method.http_method().as_str() == "POST" {
+            text.push_str(
+                "- It is sent with `POST`, and the config says it reads. Why it changes nothing and can be sent twice:\n",
+            );
+        }
+        text.push_str(FIELDS);
+        text.push_str("- Session methods that return its data:\n");
+        text.push_str("- Subresources each of them reports:\n");
+        text.push_str(
+            "- How `verifyObserverAccess` checks each kind of those for an observer, or that the data is private-only:\n",
+        );
+        text.push_str("- Whether the observation sets `containsRestrictedData` or `ownerInvitesOnly`:\n");
+        text.push_str(
+            "- Statuses and bodies that mean no access, and those that are indeterminate and are thrown again:\n",
+        );
+        text.push_str("- Or it only prepares an action, and is not an observation:\n");
+        let fact = |key| ts::client::provider_fact(method, key);
+        if fact("conditional").and_then(Json::as_bool) == Some(true) {
+            text.push_str(
+                "- Cache: it is conditional. Revalidated with its `ETag`, a TTL, or none, and what the cache is partitioned by:\n",
+            );
+        } else {
+            text.push_str("- Cache: a TTL or none, and what the cache is partitioned by:\n");
+        }
+        if let Some(pagination) = fact("pagination") {
+            let style = pagination.get("style").and_then(Json::as_str).unwrap_or_default();
+            let items = pagination.get("items").and_then(Json::as_str);
+            let items = match items.and_then(|items| items_field(method, Some(items))) {
+                Some(field) => format!("the items are in `data.{field}`"),
+                None => "the response is the array of items".to_owned(),
+            };
+            text.push_str(&format!(
+                "- Cursor: it pages by `{style}`, and {items}. The kit cursor that wraps it, and what each page reports:\n"
+            ));
+        }
+    }
+    text.push_str("\n## Writes\n\n");
+    text.push_str(WORKSHEET_WRITES);
+    for &method in methods.iter().filter(|&&method| writes(method)) {
+        heading(&mut text, method, "writes");
+        text.push_str(FIELDS);
+        text.push_str("- Session methods that stage it:\n");
+        text.push_str("- Action definitions, by name. A name is permanent once it ships:\n");
+        text.push_str("- Kind of each, as a tag and a label a user would enable, such as \"Edit labels\":\n");
+        if method.http_method().as_str() == "DELETE" {
+            text.push_str(
+                "- `autoApprovable` of each. It is sent with `DELETE`, so rule 1 of the skill's opt-out policy (it deletes or removes content) applies unless you say why not:\n",
+            );
+        } else {
+            text.push_str(
+                "- `autoApprovable` of each: `true`, or `false` with the number of the rule of the skill's opt-out policy. Check each of its seven rules, such as passing a governance gate or changing permissions, and not only deletion:\n",
+            );
+        }
+        text.push_str("- What the description shows the person who approves, and the reads that build it:\n");
+        text.push_str("- How reads show it while it is pending:\n");
+        text.push_str("- What a second attempt does, and what a timeout means:\n");
+        text.push_str("- Revert, if it has one:\n");
+    }
+    text
+}
+
+/// Prints the heading of `method` in the worksheet: how the client named
+/// `client` calls it, its `operationId`, its request line and its summary.
+fn heading(text: &mut String, method: Method<'_>, client: &str) {
+    let mut call: Vec<String> = method.group().path().map(|name| name.camel()).collect();
+    call.push(method.name().camel());
+    let id = ts::client::provider_fact(method, "operationId")
+        .and_then(Json::as_str)
+        .unwrap_or_default();
+    text.push_str(&format!("\n### `{client}.{}`\n\n", call.join(".")));
+    text.push_str(&format!(
+        "`{id}`: `{} {}`\n",
+        method.http_method().as_str(),
+        method.path()
+    ));
+    let summary = method.summary().trim();
+    if !summary.is_empty() {
+        text.push_str(&format!("\n{}\n", summary.replace('\n', " ")));
+    }
+    text.push('\n');
+}
+
+/// The line of the worksheet that asks where the fields of a request come
+/// from.
+const FIELDS: &str =
+    "- Request fields the binding fixes, and those a caller gives, with how each of those is checked:\n";
+
+const WORKSHEET_INTRO: &str = "\
+# Worksheet
+
+Forge generated this list from the config of the gatekeeper. It has every operation the generated clients cover, with what the spec cannot decide about it. GUIDE.md says how to use it.
+
+Copy this file out of the generated directory before you fill it in: this copy is replaced each time Forge runs. Answer every line, with \"none\" where that is the answer. A person reviews the answers with `types.d.ts`.
+";
+
+const WORKSHEET_READS: &str = "\
+An operation that reads is called from session code, through the client of reads. The observation is authorized once for each session method, not for each operation, so one answer can cover several of these.
+";
+
+const WORKSHEET_WRITES: &str = "\
+An operation that writes is called only from the apply handler of an action, through the client of writes. One operation can serve several actions, and one action can call several operations.
+";
 
 /// Returns operations.json: the methods in the order of their groups, each
 /// with where the SDK has it, its request line, and what the config says.
@@ -322,12 +490,45 @@ fn entry(method: Method<'_>) -> Result<Value, Err> {
     }
     if let Some(pagination) = extension.get("pagination") {
         let mut value = json!({"style": string(pagination, "style")});
-        if let Some(items) = string(pagination, "items") {
-            value["items"] = json!(items);
+        let items = string(pagination, "items");
+        match (&items, items_field(method, items.as_deref())) {
+            (_, None) => {
+                let what = match &items {
+                    Some(items) => format!("an array in the property {items}"),
+                    None => "an array".to_owned(),
+                };
+                return Err(format!("{id} pages, but no response of it is {what}").into());
+            }
+            (Some(items), Some(field)) => {
+                value["items"] = json!(items);
+                value["field"] = json!(field);
+            }
+            (None, Some(_)) => {}
         }
         entry["pagination"] = value;
     }
     Ok(entry)
+}
+
+/// Returns the field of the response of `method` that holds the items of a
+/// page, which is the property `items`: empty when `items` is `None` and
+/// the response is the array itself. `None` when no response has the array.
+fn items_field(method: Method<'_>, items: Option<&str>) -> Option<String> {
+    fn resolved(ty: Type<'_>) -> Type<'_> {
+        match ty {
+            Type::Model(model) => resolved(model.ty()),
+            ty => ty,
+        }
+    }
+    let (types, _) = ts::client::response(method);
+    types.into_iter().map(resolved).find_map(|ty| match (ty, items) {
+        (Type::Array(_), None) => Some(String::new()),
+        (Type::Object(object), Some(items)) => object
+            .fields()
+            .find(|field| field.wire_name() == items && matches!(resolved(field.ty()), Type::Array(_)))
+            .map(|field| field.name().camel()),
+        _ => None,
+    })
 }
 
 /// A file of a gatekeeper.
@@ -363,7 +564,9 @@ mod tests {
 
     use super::{Config, Generator};
 
-    /// A document with three operations, a property named `+1` and a date.
+    /// A document with operations of each kind, among them one that is
+    /// skipped and one of a path item that a path refers to, a property
+    /// named `+1` and dates.
     const SPEC: &str = r##"{
       "openapi": "3.0.3",
       "info": {"title": "t", "version": "1"},
@@ -402,14 +605,44 @@ mod tests {
             "operationId": "logs/get",
             "responses": {"200": {"description": "ok", "content": {"text/plain": {"schema": {"type": "string"}}}}}
           }
-        }
+        },
+        "/issues/{id}": {
+          "delete": {
+            "operationId": "issues/delete",
+            "parameters": [{"name": "id", "in": "path", "required": true, "schema": {"type": "string"}}],
+            "responses": {"204": {"description": "ok"}}
+          }
+        },
+        "/runs": {
+          "get": {
+            "operationId": "runs/list",
+            "x-forge-skip": true,
+            "responses": {
+              "200": {"description": "ok", "content": {"application/json": {"schema": {
+                "type": "object",
+                "properties": {
+                  "total": {"type": "integer"},
+                  "work_runs": {"type": "array", "items": {"$ref": "#/components/schemas/issue"}}
+                }
+              }}}}
+            }
+          }
+        },
+        "/shared": {"$ref": "#/components/pathItems/shared"}
       },
       "components": {
+        "pathItems": {
+          "shared": {
+            "get": {"operationId": "shared/get", "responses": {"204": {"description": "ok"}}}
+          }
+        },
         "schemas": {
           "issue": {
             "type": "object",
             "properties": {
               "created_at": {"type": "string", "format": "date-time"},
+              "closed_at": {"type": ["string", "null"], "format": "date-time"},
+              "properties": {"type": "object", "properties": {"format": {"type": "string"}}},
               "reactions": {"$ref": "#/components/schemas/reactions"}
             }
           },
@@ -501,6 +734,77 @@ mod tests {
     }
 
     #[test]
+    fn the_worksheet_has_the_decisions_of_each_operation() {
+        let config = r#"{
+          "operations": {
+            "issues/list": {
+              "group": "issues",
+              "name": "list",
+              "conditional": true,
+              "pagination": {"style": "link-header"}
+            },
+            "runs/list": {
+              "group": "runs",
+              "name": "list",
+              "pagination": {"style": "link-header", "items": "work_runs"}
+            },
+            "issues/create": {"group": "issues", "name": "create"},
+            "issues/delete": {"group": "issues", "name": "delete"},
+            "search/issues": {"group": "issues", "name": "search", "kind": "read"}
+          },
+          "properties": {"+1": "plus_one", "-1": "minus_one"}
+        }"#;
+        let files = generate(config).unwrap();
+        let worksheet = &files["WORKSHEET.md"];
+        let (reads, writes) = worksheet.split_once("\n## Writes\n").unwrap();
+        assert!(
+            reads.contains("### `reads.issues.list`\n\n`issues/list`: `GET /issues`\n"),
+            "{reads}"
+        );
+        assert!(reads.contains("- Cache: it is conditional."), "{reads}");
+        assert!(
+            reads.contains("- Cursor: it pages by `link-header`, and the response is the array of items."),
+            "{reads}"
+        );
+        assert!(
+            reads.contains("- Cursor: it pages by `link-header`, and the items are in `data.workRuns`."),
+            "{reads}"
+        );
+        // A read that is not sent with GET is asked why it is one.
+        let search = &reads[reads.find("### `reads.issues.search`").unwrap()..];
+        assert!(
+            search.contains("- It is sent with `POST`, and the config says it reads."),
+            "{search}"
+        );
+        assert_eq!(reads.matches("- It is sent with `POST`").count(), 1, "{reads}");
+        assert!(reads.contains("- Request fields the binding fixes"), "{reads}");
+        assert!(reads.contains("- How `verifyObserverAccess` checks"), "{reads}");
+        assert!(!reads.contains("issues.create"), "{reads}");
+        assert!(
+            writes.contains("### `writes.issues.create`\n\n`issues/create`: `POST /issues`\n"),
+            "{writes}"
+        );
+        assert!(
+            writes.contains("- `autoApprovable` of each: `true`, or `false`"),
+            "{writes}"
+        );
+        let delete = &writes[writes.find("### `writes.issues.delete`").unwrap()..];
+        assert!(delete.contains("It is sent with `DELETE`, so rule 1"), "{delete}");
+        let operations: Value = serde_json::from_str(&files["operations.json"]).unwrap();
+        let runs = operations["operations"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|operation| operation["operationId"] == "runs/list")
+            .unwrap();
+        assert_eq!(
+            runs["pagination"],
+            serde_json::json!({"style": "link-header", "items": "work_runs", "field": "workRuns"})
+        );
+        assert!(files["GUIDE.md"].starts_with("# Building a gatekeeper on these files\n"));
+    }
+
+    #[test]
     fn a_conditional_operation_returns_a_304() {
         let config = r#"{
           "operations": {
@@ -585,12 +889,109 @@ mod tests {
         let root = &files["client.ts"];
         assert!(root.contains("readonly issues: IssuesReadClient;"), "{root}");
         assert!(root.contains("readonly issues: IssuesWriteClient;"), "{root}");
+        // What creates a client is in a file of its own, and not in the
+        // index, which has the types.
         let index = &files["index.ts"];
-        assert!(index.contains("  createReadClient,\n  createWriteClient,\n"), "{index}");
+        assert!(!index.contains("createReadClient"), "{index}");
+        assert!(!index.contains("createWriteClient"), "{index}");
         assert!(
             index.contains("  ReadClient,\n  WriteClient,\n  ClientOptions,\n"),
             "{index}"
         );
+        for path in ["read.ts", "issues/read.ts"] {
+            let read = &files[path];
+            assert!(
+                read.contains("export { createReadClient } from \"./client.js\";")
+                    && read.contains("export type { ReadClient } from \"./client.js\";")
+                    && !read.contains("Write"),
+                "{read}"
+            );
+        }
+        let write = &files["issues/write.ts"];
+        assert!(
+            write.contains("export { createWriteClient } from \"./client.js\";") && !write.contains("Read"),
+            "{write}"
+        );
+    }
+
+    #[test]
+    fn only_a_get_a_head_or_a_post_can_be_a_read() {
+        let config = r#"{"operations": {"issues/delete": {"group": "issues", "name": "delete", "kind": "read"}}}"#;
+        assert_eq!(
+            generate(config).unwrap_err(),
+            "issues/delete is sent with DELETE, so it cannot be a read"
+        );
+    }
+
+    #[test]
+    fn a_method_cannot_be_named_then() {
+        let config = r#"{"operations": {"issues/list": {"group": "issues", "name": "then"}}}"#;
+        assert_eq!(generate(config).unwrap_err(), "issues/list cannot be named then");
+    }
+
+    #[test]
+    fn the_items_of_a_page_are_an_array_of_the_response() {
+        let config = |operation: &str| {
+            format!(r#"{{"operations": {{{operation}}}, "properties": {{"+1": "plus_one", "-1": "minus_one"}}}}"#)
+        };
+        let wrong = config(r#""runs/list": {"name": "list", "pagination": {"style": "link-header", "items": "typo"}}"#);
+        assert_eq!(
+            generate(&wrong).unwrap_err(),
+            "runs/list pages, but no response of it is an array in the property typo"
+        );
+        let scalar =
+            config(r#""runs/list": {"name": "list", "pagination": {"style": "link-header", "items": "total"}}"#);
+        assert_eq!(
+            generate(&scalar).unwrap_err(),
+            "runs/list pages, but no response of it is an array in the property total"
+        );
+        let object = config(r#""runs/list": {"name": "list", "pagination": {"style": "link-header"}}"#);
+        assert_eq!(
+            generate(&object).unwrap_err(),
+            "runs/list pages, but no response of it is an array"
+        );
+        let write = config(r#""issues/create": {"name": "create", "pagination": {"style": "link-header"}}"#);
+        assert_eq!(
+            generate(&write).unwrap_err(),
+            "issues/create writes, so it cannot have pagination"
+        );
+    }
+
+    #[test]
+    fn an_operation_of_the_config_that_is_skipped_is_generated() {
+        let config = r#"{
+          "operations": {"runs/list": {"group": "runs", "name": "list"}},
+          "properties": {"+1": "plus_one", "-1": "minus_one"}
+        }"#;
+        let files = generate(config).unwrap();
+        assert!(files["runs/client.ts"].contains("list("), "{}", files["runs/client.ts"]);
+    }
+
+    #[test]
+    fn an_operation_of_a_path_item_that_a_path_refers_to_is_one_of_the_document() {
+        // It is left out when the config does not have it, as CONFIG does not.
+        let files = generate(CONFIG).unwrap();
+        assert!(!files["operations.json"].contains("shared/get"));
+        let config = r#"{"operations": {"shared/get": {"group": "shared", "name": "get"}}}"#;
+        let files = generate(config).unwrap();
+        assert!(files["operations.json"].contains(r#""operationId": "shared/get""#));
+        assert!(
+            files["shared/client.ts"].contains("get("),
+            "{}",
+            files["shared/client.ts"]
+        );
+    }
+
+    #[test]
+    fn a_property_can_be_named_like_a_keyword_of_a_schema() {
+        let config = r#"{
+          "operations": {"issues/list": {"group": "issues", "name": "list"}},
+          "properties": {"+1": "plus_one", "-1": "minus_one", "properties": "props", "format": "shape"}
+        }"#;
+        let files = generate(config).unwrap();
+        let models = &files["issues/models.ts"];
+        assert!(models.contains("props?: "), "{models}");
+        assert!(models.contains("props?: { shape?: string };"), "{models}");
     }
 
     #[test]
@@ -650,6 +1051,14 @@ mod tests {
             .map(|(_, content)| content.as_str())
             .collect();
         assert!(!models.contains("Unused"), "{models}");
+    }
+
+    #[test]
+    fn a_date_that_can_be_null_is_a_string() {
+        let files = generate(CONFIG).unwrap();
+        let models = &files["issues/models.ts"];
+        assert!(models.contains("closedAt?: string | null;"), "{models}");
+        assert!(!models.contains("Temporal"), "{models}");
     }
 
     #[test]

@@ -77,9 +77,12 @@ export class ApiError extends Error {
 }
 
 /**
- * A success response whose body is not what the operation declares: it is
- * not JSON, or it does not decode. It has no status, so that nothing reads
- * it as an error response of the API, and it does not have the body.
+ * A success response whose body cannot be read as the operation declares:
+ * it is not JSON, its codec throws, or it is empty where the operation has
+ * a body. A body of JSON with other fields or types than the operation
+ * declares is not checked, and is returned as it is. The error has no
+ * status, so that nothing reads it as an error response of the API, and
+ * neither the body nor the error of the parser, which quotes it.
  */
 export class DecodeError extends Error {
   /**
@@ -87,8 +90,8 @@ export class DecodeError extends Error {
    */
   readonly operationId: string;
 
-  constructor(operationId: string, options?: ErrorOptions) {
-    super(`${operationId}: the response body is not what the operation declares`, options);
+  constructor(operationId: string) {
+    super(`${operationId}: the response body is not what the operation declares`);
     this.name = 'DecodeError';
     this.operationId = operationId;
   }

@@ -12,13 +12,14 @@ Most of a gatekeeper is not in its provider's spec. Which reads a person should 
 
 What the spec does describe is the provider's HTTP API, which every gatekeeper wraps in a hand-written client today. That client is what Forge generates.
 
-| Forge generates                                      | An agent writes, with guidance                                |
-| ---------------------------------------------------- | ------------------------------------------------------------- |
-| Types and operation tables for the chosen operations | The agent-facing contract, `types.d.ts`, reviewed by a person |
-| A typed client, split into reads and writes          | Session classes, and the helper that authorizes their reads   |
-| What each operation is: kind, pagination, route      | The action table: kinds, approval text, auto-approval         |
-| A fake provider that records calls, for tests        | Simulation, caching and normalizers                           |
-| Tests of the approval rules, over that fake          | What the spec does not cover, such as GraphQL or git          |
+| Forge generates                                        | An agent writes, with guidance                                |
+| ------------------------------------------------------ | ------------------------------------------------------------- |
+| Types and operation tables for the chosen operations   | The agent-facing contract, `types.d.ts`, reviewed by a person |
+| A typed client, split into reads and writes            | Session classes, and the helper that authorizes their reads   |
+| What each operation is: kind, pagination, route        | The action table: kinds, approval text, auto-approval         |
+| A guide, and a worksheet of each operation's decisions | Simulation, caching and normalizers                           |
+| Proposed: a fake provider that records calls           | The answers to the worksheet                                  |
+| Proposed: tests of the approval rules, over that fake  | What the spec does not cover, such as GraphQL or git          |
 
 The generator stops at the API layer. Wiring the worker, OAuth and deployment stay with the gatekeeper kit and the agent.
 
@@ -56,9 +57,9 @@ The config says which operations the gatekeeper covers, and what the spec does n
 
 - **`operations`** is keyed by `operationId`. An operation that is not listed is not generated. An `operationId` the spec does not have is an error.
   - `name` is the method name, and `group` is its group path, with dots between group names. Without `group`, the method is in the root.
-  - `kind` is `read` or `write`. Without it, `GET` and `HEAD` read and every other method writes. It is there for cases such as a search sent with `POST`.
+  - `kind` is `read` or `write`. Without it, `GET` and `HEAD` read and every other method writes. It is there for a search or a query sent with `POST`, which is the one other method that can be a read: the code of a session has every read, and may send one twice.
   - `conditional` says that a request can ask for the response only if it has changed, with `If-None-Match` or `If-Modified-Since`. Its method returns a 304 response, which is otherwise thrown. An operation that writes cannot be conditional.
-  - `pagination` says how the operation pages. The one `style` so far is `link-header`. `items` names the property that holds the items when the response is not the array itself.
+  - `pagination` says how the operation pages. The one `style` so far is `link-header`. `items` names the property that holds the items when the response is not the array itself. A response of the operation must have that array, and only a read can page.
 - **`properties`** gives a field name to properties whose wire names do not make one, by wire name. GitHub's `+1` and `-1` are both the name "1" otherwise, which is an error.
 
 Unknown keys are errors, so a typo is not silently ignored.
@@ -68,10 +69,11 @@ Unknown keys are errors, so a typo is not silently ignored.
 The config is applied to the spec before Forge links it, as a change to the document:
 
 - A listed operation gets `x-forge-group-name` and `x-forge-method-name`, and an `x-gatekeeper` extension with its `operationId`, `kind`, `conditional` and `pagination`.
-- Every other operation gets `x-forge-skip: true`.
+- Every other operation gets `x-forge-skip: true`, and a listed one loses it.
+- That covers the path items under `components.pathItems`, which a path can refer to.
 - Every operation loses its `x-forge-aliases`, since the config is what names methods.
 - A listed property gets `x-forge-property-name`, unless it has one.
-- A string loses its `date-time` or `date` format.
+- A string loses its `date-time` or `date` format, and so does a string that can be null.
 
 Doing this before linking means the operations left out, and the models only they use, are never part of the generated code. It also means the target needs nothing new from Forge's model of the API or from the plugin interface: the generator reads `x-gatekeeper` the way any plugin reads an extension.
 
@@ -79,14 +81,16 @@ Dates are strings because the TypeScript SDK otherwise decodes them to `Temporal
 
 ## Output
 
-The target writes TypeScript clients for the chosen operations, and `operations.json`.
+The target writes TypeScript clients for the chosen operations, `operations.json`, and two files for the agent that writes the rest: `GUIDE.md` and `WORKSHEET.md`.
 
 ### The clients
 
 The clients have the types, the operation tables and the layout of the `ts` target's SDK, with another transport. They do not send requests themselves. They hand each one to a provider, which the gatekeeper implements:
 
 ```ts
-import { createReadClient, createWriteClient, type Provider } from './api/index.js';
+import type { Provider } from './api/index.js';
+import { createReadClient } from './api/read.js';
+import { createWriteClient } from './api/write.js';
 
 // One provider for each use of the credentials, with the token it was given.
 function provider(token: string): Provider {
@@ -122,11 +126,15 @@ const writes = createWriteClient({ provider: provider(token) });
 await writes.issues.update({ owner, repo, issueNumber: 1, title: 'New title' });
 ```
 
-Every group has two clients. The client of reads has the operations whose `kind` is `read`, and the client of writes has the rest. Neither has the methods of the other, as types or as values. A gatekeeper gives the client of reads to the code of its sessions, and the client of writes only to the code that applies an approved action, so a session cannot change anything at the provider without an approval.
+Every group has two clients. The client of reads has the operations whose `kind` is `read`, and the client of writes has the rest. Neither has the methods of the other, as types or as values, and a client gives no way to its transport or its provider.
+
+Each is created from a file of its own, `read.ts` and `write.ts`. A gatekeeper's session code imports the first, and only the module with the apply handlers imports the second. That is a convention the generated files make checkable, by a lint rule on imports or in review, and not a guarantee: code that has a provider and imports `write.ts` can write. The tests of the approval rules, below, are what would check the behaviour.
 
 The provider owns what the spec does not describe and what differs between gatekeepers: the URL of the API, the credentials and what happens when they are rejected, redirects, timeouts, and limits on the size of a body. The clients never see a token. A provider returns the status, the headers and the body as text, not a `Response`, so that it is the one place a body is read, and a fake provider in a test is three fields. The gatekeeper kit can then have one function that sends a request this way, with a provider as a thin adapter over it.
 
-A request has the `operationId` and the `kind` of its operation, its `method`, its `path`, its `query`, and its `headers` and `body`. The path and the query are apart, so a provider changes one without parsing the other. A request also has the `route` of its operation, such as `/repos/{owner}/{repo}/issues/{issueNumber}`, and the values of its path parameters before they are encoded. A provider that rewrites paths, as GitHub's does to address a repository by its id, can do so from those, and not by matching the encoded path. With the `kind`, a provider can refuse a write that does not come from an applied action.
+A request has the `operationId` and the `kind` of its operation, its `method`, its `path`, its `query`, and its `headers` and `body`. The path and the query are apart, so a provider changes one without parsing the other. A request also has the `route` of its operation, such as `/repos/{owner}/{repo}/issues/{issueNumber}`, and the values of its path parameters before they are encoded. A provider that rewrites paths, as GitHub's does to address a repository by its id, can do so from those, and not by matching the encoded path. With the `kind` and the `method`, a provider can refuse a write that does not come from an applied action.
+
+A path parameter that is `.` or `..` is refused before anything is sent. It is the one value percent-encoding leaves as it is, and a URL resolves it away with the segment before it, so the request would be another operation's than the one its `operationId` names.
 
 A call can add query parameters the spec does not declare, in its options. One replaces the parameter of the request that has its name.
 
@@ -145,7 +153,7 @@ const reads = createReadClient({
 });
 ```
 
-A 2XX response whose body is not JSON, or does not decode, is thrown as a `DecodeError`. It has no `status`, so nothing reads it as an answer of the API, and it does not have the body.
+A 2XX response whose body is not JSON, or is empty where the operation has one, is thrown as a `DecodeError`. It has no `status`, so nothing reads it as an answer of the API, and it has neither the body nor the parser's error, which quotes it. The clients do not validate a body against its type: JSON with other fields is returned as it is.
 
 ### operations.json
 
@@ -165,7 +173,41 @@ A 2XX response whose body is not JSON, or does not decode, is thrown as a `Decod
 }
 ```
 
-`operations.json` is what the rest of the target will be built from, and what an agent reads to see which decisions each operation needs.
+`operations.json` is what the rest of the target will be built from, and what an agent reads to see which decisions each operation needs. A `pagination` with `items` also has `field`, the name of that property in the generated type.
+
+### The guide and the worksheet
+
+`GUIDE.md` is the same for every gatekeeper. It does not repeat the kit's `write-gatekeeper` skill. It says what the generated files change in the skill's steps: the operations are already chosen, there is no API helper to write, and the contract is still designed by hand and reviewed before anything is implemented. It then gives the rules the clients cannot enforce by themselves:
+
+- How to write a provider, and that it is made for each use of a credential.
+- That the `error` function classifies a failure and keeps what the provider sent out of errors an agent reads, and that only a definite denial means an observer has no access.
+- That a session passes what its binding fixes, and never takes it from a caller.
+- That generated types stay out of `types.d.ts` and out of action payloads.
+- That an observation is authorized once for each session method, not for each call of a client.
+- That the client of writes is created only in an apply handler.
+- How to revalidate a conditional operation and how to follow a `Link` header.
+
+It ends by asking the agent to keep a `GAPS.md` of what it had to work around, which is the gap write-up FORGE-45 asks for.
+
+`WORKSHEET.md` lists every operation under the method that calls it, reads first, with the decisions the spec cannot make as lines to fill in:
+
+```md
+### `reads.actions.listWorkflowRuns`
+
+`actions/list-workflow-runs-for-repo`: `GET /repos/{owner}/{repo}/actions/runs`
+
+List workflow runs for a repository
+
+- Session methods that return its data:
+- Subresources each of them reports:
+- Or it only prepares an action, and is not an observation:
+- Cache: a TTL or none, and what the cache is partitioned by:
+- Cursor: it pages by `link-header`, and the items are in `workflow_runs`. The kit cursor that wraps it, and what each page reports:
+```
+
+Every operation asks which request fields the binding fixes and which a caller gives. A read also asks how an observer's access to what it reports is checked, and which failures are a denial. A read sent with `POST` asks why it changes nothing. A write asks for the session methods that stage it, its action definitions and their kinds, the `autoApprovable` verdict with the rule of the skill's opt-out policy, what the approver sees, how pending reads show it, what a retry does, and its revert. A `DELETE` is told that the rule about deleting applies unless the agent says why not.
+
+The agent copies the worksheet next to `types.d.ts` and fills it in there, since the generated copy is replaced on every run. A person reviews it with the contract.
 
 For GitHub's spec, which has 1,272 operations, a config of 19 operations generates about 4,400 lines in five groups.
 
@@ -178,12 +220,14 @@ Implemented:
 - The clients of the chosen operations, which send through a provider and return the status and headers of a response, and `operations.json`.
 - A client of reads and a client of writes for every group.
 - The provider interface: a response as status, headers and text, the operation and the split path and query on a request, conditional operations, the error function, and `DecodeError`.
+- `GUIDE.md` and `WORKSHEET.md`.
+
+Next is a first gatekeeper built by an agent on these files, in Cloudflare OS, to show what they lack.
 
 Proposed, in the order they would be built:
 
-1. **Guidance for the agent**: a worksheet of the decisions each operation needs, and the steps of the kit's `write-gatekeeper` skill that the generated files change. It comes first, so that an agent can build a first gatekeeper on the clients and show what they lack.
-2. **A fake provider that records calls.** It is generated from `operations.json`, and answers the routes of the chosen operations in the kit's worker tests.
-3. **Tests of the approval rules**, over the recorder: no write reaches the provider before an action is applied, every session read authorizes an observation with subresources before it returns, and an action that deletes is not approved automatically unless it says why. The agent gives the session methods and example arguments.
+1. **A fake provider that records calls.** It is generated from `operations.json`, and answers the routes of the chosen operations in the kit's worker tests.
+2. **Tests of the approval rules**, over the recorder: no write reaches the provider before an action is applied, every session read authorizes an observation with subresources before it returns, and an action that deletes is not approved automatically unless it says why. The agent gives the session methods and example arguments.
 
 ## Decisions
 
@@ -206,4 +250,6 @@ Proposed, in the order they would be built:
 - **Paging by `Link`.** GitHub's `next` link carries a cursor the spec does not declare, next to the page number. A cursor should follow the link, not count pages, which needs a way to send a request to a URL the provider gave.
 - **Operations that are not JSON.** The SDK leaves them out, and listing one in the config is an error. GitHub's logs, diffs and `git` endpoints are of this kind, along with what it only offers through GraphQL. They stay hand-written.
 - **Path parameters with slashes**, such as a file path or a branch name. The SDK percent-encodes the whole value. Whether each provider accepts that has to be checked against the real API.
+- **A method and a group with one name.** The printers the clients share with the SDK give them one property, and its type does not compile. The config makes that easy to write.
+- **A filled worksheet as an input.** The worksheet is prose today. If its answers settle into a shape, such as an action's name, kind and verdict, they could move into the config and be checked.
 - **The kit's assembly layer.** The kit plans base classes for the vendor, user, account and resource objects. Once they exist, the target can generate against them, and the scaffold it needs becomes much smaller.

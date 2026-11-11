@@ -125,6 +125,25 @@ describe('Transport', () => {
     await assert.rejects(transport.send(get, { owner: 'o', path: 'p' }, undefined), new TypeError('repo is required'));
   });
 
+  test('a path parameter cannot be a dot segment', async () => {
+    const { transport, requests } = fake();
+    for (const repo of ['.', '..']) {
+      await assert.rejects(
+        transport.send(get, { owner: 'o', repo, path: 'p' }, undefined),
+        new TypeError(`repo cannot be "${repo}"`),
+      );
+    }
+    assert.equal(requests.length, 0);
+  });
+
+  test('a path parameter with a dot segment inside it is encoded', async () => {
+    const { transport, requests } = fake(json({}), json({}));
+    await transport.send(get, { owner: 'o', repo: 'r', path: '../x' }, undefined);
+    await transport.send(get, { owner: 'o', repo: 'r', path: '%2e%2e' }, undefined);
+    assert.equal(requests[0]?.path, '/repos/o/r/contents/..%2Fx');
+    assert.equal(requests[1]?.path, '/repos/o/r/contents/%252e%252e');
+  });
+
   test('encodes the body, without the parameters', async () => {
     const { transport, requests } = fake(json({ id: 1 }, 201));
     const result = await transport.send(create, { owner: 'o', repo: 'r', issueTitle: 't' }, undefined);
@@ -146,10 +165,31 @@ describe('Transport', () => {
   });
 
   test('a response without a body has no data', async () => {
-    const { transport } = fake(response('', 204));
-    const result = await transport.send(get, { owner: 'o', repo: 'r', path: 'p' }, undefined);
+    const { transport } = fake(response('', 204), response('', 200));
+    const request = { owner: 'o', repo: 'r', path: 'p' };
+    const result = await transport.send(get, request, undefined);
     assert.equal(result.data, undefined);
     assert.equal(result.status, 204);
+    // An operation that declares no body may have none with any status.
+    const none: Operation = { id: 'repos/star', kind: 'write', method: 'PUT', route: '/starred/{owner}/{repo}' };
+    assert.equal((await transport.send(none, request, undefined)).status, 200);
+  });
+
+  test('an empty body where the operation declares one is thrown', async () => {
+    const { transport } = fake(response('', 200));
+    await assert.rejects(transport.send(get, { owner: 'o', repo: 'r', path: 'p' }, undefined), DecodeError);
+  });
+
+  test('a status that is not a number is not a success', async () => {
+    const { transport } = fake(json({}, Number.NaN), json({}, '200' as never));
+    const request = { owner: 'o', repo: 'r', path: 'p' };
+    await assert.rejects(transport.send(get, request, undefined), ApiError);
+    await assert.rejects(transport.send(get, request, undefined), ApiError);
+  });
+
+  test('an error function that returns no error leaves the ApiError', async () => {
+    const { transport } = fakeWith({ error: () => undefined as never }, json({ message: 'Not Found' }, 404));
+    await assert.rejects(transport.send(get, { owner: 'o', repo: 'r', path: 'p' }, undefined), ApiError);
   });
 
   test('an error response is thrown, with its body decoded', async () => {
@@ -237,6 +277,7 @@ describe('Transport', () => {
       assert.ok(error instanceof DecodeError);
       assert.equal(error.message, 'repos/get-content: the response body is not what the operation declares');
       assert.equal('status' in error, false);
+      assert.equal(error.cause, undefined);
       return true;
     });
   });

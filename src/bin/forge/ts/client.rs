@@ -92,6 +92,10 @@ pub(crate) struct Role {
     pub(crate) create: &'static str,
     /// Reports whether it has a method.
     pub(crate) has: fn(Method<'_>) -> bool,
+    /// The file of a group that exports the function that creates it, such
+    /// as `read.ts`, when it is not the group's index.ts. With a file of
+    /// its own, what may create the client can be told by what it imports.
+    pub(crate) entry: Option<&'static str>,
 }
 
 impl Role {
@@ -101,6 +105,7 @@ impl Role {
         bind: "bind",
         create: "createClient",
         has: every_method,
+        entry: None,
     };
 }
 
@@ -416,7 +421,7 @@ fn response_type(f: &mut File, m: Method<'_>) {
 
 /// Returns the types of the JSON bodies of the success responses of `m`,
 /// each model once, and whether a success response can have no body.
-pub(super) fn response(m: Method<'_>) -> (Vec<Type<'_>>, bool) {
+pub(crate) fn response(m: Method<'_>) -> (Vec<Type<'_>>, bool) {
     let mut types = Vec::new();
     let mut optional = false;
     let mut seen: HashSet<Model<'_>> = HashSet::new();

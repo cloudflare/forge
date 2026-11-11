@@ -74,16 +74,19 @@ pub(crate) fn generate(
     Ok(files.into_iter())
 }
 
-/// Returns the client.ts, models.ts and index.ts of `group`. A group without
-/// models has an empty models.ts, which isn't written.
+/// Returns the client.ts, models.ts and index.ts of `group`, then the file
+/// of each of `roles` that has one. A group without models has an empty
+/// models.ts, which isn't written.
 fn group_files(group: Group<'_>, transport: Transport, roles: &[client::Role]) -> Result<Vec<File>, Err> {
     types::with_transport(transport, || {
         let models = models::models(group).map_err(|errs| errs.join("\n"))?;
-        Ok(vec![
+        let mut files = vec![
             File::Ts(client::client(group, transport, roles)),
             File::Ts(models),
             File::Ts(index::index(group, transport, roles)),
-        ])
+        ];
+        files.extend(roles.iter().filter_map(|role| index::entry(group, role)).map(File::Ts));
+        Ok(files)
     })
 }
 

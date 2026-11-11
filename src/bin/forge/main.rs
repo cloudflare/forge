@@ -172,7 +172,9 @@ fn read_with(path: &Path, change: impl FnOnce(&mut serde_json::Value) -> Result<
     let parse = || -> Result<Forge, Err> {
         let mut doc = serde_json::from_slice(&read_bytes(path)?)?;
         change(&mut doc)?;
-        Ok(serde_json::from_slice(&serde_json::to_vec(&doc)?)?)
+        // Not from its text, whose lines and columns are not those of the
+        // file.
+        Ok(serde_json::from_value(doc)?)
     };
     parse().map_err(|err| format!("{}: {err}", path.display()).into())
 }
