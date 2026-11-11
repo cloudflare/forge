@@ -26,6 +26,7 @@ Then write the config, a JSON file, and run Forge with `--config` and without `-
   - `parameters`: a schema for a parameter, by name, in place of the document's, where the document is wrong.
   - `omitParameters`: parameters to leave out.
   - `failure`: `property` and `equals`, for an API that answers a failure with a 2XX.
+- `security`: the security scheme a connection uses, by its name in the document, when the document has several. The generated provider sends its credential.
 - `bound`: the path parameters a connection is bound to, as an array of names. No request type has a field for one: the client takes them once, as `bound`, when it is created.
 - `int64`: `"number"` when the API's `int64`s fit a number. They are `bigint` otherwise.
 - `omitParameters` and `failure`, for every operation.
@@ -63,6 +64,7 @@ A guess of the scout is not a fact. Check how an operation pages against the pro
 - `index.ts`, which has the types of the runtime, and a directory for each group, whose `index.ts` has the request and response types of its operations. Import those from `./api/<group>/index.js`. Types of the same name in two groups, such as `GetResponse`, need an alias. A type from a document with no shared schemas is written in place and can be one very long line: read it through the compiler or the editor, not by eye. Every field has the name the provider gives it, such as `created_at` or `team_ids[]`, so the types match the provider's documentation and what its webhooks send.
 - `client.ts` in each directory, which the files above import. Do not import it.
 - `_/`: the runtime the clients import. It has no dependencies.
+- `provider.ts`, which exports `createProvider`, for the server and the security scheme of the document, and what classifies a failure: `reasonOf`, `reasonMessage` and `retryAfterSeconds`.
 - `pages.ts`, when the config gives an operation a `pagination`: a pager for each such operation, named after its groups and its method, as `issuesList` is for `reads.issues.list`.
 - `operations.json`: the servers and security schemes of the API, and each operation with its `operationId`, the method that calls it, whether it reads or writes, how it pages, the path parameters the binding fixes (`bound`), what it asks of a credential (`security`), the errors it declares (`errors`), and what of its response has no type to rely on (`trust`).
 - `WORKSHEET.md`: the decisions each operation needs from you.
@@ -74,66 +76,43 @@ A guess of the scout is not a fact. Check how an operation pages against the pro
 
 **Steps 2 and 3, design the session types and stop for review.** Nothing changes. `types.d.ts` is designed for the agent that will use it, above the provider's API, and a person approves it before you implement. The generated types never appear in it: it must be self-contained, and the provider's shapes are not what an agent should see. Copy `WORKSHEET.md` out of this directory, next to `types.d.ts`, and fill it in as you design. Present it with the contract. The copy here is replaced on every run, so a later run shows new operations as a diff against yours.
 
-**Step 4, implement.** `<name>-api.ts` has no method for each endpoint any more. It keeps what is the gatekeeper's own: the provider, the error class and what classifies it, and helpers that page. Create the clients on the provider, and write the session classes on the clients. The rules are below.
+**Step 4, implement.** `<name>-api.ts` has no method for each endpoint any more. It keeps what is the gatekeeper's own: the error class, what the provider documents about its failures, and the adapter from a pager to the kit's cursor. Create the clients on the provider, and write the session classes on the clients. The rules are below.
 
 **Phase 2, actions.** The client of writes is what an action's apply handler calls. Nothing else may hold it.
 
 ## The provider
 
-A provider sends one request and returns the status, the headers and the body as text. It is the only code that has the URL of the API and a credential.
+A provider sends one request and returns the status, the headers and the body as text. It is the only code that has the URL of the API and a credential. `provider.ts` has `createProvider`, which makes one from what the document says: its server, and the security scheme a connection uses.
 
 ```ts
-import { readTextCapped } from '@gadgets/gatekeeper-kit/response-body';
-import type { Failure, Provider } from './api/index.js';
+import { createProvider } from './api/provider.js';
 import { createReadClient } from './api/read.js';
 
-// The largest page asked for is well under this.
-const MAX_RESPONSE_BYTES = 4 * 1024 * 1024;
-
-function provider(token: string): Provider {
-  return {
-    async send(request) {
-      const headers = new Headers(request.headers);
-      headers.set('authorization', `Bearer ${token}`);
-      headers.set('accept', 'application/json');
-      const url = new URL(`https://api.example.com${request.path}`);
-      url.search = request.query.toString();
-      const timeout = AbortSignal.timeout(30_000);
-      let response: Response;
-      try {
-        response = await fetch(url, {
-          method: request.method,
-          headers,
-          body: request.body,
-          redirect: 'manual',
-          signal: request.signal ? AbortSignal.any([request.signal, timeout]) : timeout,
-        });
-      } catch (error) {
-        // No response: a timeout, or the network. It has no status.
-        throw new Error('Could not reach Example; please try again.', { cause: error });
-      }
-      if (response.status >= 300 && response.status < 400) {
-        // Not followed, and its body is not read.
-        await response.body?.cancel();
-        return { status: response.status, headers: response.headers, text: '' };
-      }
-      return {
-        status: response.status,
-        headers: response.headers,
-        text: await readTextCapped(response, MAX_RESPONSE_BYTES),
-      };
-    },
-  };
-}
+const reads = createReadClient({
+  provider: createProvider({ token, server: { region } }),
+  error: errorOf,
+});
 ```
 
+Read the `ProviderOptions` of your `provider.ts` for what it takes. It depends on the document:
+
+- The URL is the server of the document. A variable of it, such as a region, is an option under `server`, and a value the document does not list is refused. Where the document names no server, or several, `baseUrl` is an option.
+- The credential is an option named for the scheme: `token`, `username` and `password`, or `apiKey`. Where the document has several schemes, name the one a connection uses as `security` in the config. Where it has none, or the scheme does not say what the API really takes, `authorize` is an option: a function that sets the header or the query parameter. An API key that a document declares as the whole `Authorization` header is sent as you give it, so give it with its prefix.
+
+What it does for every request, which you do not write:
+
+- It sets the credential after the headers of the call, so a call cannot replace it.
+- It sets `accept` to `application/json` unless a call set one. Give `accept` for an API that versions by media type.
+- It does not follow a redirect, which would carry the credential elsewhere. The redirect is thrown as a failure.
+- It reads no more of a body than `maxResponseBytes`, which is 4 MiB unless you give one, and throws a `ResponseTooLargeError` past it. Choose the limit from the largest page you ask for.
+- It gives up after `timeoutMs`, which is 30 seconds unless you give one. A request with no response is thrown as an `UnreachableError`. Neither error has a status. For a write, whether the change was made is then not known.
+- It refuses a write unless `writes` is true. Give `writes: true` only to the provider of the client of writes.
+
+Rules that are still yours:
+
 - Make a provider for each use of a credential, inside `CredentialSource.run()`, with the credential it was given. Do not keep one across calls.
-- Set `accept`. The clients set no header but `content-type` for a body, so without it `fetch` asks for anything. An API that versions by media type takes its version here.
 - The imports above end in `.js`. Leave the extension out where the repository imports that way.
-- Do not follow redirects with the credential attached. Return the redirect and let the call fail, unless the provider documents the redirect and you check where it goes.
-- Limit the size of the body. The provider is the only place it is read.
-- A request has `operationId`, `kind`, `route` and `params` next to its `path` and `query`. Use them to rewrite a path, such as to address a resource by an id you pinned, and not a match on the encoded path.
-- A provider that is only ever given to the client of reads should refuse a request whose `kind` is `write`, and one whose `method` is not `GET`, `HEAD` or a `POST` you know. The `kind` is what the config says, so check the method too.
+- Write a provider of your own, on the `Provider` interface, only for what `createProvider` cannot do: a request to rewrite, or a redirect the provider documents and you check. A request has `operationId`, `kind`, `route` and `params` next to its `path` and `query`. Use them to rewrite a path, and not a match on the encoded path. Wrap the generated provider where you can, and keep its limits where you cannot.
 - The clients refuse a path parameter that is `.` or `..`, which would make the path another operation's. Every other value is percent-encoded, so a path needs nothing from the kit's `pathSegment`. Still check an identifier a caller gives against the shape the provider documents before you send it.
 
 ## Requests
@@ -150,22 +129,18 @@ A request is one object: the path and query parameters of the operation, and the
 A response that is not 2XX is thrown. Give the clients an `error` function that returns the gatekeeper's own error class. It gets the status, the headers and the body, and it is where you decide what kind of failure this was. `details` is the body as it parsed when it is JSON, and as text when it is not:
 
 ```ts
-const reads = createReadClient({
-  provider: provider(token),
-  error: (failure) => new ExampleApiError(failure.operationId, failure.status, reasonOf(failure)),
-});
+import { reasonMessage, reasonOf, type Reason } from './api/provider.js';
 
-// What the failure means, from what the provider documents.
-function reasonOf(failure: Failure): 'credential' | 'denied' | 'missing' | 'rate-limit' | 'other' {
-  if (failure.status === 429) return 'rate-limit';
-  if (failure.status === 401) return 'credential';
-  if (failure.status === 403) return 'denied';
-  if (failure.status === 404) return 'missing';
-  return 'other';
+function errorOf(failure: Failure): ExampleApiError {
+  // What the provider documents that a status alone does not say.
+  const reason: Reason = reasonOf(failure, { 404: 'denied' });
+  return new ExampleApiError(failure.operationId, failure.status, reason, reasonMessage(reason, 'Example'));
 }
 ```
 
-- Keep a numeric `status` on the error, and the reason. A status is not enough: many providers answer a rate limit with a 403, and some hide a resource the caller cannot see behind a 404. Read the headers and `details` to tell them apart, as the provider documents.
+`reasonOf` says what a status means by default: `credential` for a 401, `denied` for a 403, `missing` for a 404 or 410, `rate-limit` for a 429, `invalid` for a 400 or 422, `conflict` for a 409 or 412, `unavailable` for a 5XX, and `other`. It is a default and not a fact about the provider. Its second argument has what the provider documents otherwise, by status. `reasonMessage` is a message for a reason with nothing the provider sent in it. `retryAfterSeconds(failure.headers)` reads when a rate limit says to try again. The error class is yours, since the kit decides what it extends.
+
+- Keep a numeric `status` on the error, and the reason. A status is not enough: many providers answer a rate limit with a 403, and some hide a resource the caller cannot see behind a 404. Where a rule by status cannot say it, read the headers and `details` before you call `reasonOf`, as the provider documents.
 - When you check whether an observer has access, only a definite denial is "no". An expired credential, a rate limit, an outage and a `DecodeError` are indeterminate, and are thrown again. The kit's `isNoAccessError` and `probeAccess` take any 401, 403 or 404 for a denial, so do not use them alone as that check.
 - Classify only a rejected credential as an auth error for `CredentialSource`. A 403 or 404 for one resource is not one.
 - Do not put `failure.message` or `failure.details` in an error an agent can read, or in a log. They are what the provider sent, and can hold another user's data.
@@ -173,7 +148,7 @@ function reasonOf(failure: Failure): 'credential' | 'denied' | 'missing' | 'rate
 - Some providers answer a failure with a 2XX and say so in the body. When the config names what says so, such a response is thrown like any other failure, with `source: 'body'` and its 2XX `status`. No status tells you what it means, so classify it from `details`, and do not let a check for `status >= 400` take it for a success.
 - A 2XX response whose body is not JSON, or is empty where the operation has one, is thrown as a `DecodeError`, which has no `status`. The clients do not check that a body has the fields its type says. Check what you depend on when you map it.
 - A write that answers a 2XX with no body, where the operation has one, is not thrown: `data` is `undefined`, which its type says. A `DecodeError` from a write still means that the provider answered a 2XX, so the change was made. Do not report it as an outcome that is unknown, or as a change that was not made.
-- The kit's `readTextCapped` throws an error of its own, without a status, for a body over its limit, which is 1 MiB unless you give one. Choose the limit from the largest page you ask for, and decide what that error means.
+- A `ResponseTooLargeError` and an `UnreachableError` come from the provider, not from the API, and have no status. Decide what each means: for a read, usually to try again or to ask for less.
 
 ## Reads
 

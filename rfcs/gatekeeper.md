@@ -115,6 +115,7 @@ The config says which operations the gatekeeper covers, and what the spec does n
 
   The first version only listed them. A second gatekeeper for Sentry then passed the organization by hand at a dozen call sites, each one a place to take it from a caller by mistake.
 
+- **`security`** names the security scheme a connection uses, when the document has several. The generated provider sends its credential. A name the document does not have is an error.
 - **`int64`** is `"number"` to make an `int64` a `number` in the generated types, and not a `bigint`. It is for an API whose `int64`s are counts and positions, as Jira's `startAt` is.
 
 Unknown keys are errors, so a typo is not silently ignored.
@@ -238,6 +239,23 @@ const page = await pages.issuesList.fetch(reads, first, next);
 
 A pager reads one page. The session method still decides when a page is read and authorizes it. It does not loop, and it does not check a `next` that a caller gives back: the guide says to seal it or check it. The file is written only when an operation pages.
 
+### provider.ts
+
+Both Sentry gatekeepers wrote a provider that was the guide's example nearly word for word, and a function from a status to a reason. `provider.ts` has both, as far as the document says them.
+
+`createProvider` makes a provider over `fetchProvider` of the runtime, which sends a request with `fetch`: it does not follow a redirect, reads no more of a body than a limit, gives up after a time, sets the credential last, and refuses a write unless it is told that it writes. What `createProvider` adds is from the document:
+
+- **The server.** One server with a whole URL is the base URL, and its variables are options, checked against the values the document lists. With no server, several, or one that is only a path, the base URL is an option.
+- **The credential.** A bearer token, a basic user name and password, or an API key in a header or the query, by the security scheme. With several schemes the config names one. With none, or one Forge has no place for, how a request is authorized is an option.
+
+```ts
+createProvider({ token, server: { region: 'de' }, writes: true });
+```
+
+For errors, the runtime has `reasonOf`, which maps a status to one of eight reasons and takes the provider's exceptions by status, `reasonMessage`, which words a reason without anything the provider sent, and `retryAfterSeconds`. They are defaults. The error class is not generated, since the kit decides what it extends, and neither is what a failure means for an observer's access.
+
+A document can be wrong here too. PagerDuty's declares its key as the `Authorization` header, where the API takes `Token token=<key>`, so the key is given with its prefix.
+
 ### operations.json
 
 ```json
@@ -331,6 +349,7 @@ Implemented:
 - The scout, its catalog and its questions, and its facts in `operations.json` and the worksheet.
 - `bound`, a schema for a parameter, and the last page of a `link-header` listing, in the config.
 - `pages.ts`, with a pager for every operation that pages, and a parser of the `Link` header.
+- `provider.ts`, with a provider for the server and the security scheme of the document, and what classifies a failure by its status.
 
 Two gatekeepers were built by an agent on these files in Cloudflare OS, to show what they lack: a port of the PagerDuty one, and a new one for Sentry. The scout and the three config keys come from the second.
 
@@ -359,7 +378,7 @@ Proposed, in the order they would be built:
 - **Parameters whose names collide.** The config names properties, not parameters. Two parameters of one operation with the same name, such as `account_id` and `accountId`, are an error until the config can name them.
 - **`Temporal` in the runtime library.** The models no longer use it, but the date codecs the clients share with the SDK still name it, so a project needs a TypeScript `lib` that declares it.
 - **The transport is a copy.** The clients' transport builds paths and bodies and reads error messages as the SDK's does, in code of its own. The two should share that code once the provider interface has settled.
-- **Sending a request, in the kit.** Every gatekeeper writes its own `fetch` wrapper today. One function in the kit that returns the status, the headers and the capped text, with hooks for the URL, redirects and headers, would make a provider a few lines.
+- **Sending a request, in the kit.** The runtime now has a `fetch` provider of its own, since generated code cannot import the kit. The kit has `readTextCapped` and error classes that do the same. One of the two should give way once it is clear which gatekeepers use.
 - **`$ref`s into `paths`.** Forge follows a `$ref` to a schema in `components.schemas`, and to the schema of a parameter, a request body or a response in `components`, such as `#/components/responses/Conflict/content/application~1json/schema`, which PagerDuty's document has on every operation. It does not follow one into `paths`. PagerDuty's document has two schemas with one, which no operation tried so far uses. This is a limit of Forge, not of this target.
 - **Other ways to page.** A page number cannot be declared yet.
 - **Swagger 2.0.** Forge does not read it. Slack's document is one, and was tried from a conversion.

@@ -45,6 +45,8 @@ pub struct Catalog {
     /// What to tell whoever generates from the config: the operations of
     /// the config that look like they page, and have no pagination there.
     pub warnings: Vec<String>,
+    /// The security scheme that the config says a connection uses.
+    pub security: Option<String>,
 }
 
 impl Catalog {
@@ -104,6 +106,7 @@ impl Catalog {
             operations,
             questions,
             warnings,
+            security: config.and_then(|config| config.security.clone()),
         }
     }
 
@@ -1081,6 +1084,18 @@ fn questions(api: &Value, operations: &[Value], config: Option<&Config>) -> Vec<
             None,
             "The document declares no OAuth flow. If the gatekeeper connects with OAuth, where are the authorize and token endpoints, which scopes does it ask for, and does a token expire?"
                 .to_owned(),
+        );
+    }
+
+    // The generated provider sends the credential of one scheme.
+    if schemes.len() > 1 && config.is_none_or(|config| config.security.is_none()) {
+        let names: Vec<&str> = schemes.iter().filter_map(|scheme| scheme["name"].as_str()).collect();
+        ask(
+            None,
+            format!(
+                "The document declares the security schemes `{}`. Which does a connection use? The config names it as `\"security\"`, and the generated provider then sends its credential.",
+                names.join("`, `")
+            ),
         );
     }
 

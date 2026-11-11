@@ -29,6 +29,18 @@ export {
   withClient,
 } from './page.js';
 export {
+  fetchProvider,
+  type FetchProviderOptions,
+  type Reason,
+  reasonMessage,
+  reasonOf,
+  ResponseTooLargeError,
+  retryAfterSeconds,
+  type ServerVariable,
+  serverUrl,
+  UnreachableError,
+} from './provider.js';
+export {
   type BaseClientOptions,
   type NotModified,
   type Operation,

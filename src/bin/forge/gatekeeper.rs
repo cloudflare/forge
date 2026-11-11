@@ -34,11 +34,12 @@ pub use scout::Catalog;
 
 /// The sources of the runtime library, by path in the generated `_/`: the
 /// codecs of the TypeScript SDK's, and errors and a transport of its own.
-const RUNTIME: [(&str, &str); 5] = [
+const RUNTIME: [(&str, &str); 6] = [
     ("codec.ts", include_str!("ts/lib/src/codec.ts")),
     ("error.ts", include_str!("gatekeeper/lib/src/error.ts")),
     ("index.ts", include_str!("gatekeeper/lib/src/index.ts")),
     ("page.ts", include_str!("gatekeeper/lib/src/page.ts")),
+    ("provider.ts", include_str!("gatekeeper/lib/src/provider.ts")),
     ("transport.ts", include_str!("gatekeeper/lib/src/transport.ts")),
 ];
 
@@ -110,6 +111,10 @@ pub struct Config {
     /// operation, for a session to set and never take from its caller.
     #[serde(default)]
     bound: Vec<String>,
+    /// The security scheme of the document that a connection uses, by
+    /// name, when the document has several. The generated provider sends
+    /// its credential.
+    security: Option<String>,
 }
 
 /// What says that a 2XX response is a failure: the property of its body
@@ -708,9 +713,225 @@ impl Plugin for Generator {
             text("WORKSHEET.md", worksheet(forge, self.catalog.as_ref())),
         ];
         let pages = pagers(forge)?.map(|content| text("pages.ts", content));
+        let provider = match &self.catalog {
+            Some(catalog) => Some(text("provider.ts", provider(catalog)?)),
+            None => None,
+        };
         let clients = ts::generate(forge, ts::Transport::Provider, &ROLES, &RUNTIME)?;
-        Ok(clients.map(File::Sdk).chain(texts).chain(pages))
+        Ok(clients.map(File::Sdk).chain(texts).chain(pages).chain(provider))
     }
+}
+
+/// Returns provider.ts: a function that creates a provider for the server
+/// and the security scheme of the document, over the `fetch` provider of
+/// the runtime, with what classifies a failure.
+///
+/// The URL is that of the server when the document has one, with its
+/// variables as options, and an option otherwise. The credential is that
+/// of the security scheme the config names, or of the only one. Where the
+/// document has none or several, or one whose credential has no known
+/// place, how a request is authorized is an option.
+fn provider(catalog: &Catalog) -> Result<String, Err> {
+    let quote = |text: &str| Value::from(text).to_string();
+    let mut fields = String::new();
+    let mut taken = Vec::new();
+
+    // The server.
+    let servers = catalog.api["servers"].as_array().map(Vec::as_slice).unwrap_or_default();
+    let absolute = |server: &&Value| {
+        let url = server["url"].as_str().unwrap_or_default();
+        url.starts_with("https://") || url.starts_with("http://")
+    };
+    let base_url = match servers {
+        [server] if absolute(&server) => {
+            let url = server["url"].as_str().unwrap_or_default();
+            let variables: Vec<(&String, &Value)> = server["variables"].as_object().into_iter().flatten().collect();
+            if variables.is_empty() {
+                quote(url)
+            } else {
+                let mut types = Vec::new();
+                let mut facts = Vec::new();
+                let mut required = false;
+                for (name, variable) in variables {
+                    let values: Vec<String> = variable["enum"]
+                        .as_array()
+                        .into_iter()
+                        .flatten()
+                        .filter_map(Value::as_str)
+                        .map(quote)
+                        .collect();
+                    let default = variable["default"].as_str();
+                    required |= default.is_none();
+                    let ty = if values.is_empty() {
+                        "string".to_owned()
+                    } else {
+                        values.join(" | ")
+                    };
+                    types.push(format!(
+                        "{}{}: {ty}",
+                        quote(name),
+                        if default.is_some() { "?" } else { "" }
+                    ));
+                    let mut fact = Vec::new();
+                    if let Some(default) = default {
+                        fact.push(format!("default: {}", quote(default)));
+                    }
+                    if !values.is_empty() {
+                        fact.push(format!("values: [{}]", values.join(", ")));
+                    }
+                    facts.push(format!("{}: {{ {} }}", quote(name), fact.join(", ")));
+                }
+                fields.push_str(&format!(
+                    "  /**\n   * The variables of the server URL, which is `{url}`.\n   */\n  server{}: {{ {} }};\n",
+                    if required { "" } else { "?" },
+                    types.join("; ")
+                ));
+                taken.push("server");
+                format!("serverUrl({}, {{ {} }}, server)", quote(url), facts.join(", "))
+            }
+        }
+        _ => {
+            fields.push_str(
+                "  /**\n   * The URL the paths of the API are relative to. The document does not name one server with a whole URL.\n   */\n  baseUrl: string;\n",
+            );
+            taken.push("baseUrl");
+            "baseUrl".to_owned()
+        }
+    };
+
+    // The credential.
+    let schemes = catalog.api["security"]
+        .as_array()
+        .map(Vec::as_slice)
+        .unwrap_or_default();
+    let scheme = match (&catalog.security, schemes) {
+        (Some(name), schemes) => Some(
+            schemes
+                .iter()
+                .find(|scheme| scheme["name"] == name.as_str())
+                .ok_or_else(|| format!("the document has no security scheme {name}, which the config names"))?,
+        ),
+        (None, [scheme]) => Some(scheme),
+        (None, _) => None,
+    };
+    let string = |scheme: &Value, key: &str| scheme[key].as_str().unwrap_or_default().to_owned();
+    let field = |name: &str, what: &str, scheme: &Value| {
+        format!(
+            "  /**\n   * {what} From the security scheme `{}` of the document.\n   */\n  {name}: string;\n",
+            string(scheme, "name")
+        )
+    };
+    let authorize = match scheme.map(|scheme| (scheme, string(scheme, "type"))) {
+        Some((scheme, ty)) if ty == "oauth2" || ty == "openIdConnect" => {
+            fields.push_str(&field(
+                "token",
+                "The access token of the connection, sent as `Authorization: Bearer`.",
+                scheme,
+            ));
+            taken.push("token");
+            "({ headers }) => {\n      headers.set(\"authorization\", `Bearer ${token}`);\n    }".to_owned()
+        }
+        Some((scheme, ty)) if ty == "http" => match string(scheme, "scheme").to_lowercase().as_str() {
+            "bearer" => {
+                fields.push_str(&field(
+                    "token",
+                    "The token of the connection, sent as `Authorization: Bearer`.",
+                    scheme,
+                ));
+                taken.push("token");
+                "({ headers }) => {\n      headers.set(\"authorization\", `Bearer ${token}`);\n    }".to_owned()
+            }
+            "basic" => {
+                fields.push_str(&field(
+                    "username",
+                    "The user name of the connection, sent as `Authorization: Basic`.",
+                    scheme,
+                ));
+                fields.push_str(&field(
+                    "password",
+                    "The password of the connection, or the token that takes its place.",
+                    scheme,
+                ));
+                taken.extend(["username", "password"]);
+                "({ headers }) => {\n      headers.set(\"authorization\", `Basic ${btoa(`${username}:${password}`)}`);\n    }"
+                    .to_owned()
+            }
+            _ => {
+                let name = string(scheme, "scheme");
+                fields.push_str(&field(
+                    "credential",
+                    &format!("The credential of the connection, sent as `Authorization: {name}`."),
+                    scheme,
+                ));
+                taken.push("credential");
+                format!(
+                    "({{ headers }}) => {{\n      headers.set(\"authorization\", `${{{}}} ${{credential}}`);\n    }}",
+                    quote(&name)
+                )
+            }
+        },
+        Some((scheme, ty)) if ty == "apiKey" && matches!(string(scheme, "in").as_str(), "header" | "query") => {
+            let parameter = string(scheme, "parameter");
+            let place = string(scheme, "in");
+            fields.push_str(&field(
+                "apiKey",
+                &format!("The API key of the connection, sent in the {place} `{parameter}`."),
+                scheme,
+            ));
+            taken.push("apiKey");
+            let target = if place == "header" { "headers" } else { "query" };
+            format!(
+                "({{ {target} }}) => {{\n      {target}.set({}, apiKey);\n    }}",
+                quote(&parameter)
+            )
+        }
+        _ => {
+            let why = match schemes.len() {
+                0 => "The document declares no security scheme.".to_owned(),
+                1 => "The security scheme of the document has no place for a credential that Forge knows.".to_owned(),
+                count => format!(
+                    "The document declares {count} security schemes, and the config does not name one with `security`."
+                ),
+            };
+            fields.push_str(&format!(
+                "  /**\n   * Adds the credential of the connection to a request. {why}\n   */\n  authorize: FetchProviderOptions[\"authorize\"];\n"
+            ));
+            taken.push("authorize");
+            "authorize".to_owned()
+        }
+    };
+
+    // The options of the runtime, but for the two this file decides or
+    // declares with what the document says of them.
+    let omitted = "Omit<FetchProviderOptions, \"baseUrl\" | \"authorize\">";
+    let imports = if base_url.starts_with("serverUrl(") {
+        "fetchProvider, type FetchProviderOptions, type Provider, serverUrl"
+    } else {
+        "fetchProvider, type FetchProviderOptions, type Provider"
+    };
+    let own: Vec<&str> = taken
+        .iter()
+        .copied()
+        .filter(|name| !matches!(*name, "baseUrl" | "authorize"))
+        .collect();
+    let (destructure, rest) = if own.is_empty() {
+        (String::new(), "options".to_owned())
+    } else {
+        (
+            format!("  const {{ {}, ...rest }} = options;\n", own.join(", ")),
+            "rest".to_owned(),
+        )
+    };
+    let mut overrides = String::new();
+    if base_url != "baseUrl" {
+        overrides.push_str(&format!("    baseUrl: {base_url},\n"));
+    }
+    if authorize != "authorize" {
+        overrides.push_str(&format!("    authorize: {authorize},\n"));
+    }
+    Ok(format!(
+        "// Code generated by forge. DO NOT EDIT.\n/* eslint-disable */\n\nimport {{ {imports} }} from \"./_/index.js\";\n\nexport {{ reasonMessage, reasonOf, ResponseTooLargeError, retryAfterSeconds, UnreachableError }} from \"./_/index.js\";\nexport type {{ Reason }} from \"./_/index.js\";\n\n/**\n * The options of a provider: where the API is, the credential of the\n * connection, and the options of the `fetch` provider of the runtime.\n */\nexport interface ProviderOptions extends {omitted} {{\n{fields}}}\n\n/**\n * Returns a provider that sends each request to the API with the\n * credential of the connection. It refuses a write unless `writes` is\n * true. Make one for each use of a credential.\n */\nexport function createProvider(options: ProviderOptions): Provider {{\n{destructure}  return fetchProvider({{\n    ...{rest},\n{overrides}  }});\n}}\n"
+    ))
 }
 
 /// Returns pages.ts, which has a pager of the runtime for every operation
@@ -2002,6 +2223,114 @@ mod tests {
             worksheet.contains("- The document gives its response no type, so `data` is what the provider sent"),
             "{worksheet}"
         );
+    }
+
+    #[test]
+    fn a_provider_is_generated_for_the_server_and_the_security_scheme() {
+        // The document of the tests names no server and no scheme, so
+        // both are options.
+        let files = generate(CONFIG).unwrap();
+        let provider = &files["provider.ts"];
+        assert!(provider.contains("  baseUrl: string;\n"), "{provider}");
+        assert!(
+            provider.contains("  authorize: FetchProviderOptions[\"authorize\"];\n"),
+            "{provider}"
+        );
+        assert!(
+            provider.contains("  return fetchProvider({\n    ...options,\n  });\n"),
+            "{provider}"
+        );
+
+        let generated = |servers: &str, schemes: &str, config: &str| {
+            let doc: Value = serde_json::from_str(&format!(
+                r#"{{
+                  "openapi": "3.0.3",
+                  "info": {{"title": "t", "version": "1"}},
+                  "servers": {servers},
+                  "paths": {{}},
+                  "components": {{
+                    "securitySchemes": {schemes}
+                  }}
+                }}"#
+            ))
+            .unwrap();
+            let config: Config = serde_json::from_str(config).unwrap();
+            super::provider(&Catalog::new(&doc, Some(&config))).map_err(|err| err.to_string())
+        };
+        let none = r#"{"operations": {}}"#;
+
+        // A server with variables, and a bearer token.
+        let region = r#"[{"url": "https://{region}.example.com", "variables": {"region": {"default": "us", "enum": ["us", "de"]}}}]"#;
+        let provider = generated(region, r#"{"token": {"type": "http", "scheme": "bearer"}}"#, none).unwrap();
+        assert!(
+            provider.contains(r#"  server?: { "region"?: "us" | "de" };"#),
+            "{provider}"
+        );
+        assert!(provider.contains("  token: string;\n"), "{provider}");
+        assert!(
+            provider.contains("  const { server, token, ...rest } = options;\n"),
+            "{provider}"
+        );
+        assert!(
+            provider.contains(
+                r#"    baseUrl: serverUrl("https://{region}.example.com", { "region": { default: "us", values: ["us", "de"] } }, server),"#
+            ),
+            "{provider}"
+        );
+        assert!(
+            provider.contains("      headers.set(\"authorization\", `Bearer ${token}`);\n"),
+            "{provider}"
+        );
+
+        // A variable with no default is required.
+        let tenant = r#"[{"url": "https://{tenant}.example.com", "variables": {"tenant": {}}}]"#;
+        let provider = generated(tenant, "{}", none).unwrap();
+        assert!(provider.contains(r#"  server: { "tenant": string };"#), "{provider}");
+
+        // Basic, and an API key in the query.
+        let one = r#"[{"url": "https://api.example.com/v2"}]"#;
+        let provider = generated(one, r#"{"basic": {"type": "http", "scheme": "basic"}}"#, none).unwrap();
+        assert!(
+            provider.contains(r#"    baseUrl: "https://api.example.com/v2","#),
+            "{provider}"
+        );
+        assert!(
+            provider.contains("`Basic ${btoa(`${username}:${password}`)}`"),
+            "{provider}"
+        );
+        let provider = generated(
+            one,
+            r#"{"key": {"type": "apiKey", "in": "query", "name": "api_key"}}"#,
+            none,
+        )
+        .unwrap();
+        assert!(
+            provider.contains("    authorize: ({ query }) => {\n      query.set(\"api_key\", apiKey);\n    },\n"),
+            "{provider}"
+        );
+
+        // Of several schemes, the one the config names.
+        let two = r#"{
+          "token": {"type": "http", "scheme": "bearer"},
+          "key": {"type": "apiKey", "in": "header", "name": "X-Key"}
+        }"#;
+        let provider = generated(one, two, none).unwrap();
+        assert!(
+            provider.contains("The document declares 2 security schemes, and the config does not name one"),
+            "{provider}"
+        );
+        let provider = generated(one, two, r#"{"operations": {}, "security": "key"}"#).unwrap();
+        assert!(
+            provider.contains("      headers.set(\"X-Key\", apiKey);\n"),
+            "{provider}"
+        );
+        assert_eq!(
+            generated(one, two, r#"{"operations": {}, "security": "typo"}"#).unwrap_err(),
+            "the document has no security scheme typo, which the config names"
+        );
+        // A server that is a path has no host to send to.
+        let provider = generated(r#"[{"url": "/api"}]"#, "{}", none).unwrap();
+        assert!(provider.contains("  baseUrl: string;\n"), "{provider}");
     }
 
     #[test]
