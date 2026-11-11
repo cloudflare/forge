@@ -2078,24 +2078,77 @@ impl<'d> Builder<'d> {
 
     /// Returns the schema `reference` points to, and its schema name if it
     /// is a model: a schema in `components.schemas`, or in the `$defs` of
-    /// one. Only `$ref`s into `components.schemas` are covered.
+    /// one.
+    ///
+    /// A `$ref` can point to a schema in `components.schemas` or into one,
+    /// or to or into the schema of an object in `components.parameters`,
+    /// `components.requestBodies` or `components.responses`, such as
+    /// `#/components/responses/Conflict/content/application~1json/schema`.
+    /// That object can itself be a `$ref` to another of its kind. No other
+    /// `$ref` is covered.
     fn resolve<'r>(&self, reference: &'r str) -> Result<(Schema, Option<Cow<'r, str>>), String> {
         let doc = self.doc;
+        let index = self.index;
         let mut segments = pointer(reference)?;
-        let not_covered = || format!("$ref {reference:?} is not covered: only $refs into components.schemas are");
-        let (Some(components), Some(schemas), Some(name)) = (segments.next(), segments.next(), segments.next()) else {
+        let not_covered = || {
+            format!(
+                "$ref {reference:?} is not covered: only $refs to a schema in components.schemas, or in an object of \
+                 components.parameters, components.requestBodies or components.responses, are"
+            )
+        };
+        let (Some(components), Some(kind), Some(name)) = (segments.next(), segments.next(), segments.next()) else {
             return Err(not_covered());
         };
-        if components != "components" || schemas != "schemas" {
+        if components != "components" {
             return Err(not_covered());
         }
         let points_to_nothing = || format!("$ref {reference:?} points to nothing");
-        let Some(&(mut schema)) = self.index.schemas.get(name.as_ref()) else {
+        let mut rest = segments.peekable();
+        // The schema itself, or the `content` it is in, which the segments
+        // after `content` name: the media type, then `schema`.
+        let mut schema_name = None;
+        let mut content = None;
+        let mut found = None;
+        match kind.as_ref() {
+            "schemas" => {
+                found = index.schemas.get(name.as_ref()).copied();
+                schema_name = Some(name);
+            }
+            "parameters" => {
+                if let Some(parameter) = component(doc, &index.parameters, "parameters", &name) {
+                    match rest.next().as_deref() {
+                        Some("schema") => found = Some(parameter.schema),
+                        Some("content") => content = Some(parameter.content),
+                        _ => {}
+                    }
+                }
+            }
+            "requestBodies" => {
+                if let Some(body) = component(doc, &index.request_bodies, "requestBodies", &name)
+                    && rest.next().as_deref() == Some("content")
+                {
+                    content = Some(body.content);
+                }
+            }
+            "responses" => {
+                if let Some(response) = component(doc, &index.responses, "responses", &name)
+                    && rest.next().as_deref() == Some("content")
+                {
+                    content = Some(response.content);
+                }
+            }
+            _ => return Err(not_covered()),
+        }
+        if let Some(content) = content
+            && let Some(media_type) = rest.next()
+            && rest.next().as_deref() == Some("schema")
+        {
+            found = entry(doc, content, &media_type);
+        }
+        let Some(mut schema) = found else {
             return Err(points_to_nothing());
         };
         // The schema name, while every segment so far is in `$defs`.
-        let mut schema_name = Some(name);
-        let mut rest = segments.peekable();
         while let Some(key) = rest.next() {
             let Schema::Object(object) = schema else {
                 return Err(points_to_nothing());
@@ -2169,6 +2222,31 @@ impl<'d> Builder<'d> {
 struct SchemaFlags {
     read_only: bool,
     sensitive: bool,
+}
+
+/// Returns the object named `name` in `components.{kind}`, which is
+/// `components`, or the one its `$ref` points to, following `$ref`s to
+/// others of the kind, or `None` if there is none.
+fn component<'d, T: Referable>(
+    doc: &'d Doc,
+    components: &HashMap<&str, Id<T>>,
+    kind: &str,
+    name: &str,
+) -> Option<&'d T> {
+    let mut value = doc.get(*components.get(name)?);
+    for _ in 0..32 {
+        let reference = value.reference();
+        if reference.is_empty() {
+            return Some(value);
+        }
+        let mut segments = pointer(doc.str(reference)).ok()?;
+        let (first, second, name, end) = (segments.next()?, segments.next()?, segments.next()?, segments.next());
+        if first != "components" || second != kind || end.is_some() {
+            return None;
+        }
+        value = doc.get(*components.get(name.as_ref())?);
+    }
+    None
 }
 
 /// Returns the schema of `key` in `entries`, such as `properties`.
