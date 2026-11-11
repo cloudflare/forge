@@ -24,7 +24,7 @@ impl Plugin for Generator {
 
     /// Returns the files of the SDK, which sends requests with fetch.
     fn generate(&self, forge: &Forge) -> Result<impl Iterator<Item = File>, Err> {
-        generate(forge, Transport::Fetch, &RUNTIME)
+        generate(forge, Transport::Fetch, &[client::Role::CLIENT], &RUNTIME)
     }
 }
 
@@ -43,10 +43,12 @@ pub(crate) enum Transport {
 
 /// Returns the files of the clients of `forge` on `transport`: the runtime
 /// library, whose sources are `runtime` by path, then the files of each
-/// group, which are generated in parallel.
+/// group, which are generated in parallel. Every group has a client for
+/// each of `roles`.
 pub(crate) fn generate(
     forge: &Forge,
     transport: Transport,
+    roles: &[client::Role],
     runtime: &[(&str, &str)],
 ) -> Result<std::vec::IntoIter<File>, Err> {
     let mut files: Vec<File> = runtime
@@ -59,7 +61,7 @@ pub(crate) fn generate(
     let groups: Vec<Group<'_>> = forge.groups().collect();
     let per_group = groups
         .par_iter()
-        .map(|&group| group_files(group, transport))
+        .map(|&group| group_files(group, transport, roles))
         .collect::<Result<Vec<_>, Err>>()?;
     files.extend(per_group.into_iter().flatten());
     Ok(files.into_iter())
@@ -67,13 +69,13 @@ pub(crate) fn generate(
 
 /// Returns the client.ts, models.ts and index.ts of `group`. A group without
 /// models has an empty models.ts, which isn't written.
-fn group_files(group: Group<'_>, transport: Transport) -> Result<Vec<File>, Err> {
+fn group_files(group: Group<'_>, transport: Transport, roles: &[client::Role]) -> Result<Vec<File>, Err> {
     types::with_transport(transport, || {
         let models = models::models(group).map_err(|errs| errs.join("\n"))?;
         Ok(vec![
-            File::Ts(client::client(group, transport)),
+            File::Ts(client::client(group, transport, roles)),
             File::Ts(models),
-            File::Ts(index::index(group, transport)),
+            File::Ts(index::index(group, transport, roles)),
         ])
     })
 }

@@ -19,7 +19,7 @@ use super::{Transport, request_options, runtime};
 /// then the operation of each method. The library has already rejected
 /// methods and subgroups with no name and duplicate methods, and equal
 /// group names are one group.
-pub(super) fn client(group: Group<'_>, transport: Transport) -> File {
+pub(super) fn client(group: Group<'_>, transport: Transport, roles: &[Role]) -> File {
     let groups: Vec<Group<'_>> = group.children().collect();
     let group_names: HashMap<String, Group<'_>> = groups.iter().map(|&sub| (group_name(sub), sub)).collect();
 
@@ -32,32 +32,39 @@ pub(super) fn client(group: Group<'_>, transport: Transport) -> File {
 
     let mut f = File::new(Module::group(group).sub("client.ts"));
     client_options(&mut f, transport);
-    p!(f);
-    client_interface(&mut f, &methods, &groups, &group_names, transport);
-    p!(f);
-    p!(
-        f,
-        "export function ",
-        f.ident("createClient"),
-        "(options: ",
-        f.ident("ClientOptions"),
-        "): ",
-        f.ident("Client"),
-        " {"
-    );
-    f.indent(|f| {
+    for role in roles {
+        let methods: Vec<(Method<'_>, Request<'_>)> = methods
+            .iter()
+            .filter(|&&(m, _)| (role.has)(m))
+            .map(|&(m, _)| (m, Request::new(m)))
+            .collect();
+        p!(f);
+        client_interface(&mut f, &methods, &groups, &group_names, transport, role);
+        p!(f);
         p!(
             f,
-            "return ",
-            f.ident("bind"),
-            "(new ",
-            runtime("Transport"),
-            "(options));"
+            "export function ",
+            f.ident(role.create),
+            "(options: ",
+            f.ident("ClientOptions"),
+            "): ",
+            f.ident(role.client),
+            " {"
         );
-    });
-    p!(f, "}");
-    p!(f);
-    bind(&mut f, &methods, &groups, &group_names, transport);
+        f.indent(|f| {
+            p!(
+                f,
+                "return ",
+                f.ident(role.bind),
+                "(new ",
+                runtime("Transport"),
+                "(options));"
+            );
+        });
+        p!(f, "}");
+        p!(f);
+        bind(&mut f, &methods, &groups, &group_names, transport, role);
+    }
     for (m, request) in &methods {
         p!(f);
         request_type(&mut f, *m, request);
@@ -69,6 +76,36 @@ pub(super) fn client(group: Group<'_>, transport: Transport) -> File {
         operation(&mut f, *m, request);
     }
     f
+}
+
+/// One of the clients of a group: which of the group's methods it has, and
+/// the names of what is declared for it. Every group has the same clients,
+/// so that a client has the subgroups of its group as the same client.
+#[derive(Clone, Copy)]
+pub(crate) struct Role {
+    /// The name of its interface, such as `Client`.
+    pub(crate) client: &'static str,
+    /// The name of the function that binds it to a transport, such as
+    /// `bind`.
+    pub(crate) bind: &'static str,
+    /// The name of the function that creates it, such as `createClient`.
+    pub(crate) create: &'static str,
+    /// Reports whether it has a method.
+    pub(crate) has: fn(Method<'_>) -> bool,
+}
+
+impl Role {
+    /// The one client of the SDK, which has every method.
+    pub(crate) const CLIENT: Role = Role {
+        client: "Client",
+        bind: "bind",
+        create: "createClient",
+        has: every_method,
+    };
+}
+
+fn every_method(_: Method<'_>) -> bool {
+    true
 }
 
 /// Declares the ClientOptions of a group: the options every client takes,
@@ -111,6 +148,7 @@ fn bind(
     groups: &[Group<'_>],
     group_names: &HashMap<String, Group<'_>>,
     transport: Transport,
+    role: &Role,
 ) {
     let shared: HashMap<String, Method<'_>> = methods
         .iter()
@@ -120,11 +158,11 @@ fn bind(
     p!(
         f,
         "export function ",
-        f.ident("bind"),
+        f.ident(role.bind),
         "(transport: ",
         runtime("Transport"),
         "): ",
-        f.ident("Client"),
+        f.ident(role.client),
         " {"
     );
     f.indent(|f| {
@@ -138,13 +176,13 @@ fn bind(
                         "let ",
                         name,
                         "Client: ",
-                        f.ident("Client"),
+                        f.ident(role.client),
                         "[",
                         method,
                         "] | undefined;"
                     );
                 }
-                None => p!(f, "let ", name, "Client: ", client_ident(sub), " | undefined;"),
+                None => p!(f, "let ", name, "Client: ", client_ident(sub, role), " | undefined;"),
             }
         }
         p!(f, "return {");
@@ -174,11 +212,18 @@ fn bind(
                                 send(f, m),
                                 ","
                             );
-                            p!(f, bind_ident(sub), "(transport),");
+                            p!(f, bind_ident(sub, role), "(transport),");
                         });
                         p!(f, "));");
                     }
-                    None => p!(f, "return (", name, "Client ??= ", bind_ident(sub), "(transport));"),
+                    None => p!(
+                        f,
+                        "return (",
+                        name,
+                        "Client ??= ",
+                        bind_ident(sub, role),
+                        "(transport));"
+                    ),
                 });
                 p!(f, "},");
             }
@@ -194,15 +239,15 @@ fn send(f: &File, m: Method<'_>) -> Fragment {
 }
 
 /// Returns the bind of group `g`, imported under the name of the group.
-fn bind_ident(g: Group<'_>) -> Ident {
-    let alias = format!("bind{}", identifier(g.name().pascal()));
-    Module::group(g).sub("client.ts").ident("bind").alias(alias)
+fn bind_ident(g: Group<'_>, role: &Role) -> Ident {
+    let alias = format!("{}{}", role.bind, identifier(g.name().pascal()));
+    Module::group(g).sub("client.ts").ident(role.bind).alias(alias)
 }
 
 /// Returns the Client of group `g`, imported under the name of the group.
-fn client_ident(g: Group<'_>) -> Ident {
-    let alias = format!("{}Client", identifier(g.name().pascal()));
-    Module::group(g).sub("client.ts").ident("Client").ty().alias(alias)
+fn client_ident(g: Group<'_>, role: &Role) -> Ident {
+    let alias = format!("{}{}", identifier(g.name().pascal()), role.client);
+    Module::group(g).sub("client.ts").ident(role.client).ty().alias(alias)
 }
 
 /// Declares the Client of a group: its methods, then its subgroups, which
@@ -215,12 +260,13 @@ fn client_interface(
     groups: &[Group<'_>],
     group_names: &HashMap<String, Group<'_>>,
     transport: Transport,
+    role: &Role,
 ) {
     if methods.is_empty() && groups.is_empty() {
-        p!(f, "export interface ", f.ident("Client"), " {}");
+        p!(f, "export interface ", f.ident(role.client), " {}");
         return;
     }
-    p!(f, "export interface ", f.ident("Client"), " {");
+    p!(f, "export interface ", f.ident(role.client), " {");
     let mut shared = HashSet::new();
     f.indent(|f| {
         for (m, request) in methods {
@@ -240,7 +286,7 @@ fn client_interface(
                         ") => ",
                         result(f, m, transport),
                         ") & ",
-                        client_ident(sub),
+                        client_ident(sub, role),
                         ";"
                     );
                     shared.insert(name);
@@ -250,7 +296,7 @@ fn client_interface(
         for &sub in groups {
             let name = group_name(sub);
             if !shared.contains(&name) {
-                p!(f, "readonly ", key(&name), ": ", client_ident(sub), ";");
+                p!(f, "readonly ", key(&name), ": ", client_ident(sub, role), ";");
             }
         }
     });

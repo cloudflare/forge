@@ -85,28 +85,37 @@ The target writes TypeScript clients for the chosen operations, and `operations.
 The clients have the types, the operation tables and the layout of the `ts` target's SDK, with another transport. They do not send requests themselves. They hand each one to a provider, which the gatekeeper implements:
 
 ```ts
-import { createClient, type Provider } from './api/index.js';
+import { createReadClient, createWriteClient, type Provider } from './api/index.js';
 
-const provider: Provider = {
-  async send(request) {
-    const headers = new Headers(request.headers);
-    headers.set('authorization', `Bearer ${await token()}`);
-    return fetch(`https://api.github.com${request.path}`, {
-      method: request.method,
-      headers,
-      body: request.body,
-      redirect: 'manual',
-      signal: request.signal ?? AbortSignal.timeout(30_000),
-    });
-  },
-};
+// One provider for each use of the credentials, with the token it was given.
+function provider(token: string): Provider {
+  return {
+    async send(request) {
+      const headers = new Headers(request.headers);
+      headers.set('authorization', `Bearer ${token}`);
+      const timeout = AbortSignal.timeout(30_000);
+      return fetch(`https://api.github.com${request.path}`, {
+        method: request.method,
+        headers,
+        body: request.body,
+        redirect: 'manual',
+        signal: request.signal ? AbortSignal.any([request.signal, timeout]) : timeout,
+      });
+    },
+  };
+}
 
-const github = createClient({ provider });
-const issue = await github.issues.get({ owner, repo, issueNumber: 1 });
+const reads = createReadClient({ provider: provider(token) });
+const issue = await reads.issues.get({ owner, repo, issueNumber: 1 });
 issue.data; // the decoded body
 issue.status; // 200
 issue.headers.get('etag');
+
+const writes = createWriteClient({ provider: provider(token) });
+await writes.issues.update({ owner, repo, issueNumber: 1, title: 'New title' });
 ```
+
+Every group has two clients. The client of reads has the operations whose `kind` is `read`, and the client of writes has the rest. Neither has the methods of the other, as types or as values. A gatekeeper gives the client of reads to the code of its sessions, and the client of writes only to the code that applies an approved action, so a session cannot change anything at the provider without an approval.
 
 The provider owns what the spec does not describe and what differs between gatekeepers: the URL of the API, the credentials and what happens when they are rejected, redirects, timeouts, and limits on the size of a body. The clients never see a token.
 
@@ -145,13 +154,13 @@ Implemented:
 - The `gatekeeper` target and `--config`.
 - Applying the config: selection, naming, property names and string dates.
 - The clients of the chosen operations, which send through a provider and return the status and headers of a response, and `operations.json`.
+- A client of reads and a client of writes for every group.
 
 Proposed, in the order they would be built:
 
-1. **Reads and writes as two clients.** Session code gets the client of reads. The client of writes is given only to an action's `apply`, so a session method cannot change anything outside an approved action.
+1. **Guidance for the agent**: a worksheet of the decisions each operation needs, and the steps of the kit's `write-gatekeeper` skill that the generated files change. It comes first, so that an agent can build a first gatekeeper on the clients and show what they lack.
 2. **A fake provider that records calls.** It is generated from `operations.json`, and answers the routes of the chosen operations in the kit's worker tests.
 3. **Tests of the approval rules**, over the recorder: no write reaches the provider before an action is applied, every session read authorizes an observation with subresources before it returns, and an action that deletes is not approved automatically unless it says why. The agent gives the session methods and example arguments.
-4. **Guidance for the agent**: a worksheet of the decisions each operation needs, and the steps of the kit's `write-gatekeeper` skill that the generated files change.
 
 ## Decisions
 

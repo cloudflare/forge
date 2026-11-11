@@ -10,7 +10,9 @@
 //! The clients are those of the TypeScript SDK, with another transport: it
 //! sends each request through a provider, which the gatekeeper implements
 //! and which has the URL of the API and its credentials, and a method
-//! returns the status and headers of its response with the body.
+//! returns the status and headers of its response with the body. Every
+//! group has two clients, one of the operations that read and one of those
+//! that write.
 
 use std::borrow::Cow;
 use std::collections::{BTreeMap, BTreeSet};
@@ -22,6 +24,7 @@ use serde::Deserialize;
 use serde_json::{Map, Value, json};
 
 use crate::ts;
+use crate::ts::client::Role;
 
 /// The sources of the runtime library, by path in the generated `_/`: the
 /// codecs and the error of the TypeScript SDK's, and a transport of its own.
@@ -31,6 +34,35 @@ const RUNTIME: [(&str, &str); 4] = [
     ("index.ts", include_str!("gatekeeper/lib/src/index.ts")),
     ("transport.ts", include_str!("gatekeeper/lib/src/transport.ts")),
 ];
+
+/// The clients of a group: one of the operations that read, for the code
+/// of a session, and one of those that write, for the code that applies an
+/// approved action. A client does not have the methods of the other.
+const ROLES: [Role; 2] = [
+    Role {
+        client: "ReadClient",
+        bind: "bindRead",
+        create: "createReadClient",
+        has: reads,
+    },
+    Role {
+        client: "WriteClient",
+        bind: "bindWrite",
+        create: "createWriteClient",
+        has: writes,
+    },
+];
+
+/// Reports whether `method` reads, as the config says or else as its HTTP
+/// method does.
+fn reads(method: Method<'_>) -> bool {
+    let kind = method.extension(EXTENSION).and_then(|extension| extension.get("kind"));
+    kind.and_then(Json::as_str) == Some(Kind::Read.as_str())
+}
+
+fn writes(method: Method<'_>) -> bool {
+    !reads(method)
+}
 
 /// The extension that carries what the config says about an operation from
 /// [`Config::apply`] to the generator.
@@ -233,7 +265,7 @@ impl Plugin for Generator {
             path: "operations.json".to_owned(),
             content: manifest(forge)?,
         };
-        let clients = ts::generate(forge, ts::Transport::Provider, &RUNTIME)?;
+        let clients = ts::generate(forge, ts::Transport::Provider, &ROLES, &RUNTIME)?;
         Ok(clients.map(File::Sdk).chain(std::iter::once(manifest)))
     }
 }
@@ -447,6 +479,58 @@ mod tests {
         let transport = &files["_/transport.ts"];
         assert!(transport.contains("export interface Provider {"), "{transport}");
         assert!(!files.contains_key("_/hooks/envelope.ts"));
+    }
+
+    #[test]
+    fn a_group_has_a_client_of_reads_and_a_client_of_writes() {
+        let config = r#"{
+          "operations": {
+            "issues/list": {"group": "issues", "name": "list"},
+            "issues/create": {"group": "issues", "name": "create"},
+            "search/issues": {"group": "issues", "name": "search", "kind": "read"}
+          },
+          "properties": {"+1": "plus_one", "-1": "minus_one"}
+        }"#;
+        let files = generate(config).unwrap();
+        let client = &files["issues/client.ts"];
+        // Each interface is declared up to the function that creates it.
+        let declared = |interface: &str, create: &str| {
+            let start = client
+                .find(&format!("export interface {interface} {{"))
+                .expect(interface);
+            let end = client.find(&format!("export function {create}(")).expect(create);
+            &client[start..end]
+        };
+        let reads = declared("ReadClient", "createReadClient");
+        assert!(
+            reads.contains("list(") && reads.contains("search(") && !reads.contains("create("),
+            "{reads}"
+        );
+        let writes = declared("WriteClient", "createWriteClient");
+        assert!(
+            writes.contains("create(") && !writes.contains("list(") && !writes.contains("search("),
+            "{writes}"
+        );
+        assert!(
+            client.contains("export function bindRead(transport: Transport): ReadClient {"),
+            "{client}"
+        );
+        assert!(
+            client.contains("export function bindWrite(transport: Transport): WriteClient {"),
+            "{client}"
+        );
+        assert!(!client.contains("createClient"), "{client}");
+
+        // The root has both clients, each with the group as the same client.
+        let root = &files["client.ts"];
+        assert!(root.contains("readonly issues: IssuesReadClient;"), "{root}");
+        assert!(root.contains("readonly issues: IssuesWriteClient;"), "{root}");
+        let index = &files["index.ts"];
+        assert!(index.contains("  createReadClient,\n  createWriteClient,\n"), "{index}");
+        assert!(
+            index.contains("  ReadClient,\n  WriteClient,\n  ClientOptions,\n"),
+            "{index}"
+        );
     }
 
     #[test]
