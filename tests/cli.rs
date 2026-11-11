@@ -146,7 +146,7 @@ fn gatekeeper() {
     }
     let client = std::fs::read_to_string(out.join("a/client.ts")).unwrap();
     assert!(
-        client.contains("get(request?: GetRequest, options?: RequestOptions): Promise<GetResponse>;"),
+        client.contains("get(request?: GetRequest, options?: RequestOptions): Promise<Result<GetResponse>>;"),
         "{client}"
     );
     assert!(!client.contains("delete("), "{client}");

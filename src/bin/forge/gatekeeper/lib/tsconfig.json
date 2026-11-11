@@ -1,0 +1,10 @@
+{
+  // Checks the runtime as that of the TypeScript clients is checked, with
+  // the codecs and the error it shares with it, which the generated files
+  // have next to it.
+  "extends": "../../ts/lib/tsconfig.json",
+  "compilerOptions": {
+    "rootDirs": ["src", "../../ts/lib/src"]
+  },
+  "include": ["src", "../../ts/lib/src/codec.ts", "../../ts/lib/src/error.ts"]
+}

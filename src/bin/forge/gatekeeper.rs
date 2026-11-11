@@ -4,8 +4,13 @@
 //! picks and names. The config is applied to the document before it is
 //! linked, so that the operations it leaves out, and the models only they
 //! use, are never part of the [`Forge`]. The generator then writes the
-//! TypeScript SDK of what is left, and operations.json, which says what
+//! TypeScript clients of what is left, and operations.json, which says what
 //! the config says about each operation.
+//!
+//! The clients are those of the TypeScript SDK, with another transport: it
+//! sends each request through a provider, which the gatekeeper implements
+//! and which has the URL of the API and its credentials, and a method
+//! returns the status and headers of its response with the body.
 
 use std::borrow::Cow;
 use std::collections::{BTreeMap, BTreeSet};
@@ -17,6 +22,15 @@ use serde::Deserialize;
 use serde_json::{Map, Value, json};
 
 use crate::ts;
+
+/// The sources of the runtime library, by path in the generated `_/`: the
+/// codecs and the error of the TypeScript SDK's, and a transport of its own.
+const RUNTIME: [(&str, &str); 4] = [
+    ("codec.ts", include_str!("ts/lib/src/codec.ts")),
+    ("error.ts", include_str!("ts/lib/src/error.ts")),
+    ("index.ts", include_str!("gatekeeper/lib/src/index.ts")),
+    ("transport.ts", include_str!("gatekeeper/lib/src/transport.ts")),
+];
 
 /// The extension that carries what the config says about an operation from
 /// [`Config::apply`] to the generator.
@@ -213,14 +227,14 @@ pub struct Generator;
 impl Plugin for Generator {
     type File = File;
 
-    /// Returns the files of the TypeScript SDK, then operations.json.
+    /// Returns the files of the TypeScript clients, then operations.json.
     fn generate(&self, forge: &Forge) -> Result<impl Iterator<Item = File>, Err> {
         let manifest = File::Text {
             path: "operations.json".to_owned(),
             content: manifest(forge)?,
         };
-        let sdk = ts::Generator.generate(forge)?;
-        Ok(sdk.map(File::Sdk).chain(std::iter::once(manifest)))
+        let clients = ts::generate(forge, ts::Transport::Provider, &RUNTIME)?;
+        Ok(clients.map(File::Sdk).chain(std::iter::once(manifest)))
     }
 }
 
@@ -272,7 +286,7 @@ fn entry(method: Method<'_>) -> Result<Value, Err> {
 
 /// A file of a gatekeeper.
 pub enum File {
-    /// A file of the TypeScript SDK.
+    /// A file of the TypeScript clients.
     Sdk(ts::File),
     /// A file written as it is.
     Text { path: String, content: String },
@@ -392,6 +406,46 @@ mod tests {
             .collect())
     }
 
+    /// Every source of the runtime library is embedded, and so are the
+    /// sources of the TypeScript SDK's that they import.
+    #[test]
+    fn runtime_is_complete() {
+        let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("src/bin/forge/gatekeeper/lib/src");
+        let mut own: Vec<String> = std::fs::read_dir(root)
+            .unwrap()
+            .map(|entry| entry.unwrap().file_name().into_string().unwrap())
+            .collect();
+        own.extend(["codec.ts", "error.ts"].map(String::from));
+        own.sort();
+        let embedded: Vec<&str> = super::RUNTIME.iter().map(|&(path, _)| path).collect();
+        assert_eq!(own, embedded);
+        for (path, source) in super::RUNTIME {
+            for import in source.lines().filter_map(|line| line.split(" from './").nth(1)) {
+                let file = import.trim_end_matches("';").replace(".js", ".ts");
+                assert!(embedded.contains(&file.as_str()), "{path} imports {file}");
+            }
+        }
+    }
+
+    #[test]
+    fn the_clients_send_through_a_provider() {
+        let files = generate(CONFIG).unwrap();
+        let client = &files["issues/client.ts"];
+        assert!(
+            client.contains("export type ClientOptions = BaseClientOptions;"),
+            "{client}"
+        );
+        assert!(!client.contains("baseUrl"), "{client}");
+        let index = &files["issues/index.ts"];
+        assert!(
+            index.contains("  Provider,\n  ProviderRequest,\n  RequestOptions,\n  Result,\n"),
+            "{index}"
+        );
+        let transport = &files["_/transport.ts"];
+        assert!(transport.contains("export interface Provider {"), "{transport}");
+        assert!(!files.contains_key("_/hooks/envelope.ts"));
+    }
+
     #[test]
     fn operations_json_lists_the_operations_of_the_config() {
         let files = generate(CONFIG).unwrap();
@@ -433,11 +487,13 @@ mod tests {
         let files = generate(CONFIG).unwrap();
         let client = &files["issues/client.ts"];
         assert!(
-            client.contains("list(request?: ListRequest, options?: RequestOptions): Promise<ListResponse>;"),
+            client.contains("list(request?: ListRequest, options?: RequestOptions): Promise<Result<ListResponse>>;"),
             "{client}"
         );
         assert!(
-            client.contains("search(request?: SearchRequest, options?: RequestOptions): Promise<SearchResponse>;"),
+            client.contains(
+                "search(request?: SearchRequest, options?: RequestOptions): Promise<Result<SearchResponse>>;"
+            ),
             "{client}"
         );
         assert!(!client.contains("create(") && !client.contains("open("), "{client}");

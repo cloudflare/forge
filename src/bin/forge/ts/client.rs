@@ -12,14 +12,14 @@ use super::operation::operation;
 use super::types::{
     Prec, all_optional, alternatives, doc, has_fields, identifier, js_string, key, object_like, typ, valid_name,
 };
-use super::{request_options, runtime};
+use super::{Transport, request_options, runtime};
 
 /// Returns the client.ts of `group`: its ClientOptions and Client,
 /// createClient and bind, the request and response types of each method,
 /// then the operation of each method. The library has already rejected
 /// methods and subgroups with no name and duplicate methods, and equal
 /// group names are one group.
-pub(super) fn client(group: Group<'_>) -> File {
+pub(super) fn client(group: Group<'_>, transport: Transport) -> File {
     let groups: Vec<Group<'_>> = group.children().collect();
     let group_names: HashMap<String, Group<'_>> = groups.iter().map(|&sub| (group_name(sub), sub)).collect();
 
@@ -31,9 +31,9 @@ pub(super) fn client(group: Group<'_>) -> File {
         .collect();
 
     let mut f = File::new(Module::group(group).sub("client.ts"));
-    client_options(&mut f);
+    client_options(&mut f, transport);
     p!(f);
-    client_interface(&mut f, &methods, &groups, &group_names);
+    client_interface(&mut f, &methods, &groups, &group_names, transport);
     p!(f);
     p!(
         f,
@@ -57,7 +57,7 @@ pub(super) fn client(group: Group<'_>) -> File {
     });
     p!(f, "}");
     p!(f);
-    bind(&mut f, &methods, &groups, &group_names);
+    bind(&mut f, &methods, &groups, &group_names, transport);
     for (m, request) in &methods {
         p!(f);
         request_type(&mut f, *m, request);
@@ -73,7 +73,18 @@ pub(super) fn client(group: Group<'_>) -> File {
 
 /// Declares the ClientOptions of a group: the options every client takes,
 /// and baseUrl, which is required.
-fn client_options(f: &mut File) {
+fn client_options(f: &mut File, transport: Transport) {
+    if transport == Transport::Provider {
+        p!(
+            f,
+            "export type ",
+            f.ident("ClientOptions"),
+            " = ",
+            runtime("BaseClientOptions").ty(),
+            ";"
+        );
+        return;
+    }
     p!(
         f,
         "export interface ",
@@ -99,6 +110,7 @@ fn bind(
     methods: &[(Method<'_>, Request<'_>)],
     groups: &[Group<'_>],
     group_names: &HashMap<String, Group<'_>>,
+    transport: Transport,
 ) {
     let shared: HashMap<String, Method<'_>> = methods
         .iter()
@@ -157,7 +169,7 @@ fn bind(
                                 ", options?: ",
                                 request_options(),
                                 "): ",
-                                result(f, m),
+                                result(f, m, transport),
                                 " => ",
                                 send(f, m),
                                 ","
@@ -202,6 +214,7 @@ fn client_interface(
     methods: &[(Method<'_>, Request<'_>)],
     groups: &[Group<'_>],
     group_names: &HashMap<String, Group<'_>>,
+    transport: Transport,
 ) {
     if methods.is_empty() && groups.is_empty() {
         p!(f, "export interface ", f.ident("Client"), " {}");
@@ -216,7 +229,7 @@ fn client_interface(
             let name = method_name(m);
             let params = method_params(f, m, request);
             match group_names.get(&name) {
-                None => p!(f, key(&name), "(", params, "): ", result(f, m), ";"),
+                None => p!(f, key(&name), "(", params, "): ", result(f, m, transport), ";"),
                 Some(&sub) => {
                     p!(
                         f,
@@ -225,7 +238,7 @@ fn client_interface(
                         ": ((",
                         params,
                         ") => ",
-                        result(f, m),
+                        result(f, m, transport),
                         ") & ",
                         client_ident(sub),
                         ";"
@@ -256,9 +269,13 @@ fn method_params(f: &File, m: Method<'_>, request: &Request<'_>) -> Fragment {
     )
 }
 
-/// Returns what `m` returns: a promise of its response.
-fn result(f: &File, m: Method<'_>) -> Fragment {
-    frag!("Promise<", response_ident(f, m), ">")
+/// Returns what `m` returns: a promise of its response, which a provider
+/// returns with its status and headers.
+fn result(f: &File, m: Method<'_>, transport: Transport) -> Fragment {
+    match transport {
+        Transport::Fetch => frag!("Promise<", response_ident(f, m), ">"),
+        Transport::Provider => frag!("Promise<", runtime("Result").ty(), "<", response_ident(f, m), ">>"),
+    }
 }
 
 /// Declares the request type of `m`: its parameters, then its body. A flat

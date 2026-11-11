@@ -6,13 +6,14 @@ use forge::Group;
 use forge::ts::{File, Ident, Module, p};
 
 use super::client::{request_name, response_name, skipped};
-use super::sorted_models;
+use super::{Transport, sorted_models};
 
 /// Returns the index.ts of `group`: ApiError and RequestOptions from the
-/// runtime library, so that every entry point is complete, then
+/// runtime library, so that every entry point is complete, and the types of
+/// a provider and of what a method returns when the transport is one, then
 /// createClient and the types of its client, then its models. A model named
 /// like another export is exported with a `$` added.
-pub(super) fn index(group: Group<'_>) -> File {
+pub(super) fn index(group: Group<'_>, transport: Transport) -> File {
     let mut f = File::new(Module::group(group).sub("index.ts"));
     let depth = group.path().len();
     let mut runtime = format!("{}_/index.js", "../".repeat(depth));
@@ -20,7 +21,12 @@ pub(super) fn index(group: Group<'_>) -> File {
         runtime.insert_str(0, "./");
     }
     export(&mut f, "export", &["ApiError".to_owned()], &runtime);
-    export(&mut f, "export type", &["RequestOptions".to_owned()], &runtime);
+    let types: &[&str] = match transport {
+        Transport::Fetch => &["RequestOptions"],
+        Transport::Provider => &["Provider", "ProviderRequest", "RequestOptions", "Result"],
+    };
+    let types: Vec<String> = types.iter().map(|&name| name.to_owned()).collect();
+    export(&mut f, "export type", &types, &runtime);
 
     export(&mut f, "export", &["createClient".to_owned()], "./client.js");
     let mut names = vec!["Client".to_owned(), "ClientOptions".to_owned()];
@@ -32,7 +38,8 @@ pub(super) fn index(group: Group<'_>) -> File {
     }
     export(&mut f, "export type", &names, "./client.js");
 
-    let mut taken: HashSet<String> = ["ApiError", "RequestOptions"].map(String::from).into();
+    let mut taken: HashSet<String> = HashSet::from(["ApiError".to_owned()]);
+    taken.extend(types);
     taken.extend(names);
     let mut models = Vec::new();
     for m in sorted_models(group) {

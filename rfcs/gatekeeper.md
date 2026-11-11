@@ -78,7 +78,43 @@ Dates are strings because the TypeScript SDK otherwise decodes them to `Temporal
 
 ## Output
 
-The target writes the TypeScript SDK of the chosen operations, as the `ts` target does, and `operations.json`:
+The target writes TypeScript clients for the chosen operations, and `operations.json`.
+
+### The clients
+
+The clients have the types, the operation tables and the layout of the `ts` target's SDK, with another transport. They do not send requests themselves. They hand each one to a provider, which the gatekeeper implements:
+
+```ts
+import { createClient, type Provider } from './api/index.js';
+
+const provider: Provider = {
+  async send(request) {
+    const headers = new Headers(request.headers);
+    headers.set('authorization', `Bearer ${await token()}`);
+    return fetch(`https://api.github.com${request.path}`, {
+      method: request.method,
+      headers,
+      body: request.body,
+      redirect: 'manual',
+      signal: request.signal ?? AbortSignal.timeout(30_000),
+    });
+  },
+};
+
+const github = createClient({ provider });
+const issue = await github.issues.get({ owner, repo, issueNumber: 1 });
+issue.data; // the decoded body
+issue.status; // 200
+issue.headers.get('etag');
+```
+
+The provider owns what the spec does not describe and what differs between gatekeepers: the URL of the API, the credentials and what happens when they are rejected, redirects, timeouts, and limits on the size of a body. The clients never see a token.
+
+A request has its `method`, its `path` with the query, and its `headers` and `body`. It also has the `route` of its operation, such as `/repos/{owner}/{repo}/issues/{issueNumber}`, and the values of its path parameters before they are encoded. A provider that rewrites paths, as GitHub's does to address a repository by its id, can do so from those, and not by matching the encoded path.
+
+A method returns the decoded body with the status and the headers of the response, so that a gatekeeper can read an `ETag` or a `Link` header. A response whose status is not 2XX is thrown as an `ApiError`, which has the status and the response. That includes a 304: a gatekeeper that sends `If-None-Match` catches it and answers from its cache.
+
+### operations.json
 
 ```json
 {
@@ -106,15 +142,14 @@ Implemented:
 
 - The `gatekeeper` target and `--config`.
 - Applying the config: selection, naming, property names and string dates.
-- The SDK of the chosen operations, and `operations.json`.
+- The clients of the chosen operations, which send through a provider and return the status and headers of a response, and `operations.json`.
 
 Proposed, in the order they would be built:
 
-1. **A client over the kit's transport.** The SDK's own transport takes one token, treats a 304 as an error, and returns only the decoded body. A gatekeeper needs the kit's credential source, conditional requests, response headers, and provider rules such as GitHub's rewrite to `/repositories/<id>`. The generated client would call an interface the gatekeeper implements, and return the body with the status and headers.
-2. **Reads and writes as two clients.** Session code gets the client of reads. The client of writes is given only to an action's `apply`, so a session method cannot change anything outside an approved action.
-3. **A fake provider that records calls.** It is generated from `operations.json`, and answers the routes of the chosen operations in the kit's worker tests.
-4. **Tests of the approval rules**, over the recorder: no write reaches the provider before an action is applied, every session read authorizes an observation with subresources before it returns, and an action that deletes is not approved automatically unless it says why. The agent gives the session methods and example arguments.
-5. **Guidance for the agent**: a worksheet of the decisions each operation needs, and the steps of the kit's `write-gatekeeper` skill that the generated files change.
+1. **Reads and writes as two clients.** Session code gets the client of reads. The client of writes is given only to an action's `apply`, so a session method cannot change anything outside an approved action.
+2. **A fake provider that records calls.** It is generated from `operations.json`, and answers the routes of the chosen operations in the kit's worker tests.
+3. **Tests of the approval rules**, over the recorder: no write reaches the provider before an action is applied, every session read authorizes an observation with subresources before it returns, and an action that deletes is not approved automatically unless it says why. The agent gives the session methods and example arguments.
+4. **Guidance for the agent**: a worksheet of the decisions each operation needs, and the steps of the kit's `write-gatekeeper` skill that the generated files change.
 
 ## Decisions
 
@@ -130,7 +165,9 @@ Proposed, in the order they would be built:
 
 - **Pinning the spec.** The config should name the spec it was written for, by URL and hash, so that an update is deliberate.
 - **Properties the SDK leaves out.** The SDK drops a property whose wire name is not a valid name, such as `+1`, even when it is given a field name. It is still in the response, untyped.
-- **`Temporal` in the runtime library.** The models no longer use it, but the library's date codecs still name it, so a project needs a TypeScript `lib` that declares it until the client stops using that library.
+- **`Temporal` in the runtime library.** The models no longer use it, but the date codecs the clients share with the SDK still name it, so a project needs a TypeScript `lib` that declares it.
+- **The transport is a copy.** The clients' transport builds paths and bodies and decodes errors as the SDK's does, in code of its own. The two should share that code once the provider interface has settled.
+- **Paging by `Link`.** GitHub's `next` link carries a cursor the spec does not declare, next to the page number. A cursor should follow the link, not count pages, which needs a way to send a request to a URL the provider gave.
 - **Operations that are not JSON.** The SDK leaves them out, and listing one in the config is an error. GitHub's logs, diffs and `git` endpoints are of this kind, along with what it only offers through GraphQL. They stay hand-written.
 - **Path parameters with slashes**, such as a file path or a branch name. The SDK percent-encodes the whole value. Whether each provider accepts that has to be checked against the real API.
 - **The kit's assembly layer.** The kit plans base classes for the vendor, user, account and resource objects. Once they exist, the target can generate against them, and the scaffold it needs becomes much smaller.
