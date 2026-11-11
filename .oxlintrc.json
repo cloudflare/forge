@@ -18,7 +18,7 @@
       }
     },
     {
-      "files": ["src/bin/forge/ts/lib/**"],
+      "files": ["src/bin/forge/ts/lib/**", "src/bin/forge/gatekeeper/lib/**"],
       "plugins": ["typescript", "unicorn", "oxc", "import", "node"],
       "rules": {
         "block-scoped-var": "error",

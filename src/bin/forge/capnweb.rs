@@ -258,7 +258,11 @@ fn subgroup(f: &mut File, sub: Group<'_>) {
 fn params(group: Group<'_>, m: Method<'_>) -> Fragment {
     frag!(
         "request",
-        if Request::new(m).optional() { "?: " } else { ": " },
+        if Request::new(m, ts::Transport::Fetch).optional() {
+            "?: "
+        } else {
+            ": "
+        },
         sdk(group).ident(request_name(m)).ty(),
         ", options?: ",
         options_type()

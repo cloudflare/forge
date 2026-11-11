@@ -1,0 +1,21 @@
+{
+  "name": "@internal/gatekeeper-lib",
+  "version": "0.1.0",
+  "private": true,
+  "description": "The runtime that the generated gatekeeper clients import.",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json && tsc -p tsconfig.test.json",
+    "test": "node --import ./test/register.ts --test \"test/**/*.test.ts\""
+  },
+  "devDependencies": {
+    "@types/node": "24.19.0",
+    "typescript": "7.0.2"
+  },
+  "engines": {
+    "node": ">=26"
+  }
+}

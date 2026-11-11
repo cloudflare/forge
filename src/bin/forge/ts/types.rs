@@ -1,9 +1,12 @@
 //! TypeScript types, following specs/03-schema-types.md.
 
+use std::cell::Cell;
 use std::collections::HashSet;
 
 use forge::ts::{Fragment, Ident, frag, join};
-use forge::{EnumValue, Field, Model, Number, Object, Scalar, Type};
+use forge::{Discriminator, EnumValue, Field, Model, Number, Object, Scalar, Type};
+
+use super::Transport;
 
 /// Where a type is printed, which decides whether a union or an
 /// intersection needs parentheses. An intersection inside a union has them.
@@ -108,7 +111,7 @@ pub(super) fn alternatives<'f>(types: impl IntoIterator<Item = Type<'f>>) -> Fra
 /// Returns a property of an object type, without the `;` after it.
 pub(super) fn member(field: Field<'_>) -> Fragment {
     frag!(
-        key(&field.name().camel()),
+        key(&field_name(field)),
         if field.is_required() { ": " } else { "?: " },
         typ(field.ty(), Prec::Top)
     )
@@ -147,11 +150,67 @@ pub(super) fn has_fields(t: Type<'_>) -> bool {
     matches!(t, Type::Object(object) if object.fields().any(kept))
 }
 
-/// Reports whether the SDK keeps a property: its name is valid
-/// (specs/02-naming.md). An object that leaves out a property allows other
-/// keys.
+thread_local! {
+    /// Whether the clients being printed on this thread are those of a
+    /// provider, which keep every property that has a name, under its wire
+    /// name. See [`with_transport`].
+    static PROVIDER: Cell<bool> = const { Cell::new(false) };
+}
+
+/// Runs `print`, which prints the files of clients on `transport`, with the
+/// rules of that transport for which properties are [`kept`] and what a
+/// field is named ([`field_name`]).
+///
+/// The rules are not parameters because almost every function of the
+/// printers would take it. Every file is printed on the thread that calls
+/// this, so they are kept for that thread while `print` runs.
+pub(super) fn with_transport<T>(transport: Transport, print: impl FnOnce() -> T) -> T {
+    struct Restore(bool);
+    impl Drop for Restore {
+        fn drop(&mut self) {
+            PROVIDER.set(self.0);
+        }
+    }
+    let _restore = Restore(PROVIDER.replace(transport == Transport::Provider));
+    print()
+}
+
+/// Reports whether the clients keep a property, or a query parameter. An
+/// object that leaves out a property allows other keys.
+///
+/// The SDK keeps one whose wire name is valid (specs/02-naming.md), and
+/// leaves out one such as `name.eq` or `@type`. The clients of a provider
+/// keep every one that has a name, since a gatekeeper covers few operations
+/// and is written against all of what they take and return.
 pub(super) fn kept(field: Field<'_>) -> bool {
-    valid_name(field.wire_name())
+    valid_name(field.wire_name()) || PROVIDER.get() && !field.name().is_empty()
+}
+
+/// Returns the name of the field of the property that discriminates a
+/// union, as [`field_name`] names a field.
+pub(super) fn discriminator_name(d: Discriminator<'_>) -> String {
+    if PROVIDER.get() {
+        d.wire_name().to_owned()
+    } else {
+        d.name().camel()
+    }
+}
+
+/// Returns the name of the field of a property, or of a parameter, in the
+/// types of the clients.
+///
+/// The SDK names it in camel case, and its codecs rename it
+/// (specs/09-case-conversion.md). The clients of a provider keep its wire
+/// name: a gatekeeper is written against the documentation of the provider
+/// and reads the same objects from its webhooks, and a property that the
+/// document does not declare cannot be renamed, so a value would have some
+/// names of each kind.
+pub(super) fn field_name(field: Field<'_>) -> String {
+    if PROVIDER.get() {
+        field.wire_name().to_owned()
+    } else {
+        field.name().camel()
+    }
 }
 
 /// Reports whether `t` is an object type with fields, a model of one, or a

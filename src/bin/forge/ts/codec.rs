@@ -12,7 +12,7 @@ use std::collections::HashSet;
 use forge::ts::{File, Fragment, Ident, frag, join, p};
 use forge::{Discriminator, Field, Model, Number, Scalar, Type};
 
-use super::types::{elem, fields, has_fields, js_string, kept, key};
+use super::types::{discriminator_name, elem, field_name, fields, has_fields, js_string, kept, key};
 use super::{RUNTIME_INDEX, runtime};
 
 /// Reports whether model `m` declares a codec: it needs one, and its codec
@@ -123,7 +123,7 @@ fn scalar_codec(scalar: Scalar) -> Option<Ident> {
 /// its field name when it is renamed, then the codec of its value when it is
 /// converted. It returns an empty fragment when neither is needed.
 fn entry(field: Field<'_>) -> Fragment {
-    let name = field.name().camel();
+    let name = field_name(field);
     let renamed = name != field.wire_name();
     let codec = codec(field.ty(), false);
     if !kept(field) || !renamed && codec.is_empty() {
@@ -144,7 +144,7 @@ fn entry(field: Field<'_>) -> Fragment {
 /// Returns the codec of a union that a property discriminates: the codec of
 /// each case that needs one, by the value of the property.
 fn discriminator(d: Discriminator<'_>) -> Fragment {
-    let name = d.name().camel();
+    let name = discriminator_name(d);
     let mut cases: Vec<(&str, Model<'_>)> = d
         .cases()
         .filter_map(|(value, ty)| match ty {
@@ -194,7 +194,7 @@ pub(super) fn needs_codec<'f>(t: Type<'f>, seen: &mut HashSet<Model<'f>>) -> boo
         Type::Array(array) => needs_codec(array.elem(), seen),
         Type::Object(object) => {
             let converts = |field: Field<'f>, seen: &mut HashSet<Model<'f>>| {
-                kept(field) && (field.name().camel() != field.wire_name() || needs_codec(field.ty(), seen))
+                kept(field) && (field_name(field) != field.wire_name() || needs_codec(field.ty(), seen))
             };
             for field in object.fields() {
                 if converts(field, seen) {

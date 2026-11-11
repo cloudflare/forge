@@ -22,35 +22,72 @@ pub struct Generator;
 impl Plugin for Generator {
     type File = File;
 
-    /// Returns the runtime library, then the files of each group, which are
-    /// generated in parallel.
+    /// Returns the files of the SDK, which sends requests with fetch.
     fn generate(&self, forge: &Forge) -> Result<impl Iterator<Item = File>, Err> {
-        let mut files: Vec<File> = RUNTIME
-            .iter()
-            .map(|&(path, source)| File::Runtime {
-                path: RUNTIME_DIR.sub(path).as_str().to_owned(),
-                content: format!("{PREAMBLE}{source}"),
-            })
-            .collect();
-        let groups: Vec<Group<'_>> = forge.groups().collect();
-        let per_group = groups
-            .par_iter()
-            .map(|&group| group_files(group))
-            .collect::<Result<Vec<_>, Err>>()?;
-        files.extend(per_group.into_iter().flatten());
-        Ok(files.into_iter())
+        generate(forge, Transport::Fetch, &[client::Role::CLIENT], &RUNTIME)
     }
 }
 
-/// Returns the client.ts, models.ts and index.ts of `group`. A group without
-/// models has an empty models.ts, which isn't written.
-fn group_files(group: Group<'_>) -> Result<Vec<File>, Err> {
-    let models = models::models(group).map_err(|errs| errs.join("\n"))?;
-    Ok(vec![
-        File::Ts(client::client(group)),
-        File::Ts(models),
-        File::Ts(index::index(group)),
-    ])
+/// What sends the requests of the clients, which decides what their
+/// methods return and what their options are.
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub(crate) enum Transport {
+    /// The transport of the SDK, which sends requests with fetch. A method
+    /// returns the body of its response.
+    Fetch,
+    /// A transport that sends requests through a provider, which has the
+    /// URL of the API and its credentials. A method returns the body of its
+    /// response with its status and headers. What the provider is told of
+    /// an operation is in its [`PROVIDER_EXTENSION`].
+    Provider,
+}
+
+/// The extension of an operation that says what a provider is told of it:
+/// its `operationId`, its `kind`, which is `read` or `write`, and whether it
+/// is `conditional`, which is to say that a 304 response is returned and not
+/// thrown.
+pub(crate) const PROVIDER_EXTENSION: &str = "x-gatekeeper";
+
+/// Returns the files of the clients of `forge` on `transport`: the runtime
+/// library, whose sources are `runtime` by path, then the files of each
+/// group, which are generated in parallel. Every group has a client for
+/// each of `roles`.
+pub(crate) fn generate(
+    forge: &Forge,
+    transport: Transport,
+    roles: &[client::Role],
+    runtime: &[(&str, &str)],
+) -> Result<std::vec::IntoIter<File>, Err> {
+    let mut files: Vec<File> = runtime
+        .iter()
+        .map(|&(path, source)| File::Runtime {
+            path: RUNTIME_DIR.sub(path).as_str().to_owned(),
+            content: format!("{PREAMBLE}{source}"),
+        })
+        .collect();
+    let groups: Vec<Group<'_>> = forge.groups().collect();
+    let per_group = groups
+        .par_iter()
+        .map(|&group| group_files(group, transport, roles))
+        .collect::<Result<Vec<_>, Err>>()?;
+    files.extend(per_group.into_iter().flatten());
+    Ok(files.into_iter())
+}
+
+/// Returns the client.ts, models.ts and index.ts of `group`, then the file
+/// of each of `roles` that has one. A group without models has an empty
+/// models.ts, which isn't written.
+fn group_files(group: Group<'_>, transport: Transport, roles: &[client::Role]) -> Result<Vec<File>, Err> {
+    types::with_transport(transport, || {
+        let models = models::models(group).map_err(|errs| errs.join("\n"))?;
+        let mut files = vec![
+            File::Ts(client::client(group, transport, roles)),
+            File::Ts(models),
+            File::Ts(index::index(group, transport, roles)),
+        ];
+        files.extend(roles.iter().filter_map(|role| index::entry(group, role)).map(File::Ts));
+        Ok(files)
+    })
 }
 
 /// A file of the SDK.

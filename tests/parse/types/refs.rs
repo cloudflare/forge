@@ -778,3 +778,159 @@ fn default_next_to_a_property_ref_is_ignored_in_3_0() {
     assert_eq!(field(object, "size").default(), Some(&Json::Number(10.0)));
     assert_eq!(field(object, "count").default(), None);
 }
+
+/// Returns an OpenAPI 3.0.3 document with one method, `a.get`, whose JSON
+/// response has the schema `schema`, and with `components` as its
+/// `components`.
+fn responding_with_components(schema: &str, components: &str) -> String {
+    format!(
+        r#"{{
+          "openapi": "3.0.3",
+          "info": {{"title": "t", "version": "1"}},
+          "paths": {{
+            "/a": {{
+              "get": {{
+                "x-forge-group-name": "a",
+                "x-forge-method-name": "get",
+                "responses": {{"200": {{
+                  "description": "ok",
+                  "content": {{"application/json": {{"schema": {schema}}}}}
+                }}}}
+              }}
+            }}
+          }},
+          "components": {components}
+        }}"#
+    )
+}
+
+#[test]
+fn ref_to_the_schema_of_a_response_is_written_in_place() {
+    let forge = parse(&responding_with_components(
+        r##"{"$ref": "#/components/responses/Conflict/content/application~1json/schema"}"##,
+        r#"{
+          "responses": {
+            "Conflict": {
+              "description": "conflict",
+              "content": {"application/json": {"schema": {
+                "type": "object",
+                "properties": {"code": {"type": "boolean"}}
+              }}}
+            }
+          }
+        }"#,
+    ));
+
+    let code = field(object(response_type(&forge, "a.get")), "code");
+    assert_eq!(scalar(code.ty()), Scalar::Boolean);
+    assert!(models(&forge).is_empty(), "{:?}", models(&forge));
+}
+
+#[test]
+fn ref_into_the_schema_of_a_response_is_written_in_place() {
+    let forge = parse(&responding_with_components(
+        r##"{"$ref": "#/components/responses/Data/content/application~1json/schema/oneOf/1"}"##,
+        r#"{
+          "responses": {
+            "Data": {
+              "description": "data",
+              "content": {"application/json": {"schema": {"oneOf": [{"type": "string"}, {"type": "boolean"}]}}}
+            }
+          }
+        }"#,
+    ));
+
+    assert_eq!(scalar(response_type(&forge, "a.get")), Scalar::Boolean);
+}
+
+#[test]
+fn ref_to_the_schema_of_a_response_follows_the_ref_of_the_response() {
+    let forge = parse(&responding_with_components(
+        r##"{"$ref": "#/components/responses/Gone/content/application~1json/schema"}"##,
+        r##"{
+          "responses": {
+            "Gone": {"$ref": "#/components/responses/Missing"},
+            "Missing": {"description": "missing", "content": {"application/json": {"schema": {"type": "string"}}}}
+          }
+        }"##,
+    ));
+
+    assert_eq!(scalar(response_type(&forge, "a.get")), Scalar::String);
+}
+
+#[test]
+fn ref_to_the_schema_of_a_parameter_is_written_in_place() {
+    let forge = parse(&responding_with_components(
+        r##"{
+          "type": "object",
+          "properties": {
+            "state": {"$ref": "#/components/parameters/state/schema"},
+            "filter": {"$ref": "#/components/parameters/filter/content/application~1json/schema"}
+          }
+        }"##,
+        r#"{
+          "parameters": {
+            "state": {"name": "state", "in": "query", "schema": {"type": "string"}},
+            "filter": {
+              "name": "filter",
+              "in": "query",
+              "content": {"application/json": {"schema": {"type": "boolean"}}}
+            }
+          }
+        }"#,
+    ));
+
+    let response = object(response_type(&forge, "a.get"));
+    assert_eq!(scalar(field(response, "state").ty()), Scalar::String);
+    assert_eq!(scalar(field(response, "filter").ty()), Scalar::Boolean);
+}
+
+#[test]
+fn ref_to_the_schema_of_a_request_body_is_written_in_place() {
+    let forge = parse(&responding_with_components(
+        r##"{"$ref": "#/components/requestBodies/Create/content/application~1json/schema"}"##,
+        r#"{
+          "requestBodies": {
+            "Create": {"content": {"application/json": {"schema": {"type": "boolean"}}}}
+          }
+        }"#,
+    ));
+
+    assert_eq!(scalar(response_type(&forge, "a.get")), Scalar::Boolean);
+}
+
+#[test]
+fn ref_to_a_schema_of_a_response_that_it_does_not_have_is_an_error() {
+    let components = r#"{
+      "responses": {
+        "Conflict": {"description": "conflict", "content": {"application/json": {"schema": {"type": "string"}}}}
+      }
+    }"#;
+    for reference in [
+        "#/components/responses/Conflict",
+        "#/components/responses/Conflict/content/text~1plain/schema",
+        "#/components/responses/Conflict/content/application~1json",
+        "#/components/responses/Other/content/application~1json/schema",
+    ] {
+        let err = parse_err(&responding_with_components(
+            &format!(r#"{{"$ref": "{reference}"}}"#),
+            components,
+        ));
+
+        assert!(err.contains("points to nothing"), "{reference}: {err}");
+    }
+}
+
+#[test]
+fn ref_to_a_schema_outside_the_components_that_have_one_is_an_error() {
+    let err = parse_err(&responding_with_components(
+        r##"{"$ref": "#/components/examples/Zone/value"}"##,
+        r#"{
+          "examples": {
+            "Zone": {"value": {"type": "string"}}
+          }
+        }"#,
+    ));
+
+    assert!(err.contains("is not covered"), "{err}");
+}

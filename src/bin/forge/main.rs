@@ -4,6 +4,7 @@
 //! forge openapi.json --target ts --out sdk
 //! forge openapi.json --target capnweb --out server
 //! forge openapi.json --target mcp --out tools
+//! forge openapi.json --target gatekeeper --config gatekeeper.json --out api
 //! forge openapi.json --target wasm://plugin.wasm --out sdk
 //! forge normalize specs/*.json
 //! ```
@@ -18,6 +19,7 @@ use forge::{Err, Forge, Plugin};
 use strum::{EnumString, VariantNames};
 
 mod capnweb;
+mod gatekeeper;
 mod mcp;
 mod normalize;
 mod ts;
@@ -33,10 +35,22 @@ struct Args {
     spec: Option<PathBuf>,
     /// The language of the SDK: `ts` for TypeScript, `capnweb` for a Cap'n
     /// Web server of the TypeScript SDK, which it imports from `#sdk`, `mcp`
-    /// for the tools of an MCP server in TypeScript, or `wasm://PATH` for the
-    /// plugin compiled to a WebAssembly component at PATH.
+    /// for the tools of an MCP server in TypeScript, `gatekeeper` for the
+    /// TypeScript SDK of the operations that --config picks, or `wasm://PATH`
+    /// for the plugin compiled to a WebAssembly component at PATH.
     #[arg(long, value_parser = Target::parse, required = true)]
     target: Option<Target>,
+    /// The JSON file that says which operations a gatekeeper covers, and
+    /// how they are named. Only for, and required by, `--target gatekeeper`,
+    /// but with --scout, which can do without it.
+    #[arg(long)]
+    config: Option<PathBuf>,
+    /// Write what the document says that a gatekeeper needs, and the
+    /// questions it leaves open, in place of an SDK: CATALOG.md and
+    /// catalog.json. With --config, the questions about its operations are
+    /// asked too. Only for `--target gatekeeper`.
+    #[arg(long)]
+    scout: bool,
     /// The directory to write the SDK to.
     #[arg(long, required = true)]
     out: Option<PathBuf>,
@@ -64,6 +78,9 @@ enum Target {
     Capnweb,
     /// The MCP generator, which generates the tools of an MCP server in TypeScript.
     Mcp,
+    /// The gatekeeper generator, which generates the TypeScript SDK of the
+    /// operations a config picks.
+    Gatekeeper,
     /// A plugin compiled to a WebAssembly component, at the path.
     #[cfg(feature = "wasm")]
     #[strum(disabled)]
@@ -114,15 +131,54 @@ fn run(args: Args) -> Result<(), Err> {
     let (Some(spec), Some(target), Some(out)) = (args.spec, args.target, args.out) else {
         unreachable!("clap asks for a spec, a target and an out when there is no command");
     };
-    generate(&spec, target, &out)
+    if args.scout {
+        if !matches!(target, Target::Gatekeeper) {
+            return Err("--scout is only for --target gatekeeper".into());
+        }
+        return scout(&spec, args.config.as_deref(), &out);
+    }
+    generate(&spec, target, args.config.as_deref(), &out)
+}
+
+/// Writes to `out` what the document at `spec` says that a gatekeeper
+/// needs. The document is read as JSON and not linked, so one that Forge
+/// cannot generate from is still read.
+fn scout(spec: &Path, config: Option<&Path>, out: &Path) -> Result<(), Err> {
+    let config = config.map(gatekeeper::Config::read).transpose()?;
+    let doc: serde_json::Value =
+        serde_json::from_slice(&read_bytes(spec)?).map_err(|err| format!("{}: {err}", spec.display()))?;
+    forge::write(out, gatekeeper::Catalog::new(&doc, config.as_ref()).files())
 }
 
 /// Generates the SDK for the document at `spec`, and writes it to `out`.
-fn generate(spec: &Path, target: Target, out: &Path) -> Result<(), Err> {
+/// `config` is the config of a gatekeeper, which only that target takes.
+fn generate(spec: &Path, target: Target, config: Option<&Path>, out: &Path) -> Result<(), Err> {
+    if config.is_some() && !matches!(target, Target::Gatekeeper) {
+        return Err("--config is only for --target gatekeeper".into());
+    }
     match target {
         Target::Ts => run_plugin(&ts::Generator, spec, out),
         Target::Capnweb => run_plugin(&capnweb::Generator, spec, out),
         Target::Mcp => run_plugin(&mcp::Generator, spec, out),
+        Target::Gatekeeper => {
+            let Some(config) = config else {
+                return Err("--target gatekeeper needs --config, the file that says which operations to cover".into());
+            };
+            let config = gatekeeper::Config::read(config)?;
+            // The scout reads the document as it is, before the config
+            // changes it.
+            let mut catalog = None;
+            let forge = read_with(spec, |doc| {
+                let found = gatekeeper::Catalog::new(doc, Some(&config));
+                for warning in &found.warnings {
+                    eprintln!("warning: {warning}");
+                }
+                catalog = Some(found);
+                config.apply(doc)
+            })?;
+            let generator = catalog.map(gatekeeper::Generator::new).unwrap_or_default();
+            forge::write(out, generator.generate(&forge)?)
+        }
         #[cfg(feature = "wasm")]
         Target::Wasm(path) => {
             // Compiling the plugin and reading the document are both slow,
@@ -140,17 +196,33 @@ fn run_plugin(plugin: &impl Plugin, spec: &Path, out: &Path) -> Result<(), Err> 
 
 /// Reads the document at `path`, or from standard input when `path` is `-`.
 fn read(path: &Path) -> Result<Forge, Err> {
+    let parse = || -> Result<Forge, Err> { Ok(serde_json::from_slice(&read_bytes(path)?)?) };
+    parse().map_err(|err| format!("{}: {err}", path.display()).into())
+}
+
+/// Reads the document at `path` as [`read`] does, after `change` changes
+/// it.
+fn read_with(path: &Path, change: impl FnOnce(&mut serde_json::Value) -> Result<(), Err>) -> Result<Forge, Err> {
     let parse = || -> Result<Forge, Err> {
-        let json = if path == Path::new("-") {
-            let mut json = Vec::new();
-            io::stdin().read_to_end(&mut json)?;
-            json
-        } else {
-            fs::read(path)?
-        };
-        Ok(serde_json::from_slice(&json)?)
+        let mut doc = serde_json::from_slice(&read_bytes(path)?)?;
+        change(&mut doc)?;
+        // Not from its text, whose lines and columns are not those of the
+        // file.
+        Ok(serde_json::from_value(doc)?)
     };
     parse().map_err(|err| format!("{}: {err}", path.display()).into())
+}
+
+/// Returns the bytes of the file at `path`, or of standard input when
+/// `path` is `-`.
+fn read_bytes(path: &Path) -> Result<Vec<u8>, Err> {
+    if path == Path::new("-") {
+        let mut bytes = Vec::new();
+        io::stdin().read_to_end(&mut bytes)?;
+        Ok(bytes)
+    } else {
+        Ok(fs::read(path)?)
+    }
 }
 
 #[cfg(test)]

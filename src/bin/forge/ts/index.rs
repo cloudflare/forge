@@ -5,25 +5,50 @@ use std::collections::HashSet;
 use forge::Group;
 use forge::ts::{File, Ident, Module, p};
 
-use super::client::{request_name, response_name, skipped};
-use super::sorted_models;
+use super::client::{Role, request_name, response_name, skipped};
+use super::{Transport, sorted_models};
 
-/// Returns the index.ts of `group`: ApiError and RequestOptions from the
-/// runtime library, so that every entry point is complete, then
-/// createClient and the types of its client, then its models. A model named
+/// Returns the index.ts of `group`: the errors and RequestOptions from the
+/// runtime library, so that every entry point is complete, and the types of
+/// a provider and of what a method returns when the transport is one, then
+/// what creates each of its clients, unless a file of its own does, and
+/// their types, then its models. A model named
 /// like another export is exported with a `$` added.
-pub(super) fn index(group: Group<'_>) -> File {
+pub(super) fn index(group: Group<'_>, transport: Transport, roles: &[Role]) -> File {
     let mut f = File::new(Module::group(group).sub("index.ts"));
     let depth = group.path().len();
     let mut runtime = format!("{}_/index.js", "../".repeat(depth));
     if depth == 0 {
         runtime.insert_str(0, "./");
     }
-    export(&mut f, "export", &["ApiError".to_owned()], &runtime);
-    export(&mut f, "export type", &["RequestOptions".to_owned()], &runtime);
+    let (errors, types): (&[&str], &[&str]) = match transport {
+        Transport::Fetch => (&["ApiError"], &["RequestOptions"]),
+        Transport::Provider => (
+            &["ApiError", "DecodeError"],
+            &[
+                "Failure",
+                "NotModified",
+                "Provider",
+                "ProviderRequest",
+                "ProviderResponse",
+                "RequestOptions",
+                "Result",
+            ],
+        ),
+    };
+    let errors: Vec<String> = errors.iter().map(|&name| name.to_owned()).collect();
+    export(&mut f, "export", &errors, &runtime);
+    let types: Vec<String> = types.iter().map(|&name| name.to_owned()).collect();
+    export(&mut f, "export type", &types, &runtime);
 
-    export(&mut f, "export", &["createClient".to_owned()], "./client.js");
-    let mut names = vec!["Client".to_owned(), "ClientOptions".to_owned()];
+    let creates: Vec<String> = roles
+        .iter()
+        .filter(|role| role.entry.is_none())
+        .map(|role| role.create.to_owned())
+        .collect();
+    export(&mut f, "export", &creates, "./client.js");
+    let mut names: Vec<String> = roles.iter().map(|role| role.client.to_owned()).collect();
+    names.push("ClientOptions".to_owned());
     for m in group.methods() {
         if !skipped(m) {
             names.push(request_name(m));
@@ -32,7 +57,8 @@ pub(super) fn index(group: Group<'_>) -> File {
     }
     export(&mut f, "export type", &names, "./client.js");
 
-    let mut taken: HashSet<String> = ["ApiError", "RequestOptions"].map(String::from).into();
+    let mut taken: HashSet<String> = errors.into_iter().collect();
+    taken.extend(types);
     taken.extend(names);
     let mut models = Vec::new();
     for m in sorted_models(group) {
@@ -50,6 +76,15 @@ pub(super) fn index(group: Group<'_>) -> File {
     }
     export(&mut f, "export type", &models, "./models.js");
     f
+}
+
+/// Returns the file of `group` that exports what creates the client `role`,
+/// and its type, or `None` when the group's index.ts does.
+pub(super) fn entry(group: Group<'_>, role: &Role) -> Option<File> {
+    let mut f = File::new(Module::group(group).sub(role.entry?));
+    export(&mut f, "export", &[role.create.to_owned()], "./client.js");
+    export(&mut f, "export type", &[role.client.to_owned()], "./client.js");
+    Some(f)
 }
 
 /// Prints an export of `names` from the module at `spec`, with each name on
