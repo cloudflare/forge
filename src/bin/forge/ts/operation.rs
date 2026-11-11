@@ -71,8 +71,41 @@ pub(super) fn operation(f: &mut File, m: Method<'_>, request: &Request<'_>, tran
             );
         }
         error_codecs(f, m);
+        if transport == Transport::Provider {
+            failure(f, m);
+        }
     });
     p!(f, "};");
+}
+
+/// Prints what says that a 2XX response of `m` is a failure, when a
+/// provider is told so: the property of the body that has a value, which
+/// is a string, a number, a boolean or null.
+fn failure(f: &mut File, m: Method<'_>) {
+    let Some(failure) = provider_fact(m, "failure") else {
+        return;
+    };
+    let Some(property) = failure.get("property").and_then(Json::as_str) else {
+        return;
+    };
+    let equals = failure.get("equals");
+    let equals = if let Some(text) = equals.and_then(Json::as_str) {
+        js_string(text)
+    } else if let Some(flag) = equals.and_then(Json::as_bool) {
+        flag.to_string()
+    } else if let Some(number) = equals.and_then(Json::as_f64) {
+        number.to_string()
+    } else {
+        "null".to_owned()
+    };
+    p!(
+        f,
+        "failure: { property: ",
+        js_string(property),
+        ", equals: ",
+        equals,
+        " },"
+    );
 }
 
 /// Prints the declared error responses of an operation, by status: the

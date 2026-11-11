@@ -1,8 +1,9 @@
 import { isRecord } from './codec.js';
 
 /**
- * A response whose status is not 2XX, as the transport gives it to what
- * builds the error to throw.
+ * A response that is a failure, as the transport gives it to what builds
+ * the error to throw: one whose status is not 2XX, or one whose body says
+ * so, for an API that answers a failure with a 2XX.
  */
 export interface Failure {
   /**
@@ -10,9 +11,14 @@ export interface Failure {
    */
   operationId: string;
   /**
-   * The status of the response.
+   * The status of the response. It is a 2XX when the body is what says
+   * that the response is a failure.
    */
   status: number;
+  /**
+   * What says that the response is a failure: its status, or its body.
+   */
+  source: 'status' | 'body';
   /**
    * The headers of the response.
    */
@@ -43,9 +49,14 @@ export class ApiError extends Error {
    */
   readonly operationId: string;
   /**
-   * The status of the response.
+   * The status of the response, which is a 2XX when the source is the
+   * body.
    */
   readonly status: number;
+  /**
+   * What says that the response is a failure: its status, or its body.
+   */
+  readonly source: 'status' | 'body';
   /**
    * The headers of the response.
    */
@@ -71,6 +82,7 @@ export class ApiError extends Error {
     this.name = 'ApiError';
     this.operationId = failure.operationId;
     this.status = failure.status;
+    this.source = failure.source;
     this.headers = failure.headers;
     this.details = failure.details;
   }

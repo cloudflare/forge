@@ -89,6 +89,36 @@ pub struct Config {
     /// name. It applies to every schema that has the property.
     #[serde(default)]
     properties: BTreeMap<String, String>,
+    /// Parameters to leave out of every operation that has them, by name,
+    /// such as one that takes a credential. A path parameter cannot be
+    /// left out.
+    #[serde(default, rename = "omitParameters")]
+    omit_parameters: Vec<String>,
+    /// What says that a 2XX response is a failure, for an API that answers
+    /// one with a 2XX. An operation can have its own.
+    failure: Option<Failure>,
+    /// What an `int64` is in the generated types: a `bigint` without this,
+    /// since a number does not hold every one.
+    int64: Option<Int64>,
+}
+
+/// What says that a 2XX response is a failure: the property of its body
+/// that has this value, which is a string, a number, a boolean or null.
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct Failure {
+    property: String,
+    equals: Value,
+}
+
+/// What an `int64` is in the generated types.
+#[derive(Clone, Copy, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "lowercase")]
+enum Int64 {
+    Bigint,
+    /// For an API whose `int64`s are counts and positions that a number
+    /// holds.
+    Number,
 }
 
 /// What the config says about an operation.
@@ -109,6 +139,13 @@ struct Operation {
     /// that reads.
     #[serde(default)]
     conditional: bool,
+    /// Parameters of the operation to leave out, by name, next to those the
+    /// config leaves out of every operation.
+    #[serde(default, rename = "omitParameters")]
+    omit_parameters: Vec<String>,
+    /// What says that a 2XX response of the operation is a failure, in
+    /// place of what the config says for every operation.
+    failure: Option<Failure>,
     /// How the operation pages, if it does.
     pagination: Option<Pagination>,
 }
@@ -138,15 +175,39 @@ struct Pagination {
     /// The property of the response that holds the items, when the
     /// response is not the array of items itself.
     items: Option<String>,
-    /// For the style `offset`, the query parameter that says how many
-    /// items to leave out. It is `offset` without this.
+    /// For the style `offset`, the parameter that says how many items to
+    /// leave out. It is `offset` without this.
     offset: Option<String>,
-    /// For the style `offset`, the query parameter that says how many
-    /// items a page has at most. It is `limit` without this.
+    /// The parameter that says how many items a page has at most. For the
+    /// style `offset`, it is `limit` without this.
     limit: Option<String>,
-    /// For the style `offset`, the property of the response that says
-    /// whether there is another page, if it has one.
+    /// For the style `cursor`, the parameter that takes the cursor of the
+    /// page to return.
+    cursor: Option<String>,
+    /// For the style `cursor`, the property of the response that has the
+    /// cursor of the next page.
+    next: Option<String>,
+    /// The property of the response that is true when there is another
+    /// page, if it has one.
     more: Option<String>,
+    /// The property of the response that is true when the page is the
+    /// last, if it has one. A pagination has this or `more`, not both.
+    last: Option<String>,
+}
+
+impl Pagination {
+    /// Returns what the pagination names, by key, in the order
+    /// operations.json has them.
+    fn names(&self) -> [(&'static str, &Option<String>); 6] {
+        [
+            ("offset", &self.offset),
+            ("limit", &self.limit),
+            ("cursor", &self.cursor),
+            ("next", &self.next),
+            ("more", &self.more),
+            ("last", &self.last),
+        ]
+    }
 }
 
 /// How a request asks for the next page.
@@ -156,8 +217,10 @@ enum PaginationStyle {
     /// With the URL that the `Link` header of a response has as
     /// `rel="next"`.
     LinkHeader,
-    /// With the number of items before the page, in a query parameter.
+    /// With the number of items before the page, in a parameter.
     Offset,
+    /// With a cursor that the response before it has, in a parameter.
+    Cursor,
 }
 
 impl PaginationStyle {
@@ -165,6 +228,7 @@ impl PaginationStyle {
         match self {
             PaginationStyle::LinkHeader => "link-header",
             PaginationStyle::Offset => "offset",
+            PaginationStyle::Cursor => "cursor",
         }
     }
 }
@@ -195,11 +259,19 @@ impl Config {
         // A path item is under `paths`, or under `components.pathItems` when
         // a path refers to it.
         let parameters = doc.pointer("/components/parameters").cloned();
+        let mut omitted = BTreeSet::new();
         for pointer in ["/paths", "/components/pathItems"] {
             let items = doc.pointer_mut(pointer).and_then(Value::as_object_mut);
             for item in items.into_iter().flat_map(Map::values_mut) {
-                self.apply_to_path_item(item, parameters.as_ref(), &mut found)?;
+                self.apply_to_path_item(item, parameters.as_ref(), &mut found, &mut omitted)?;
             }
+        }
+        if let Some(name) = self
+            .omit_parameters
+            .iter()
+            .find(|name| !omitted.contains(name.as_str()))
+        {
+            return Err(format!("no operation of the config has the parameter {name}").into());
         }
         let missing: Vec<&str> = self
             .operations
@@ -215,55 +287,94 @@ impl Config {
     }
 
     /// Names and marks the operations of the path item `item`, and adds to
-    /// `found` those that are of the config. `parameters` is the
-    /// `components.parameters` of the document.
+    /// `found` those that are of the config, and to `omitted` the
+    /// parameters that the config leaves out of every operation and that
+    /// one of them had. `components` is the `components.parameters` of the
+    /// document.
     fn apply_to_path_item<'a>(
         &'a self,
         item: &mut Value,
-        parameters: Option<&Value>,
+        components: Option<&Value>,
         found: &mut BTreeSet<&'a str>,
+        omitted: &mut BTreeSet<&'a str>,
     ) -> Result<(), Err> {
-        let shared = item.get("parameters").cloned();
+        // The parameters of the path item are given to each operation, so
+        // that one can be left out of an operation and not of the others.
+        let shared = match item.as_object_mut().and_then(|item| item.shift_remove("parameters")) {
+            Some(Value::Array(shared)) => shared,
+            _ => Vec::new(),
+        };
         for method in METHODS {
             let Some(operation) = item.get_mut(method).and_then(Value::as_object_mut) else {
                 continue;
+            };
+            let mut parameters = match operation.shift_remove("parameters") {
+                Some(Value::Array(own)) => merged(&shared, own, components),
+                _ => shared.clone(),
             };
             // An alias is a method even when its operation is skipped.
             operation.shift_remove("x-forge-aliases");
             let id = operation.get("operationId").and_then(Value::as_str);
             let Some((id, selected)) = id.and_then(|id| self.operations.get_key_value(id)) else {
                 operation.insert("x-forge-skip".to_owned(), Value::Bool(true));
+                operation.insert("parameters".to_owned(), Value::Array(parameters));
                 continue;
             };
             found.insert(id.as_str());
+            for name in &self.omit_parameters {
+                if omit(&mut parameters, name, id, components)? {
+                    omitted.insert(name.as_str());
+                }
+            }
+            for name in &selected.omit_parameters {
+                if !omit(&mut parameters, name, id, components)? {
+                    return Err(format!("{id} has no parameter {name}").into());
+                }
+            }
             // The config is what says which operations there are.
             operation.shift_remove("x-forge-skip");
             operation.insert("x-forge-group-name".to_owned(), json!(selected.group));
             operation.insert("x-forge-method-name".to_owned(), json!(selected.name));
             let mut extension = selected.extension(id, method)?;
-            let headers = headers([shared.as_ref(), operation.get("parameters")], parameters);
+            if let Some(failure) = selected.failure.as_ref().or(self.failure.as_ref()) {
+                if failure.equals.is_array() || failure.equals.is_object() {
+                    return Err(format!(
+                        "{id}: the failure of a response equals a string, a number, a boolean or null"
+                    )
+                    .into());
+                }
+                extension["failure"] = json!({"property": failure.property, "equals": failure.equals});
+            }
+            let headers = headers(&parameters, components);
             if !headers.is_empty() {
                 extension["headers"] = Value::Array(headers);
             }
             operation.insert(EXTENSION.to_owned(), extension);
+            operation.insert("parameters".to_owned(), Value::Array(parameters));
         }
         Ok(())
     }
 
-    /// Names the properties of the config, and removes the date formats, in
-    /// `value` and everything inside it.
+    /// Names the properties of the config, and removes the formats of dates
+    /// and, when the config says so, of `int64`s, in `value` and everything
+    /// inside it.
     fn apply_to_schemas(&self, value: &mut Value) {
         match value {
             Value::Object(map) => {
-                let format = map.get("format").and_then(Value::as_str);
                 // A type is a string, or since OpenAPI 3.1 an array of them,
                 // as for a string that can be null.
-                let is_string = match map.get("type") {
-                    Some(Value::String(ty)) => ty == "string",
-                    Some(Value::Array(types)) => types.iter().any(|ty| ty == "string"),
+                let is = |name: &str| match map.get("type") {
+                    Some(Value::String(ty)) => ty == name,
+                    Some(Value::Array(types)) => types.iter().any(|ty| ty == name),
                     _ => false,
                 };
-                if matches!(format, Some("date-time" | "date")) && is_string {
+                let remove = match map.get("format").and_then(Value::as_str) {
+                    Some("date-time" | "date") => is("string"),
+                    // Without its format, an integer is a number.
+                    Some("int64") => is("integer") && self.int64 == Some(Int64::Number),
+                    _ => false,
+                };
+                if remove {
                     map.shift_remove("format");
                 }
                 for (key, value) in map.iter_mut() {
@@ -295,27 +406,70 @@ impl Config {
     }
 }
 
-/// Returns the header parameters among `lists`, which are the `parameters`
-/// of a path item and then of one of its operations: each with its `name`,
-/// whether it is `required`, and its `default` if it has one. The model of
-/// the API has no header parameters, so a request type has none, and this
-/// is how a gatekeeper learns of them. `components` is the
-/// `components.parameters` that a parameter can refer to.
+/// Returns the parameter that `parameter` is or refers to, in
+/// `components`, which is the `components.parameters` of the document.
+fn resolved<'a>(parameter: &'a Value, components: Option<&'a Value>) -> Option<&'a Value> {
+    match parameter.get("$ref").and_then(Value::as_str) {
+        Some(reference) => reference
+            .strip_prefix("#/components/parameters/")
+            .and_then(|name| components?.get(name)),
+        None => Some(parameter),
+    }
+}
+
+/// Returns the name and the location of `parameter`.
+fn named<'a>(parameter: &'a Value, components: Option<&'a Value>) -> Option<(&'a str, &'a str)> {
+    let parameter = resolved(parameter, components)?;
+    Some((parameter.get("name")?.as_str()?, parameter.get("in")?.as_str()?))
+}
+
+/// Returns the parameters of an operation: those of its path item,
+/// `shared`, that it does not have itself, then its `own`.
+fn merged(shared: &[Value], own: Vec<Value>, components: Option<&Value>) -> Vec<Value> {
+    let mut parameters: Vec<Value> = shared
+        .iter()
+        .filter(|parameter| {
+            let name = named(parameter, components);
+            name.is_none() || !own.iter().any(|own| named(own, components) == name)
+        })
+        .cloned()
+        .collect();
+    parameters.extend(own);
+    parameters
+}
+
+/// Removes the parameters named `name` from `parameters`, which are those
+/// of the operation `id`, and reports whether there was one. A path
+/// parameter cannot be removed, since the path has it.
+fn omit(parameters: &mut Vec<Value>, name: &str, id: &str, components: Option<&Value>) -> Result<bool, Err> {
+    let is = |parameter: &Value| named(parameter, components).is_some_and(|(other, _)| other == name);
+    if parameters
+        .iter()
+        .any(|parameter| is(parameter) && named(parameter, components).is_some_and(|(_, location)| location == "path"))
+    {
+        return Err(format!("{id}: {name} is a path parameter, which cannot be left out").into());
+    }
+    let before = parameters.len();
+    parameters.retain(|parameter| !is(parameter));
+    Ok(parameters.len() != before)
+}
+
+/// Returns the header parameters among `parameters`, which are those of an
+/// operation: each with its `name`, whether it is `required`, and its
+/// `default` if it has one. The model of the API has no header parameters,
+/// so a request type has none, and this is how a gatekeeper learns of
+/// them. `components` is the `components.parameters` that a parameter can
+/// refer to.
 ///
 /// `Content-Type` and `Authorization` are left out, as OpenAPI says to.
 /// It says so of `Accept` too, which is kept: an API can ask for a media
 /// type of its own in it, as a version.
-fn headers(lists: [Option<&Value>; 2], components: Option<&Value>) -> Vec<Value> {
+fn headers(parameters: &[Value], components: Option<&Value>) -> Vec<Value> {
     let mut headers: Vec<Value> = Vec::new();
-    let parameters = lists.into_iter().flatten().filter_map(Value::as_array).flatten();
     for parameter in parameters {
-        let parameter = match parameter.get("$ref").and_then(Value::as_str) {
-            Some(reference) => reference
-                .strip_prefix("#/components/parameters/")
-                .and_then(|name| components?.get(name)),
-            None => Some(parameter),
+        let Some(parameter) = resolved(parameter, components) else {
+            continue;
         };
-        let Some(parameter) = parameter else { continue };
         let Some(name) = parameter.get("name").and_then(Value::as_str) else {
             continue;
         };
@@ -332,12 +486,6 @@ fn headers(lists: [Option<&Value>; 2], components: Option<&Value>) -> Vec<Value>
         if let Some(default) = parameter.pointer("/schema/default") {
             header["default"] = default.clone();
         }
-        // A parameter of the operation is in place of the path item's.
-        headers.retain(|other| {
-            !other["name"]
-                .as_str()
-                .is_some_and(|other| other.eq_ignore_ascii_case(name))
-        });
         headers.push(header);
     }
     headers
@@ -376,18 +524,28 @@ impl Operation {
             if let Some(items) = &pagination.items {
                 value["items"] = json!(items);
             }
-            let by_offset = [
-                ("offset", &pagination.offset, Some("offset")),
-                ("limit", &pagination.limit, Some("limit")),
-                ("more", &pagination.more, None),
-            ];
-            for (key, name, default) in by_offset {
-                if pagination.style != PaginationStyle::Offset {
-                    if name.is_some() {
-                        return Err(format!("{id}: {key} is only for pagination of the style offset").into());
+            let style = pagination.style;
+            let (allowed, needed, defaults): (&[&str], &[&str], &[&str]) = match style {
+                PaginationStyle::LinkHeader => (&[], &[], &[]),
+                PaginationStyle::Offset => (&["offset", "limit", "more", "last"], &[], &["offset", "limit"]),
+                PaginationStyle::Cursor => (&["cursor", "next", "limit", "more", "last"], &["cursor", "next"], &[]),
+            };
+            if pagination.more.is_some() && pagination.last.is_some() {
+                return Err(format!("{id}: a pagination has more or last, not both").into());
+            }
+            for (key, name) in pagination.names() {
+                match name {
+                    Some(_) if !allowed.contains(&key) => {
+                        let style = style.as_str();
+                        return Err(format!("{id}: {key} is not for pagination of the style {style}").into());
                     }
-                } else if let Some(name) = name.as_deref().or(default) {
-                    value[key] = json!(name);
+                    Some(name) => value[key] = json!(name),
+                    None if needed.contains(&key) => {
+                        return Err(format!("{id} pages by {}, so its pagination needs {key}", style.as_str()).into());
+                    }
+                    // A parameter that has the name of its key by default.
+                    None if defaults.contains(&key) => value[key] = json!(key),
+                    None => {}
                 }
             }
             extension["pagination"] = value;
@@ -460,26 +618,9 @@ fn worksheet(forge: &Forge) -> String {
         }
         // The manifest has already said what is wrong with a pagination.
         if let Some(Ok(pagination)) = fact("pagination").map(|pagination| paging(method, "", pagination)) {
-            let string = |key: &str| pagination.get(key).and_then(Value::as_str);
-            let items = match string("field") {
-                Some(field) => format!("the items are in `data.{field}`"),
-                None => "the response is the array of items".to_owned(),
-            };
-            let how = match (string("offset"), string("limit")) {
-                (Some(offset), Some(limit)) => {
-                    let more = match string("more") {
-                        Some(more) => format!("`data.{more}` says whether there is another page"),
-                        None => "nothing in the response says whether there is another page".to_owned(),
-                    };
-                    format!("a call asks for a page with `{offset}` and `{limit}`, {items}, and {more}")
-                }
-                _ => items,
-            };
-            let style = string("style").unwrap_or_default();
-            text.push_str(&format!(
-                "- Cursor: it pages by `{style}`: {how}. The kit cursor that wraps it, and what each page reports:\n"
-            ));
+            text.push_str(&paging_line(&pagination));
         }
+        text.push_str(&response_lines(method));
         text.push_str(&headers_line(method));
     }
     text.push_str("\n## Writes\n\n");
@@ -503,7 +644,55 @@ fn worksheet(forge: &Forge) -> String {
         text.push_str("- How reads show it while it is pending:\n");
         text.push_str("- What a second attempt does, and what a timeout means:\n");
         text.push_str("- Revert, if it has one:\n");
+        text.push_str(&response_lines(method));
         text.push_str(&headers_line(method));
+    }
+    text
+}
+
+/// Returns the line of the worksheet about how an operation pages, from
+/// what operations.json says of it.
+fn paging_line(pagination: &Value) -> String {
+    let string = |key: &str| pagination.get(key).and_then(Value::as_str);
+    let items = match string("field") {
+        Some(field) => format!("the items are in `data.{field}`"),
+        None => "the response is the array of items".to_owned(),
+    };
+    let end = match (string("more"), string("last")) {
+        (Some(more), _) => format!("`data.{more}` is true when there is another page"),
+        (_, Some(last)) => format!("`data.{last}` is true when the page is the last"),
+        _ => "nothing in the response says whether there is another page".to_owned(),
+    };
+    let limit = match string("limit") {
+        Some(limit) => format!(" and `{limit}`"),
+        None => String::new(),
+    };
+    let how = match (string("offset"), string("cursor"), string("next")) {
+        (Some(offset), _, _) => format!("a call asks for a page with `{offset}`{limit}, {items}, and {end}"),
+        (_, Some(cursor), Some(next)) => format!(
+            "a call asks for the next page with `{cursor}`, set to the `data.{next}` of the page before{limit}, {items}, and {end}"
+        ),
+        _ => items,
+    };
+    let style = string("style").unwrap_or_default();
+    format!("- Cursor: it pages by `{style}`: {how}. The kit cursor that wraps it, and what each page reports:\n")
+}
+
+/// Returns the lines of the worksheet about what a response of `method`
+/// is: that its body can say it failed, and that the document gives its
+/// body no type.
+fn response_lines(method: Method<'_>) -> String {
+    let mut text = String::new();
+    let failure = ts::client::provider_fact(method, "failure");
+    if let Some(property) = failure.and_then(|failure| failure.get("property")?.as_str()) {
+        text.push_str(&format!(
+            "- A 2XX response fails when its `{property}` says so, and is thrown with that status. What in its body tells a denial from what is indeterminate:\n"
+        ));
+    }
+    if untyped(method) {
+        text.push_str(
+            "- The document gives its response no type, so `data` is what the provider sent, with the provider's names. What you check of it before you map it:\n",
+        );
     }
     text
 }
@@ -637,20 +826,28 @@ fn entry(method: Method<'_>) -> Result<Value, Err> {
     if let Some(pagination) = extension.get("pagination") {
         entry["pagination"] = paging(method, &id, pagination)?;
     }
+    if let Some(failure) = extension.get("failure") {
+        entry["failure"] = json!({"property": string(failure, "property")});
+    }
+    if untyped(method) {
+        entry["untyped"] = json!(true);
+    }
     Ok(entry)
 }
 
 /// Returns how the operation `id` of `method` pages, for operations.json,
 /// from the `pagination` of its extension, which has the names the API
-/// uses. Next to those it gives the names of the generated fields: `field`
-/// for `items`, and for the style `offset`, `offset` and `limit`, which are
-/// fields of the request, and `more`, which is a field of the response.
+/// uses. Next to `items` it gives `field`, the generated field that holds
+/// them. In place of every other name it gives the generated field: of the
+/// request for `offset`, `limit` and `cursor`, and of the response for
+/// `next`, `more` and `last`, with dots between the fields of a path.
 ///
 /// It is an error when the operation does not have what its pagination
 /// names.
 fn paging(method: Method<'_>, id: &str, pagination: &Json) -> Result<Value, Err> {
     let string = |key: &str| pagination.get(key).and_then(Json::as_str);
-    let mut value = json!({"style": string("style")});
+    let style = string("style").unwrap_or_default();
+    let mut value = json!({"style": style});
     let items = string("items");
     match (items, response_field(method, items, true)) {
         (_, None) => {
@@ -666,77 +863,155 @@ fn paging(method: Method<'_>, id: &str, pagination: &Json) -> Result<Value, Err>
         }
         (None, Some(_)) => {}
     }
-    for key in ["offset", "limit"] {
+    for key in ["offset", "limit", "cursor"] {
         if let Some(name) = string(key) {
-            let Some(field) = query_field(method, name) else {
-                return Err(format!("{id} pages by offset, but has no query parameter {name}").into());
+            let Some(field) = request_field(method, name) else {
+                return Err(format!("{id} pages by {style}, but has no parameter {name}").into());
             };
             value[key] = json!(field);
         }
     }
-    if let Some(more) = string("more") {
-        let Some(field) = response_field(method, Some(more), false) else {
-            return Err(format!("{id} pages by offset, but no response of it has the property {more}").into());
-        };
-        value["more"] = json!(field);
+    for key in ["next", "more", "last"] {
+        if let Some(name) = string(key) {
+            let Some(field) = response_field(method, Some(name), false) else {
+                return Err(format!("{id} pages by {style}, but no response of it has the property {name}").into());
+            };
+            value[key] = json!(field);
+        }
     }
     Ok(value)
 }
 
-/// Returns the name of the field, in the request of `method`, of the query
-/// parameter whose wire name is `wire_name`. It is the name the clients
-/// give the field, unless another parameter has the same name.
-fn query_field(method: Method<'_>, wire_name: &str) -> Option<String> {
+/// Returns the type that `ty` is, when it is a model.
+fn resolved_type(ty: Type<'_>) -> Type<'_> {
+    match ty {
+        Type::Model(model) => resolved_type(model.ty()),
+        ty => ty,
+    }
+}
+
+/// What a type has to find a property in.
+enum Shape<'f> {
+    /// The fields of an object, or of the members of an `allOf`, which is
+    /// how an API adds the items to what every page has.
+    Fields(Vec<forge::Field<'f>>),
+    /// Nothing: the document does not say what the value is, or says only
+    /// that it is an object. The clients leave such a value as it is, so a
+    /// property of it has its wire name.
+    Untyped,
+    /// A type that has no properties, such as a string.
+    Other,
+}
+
+/// Returns the shape of `ty`. A type that can also be null has the shape
+/// of what it is otherwise.
+fn shape(ty: Type<'_>) -> Shape<'_> {
+    match resolved_type(ty) {
+        Type::Scalar(forge::Scalar::Unknown) => Shape::Untyped,
+        Type::Object(object) if object.fields().len() == 0 => Shape::Untyped,
+        Type::Object(object) => Shape::Fields(object.fields().collect()),
+        Type::Intersection(intersection) => {
+            let mut all = Vec::new();
+            for member in intersection.members() {
+                if let Shape::Fields(fields) = shape(member) {
+                    all.extend(fields);
+                }
+            }
+            if all.is_empty() {
+                Shape::Untyped
+            } else {
+                Shape::Fields(all)
+            }
+        }
+        Type::Union(union) => {
+            let mut members = union
+                .members()
+                .filter(|&member| !matches!(resolved_type(member), Type::Scalar(forge::Scalar::Null)));
+            match (members.next(), members.next()) {
+                (Some(member), None) => shape(member),
+                _ => Shape::Other,
+            }
+        }
+        _ => Shape::Other,
+    }
+}
+
+/// Reports whether a response of `method` has a body that the document
+/// gives no type: the clients return it as the provider sent it.
+fn untyped(method: Method<'_>) -> bool {
+    let (types, _) = ts::client::response(method);
+    types.into_iter().any(|ty| matches!(shape(ty), Shape::Untyped))
+}
+
+/// Returns the name of the field, in the request of `method`, of the
+/// parameter or the property of the body whose wire name is `wire_name`.
+/// It is the name the clients give the field, unless another has the same.
+fn request_field(method: Method<'_>, wire_name: &str) -> Option<String> {
     // The parameters are the fields of the request, or of its first member
     // when a body is next to them.
     let parameters = match method.request()? {
-        Type::Object(object) => object,
+        Type::Object(object) => Some(object),
         Type::Intersection(intersection) => match intersection.members().next()? {
-            Type::Object(object) => object,
-            _ => return None,
+            Type::Object(object) => Some(object),
+            _ => None,
         },
-        _ => return None,
+        _ => None,
     };
-    parameters
-        .fields()
-        .find(|&field| field.wire_name() == wire_name && matches!(method.location(field), Some(Location::Query { .. })))
-        .map(|field| field.name().camel())
+    let parameter = parameters
+        .into_iter()
+        .flat_map(|object| object.fields())
+        .find(|&field| {
+            field.wire_name() == wire_name && matches!(method.location(field), Some(Location::Query { .. }))
+        });
+    if let Some(field) = parameter {
+        return Some(field.name().camel());
+    }
+    let body = method.body()?.json()?.ty();
+    match shape(body) {
+        Shape::Fields(fields) => fields
+            .into_iter()
+            .find(|field| field.wire_name() == wire_name)
+            .map(|field| field.name().camel()),
+        Shape::Untyped => Some(wire_name.to_owned()),
+        Shape::Other => None,
+    }
 }
 
-/// Returns the name of the field of a response of `method` whose property
-/// is `property`, which is an array when `array` is true. Without
-/// `property`, it is empty when the response is itself an array. `None`
-/// when no response has it.
+/// Returns the fields that lead to the property `property` in a response
+/// of `method`, with dots between them. `property` is the wire names that
+/// lead to it, with dots between them, such as
+/// `response_metadata.next_cursor`. With `array`, the property is an array.
+/// Without `property`, it is empty when the response is itself an array.
+/// `None` when no response has it.
+///
+/// Under a value the document gives no type, a property is taken to be
+/// there, with its wire name.
 fn response_field(method: Method<'_>, property: Option<&str>, array: bool) -> Option<String> {
-    fn resolved(ty: Type<'_>) -> Type<'_> {
-        match ty {
-            Type::Model(model) => resolved(model.ty()),
-            ty => ty,
-        }
-    }
-    // The fields of an object, and of the members of an `allOf`, which is
-    // how an API adds the items to what every page has.
-    fn fields<'f>(ty: Type<'f>, into: &mut Vec<forge::Field<'f>>) {
-        match resolved(ty) {
-            Type::Object(object) => into.extend(object.fields()),
-            Type::Intersection(intersection) => {
-                for member in intersection.members() {
-                    fields(member, into);
-                }
-            }
-            _ => {}
-        }
-    }
     let (types, _) = ts::client::response(method);
     types.into_iter().find_map(|ty| {
         let Some(property) = property else {
-            return matches!(resolved(ty), Type::Array(_)).then(String::new);
+            return matches!(resolved_type(ty), Type::Array(_)).then(String::new);
         };
-        let mut all = Vec::new();
-        fields(ty, &mut all);
-        all.into_iter()
-            .find(|field| field.wire_name() == property && (!array || matches!(resolved(field.ty()), Type::Array(_))))
-            .map(|field| field.name().camel())
+        // The type the path has reached, or `None` under an untyped value.
+        let mut at = Some(ty);
+        let mut names = Vec::new();
+        for wire_name in property.split('.') {
+            match at.map(shape) {
+                Some(Shape::Fields(fields)) => {
+                    let field = fields.into_iter().find(|field| field.wire_name() == wire_name)?;
+                    names.push(field.name().camel());
+                    at = Some(field.ty());
+                }
+                Some(Shape::Untyped) | None => {
+                    names.push(wire_name.to_owned());
+                    at = None;
+                }
+                Some(Shape::Other) => return None,
+            }
+        }
+        let is_array =
+            at.is_none_or(|ty| matches!(resolved_type(ty), Type::Array(_) | Type::Scalar(forge::Scalar::Unknown)));
+        (!array || is_array).then(|| names.join("."))
     })
 }
 
@@ -864,6 +1139,37 @@ mod tests {
                   }
                 ]
               }}}}
+            }
+          }
+        },
+        "/messages": {
+          "parameters": [{"name": "token", "in": "query", "schema": {"type": "string"}}],
+          "get": {
+            "operationId": "messages/list",
+            "parameters": [
+              {"name": "cursor", "in": "query", "schema": {"type": "string"}},
+              {"name": "limit", "in": "query", "schema": {"type": "integer", "format": "int64"}}
+            ],
+            "responses": {
+              "200": {"description": "ok", "content": {"application/json": {"schema": {
+                "type": "object",
+                "properties": {
+                  "ok": {"type": "boolean"},
+                  "messages": {"type": "array", "items": {"$ref": "#/components/schemas/issue"}},
+                  "is_last": {"type": "boolean"},
+                  "meta": {"type": "object", "properties": {"next_cursor": {"type": "string"}}}
+                }
+              }}}}
+            }
+          },
+          "post": {
+            "operationId": "messages/query",
+            "requestBody": {"content": {"application/json": {"schema": {
+              "type": "object",
+              "properties": {"start_cursor": {"type": "string"}, "text": {"type": "string"}}
+            }}}},
+            "responses": {
+              "200": {"description": "ok", "content": {"application/json": {"schema": {"type": "object"}}}}
             }
           }
         },
@@ -1231,7 +1537,7 @@ mod tests {
         let worksheet = &files["WORKSHEET.md"];
         assert!(
             worksheet.contains(
-                "- Cursor: it pages by `offset`: a call asks for a page with `offset` and `pageSize`, the items are in `data.incidents`, and `data.hasMore` says whether there is another page."
+                "- Cursor: it pages by `offset`: a call asks for a page with `offset` and `pageSize`, the items are in `data.incidents`, and `data.hasMore` is true when there is another page."
             ),
             "{worksheet}"
         );
@@ -1239,7 +1545,7 @@ mod tests {
         let error = |pagination: &str| generate(&config(pagination)).unwrap_err();
         assert_eq!(
             error(r#"{"style": "offset", "items": "incidents"}"#),
-            "incidents/list pages by offset, but has no query parameter limit"
+            "incidents/list pages by offset, but has no parameter limit"
         );
         assert_eq!(
             error(r#"{"style": "offset", "items": "incidents", "limit": "page_size", "more": "more"}"#),
@@ -1247,8 +1553,179 @@ mod tests {
         );
         assert_eq!(
             error(r#"{"style": "link-header", "items": "incidents", "more": "has_more"}"#),
-            "incidents/list: more is only for pagination of the style offset"
+            "incidents/list: more is not for pagination of the style link-header"
         );
+    }
+
+    /// A config of the two operations of `/messages` in [`SPEC`], with
+    /// `rest` after them.
+    fn messages(list: &str, rest: &str) -> String {
+        format!(
+            r#"{{
+              "operations": {{
+                "messages/list": {{"group": "messages", "name": "list"{list}}},
+                "messages/query": {{"group": "messages", "name": "query", "kind": "read"}}
+              }},
+              "properties": {{"+1": "plus_one", "-1": "minus_one"}}{rest}
+            }}"#
+        )
+    }
+
+    #[test]
+    fn an_operation_pages_by_cursor() {
+        let pagination = |pagination: &str| messages(&format!(r#", "pagination": {pagination}"#), "");
+        let files = generate(&pagination(
+            r#"{"style": "cursor", "items": "messages", "cursor": "cursor", "next": "meta.next_cursor", "limit": "limit", "last": "is_last"}"#,
+        ))
+        .unwrap();
+        let operations: Value = serde_json::from_str(&files["operations.json"]).unwrap();
+        assert_eq!(
+            operations["operations"][0]["pagination"],
+            serde_json::json!({
+                "style": "cursor",
+                "items": "messages",
+                "field": "messages",
+                "limit": "limit",
+                "cursor": "cursor",
+                "next": "meta.nextCursor",
+                "last": "isLast"
+            })
+        );
+        let worksheet = &files["WORKSHEET.md"];
+        assert!(
+            worksheet.contains(
+                "- Cursor: it pages by `cursor`: a call asks for the next page with `cursor`, set to the `data.meta.nextCursor` of the page before and `limit`, the items are in `data.messages`, and `data.isLast` is true when the page is the last."
+            ),
+            "{worksheet}"
+        );
+
+        let error = |text: &str| generate(&pagination(text)).unwrap_err();
+        assert_eq!(
+            error(r#"{"style": "cursor", "items": "messages", "cursor": "cursor"}"#),
+            "messages/list pages by cursor, so its pagination needs next"
+        );
+        assert_eq!(
+            error(r#"{"style": "cursor", "items": "messages", "cursor": "after", "next": "meta.next_cursor"}"#),
+            "messages/list pages by cursor, but has no parameter after"
+        );
+        assert_eq!(
+            error(r#"{"style": "cursor", "items": "messages", "cursor": "cursor", "next": "meta.cursor"}"#),
+            "messages/list pages by cursor, but no response of it has the property meta.cursor"
+        );
+        assert_eq!(
+            error(
+                r#"{"style": "cursor", "items": "messages", "cursor": "cursor", "next": "meta.next_cursor", "more": "ok", "last": "is_last"}"#
+            ),
+            "messages/list: a pagination has more or last, not both"
+        );
+    }
+
+    #[test]
+    fn a_cursor_can_be_in_the_body_and_a_response_can_have_no_type() {
+        let config = r#"{
+          "operations": {
+            "messages/query": {
+              "group": "messages",
+              "name": "query",
+              "kind": "read",
+              "pagination": {"style": "cursor", "items": "results", "cursor": "start_cursor", "next": "next_cursor", "more": "has_more"}
+            }
+          }
+        }"#;
+        let files = generate(config).unwrap();
+        // The cursor is a field of the body. The response has no type, so
+        // its properties have their wire names.
+        let operations: Value = serde_json::from_str(&files["operations.json"]).unwrap();
+        assert_eq!(
+            operations["operations"][0]["pagination"],
+            serde_json::json!({
+                "style": "cursor",
+                "items": "results",
+                "field": "results",
+                "cursor": "startCursor",
+                "next": "next_cursor",
+                "more": "has_more"
+            })
+        );
+        assert_eq!(operations["operations"][0]["untyped"], true);
+        let worksheet = &files["WORKSHEET.md"];
+        assert!(
+            worksheet.contains("- The document gives its response no type, so `data` is what the provider sent"),
+            "{worksheet}"
+        );
+    }
+
+    #[test]
+    fn a_parameter_of_the_config_is_left_out() {
+        // Of every operation that has it, among them one that has it from
+        // its path item.
+        let files = generate(&messages("", r#", "omitParameters": ["token"]"#)).unwrap();
+        let client = &files["messages/client.ts"];
+        assert!(!client.contains("token"), "{client}");
+        assert!(client.contains("cursor?: string;"), "{client}");
+        // Of one operation.
+        let files = generate(&messages(r#", "omitParameters": ["cursor"]"#, "")).unwrap();
+        let client = &files["messages/client.ts"];
+        assert!(
+            client.contains("token?: string;") && !client.contains("  cursor?: string;"),
+            "{client}"
+        );
+
+        assert_eq!(
+            generate(&messages("", r#", "omitParameters": ["tokn"]"#)).unwrap_err(),
+            "no operation of the config has the parameter tokn"
+        );
+        assert_eq!(
+            generate(&messages(r#", "omitParameters": ["after"]"#, "")).unwrap_err(),
+            "messages/list has no parameter after"
+        );
+        let path = r#"{"operations": {"issues/delete": {"name": "delete", "omitParameters": ["id"]}}}"#;
+        assert_eq!(
+            generate(path).unwrap_err(),
+            "issues/delete: id is a path parameter, which cannot be left out"
+        );
+    }
+
+    #[test]
+    fn a_response_can_say_in_its_body_that_it_failed() {
+        let files = generate(&messages(
+            r#", "failure": {"property": "status", "equals": "error"}"#,
+            r#", "failure": {"property": "ok", "equals": false}"#,
+        ))
+        .unwrap();
+        let client = &files["messages/client.ts"];
+        // The operation's own is in place of the config's.
+        assert!(
+            client.contains("  failure: { property: \"status\", equals: \"error\" },\n"),
+            "{client}"
+        );
+        assert!(
+            client.contains("  failure: { property: \"ok\", equals: false },\n"),
+            "{client}"
+        );
+        let operations: Value = serde_json::from_str(&files["operations.json"]).unwrap();
+        assert_eq!(
+            operations["operations"][1]["failure"],
+            serde_json::json!({"property": "ok"})
+        );
+        let worksheet = &files["WORKSHEET.md"];
+        assert!(
+            worksheet.contains("- A 2XX response fails when its `ok` says so"),
+            "{worksheet}"
+        );
+        assert_eq!(
+            generate(&messages("", r#", "failure": {"property": "ok", "equals": []}"#)).unwrap_err(),
+            "messages/list: the failure of a response equals a string, a number, a boolean or null"
+        );
+    }
+
+    #[test]
+    fn an_int64_is_a_number_when_the_config_says_so() {
+        let client = &generate(&messages("", "")).unwrap()["messages/client.ts"];
+        assert!(client.contains("limit?: bigint;"), "{client}");
+        let client = &generate(&messages("", r#", "int64": "number""#)).unwrap()["messages/client.ts"];
+        assert!(client.contains("limit?: number;"), "{client}");
+        assert!(!client.contains("bigint") && !client.contains("int64"), "{client}");
     }
 
     #[test]

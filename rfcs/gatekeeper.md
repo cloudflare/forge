@@ -61,8 +61,18 @@ The config says which operations the gatekeeper covers, and what the spec does n
   - `conditional` says that a request can ask for the response only if it has changed, with `If-None-Match` or `If-Modified-Since`. Its method returns a 304 response, which is otherwise thrown. An operation that writes cannot be conditional.
   - `pagination` says how the operation pages, and only a read can page. `items` names the property that holds the items when the response is not the array itself, and a response of the operation must have that array. The `style` is one of:
     - `link-header`: the next page is the `rel="next"` URL of the `Link` header.
-    - `offset`: a request says how many items to leave out. `offset` and `limit` name the query parameters, which are `offset` and `limit` without them, and `more` names the property of the response that says whether there is another page, if it has one. The operation must have each of them.
+    - `offset`: a request says how many items to leave out. `offset` and `limit` name the parameters, which are `offset` and `limit` without them.
+    - `cursor`: a request has the cursor that the response before it gave. `cursor` names the parameter, which can be a property of the body, and `next` names the property of the response, which can be a path such as `response_metadata.next_cursor`. `limit` names the parameter for the size of a page, if there is one.
+
+    For `offset` and `cursor`, `more` names the property of the response that is true when there is another page, or `last` the one that is true when the page is the last. The operation must have everything its pagination names. Where the document gives a response no type, a property is taken to be there.
+
+  - `omitParameters` lists parameters of the operation to leave out, by name.
+  - `failure` says what marks a 2XX response of the operation as a failure, in place of the config's.
 - **`properties`** gives a field name to properties whose wire names do not make one, by wire name. GitHub's `+1` and `-1` are both the name "1" otherwise, which is an error.
+
+- **`omitParameters`** lists parameters to leave out of every operation that has them, by name. It is for a parameter that takes a credential, as Slack's `token` does: the provider has the credentials, and a request type should have no field for one. A path parameter cannot be left out, and a name that no operation has is an error.
+- **`failure`** says what marks a 2XX response as a failure, for an API that answers one with a 2XX: `{ "property": "ok", "equals": false }` for Slack. Such a response is thrown like one whose status is not 2XX.
+- **`int64`** is `"number"` to make an `int64` a `number` in the generated types, and not a `bigint`. It is for an API whose `int64`s are counts and positions, as Jira's `startAt` is.
 
 Unknown keys are errors, so a typo is not silently ignored.
 
@@ -70,12 +80,13 @@ Unknown keys are errors, so a typo is not silently ignored.
 
 The config is applied to the spec before Forge links it, as a change to the document:
 
-- A listed operation gets `x-forge-group-name` and `x-forge-method-name`, and an `x-gatekeeper` extension with its `operationId`, `kind`, `conditional` and `pagination`, and the header parameters it declares.
+- A listed operation gets `x-forge-group-name` and `x-forge-method-name`, and an `x-gatekeeper` extension with its `operationId`, `kind`, `conditional`, `pagination` and `failure`, and the header parameters it declares.
 - Every other operation gets `x-forge-skip: true`, and a listed one loses it.
 - That covers the path items under `components.pathItems`, which a path can refer to.
 - Every operation loses its `x-forge-aliases`, since the config is what names methods.
 - A listed property gets `x-forge-property-name`, unless it has one.
-- A string loses its `date-time` or `date` format, and so does a string that can be null.
+- A string loses its `date-time` or `date` format, and so does a string that can be null. An integer loses its `int64` format when the config says so.
+- The parameters of a path item are given to each of its operations, and an operation loses those the config leaves out.
 
 Doing this before linking means the operations left out, and the models only they use, are never part of the generated code. It also means the target needs nothing new from Forge's model of the API or from the plugin interface: the generator reads `x-gatekeeper` the way any plugin reads an extension.
 
@@ -155,6 +166,8 @@ const reads = createReadClient({
 });
 ```
 
+When the config says what marks a 2XX response as a failure, such a response is thrown the same way. The error has its 2XX status and `source: 'body'`, so that code which tells failures apart by status sees that it has to read the body.
+
 A 2XX response whose body is not JSON, or is empty where the operation has one, is thrown as a `DecodeError`. It has no `status`, so nothing reads it as an answer of the API, and it has neither the body nor the parser's error, which quotes it. The clients do not validate a body against its type: JSON with other fields is returned as it is.
 
 ### operations.json
@@ -175,7 +188,7 @@ A 2XX response whose body is not JSON, or is empty where the operation has one, 
 }
 ```
 
-`operations.json` is what the rest of the target will be built from, and what an agent reads to see which decisions each operation needs. A `pagination` has the names of the generated fields: `field` for `items`, and for the style `offset`, the request fields `offset` and `limit` and the response field `more`.
+`operations.json` is what the rest of the target will be built from, and what an agent reads to see which decisions each operation needs. A `pagination` has the names of the generated fields: `field` for `items`, the request fields for `offset`, `limit` and `cursor`, and the response fields for `next`, `more` and `last`. An operation whose response the document gives no type is marked `untyped`, and one whose body can say it failed has the `failure` property.
 
 An operation that declares header parameters has them in `headers`, each with its `name`, whether it is `required` and its `default`. Forge's model of an API has no header parameters, so a request type has no field for one and the clients do not send it. `Content-Type` and `Authorization` are left out, as OpenAPI says to. `Accept` is kept, since an API can ask for a media type of its own in it, as PagerDuty does for its version. The worksheet asks, for each, whether the provider sets it or each call does.
 
@@ -209,7 +222,7 @@ List workflow runs for a repository
 - Cursor: it pages by `link-header`, and the items are in `workflow_runs`. The kit cursor that wraps it, and what each page reports:
 ```
 
-Every operation asks which request fields the binding fixes and which a caller gives. A read also asks how an observer's access to what it reports is checked, and which failures are a denial. A read sent with `POST` asks why it changes nothing. A write asks for the session methods that stage it, its action definitions and their kinds, the `autoApprovable` verdict with the rule of the skill's opt-out policy, what the approver sees, how pending reads show it, what a retry does, and its revert. A `DELETE` is told that the rule about deleting applies unless the agent says why not.
+Every operation asks which request fields the binding fixes and which a caller gives. A read also asks how an observer's access to what it reports is checked, and which failures are a denial. A read sent with `POST` asks why it changes nothing. A write asks for the session methods that stage it, its action definitions and their kinds, the `autoApprovable` verdict with the rule of the skill's opt-out policy, what the approver sees, how pending reads show it, what a retry does, and its revert. A `DELETE` is told that the rule about deleting applies unless the agent says why not. An operation whose response has no type, or can fail in its body, or that declares headers, has a line for each.
 
 The agent copies the worksheet next to `types.d.ts` and fills it in there, since the generated copy is replaced on every run. A person reviews it with the contract.
 
@@ -252,7 +265,9 @@ Proposed, in the order they would be built:
 - **Sending a request, in the kit.** Every gatekeeper writes its own `fetch` wrapper today. One function in the kit that returns the status, the headers and the capped text, with hooks for the URL, redirects and headers, would make a provider a few lines.
 - **Routes in `operations.json`.** Its `path` has the wire names of the path parameters, and a request's `route` has their field names. A provider that matches on one cannot use the other as it is.
 - **`$ref`s that are not to a component.** Forge follows a `$ref` to a schema under `components.schemas`, and not one into a response or a parameter, such as `#/components/responses/Conflict/content/application~1json/schema`. PagerDuty's document has one on every operation, and is generated only from a copy with those inlined. This is a limit of Forge, not of this target.
-- **Other ways to page.** A cursor in the body, and a page number, cannot be declared yet.
+- **Other ways to page.** A page number cannot be declared yet.
+- **Swagger 2.0.** Forge does not read it. Slack's document is one, and was tried from a conversion.
+- **Documents that say little.** Jira's issue fields and most of Notion's responses have no type. The clients return them as they are, and the worksheet says so, but the types help little there.
 - **Paging by `Link`.** GitHub's `next` link carries a cursor the spec does not declare, next to the page number. A cursor should follow the link, not count pages, which needs a way to send a request to a URL the provider gave.
 - **Operations that are not JSON.** The SDK leaves them out, and listing one in the config is an error. GitHub's logs, diffs and `git` endpoints are of this kind, along with what it only offers through GraphQL. They stay hand-written.
 - **Path parameters with slashes**, such as a file path or a branch name. The SDK percent-encodes the whole value. Whether each provider accepts that has to be checked against the real API.

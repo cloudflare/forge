@@ -88,6 +88,7 @@ function reasonOf(failure: Failure): 'credential' | 'denied' | 'missing' | 'rate
 - Classify only a rejected credential as an auth error for `CredentialSource`. A 403 or 404 for one resource is not one.
 - Do not put `failure.message` or `failure.details` in an error an agent can read, or in a log. They are what the provider sent, and can hold another user's data.
 - Without an `error` function the clients throw `ApiError`, whose message has the first 200 characters of the provider's message. That is for tests and scripts.
+- Some providers answer a failure with a 2XX and say so in the body. When the config names what says so, such a response is thrown like any other failure, with `source: 'body'` and its 2XX `status`. No status tells you what it means, so classify it from `details`, and do not let a check for `status >= 400` take it for a success.
 - A 2XX response whose body is not JSON, or is empty where the operation has one, is thrown as a `DecodeError`, which has no `status`. The clients do not check that a body has the fields its type says. Check what you depend on when you map it.
 - The kit's `readTextCapped` throws an error of its own, without a status, for a body over its limit, which is 1 MiB unless you give one. Choose the limit from the largest page you ask for, and decide what that error means.
 
@@ -98,7 +99,8 @@ Session code gets the client of reads and nothing else. It imports `./api/read.j
 - Run each call through `CredentialSource.run()` with `replayable: true`. A read can be sent twice. For a read that is sent with `POST`, be sure of that first.
 - Fix what the binding fixes. A session bound to one repository passes its own owner and name, or the id it pinned, and never takes them from the caller.
 - A method returns `{ data, status, headers }`. Map `data` to the type in `types.d.ts` with a function you write. Do not return it as it is, and do not spread it: the provider can add a field tomorrow.
-- An `int64` of the provider is a `bigint` in the generated types. `JSON.stringify` throws on one, and Cap'n Web, storage and action payloads may not take one. Turn it into a string, or a number when it is known to fit, as you map.
+- When `operations.json` marks an operation `untyped`, the provider's document gives its response no type. `data` is then what the provider sent, with the provider's names and no check at all. Check every field you read as you map it.
+- An `int64` of the provider is a `bigint` in the generated types, unless the config makes it a number. `JSON.stringify` throws on one, and Cap'n Web, storage and action payloads may not take one. Turn it into a string, or a number when it is known to fit, as you map.
 - Every session method that returns information to its caller awaits the helper that authorizes its observation, with `subresources`, before it returns. That is once for each session method, after its provider calls, and not once for each call of a client. A read that only prepares an action is not an observation.
 - The clients know nothing of pending actions. A session method reads through the client, then applies the simulation.
 
@@ -107,7 +109,10 @@ Session code gets the client of reads and nothing else. It imports `./api/read.j
 **Paged operations.** `operations.json` says how an operation pages, with the names of the generated fields. When its `pagination` has a `field`, the items are in that field of `data`, and otherwise `data` is the array. Wrap either style in one of the kit's cursors, and authorize every page it hands out.
 
 - `link-header`: the next page is the `rel="next"` URL of the `link` header of a result. Take its query parameters and send them as the `query` of the options of the next call, which replace those of the request. Do not count pages yourself: the link can carry a cursor the request type does not have.
-- `offset`: a call asks for a page with the request fields that `offset` and `limit` name. When there is a `more`, that field of `data` says whether there is another page, and otherwise a page with fewer items than the limit is the last. Check what the provider documents as the largest offset, and stop there.
+- `offset`: a call asks for a page with the request fields that `offset` and `limit` name. Check what the provider documents as the largest offset, and stop there.
+- `cursor`: a call asks for the next page with the request field that `cursor` names, set to what `next` names in the `data` of the page before. `next` can be a path, such as `responseMetadata.nextCursor`. A cursor is the provider's: do not hand it to a caller as it is, since a caller could send back another.
+
+For `offset` and `cursor`, `more` names the field of `data` that is true when there is another page, and `last` the one that is true when the page is the last. Without either, a page with no items, or with no cursor, is the last.
 
 **Headers.** A request type has no field for a header the operation declares, and the clients do not send one. `operations.json` lists them in `headers`, with whether each is required and its default. Set one that is the same for every request, such as a versioned `accept`, in the provider. Set one that differs by call in the `headers` of the options of the call. A required header that nothing sets fails at the provider, not at compile time.
 

@@ -95,7 +95,8 @@ export interface BaseClientOptions {
    */
   headers?: HeadersInit;
   /**
-   * Returns the error to throw for a response whose status is not 2XX.
+   * Returns the error to throw for a response that is a failure: one whose
+   * status is not 2XX, or one whose body says so.
    * Without it, or when it does not return an Error, the error is an
    * ApiError.
    */
@@ -214,6 +215,11 @@ export interface Operation {
    * convert, and false for a body that is not JSON.
    */
   errors?: { readonly [status: string]: Codec | boolean };
+  /**
+   * What says that a 2XX response is a failure: the property of its body
+   * that has this value.
+   */
+  failure?: { readonly property: string; readonly equals: unknown };
 }
 
 type Fields = { [key: string]: unknown };
@@ -282,10 +288,22 @@ function failure(operation: Operation, response: ProviderResponse): Failure {
   return {
     operationId: operation.id,
     status: response.status,
+    source: 'status',
     headers: response.headers,
     message: json ? errorMessage(body) : undefined,
     details,
   };
+}
+
+// Reports whether the body of a 2XX response says that it is a failure.
+function fails(operation: Operation, body: unknown): boolean {
+  const { failure: marker } = operation;
+  return (
+    marker !== undefined &&
+    isRecord(body) &&
+    Object.hasOwn(body, marker.property) &&
+    body[marker.property] === marker.equals
+  );
 }
 
 /**
@@ -375,11 +393,34 @@ export class Transport {
     const { status } = response;
     // A status that is not a number is not a success.
     if (typeof status !== 'number' || !(status >= 200 && status <= 299)) {
-      const failed = failure(operation, response);
-      const error = this.#options.error?.(failed);
-      throw error instanceof Error ? error : new ApiError(failed);
+      throw this.#error(failure(operation, response));
     }
     const result: Result<T> = { data: undefined as T, status, headers: response.headers };
+    if (operation.response === undefined && operation.failure === undefined) {
+      return result;
+    }
+    let value: unknown;
+    if (response.text !== '') {
+      try {
+        value = parse(response.text);
+      } catch {
+        // An operation without a body does not have to answer with JSON.
+        if (operation.response === undefined) {
+          return result;
+        }
+        throw new DecodeError(operation.id);
+      }
+    }
+    if (fails(operation, value)) {
+      throw this.#error({
+        operationId: operation.id,
+        status,
+        source: 'body',
+        headers: response.headers,
+        message: errorMessage(value),
+        details: value,
+      });
+    }
     if (operation.response === undefined) {
       return result;
     }
@@ -392,12 +433,17 @@ export class Transport {
       throw new DecodeError(operation.id);
     }
     try {
-      const value = parse(response.text);
       result.data = (operation.response === null ? value : operation.response.decode(value)) as T;
     } catch {
       throw new DecodeError(operation.id);
     }
     return result;
+  }
+
+  // Returns the error to throw for a failure.
+  #error(failed: Failure): Error {
+    const error = this.#options.error?.(failed);
+    return error instanceof Error ? error : new ApiError(failed);
   }
 
   // Returns the path of a request, and sets in `params` the value of each

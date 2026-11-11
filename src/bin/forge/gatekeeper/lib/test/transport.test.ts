@@ -199,6 +199,7 @@ describe('Transport', () => {
       assert.equal(error.message, 'repos/get-content: status 404: Not Found');
       assert.equal(error.operationId, 'repos/get-content');
       assert.equal(error.status, 404);
+      assert.equal(error.source, 'status');
       assert.equal(error.headers.get('x-request'), '1');
       assert.deepEqual(error.details, { message: 'Not Found', documentationUrl: 'd' });
       assert.equal('response' in error, false);
@@ -247,6 +248,34 @@ describe('Transport', () => {
       assert.equal(error.status, 404);
       return true;
     });
+  });
+
+  test('a 2XX response whose body says it failed is thrown', async () => {
+    const list: Operation = {
+      id: 'conversations_history',
+      kind: 'read',
+      method: 'GET',
+      route: '/conversations.history',
+      response: null,
+      failure: { property: 'ok', equals: false },
+    };
+    const { transport } = fake(json({ ok: false, error: 'channel_not_found' }), json({ ok: true, messages: [] }));
+    await assert.rejects(transport.send(list, {}, undefined), (error) => {
+      assert.ok(error instanceof ApiError);
+      assert.equal(error.message, 'conversations_history: status 200: channel_not_found');
+      assert.equal(error.status, 200);
+      assert.equal(error.source, 'body');
+      assert.deepEqual(error.details, { ok: false, error: 'channel_not_found' });
+      return true;
+    });
+    const result = await transport.send(list, {}, undefined);
+    assert.deepEqual(result.data, { ok: true, messages: [] });
+    // An operation without a body can fail in its body too.
+    const post: Operation = { ...list, id: 'reactions_add', kind: 'write', method: 'POST' };
+    delete post.response;
+    const other = fake(json({ ok: false, error: 'already_reacted' }), response('ok'));
+    await assert.rejects(other.transport.send(post, {}, undefined), ApiError);
+    assert.equal((await other.transport.send(post, {}, undefined)).status, 200);
   });
 
   test('a 304 is thrown, with its headers', async () => {
