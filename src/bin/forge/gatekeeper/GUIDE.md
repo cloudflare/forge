@@ -104,7 +104,12 @@ Session code gets the client of reads and nothing else. It imports `./api/read.j
 
 **Conditional operations.** A method whose operation is marked conditional returns either a result or `{ notModified: true }`. Send `if-none-match` in the options of the call with the `ETag` you stored, and answer from your own cache on `notModified`. Store the `ETag` with the mapped value, and partition the cache by credential. Use this only where the provider counts a 304 for less than a full read; otherwise a `KvTtlCache` with a TTL is enough.
 
-**Paged operations.** `operations.json` says how an operation pages. For `link-header`, the next page is the `rel="next"` URL of the `link` header of a result. Take its query parameters and send them as the `query` of the options of the next call, which replace those of the request. Do not count pages yourself: the link can carry a cursor the request type does not have. When it has a `field`, the items are in that field of `data`, and otherwise `data` is the array. Wrap this in one of the kit's cursors, and authorize every page it hands out.
+**Paged operations.** `operations.json` says how an operation pages, with the names of the generated fields. When its `pagination` has a `field`, the items are in that field of `data`, and otherwise `data` is the array. Wrap either style in one of the kit's cursors, and authorize every page it hands out.
+
+- `link-header`: the next page is the `rel="next"` URL of the `link` header of a result. Take its query parameters and send them as the `query` of the options of the next call, which replace those of the request. Do not count pages yourself: the link can carry a cursor the request type does not have.
+- `offset`: a call asks for a page with the request fields that `offset` and `limit` name. When there is a `more`, that field of `data` says whether there is another page, and otherwise a page with fewer items than the limit is the last. Check what the provider documents as the largest offset, and stop there.
+
+**Headers.** A request type has no field for a header the operation declares, and the clients do not send one. `operations.json` lists them in `headers`, with whether each is required and its default. Set one that is the same for every request, such as a versioned `accept`, in the provider. Set one that differs by call in the `headers` of the options of the call. A required header that nothing sets fails at the provider, not at compile time.
 
 ## Writes
 

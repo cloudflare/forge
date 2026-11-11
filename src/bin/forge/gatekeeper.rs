@@ -21,7 +21,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 use std::path::Path;
 
-use forge::{Err, Forge, Json, Method, Plugin, Type};
+use forge::{Err, Forge, Json, Location, Method, Plugin, Type};
 use serde::Deserialize;
 use serde_json::{Map, Value, json};
 
@@ -138,20 +138,33 @@ struct Pagination {
     /// The property of the response that holds the items, when the
     /// response is not the array of items itself.
     items: Option<String>,
+    /// For the style `offset`, the query parameter that says how many
+    /// items to leave out. It is `offset` without this.
+    offset: Option<String>,
+    /// For the style `offset`, the query parameter that says how many
+    /// items a page has at most. It is `limit` without this.
+    limit: Option<String>,
+    /// For the style `offset`, the property of the response that says
+    /// whether there is another page, if it has one.
+    more: Option<String>,
 }
 
-/// Where a response says what the next page is.
-#[derive(Clone, Copy, Deserialize)]
+/// How a request asks for the next page.
+#[derive(Clone, Copy, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 enum PaginationStyle {
-    /// In the `Link` header, as `rel="next"`.
+    /// With the URL that the `Link` header of a response has as
+    /// `rel="next"`.
     LinkHeader,
+    /// With the number of items before the page, in a query parameter.
+    Offset,
 }
 
 impl PaginationStyle {
     fn as_str(self) -> &'static str {
         match self {
             PaginationStyle::LinkHeader => "link-header",
+            PaginationStyle::Offset => "offset",
         }
     }
 }
@@ -181,10 +194,11 @@ impl Config {
         let mut found = BTreeSet::new();
         // A path item is under `paths`, or under `components.pathItems` when
         // a path refers to it.
+        let parameters = doc.pointer("/components/parameters").cloned();
         for pointer in ["/paths", "/components/pathItems"] {
             let items = doc.pointer_mut(pointer).and_then(Value::as_object_mut);
             for item in items.into_iter().flat_map(Map::values_mut) {
-                self.apply_to_path_item(item, &mut found)?;
+                self.apply_to_path_item(item, parameters.as_ref(), &mut found)?;
             }
         }
         let missing: Vec<&str> = self
@@ -201,8 +215,15 @@ impl Config {
     }
 
     /// Names and marks the operations of the path item `item`, and adds to
-    /// `found` those that are of the config.
-    fn apply_to_path_item<'a>(&'a self, item: &mut Value, found: &mut BTreeSet<&'a str>) -> Result<(), Err> {
+    /// `found` those that are of the config. `parameters` is the
+    /// `components.parameters` of the document.
+    fn apply_to_path_item<'a>(
+        &'a self,
+        item: &mut Value,
+        parameters: Option<&Value>,
+        found: &mut BTreeSet<&'a str>,
+    ) -> Result<(), Err> {
+        let shared = item.get("parameters").cloned();
         for method in METHODS {
             let Some(operation) = item.get_mut(method).and_then(Value::as_object_mut) else {
                 continue;
@@ -219,7 +240,12 @@ impl Config {
             operation.shift_remove("x-forge-skip");
             operation.insert("x-forge-group-name".to_owned(), json!(selected.group));
             operation.insert("x-forge-method-name".to_owned(), json!(selected.name));
-            operation.insert(EXTENSION.to_owned(), selected.extension(id, method)?);
+            let mut extension = selected.extension(id, method)?;
+            let headers = headers([shared.as_ref(), operation.get("parameters")], parameters);
+            if !headers.is_empty() {
+                extension["headers"] = Value::Array(headers);
+            }
+            operation.insert(EXTENSION.to_owned(), extension);
         }
         Ok(())
     }
@@ -269,6 +295,54 @@ impl Config {
     }
 }
 
+/// Returns the header parameters among `lists`, which are the `parameters`
+/// of a path item and then of one of its operations: each with its `name`,
+/// whether it is `required`, and its `default` if it has one. The model of
+/// the API has no header parameters, so a request type has none, and this
+/// is how a gatekeeper learns of them. `components` is the
+/// `components.parameters` that a parameter can refer to.
+///
+/// `Content-Type` and `Authorization` are left out, as OpenAPI says to.
+/// It says so of `Accept` too, which is kept: an API can ask for a media
+/// type of its own in it, as a version.
+fn headers(lists: [Option<&Value>; 2], components: Option<&Value>) -> Vec<Value> {
+    let mut headers: Vec<Value> = Vec::new();
+    let parameters = lists.into_iter().flatten().filter_map(Value::as_array).flatten();
+    for parameter in parameters {
+        let parameter = match parameter.get("$ref").and_then(Value::as_str) {
+            Some(reference) => reference
+                .strip_prefix("#/components/parameters/")
+                .and_then(|name| components?.get(name)),
+            None => Some(parameter),
+        };
+        let Some(parameter) = parameter else { continue };
+        let Some(name) = parameter.get("name").and_then(Value::as_str) else {
+            continue;
+        };
+        let ignored = ["content-type", "authorization"]
+            .iter()
+            .any(|ignored| name.eq_ignore_ascii_case(ignored));
+        if parameter.get("in").and_then(Value::as_str) != Some("header") || ignored {
+            continue;
+        }
+        let mut header = json!({
+            "name": name,
+            "required": parameter.get("required").and_then(Value::as_bool).unwrap_or(false),
+        });
+        if let Some(default) = parameter.pointer("/schema/default") {
+            header["default"] = default.clone();
+        }
+        // A parameter of the operation is in place of the path item's.
+        headers.retain(|other| {
+            !other["name"]
+                .as_str()
+                .is_some_and(|other| other.eq_ignore_ascii_case(name))
+        });
+        headers.push(header);
+    }
+    headers
+}
+
 impl Operation {
     /// Returns the `x-gatekeeper` extension of the operation `id`, whose
     /// field in the Path Item Object is `method`.
@@ -301,6 +375,20 @@ impl Operation {
             let mut value = json!({"style": pagination.style.as_str()});
             if let Some(items) = &pagination.items {
                 value["items"] = json!(items);
+            }
+            let by_offset = [
+                ("offset", &pagination.offset, Some("offset")),
+                ("limit", &pagination.limit, Some("limit")),
+                ("more", &pagination.more, None),
+            ];
+            for (key, name, default) in by_offset {
+                if pagination.style != PaginationStyle::Offset {
+                    if name.is_some() {
+                        return Err(format!("{id}: {key} is only for pagination of the style offset").into());
+                    }
+                } else if let Some(name) = name.as_deref().or(default) {
+                    value[key] = json!(name);
+                }
             }
             extension["pagination"] = value;
         }
@@ -370,17 +458,29 @@ fn worksheet(forge: &Forge) -> String {
         } else {
             text.push_str("- Cache: a TTL or none, and what the cache is partitioned by:\n");
         }
-        if let Some(pagination) = fact("pagination") {
-            let style = pagination.get("style").and_then(Json::as_str).unwrap_or_default();
-            let items = pagination.get("items").and_then(Json::as_str);
-            let items = match items.and_then(|items| items_field(method, Some(items))) {
+        // The manifest has already said what is wrong with a pagination.
+        if let Some(Ok(pagination)) = fact("pagination").map(|pagination| paging(method, "", pagination)) {
+            let string = |key: &str| pagination.get(key).and_then(Value::as_str);
+            let items = match string("field") {
                 Some(field) => format!("the items are in `data.{field}`"),
                 None => "the response is the array of items".to_owned(),
             };
+            let how = match (string("offset"), string("limit")) {
+                (Some(offset), Some(limit)) => {
+                    let more = match string("more") {
+                        Some(more) => format!("`data.{more}` says whether there is another page"),
+                        None => "nothing in the response says whether there is another page".to_owned(),
+                    };
+                    format!("a call asks for a page with `{offset}` and `{limit}`, {items}, and {more}")
+                }
+                _ => items,
+            };
+            let style = string("style").unwrap_or_default();
             text.push_str(&format!(
-                "- Cursor: it pages by `{style}`, and {items}. The kit cursor that wraps it, and what each page reports:\n"
+                "- Cursor: it pages by `{style}`: {how}. The kit cursor that wraps it, and what each page reports:\n"
             ));
         }
+        text.push_str(&headers_line(method));
     }
     text.push_str("\n## Writes\n\n");
     text.push_str(WORKSHEET_WRITES);
@@ -403,8 +503,41 @@ fn worksheet(forge: &Forge) -> String {
         text.push_str("- How reads show it while it is pending:\n");
         text.push_str("- What a second attempt does, and what a timeout means:\n");
         text.push_str("- Revert, if it has one:\n");
+        text.push_str(&headers_line(method));
     }
     text
+}
+
+/// Returns the line of the worksheet about the header parameters of
+/// `method`, or nothing when it declares none.
+fn headers_line(method: Method<'_>) -> String {
+    let headers = ts::client::provider_fact(method, "headers").and_then(Json::as_array);
+    let headers: Vec<String> = headers
+        .into_iter()
+        .flatten()
+        .map(|header| {
+            let name = header.get("name").and_then(Json::as_str).unwrap_or_default();
+            let mut notes = Vec::new();
+            if header.get("required").and_then(Json::as_bool) == Some(true) {
+                notes.push("required".to_owned());
+            }
+            if let Some(default) = header.get("default").and_then(Json::as_str) {
+                notes.push(format!("`{default}` by default"));
+            }
+            if notes.is_empty() {
+                format!("`{name}`")
+            } else {
+                format!("`{name}` ({})", notes.join(", "))
+            }
+        })
+        .collect();
+    if headers.is_empty() {
+        return String::new();
+    }
+    format!(
+        "- Headers it declares, which its request type does not have and the clients do not send: {}. For each, its value, and whether the provider sets it or each call does:\n",
+        headers.join(", ")
+    )
 }
 
 /// Prints the heading of `method` in the worksheet: how the client named
@@ -488,46 +621,122 @@ fn entry(method: Method<'_>) -> Result<Value, Err> {
     if extension.get("conditional").and_then(Json::as_bool) == Some(true) {
         entry["conditional"] = json!(true);
     }
+    if let Some(headers) = extension.get("headers").and_then(Json::as_array) {
+        let headers = headers.iter().map(|header| {
+            let mut value = json!({
+                "name": string(header, "name"),
+                "required": header.get("required").and_then(Json::as_bool),
+            });
+            if let Some(default) = string(header, "default") {
+                value["default"] = json!(default);
+            }
+            value
+        });
+        entry["headers"] = headers.collect();
+    }
     if let Some(pagination) = extension.get("pagination") {
-        let mut value = json!({"style": string(pagination, "style")});
-        let items = string(pagination, "items");
-        match (&items, items_field(method, items.as_deref())) {
-            (_, None) => {
-                let what = match &items {
-                    Some(items) => format!("an array in the property {items}"),
-                    None => "an array".to_owned(),
-                };
-                return Err(format!("{id} pages, but no response of it is {what}").into());
-            }
-            (Some(items), Some(field)) => {
-                value["items"] = json!(items);
-                value["field"] = json!(field);
-            }
-            (None, Some(_)) => {}
-        }
-        entry["pagination"] = value;
+        entry["pagination"] = paging(method, &id, pagination)?;
     }
     Ok(entry)
 }
 
-/// Returns the field of the response of `method` that holds the items of a
-/// page, which is the property `items`: empty when `items` is `None` and
-/// the response is the array itself. `None` when no response has the array.
-fn items_field(method: Method<'_>, items: Option<&str>) -> Option<String> {
+/// Returns how the operation `id` of `method` pages, for operations.json,
+/// from the `pagination` of its extension, which has the names the API
+/// uses. Next to those it gives the names of the generated fields: `field`
+/// for `items`, and for the style `offset`, `offset` and `limit`, which are
+/// fields of the request, and `more`, which is a field of the response.
+///
+/// It is an error when the operation does not have what its pagination
+/// names.
+fn paging(method: Method<'_>, id: &str, pagination: &Json) -> Result<Value, Err> {
+    let string = |key: &str| pagination.get(key).and_then(Json::as_str);
+    let mut value = json!({"style": string("style")});
+    let items = string("items");
+    match (items, response_field(method, items, true)) {
+        (_, None) => {
+            let what = match items {
+                Some(items) => format!("an array in the property {items}"),
+                None => "an array".to_owned(),
+            };
+            return Err(format!("{id} pages, but no response of it is {what}").into());
+        }
+        (Some(items), Some(field)) => {
+            value["items"] = json!(items);
+            value["field"] = json!(field);
+        }
+        (None, Some(_)) => {}
+    }
+    for key in ["offset", "limit"] {
+        if let Some(name) = string(key) {
+            let Some(field) = query_field(method, name) else {
+                return Err(format!("{id} pages by offset, but has no query parameter {name}").into());
+            };
+            value[key] = json!(field);
+        }
+    }
+    if let Some(more) = string("more") {
+        let Some(field) = response_field(method, Some(more), false) else {
+            return Err(format!("{id} pages by offset, but no response of it has the property {more}").into());
+        };
+        value["more"] = json!(field);
+    }
+    Ok(value)
+}
+
+/// Returns the name of the field, in the request of `method`, of the query
+/// parameter whose wire name is `wire_name`. It is the name the clients
+/// give the field, unless another parameter has the same name.
+fn query_field(method: Method<'_>, wire_name: &str) -> Option<String> {
+    // The parameters are the fields of the request, or of its first member
+    // when a body is next to them.
+    let parameters = match method.request()? {
+        Type::Object(object) => object,
+        Type::Intersection(intersection) => match intersection.members().next()? {
+            Type::Object(object) => object,
+            _ => return None,
+        },
+        _ => return None,
+    };
+    parameters
+        .fields()
+        .find(|&field| field.wire_name() == wire_name && matches!(method.location(field), Some(Location::Query { .. })))
+        .map(|field| field.name().camel())
+}
+
+/// Returns the name of the field of a response of `method` whose property
+/// is `property`, which is an array when `array` is true. Without
+/// `property`, it is empty when the response is itself an array. `None`
+/// when no response has it.
+fn response_field(method: Method<'_>, property: Option<&str>, array: bool) -> Option<String> {
     fn resolved(ty: Type<'_>) -> Type<'_> {
         match ty {
             Type::Model(model) => resolved(model.ty()),
             ty => ty,
         }
     }
+    // The fields of an object, and of the members of an `allOf`, which is
+    // how an API adds the items to what every page has.
+    fn fields<'f>(ty: Type<'f>, into: &mut Vec<forge::Field<'f>>) {
+        match resolved(ty) {
+            Type::Object(object) => into.extend(object.fields()),
+            Type::Intersection(intersection) => {
+                for member in intersection.members() {
+                    fields(member, into);
+                }
+            }
+            _ => {}
+        }
+    }
     let (types, _) = ts::client::response(method);
-    types.into_iter().map(resolved).find_map(|ty| match (ty, items) {
-        (Type::Array(_), None) => Some(String::new()),
-        (Type::Object(object), Some(items)) => object
-            .fields()
-            .find(|field| field.wire_name() == items && matches!(resolved(field.ty()), Type::Array(_)))
-            .map(|field| field.name().camel()),
-        _ => None,
+    types.into_iter().find_map(|ty| {
+        let Some(property) = property else {
+            return matches!(resolved(ty), Type::Array(_)).then(String::new);
+        };
+        let mut all = Vec::new();
+        fields(ty, &mut all);
+        all.into_iter()
+            .find(|field| field.wire_name() == property && (!array || matches!(resolved(field.ty()), Type::Array(_))))
+            .map(|field| field.name().camel())
     })
 }
 
@@ -628,9 +837,42 @@ mod tests {
             }
           }
         },
+        "/incidents": {
+          "parameters": [
+            {
+              "name": "Accept",
+              "in": "header",
+              "required": true,
+              "schema": {"type": "string", "default": "application/vnd.t+json;version=2"}
+            },
+            {"name": "Content-Type", "in": "header", "schema": {"type": "string"}}
+          ],
+          "get": {
+            "operationId": "incidents/list",
+            "parameters": [
+              {"name": "offset", "in": "query", "schema": {"type": "integer"}},
+              {"name": "page_size", "in": "query", "schema": {"type": "integer"}},
+              {"$ref": "#/components/parameters/from"}
+            ],
+            "responses": {
+              "200": {"description": "ok", "content": {"application/json": {"schema": {
+                "allOf": [
+                  {"$ref": "#/components/schemas/page"},
+                  {
+                    "type": "object",
+                    "properties": {"incidents": {"type": "array", "items": {"$ref": "#/components/schemas/issue"}}}
+                  }
+                ]
+              }}}}
+            }
+          }
+        },
         "/shared": {"$ref": "#/components/pathItems/shared"}
       },
       "components": {
+        "parameters": {
+          "from": {"name": "From", "in": "header", "schema": {"type": "string"}}
+        },
         "pathItems": {
           "shared": {
             "get": {"operationId": "shared/get", "responses": {"204": {"description": "ok"}}}
@@ -653,6 +895,7 @@ mod tests {
               "-1": {"type": "integer"}
             }
           },
+          "page": {"type": "object", "properties": {"has_more": {"type": "boolean"}}},
           "unused": {"type": "object", "properties": {"day": {"type": "string", "format": "date"}}}
         }
       }
@@ -763,11 +1006,11 @@ mod tests {
         );
         assert!(reads.contains("- Cache: it is conditional."), "{reads}");
         assert!(
-            reads.contains("- Cursor: it pages by `link-header`, and the response is the array of items."),
+            reads.contains("- Cursor: it pages by `link-header`: the response is the array of items."),
             "{reads}"
         );
         assert!(
-            reads.contains("- Cursor: it pages by `link-header`, and the items are in `data.workRuns`."),
+            reads.contains("- Cursor: it pages by `link-header`: the items are in `data.workRuns`."),
             "{reads}"
         );
         // A read that is not sent with GET is asked why it is one.
@@ -955,6 +1198,91 @@ mod tests {
             generate(&write).unwrap_err(),
             "issues/create writes, so it cannot have pagination"
         );
+    }
+
+    #[test]
+    fn an_operation_pages_by_offset() {
+        let config = |pagination: &str| {
+            format!(
+                r#"{{
+                  "operations": {{"incidents/list": {{"group": "incidents", "name": "list", "pagination": {pagination}}}}},
+                  "properties": {{"+1": "plus_one", "-1": "minus_one"}}
+                }}"#
+            )
+        };
+        let files = generate(&config(
+            r#"{"style": "offset", "items": "incidents", "limit": "page_size", "more": "has_more"}"#,
+        ))
+        .unwrap();
+        // The items are found in a member of an allOf, and the names are
+        // those of the generated fields.
+        let operations: Value = serde_json::from_str(&files["operations.json"]).unwrap();
+        assert_eq!(
+            operations["operations"][0]["pagination"],
+            serde_json::json!({
+                "style": "offset",
+                "items": "incidents",
+                "field": "incidents",
+                "offset": "offset",
+                "limit": "pageSize",
+                "more": "hasMore"
+            })
+        );
+        let worksheet = &files["WORKSHEET.md"];
+        assert!(
+            worksheet.contains(
+                "- Cursor: it pages by `offset`: a call asks for a page with `offset` and `pageSize`, the items are in `data.incidents`, and `data.hasMore` says whether there is another page."
+            ),
+            "{worksheet}"
+        );
+
+        let error = |pagination: &str| generate(&config(pagination)).unwrap_err();
+        assert_eq!(
+            error(r#"{"style": "offset", "items": "incidents"}"#),
+            "incidents/list pages by offset, but has no query parameter limit"
+        );
+        assert_eq!(
+            error(r#"{"style": "offset", "items": "incidents", "limit": "page_size", "more": "more"}"#),
+            "incidents/list pages by offset, but no response of it has the property more"
+        );
+        assert_eq!(
+            error(r#"{"style": "link-header", "items": "incidents", "more": "has_more"}"#),
+            "incidents/list: more is only for pagination of the style offset"
+        );
+    }
+
+    #[test]
+    fn the_headers_an_operation_declares_are_listed() {
+        let config = r#"{
+          "operations": {
+            "incidents/list": {"group": "incidents", "name": "list"},
+            "issues/list": {"group": "issues", "name": "list"}
+          },
+          "properties": {"+1": "plus_one", "-1": "minus_one"}
+        }"#;
+        let files = generate(config).unwrap();
+        // Those of the path item, then of the operation, without
+        // Content-Type.
+        let operations: Value = serde_json::from_str(&files["operations.json"]).unwrap();
+        assert_eq!(
+            operations["operations"][0]["headers"],
+            serde_json::json!([
+                {"name": "Accept", "required": true, "default": "application/vnd.t+json;version=2"},
+                {"name": "From", "required": false}
+            ])
+        );
+        assert_eq!(operations["operations"][1].get("headers"), None);
+        let worksheet = &files["WORKSHEET.md"];
+        assert!(
+            worksheet.contains(
+                "the clients do not send: `Accept` (required, `application/vnd.t+json;version=2` by default), `From`. For each,"
+            ),
+            "{worksheet}"
+        );
+        assert_eq!(worksheet.matches("- Headers it declares").count(), 1, "{worksheet}");
+        // The request type has no field for a header.
+        let client = &files["incidents/client.ts"];
+        assert!(!client.contains("from?:") && !client.contains("accept"), "{client}");
     }
 
     #[test]
