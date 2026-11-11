@@ -16,25 +16,44 @@ export interface Link {
   params: { readonly [name: string]: string };
 }
 
-const LINK = /<([^>]*)>((?:\s*;\s*[^\s;=,"]+(?:\s*=\s*(?:"[^"]*"|[^\s;,"]*))?)*)\s*(?:,|$)/g;
-const PARAM = /;\s*([^\s;=,"]+)(?:\s*=\s*(?:"([^"]*)"|([^\s;,"]*)))?/g;
+// Each matches at one place and goes on from where the one before ended,
+// so a header is read once, whatever it holds.
+const TARGET = /<([^>]*)>/y;
+const PARAM = /\s*;\s*([^\s;=,"]+)(?:\s*=\s*(?:"([^"]*)"|([^\s;,"]*)))?/y;
+
+// The longest `Link` header that is read.
+const MAX_LINK_LENGTH = 16 * 1024;
 
 /**
- * Returns the links of a `Link` header. What is not a link is left out.
+ * Returns the links of a `Link` header. What is not a link is left out,
+ * and so is all of a header that is longer than 16,384 characters.
  *
  * @param header The value of the header, or null when the response has none.
  * @returns The links, in the order of the header.
  */
 export function parseLinks(header: string | null): Link[] {
   const links: Link[] = [];
-  for (const [, url, rest] of (header ?? '').matchAll(LINK)) {
-    const params: { [name: string]: string } = {};
-    for (const [, name, quoted, bare] of (rest ?? '').matchAll(PARAM)) {
-      if (name !== undefined) {
-        params[name.toLowerCase()] = quoted ?? bare ?? '';
-      }
+  if (header === null || header.length > MAX_LINK_LENGTH) {
+    return links;
+  }
+  for (let at = header.indexOf('<'); at !== -1; at = header.indexOf('<', at)) {
+    TARGET.lastIndex = at;
+    const target = TARGET.exec(header);
+    if (target === null) {
+      break;
     }
-    links.push({ url: url ?? '', params });
+    at = TARGET.lastIndex;
+    const params: { [name: string]: string } = {};
+    for (;;) {
+      PARAM.lastIndex = at;
+      const [, name, quoted, bare] = PARAM.exec(header) ?? [];
+      if (name === undefined) {
+        break;
+      }
+      at = PARAM.lastIndex;
+      params[name.toLowerCase()] = quoted ?? bare ?? '';
+    }
+    links.push({ url: target[1] ?? '', params });
   }
   return links;
 }
@@ -222,13 +241,17 @@ function ended(data: unknown, spec: { more?: string; last?: string }): boolean {
  * of the items in a response, when it is not the array itself. `more` is
  * the parameter of the `rel="next"` link that is `true` when there is
  * another page, for an API that sends that link with the last page too.
+ * `omit` is the query parameters that are never part of what names the
+ * next page: the credential, for an API that takes it in the query and
+ * writes it back in the link.
  *
- * @param spec Where the items are, and what says that there is another page.
+ * @param spec Where the items are, what says that there is another page, and the query parameters to leave out.
  * @returns The pager of the operation.
  */
 export function linkPages<Request, Response, P extends string = ''>(spec: {
   items?: P;
   more?: string;
+  omit?: readonly string[];
 }): Pages<Request, Response, ItemOf<Response, P>, LinkNext> {
   return {
     page(result) {
@@ -241,7 +264,7 @@ export function linkPages<Request, Response, P extends string = ''>(spec: {
       }
       const start = link.url.indexOf('?');
       const query = start === -1 ? '' : (link.url.slice(start + 1).split('#')[0] ?? '');
-      const next = [...new URLSearchParams(query)];
+      const next = [...new URLSearchParams(query)].filter(([name]) => spec.omit?.includes(name) !== true);
       // A link with no query names the same page again.
       return { items, next: next.length === 0 ? undefined : next };
     },
@@ -259,8 +282,9 @@ export function linkPages<Request, Response, P extends string = ''>(spec: {
  * Returns how an operation pages by an offset. `offset` and `limit` are
  * the fields of the request. `more` is the path in a response of what is
  * true when there is another page, and `last` of what is true when the
- * page is the last. Without either, a page that is empty, or shorter than
- * the limit of the request, is the last.
+ * page is the last. Without either, only a page with no items is the
+ * last: a page shorter than the limit is not, since an API can give fewer
+ * items than a request asks for.
  *
  * @param spec Where the items are, the fields of the request, and what says that there is another page.
  * @returns The pager of the operation.
@@ -268,7 +292,6 @@ export function linkPages<Request, Response, P extends string = ''>(spec: {
 export function offsetPages<Request, Response, P extends string = ''>(spec: {
   items?: P;
   offset: string;
-  limit?: string;
   more?: string;
   last?: string;
 }): Pages<Request, Response, ItemOf<Response, P>, number> {
@@ -277,12 +300,6 @@ export function offsetPages<Request, Response, P extends string = ''>(spec: {
       const items = itemsOf<ItemOf<Response, P>>(result.data, spec.items);
       if (items.length === 0 || ended(result.data, spec)) {
         return { items, next: undefined };
-      }
-      if (spec.more === undefined && spec.last === undefined) {
-        const limit = dig(request, spec.limit === undefined ? 'limit' : spec.limit);
-        if (typeof limit === 'number' && items.length < limit) {
-          return { items, next: undefined };
-        }
       }
       const offset = dig(request, spec.offset);
       return { items, next: (typeof offset === 'number' ? offset : 0) + items.length };

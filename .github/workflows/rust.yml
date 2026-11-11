@@ -102,5 +102,9 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      # tests/cli.rs compiles the generated gatekeeper clients with the tsc
+      # of the workspace.
+      - uses: ./.github/actions/setup-workspace
+
       - name: Test
         run: cargo test --locked --all-features

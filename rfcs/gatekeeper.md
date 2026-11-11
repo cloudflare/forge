@@ -254,7 +254,7 @@ createProvider({ token, server: { region: 'de' }, writes: true });
 
 For errors, the runtime has `reasonOf`, which maps a status to one of eight reasons and takes the provider's exceptions by status, `reasonMessage`, which words a reason without anything the provider sent, and `retryAfterSeconds`. They are defaults. The error class is not generated, since the kit decides what it extends, and neither is what a failure means for an observer's access.
 
-A document can be wrong here too. PagerDuty's declares its key as the `Authorization` header, where the API takes `Token token=<key>`, so the key is given with its prefix.
+A scheme does not always say all of it in its fields. PagerDuty's declares its key as the `Authorization` header and says only in its description that the value is `Token token=<key>`, so the key is given with its prefix, and the catalog keeps the description.
 
 ### operations.json
 

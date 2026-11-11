@@ -33,6 +33,17 @@ describe('parseLinks', () => {
   test('has no links for a header that is missing or is not one', () => {
     assert.deepEqual(parseLinks(null), []);
     assert.deepEqual(parseLinks('next'), []);
+    assert.deepEqual(parseLinks('<a'), []);
+    assert.deepEqual(parseLinks(`<a>${' '.repeat(16 * 1024)}`), []);
+  });
+
+  test('reads a header once, and keeps the links before what is not one', () => {
+    const next = { url: '/items?cursor=1', params: { rel: 'next', results: 'true', a: '' } };
+    const started = performance.now();
+    assert.deepEqual(parseLinks(`</items?cursor=1>; rel="next"; results="true"${'; a= '.repeat(2000)}"`), [next]);
+    assert.deepEqual(parseLinks(`<a>${'; a'.repeat(4000)}`).length, 1);
+    assert.deepEqual(parseLinks('<'.repeat(16 * 1024)), []);
+    assert.ok(performance.now() - started < 1000);
   });
 });
 
@@ -69,6 +80,12 @@ describe('linkPages', () => {
     assert.deepEqual(marked.page(result([], nextLink('true')), {}).next, [['cursor', '1']]);
     assert.equal(marked.page(result([], nextLink('false')), {}).next, undefined);
     assert.equal(marked.page(result([], { link: '</items?cursor=1>; rel="next"' }), {}).next, undefined);
+  });
+
+  test('a credential that the link has is not part of the next page', () => {
+    const keyed = linkPages<object, { id: number }[]>({ omit: ['api_key'] });
+    const page = keyed.page(result([], { link: '</items?cursor=1&api_key=secret>; rel="next"' }), {});
+    assert.deepEqual(page.next, [['cursor', '1']]);
   });
 
   test('the items can be a property, and the first page has no options', () => {
@@ -109,11 +126,11 @@ describe('offsetPages', () => {
     assert.equal(pages.page(result({ values: ['a'], isLast: true }), {}).next, undefined);
   });
 
-  test('without either, a short or an empty page is the last', () => {
-    const pages = offsetPages<Request, string[]>({ offset: 'offset', limit: 'limit' });
+  test('without either, only an empty page is the last', () => {
+    const pages = offsetPages<Request, string[]>({ offset: 'offset' });
     assert.equal(pages.page(result(['a', 'b']), { limit: 2 }).next, 2);
-    assert.equal(pages.page(result(['a']), { limit: 2 }).next, undefined);
-    assert.equal(pages.page(result(['a']), {}).next, 1);
+    // An API can give fewer items than a request asks for.
+    assert.equal(pages.page(result(['a']), { limit: 2 }).next, 1);
     assert.equal(pages.page(result([]), {}).next, undefined);
   });
 });

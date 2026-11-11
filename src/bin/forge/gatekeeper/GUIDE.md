@@ -96,8 +96,8 @@ const reads = createReadClient({
 
 Read the `ProviderOptions` of your `provider.ts` for what it takes. It depends on the document:
 
-- The URL is the server of the document. A variable of it, such as a region, is an option under `server`, and a value the document does not list is refused. Where the document names no server, or several, `baseUrl` is an option.
-- The credential is an option named for the scheme: `token`, `username` and `password`, or `apiKey`. Where the document has several schemes, name the one a connection uses as `security` in the config. Where it has none, or the scheme does not say what the API really takes, `authorize` is an option: a function that sets the header or the query parameter. An API key that a document declares as the whole `Authorization` header is sent as you give it, so give it with its prefix.
+- The URL is the server of the document. A variable of it, such as a region, is an option under `server`, and a value the document does not list is refused. `baseUrl` is an option that takes its place, for a region or a host the document does not list. Where the document names no server, or several, `baseUrl` is required.
+- The credential is an option named for the scheme: `token`, `username` and `password`, or `apiKey`. Where the document has several schemes, name the one a connection uses as `security` in the config. Where it has none, or the scheme does not say what the API really takes, `authorize` is an option: a function that sets the header or the query parameter. An API key that a document declares as the whole `Authorization` header is sent as you give it, so give it with its prefix: the catalog has what the scheme says of itself, which can name one.
 
 What it does for every request, which you do not write:
 
@@ -187,15 +187,15 @@ const page = pages.issuesList.page(result, request);
 
 For a conditional operation, `fetch` can return `{ notModified: true }` in place of a page.
 
-`next` is JSON: the query of the `rel="next"` link, an offset, or the provider's cursor. Put it in the kit's cursor. A cursor that takes a string token, as `TokenCursor` does, gets it as `JSON.stringify(next)`, parsed and checked for its shape on the way back. What a caller gives back is the caller's input, so seal it or check it before you pass it to `resume`: a `next` of a link is sent as query parameters of the request, over those of the same name. The pager decides nothing else: the largest offset to allow, and how many pages one call may read, are yours.
+`next` is JSON: the query of the `rel="next"` link, an offset, or the provider's cursor. Put it in the kit's cursor. A cursor that takes a string token, as `TokenCursor` does, gets it as `JSON.stringify(next)`, parsed and checked for its shape on the way back. What a caller gives back is the caller's input, so seal it or check it before you pass it to `resume`: a `next` of a link is sent as query parameters of the request, over those of the same name. A pager leaves out of `next` an API key that the document says is sent in the query, since an API can write it back in the link. The pager decides nothing else: the largest offset to allow, and how many pages one call may read, are yours.
 
 What the pagers go by, for each style:
 
 - `link-header`: the next page is the `rel="next"` URL of the `link` header of a result. Take its query parameters and send them as the `query` of the options of the next call. Each replaces the parameter of the request that has its name, and the other parameters of the request are still sent. Do not count pages yourself: the link can carry a cursor the request type does not have. Some APIs send that link with the last page too. The pagination then has `more`, the parameter of the link that is `true` when there is another page, as in `<url>; rel="next"; results="false"`. Without it, a page with no `rel="next"` link is the last. The pager of the operation reads the header for you.
-- `offset`: a call asks for a page with the request fields that `offset` and `limit` name. Check what the provider documents as the largest offset, and stop there.
+- `offset`: a call asks for a page with the request fields that `offset` and `limit` name. A page shorter than the limit is not taken for the last, since an API can give fewer items than a call asks for. Check what the provider documents as the largest offset, and stop there.
 - `cursor`: a call asks for the next page with the request field that `cursor` names, set to what `next` names in the `data` of the page before. `next` can be a path, such as `response_metadata.next_cursor`. A cursor is the provider's: do not hand it to a caller as it is, since a caller could send back another.
 
-For `offset` and `cursor`, `more` names the field of `data` that is true when there is another page, and `last` the one that is true when the page is the last. Without either, a page with no items, or with no cursor, is the last.
+For `offset` and `cursor`, `more` names the field of `data` that is true when there is another page, and `last` the one that is true when the page is the last. Without either, a page with no items, or with no cursor, is the last, which costs one more call: name `more` or `last` where the provider has one.
 
 **Headers.** A request type has no field for a header the operation declares, and the clients do not send one. The only header they set is `content-type`, for a request with a body. `operations.json` lists them in `headers`, with whether each is required and its default. Set one that is the same for every request, such as a versioned `accept`, in the provider. Set one that differs by call in the `headers` of the options of the call. A required header that nothing sets fails at the provider, not at compile time.
 

@@ -88,6 +88,33 @@ fn ts() {
     std::fs::remove_dir_all(&out).unwrap();
 }
 
+/// What a document says for the gatekeeper target changes no other client.
+#[test]
+fn ts_binds_no_parameter() {
+    let out = std::env::temp_dir().join(format!("forge-cli-ts-bound-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&out);
+    let spec = r#"{
+      "openapi": "3.0.3",
+      "info": {"title": "t", "version": "1"},
+      "paths": {
+        "/a/{org}": {
+          "get": {
+            "x-forge-group-name": ["a"],
+            "x-forge-method-name": "get",
+            "x-gatekeeper": {"bound": ["org"]},
+            "parameters": [{"name": "org", "in": "path", "required": true, "schema": {"type": "string"}}],
+            "responses": {"200": {"description": "ok"}}
+          }
+        }
+      }
+    }"#;
+    let result = forge(&["-", "--target", "ts", "--out", out.to_str().unwrap()], spec);
+    assert!(result.status.success(), "{}", String::from_utf8_lossy(&result.stderr));
+    let client = std::fs::read_to_string(out.join("a/client.ts")).unwrap();
+    assert!(client.contains("  org: string;\n"), "{client}");
+    std::fs::remove_dir_all(&out).unwrap();
+}
+
 #[test]
 fn capnweb() {
     let out = std::env::temp_dir().join(format!("forge-cli-capnweb-{}", std::process::id()));
@@ -287,12 +314,14 @@ check(sent[2]?.method === 'DELETE' && sent[2].kind === 'write', 'the write is no
 
 /// The generated clients compile under strict TypeScript, and behave over a
 /// provider. It needs the dependencies of the runtime library, which
-/// `pnpm install` gets, and Node, and is skipped without them.
+/// `pnpm install` gets, and Node. Without them it is skipped, but in CI,
+/// where it fails.
 #[test]
 fn gatekeeper_clients_compile_and_run() {
     let lib = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("src/bin/forge/gatekeeper/lib");
     let tsc = lib.join("node_modules/.bin/tsc");
     if !tsc.is_file() {
+        assert!(std::env::var_os("CI").is_none(), "{} is missing in CI", tsc.display());
         eprintln!("skipped: {} is missing, run pnpm install", tsc.display());
         return;
     }

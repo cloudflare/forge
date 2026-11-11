@@ -428,6 +428,10 @@ fn security_scheme(name: &str, scheme: &Value) -> Value {
         other => format!("of the type `{other}`"),
     };
     value["summary"] = json!(summary);
+    // What the scheme says of itself, such as the prefix of a key.
+    if let Some(description) = scheme["description"].as_str() {
+        value["description"] = json!(description);
+    }
     value
 }
 

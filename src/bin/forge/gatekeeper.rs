@@ -712,7 +712,7 @@ impl Plugin for Generator {
             text("GUIDE.md", GUIDE.to_owned()),
             text("WORKSHEET.md", worksheet(forge, self.catalog.as_ref())),
         ];
-        let pages = pagers(forge)?.map(|content| text("pages.ts", content));
+        let pages = pagers(forge, self.catalog.as_ref())?.map(|content| text("pages.ts", content));
         let provider = match &self.catalog {
             Some(catalog) => Some(text("provider.ts", provider(catalog)?)),
             None => None,
@@ -733,6 +733,9 @@ impl Plugin for Generator {
 /// place, how a request is authorized is an option.
 fn provider(catalog: &Catalog) -> Result<String, Err> {
     let quote = |text: &str| Value::from(text).to_string();
+    // A server that is the document's can be replaced, for a region or a
+    // host that the document does not list.
+    let replaceable = "  /**\n   * The URL the paths of the API are relative to, in place of the server of the document.\n   */\n  baseUrl?: string;\n";
     let mut fields = String::new();
     let mut taken = Vec::new();
 
@@ -746,6 +749,7 @@ fn provider(catalog: &Catalog) -> Result<String, Err> {
         [server] if absolute(&server) => {
             let url = server["url"].as_str().unwrap_or_default();
             let variables: Vec<(&String, &Value)> = server["variables"].as_object().into_iter().flatten().collect();
+            fields.push_str(replaceable);
             if variables.is_empty() {
                 quote(url)
             } else {
@@ -782,7 +786,8 @@ fn provider(catalog: &Catalog) -> Result<String, Err> {
                     facts.push(format!("{}: {{ {} }}", quote(name), fact.join(", ")));
                 }
                 fields.push_str(&format!(
-                    "  /**\n   * The variables of the server URL, which is `{url}`.\n   */\n  server{}: {{ {} }};\n",
+                    "  /**\n   * The variables of the server URL, which is `{}`.\n   */\n  server{}: {{ {} }};\n",
+                    prose(url),
                     if required { "" } else { "?" },
                     types.join("; ")
                 ));
@@ -817,8 +822,9 @@ fn provider(catalog: &Catalog) -> Result<String, Err> {
     let string = |scheme: &Value, key: &str| scheme[key].as_str().unwrap_or_default().to_owned();
     let field = |name: &str, what: &str, scheme: &Value| {
         format!(
-            "  /**\n   * {what} From the security scheme `{}` of the document.\n   */\n  {name}: string;\n",
-            string(scheme, "name")
+            "  /**\n   * {} From the security scheme `{}` of the document.\n   */\n  {name}: string;\n",
+            prose(what),
+            prose(&string(scheme, "name"))
         )
     };
     let authorize = match scheme.map(|scheme| (scheme, string(scheme, "type"))) {
@@ -924,7 +930,7 @@ fn provider(catalog: &Catalog) -> Result<String, Err> {
     };
     let mut overrides = String::new();
     if base_url != "baseUrl" {
-        overrides.push_str(&format!("    baseUrl: {base_url},\n"));
+        overrides.push_str(&format!("    baseUrl: options.baseUrl ?? {base_url},\n"));
     }
     if authorize != "authorize" {
         overrides.push_str(&format!("    authorize: {authorize},\n"));
@@ -937,7 +943,15 @@ fn provider(catalog: &Catalog) -> Result<String, Err> {
 /// Returns pages.ts, which has a pager of the runtime for every operation
 /// that pages: what reads the items and the next page of a result, with
 /// the types of the operation. `None` when no operation pages.
-fn pagers(forge: &Forge) -> Result<Option<String>, Err> {
+fn pagers(forge: &Forge, catalog: Option<&Catalog>) -> Result<Option<String>, Err> {
+    // An API that takes a key in the query can write it back in a link.
+    let credentials: Vec<&str> = catalog
+        .and_then(|catalog| catalog.api["security"].as_array())
+        .into_iter()
+        .flatten()
+        .filter(|scheme| scheme["type"] == "apiKey" && scheme["in"] == "query")
+        .filter_map(|scheme| scheme["parameter"].as_str())
+        .collect();
     let mut imports = String::new();
     let mut pagers = String::new();
     let mut functions = BTreeSet::new();
@@ -983,9 +997,10 @@ fn pagers(forge: &Forge) -> Result<Option<String>, Err> {
         ));
 
         // A field of a body that is not flat is under `body`.
-        let request = ts::client::Request::new(method);
+        let request = ts::client::Request::new(method, ts::Transport::Provider);
+        let query = query_parameters(method);
         let field = |wire_name: &str| {
-            if query_parameter(method, wire_name) || request.flat {
+            if query.contains(&wire_name) || request.flat {
                 wire_name.to_owned()
             } else {
                 format!("body.{wire_name}")
@@ -993,7 +1008,7 @@ fn pagers(forge: &Forge) -> Result<Option<String>, Err> {
         };
         let style = fact("style").unwrap_or_default();
         let (function, keys): (&str, &[&str]) = match style {
-            "offset" => ("offsetPages", &["offset", "limit", "more", "last"]),
+            "offset" => ("offsetPages", &["offset", "more", "last"]),
             "cursor" => ("cursorPages", &["cursor", "next", "more", "last"]),
             _ => ("linkPages", &["more"]),
         };
@@ -1006,11 +1021,14 @@ fn pagers(forge: &Forge) -> Result<Option<String>, Err> {
         for &key in keys {
             if let Some(value) = fact(key) {
                 let value = match key {
-                    "offset" | "limit" | "cursor" => field(value),
+                    "offset" | "cursor" => field(value),
                     _ => value.to_owned(),
                 };
                 spec.push(format!("{key}: {}", Value::from(value)));
             }
+        }
+        if function == "linkPages" && !credentials.is_empty() {
+            spec.push(format!("omit: {}", json!(credentials)));
         }
         let call: Vec<String> = groups
             .iter()
@@ -1023,7 +1041,8 @@ fn pagers(forge: &Forge) -> Result<Option<String>, Err> {
             format!("{{ {} }}", spec.join(", "))
         };
         pagers.push_str(&format!(
-            "\n/**\n * How `reads.{call}` pages, which is `{id}`.\n */\nexport const {name} = withClient(\n  {function}<{alias}Request, {alias}Response, {}>({spec}),\n  (reads: ReadClient, request, options) => reads.{call}(request, options),\n);\n",
+            "\n/**\n * How `reads.{call}` pages, which is `{}`.\n */\nexport const {name} = withClient(\n  {function}<{alias}Request, {alias}Response, {}>({spec}),\n  (reads: ReadClient, request, options) => reads.{call}(request, options),\n);\n",
+            prose(id),
             Value::from(items),
             call = call.join("."),
         ));
@@ -1499,7 +1518,14 @@ fn untyped(method: Method<'_>) -> bool {
 
 /// Reports whether `method` has a query parameter with the wire name
 /// `wire_name`.
-fn query_parameter(method: Method<'_>, wire_name: &str) -> bool {
+/// Returns text of the document as it is written in a comment, which it
+/// cannot end.
+fn prose(text: &str) -> String {
+    text.replace("*/", "*\\/")
+}
+
+/// Returns the wire names of the query parameters of a method.
+fn query_parameters(method: Method<'_>) -> Vec<&str> {
     // The parameters are the fields of the request, or of its first member
     // when a body is next to them.
     let parameters = match method.request() {
@@ -1513,14 +1539,16 @@ fn query_parameter(method: Method<'_>, wire_name: &str) -> bool {
     parameters
         .into_iter()
         .flat_map(|object| object.fields())
-        .any(|field| field.wire_name() == wire_name && matches!(method.location(field), Some(Location::Query { .. })))
+        .filter(|&field| matches!(method.location(field), Some(Location::Query { .. })))
+        .map(|field| field.wire_name())
+        .collect()
 }
 
 /// Returns the name of the field, in the request of `method`, of the
 /// parameter or the property of the body whose wire name is `wire_name`.
 /// It is the name the clients give the field, unless another has the same.
 fn request_field(method: Method<'_>, wire_name: &str) -> Option<String> {
-    if query_parameter(method, wire_name) {
+    if query_parameters(method).contains(&wire_name) {
         return Some(wire_name.to_owned());
     }
     let body = method.body()?.json()?.ty();
@@ -2273,7 +2301,7 @@ mod tests {
         );
         assert!(
             provider.contains(
-                r#"    baseUrl: serverUrl("https://{region}.example.com", { "region": { default: "us", values: ["us", "de"] } }, server),"#
+                r#"    baseUrl: options.baseUrl ?? serverUrl("https://{region}.example.com", { "region": { default: "us", values: ["us", "de"] } }, server),"#
             ),
             "{provider}"
         );
@@ -2290,8 +2318,10 @@ mod tests {
         // Basic, and an API key in the query.
         let one = r#"[{"url": "https://api.example.com/v2"}]"#;
         let provider = generated(one, r#"{"basic": {"type": "http", "scheme": "basic"}}"#, none).unwrap();
+        // The server of the document can be replaced.
+        assert!(provider.contains("  baseUrl?: string;\n"), "{provider}");
         assert!(
-            provider.contains(r#"    baseUrl: "https://api.example.com/v2","#),
+            provider.contains(r#"    baseUrl: options.baseUrl ?? "https://api.example.com/v2","#),
             "{provider}"
         );
         assert!(
@@ -2308,6 +2338,11 @@ mod tests {
             provider.contains("    authorize: ({ query }) => {\n      query.set(\"api_key\", apiKey);\n    },\n"),
             "{provider}"
         );
+
+        // What the document names cannot end the comment it is written in.
+        let provider = generated(one, r#"{"a*/ b": {"type": "http", "scheme": "bearer"}}"#, none).unwrap();
+        assert!(provider.contains(r"security scheme `a*\/ b`"), "{provider}");
+        assert!(!provider.contains("a*/"), "{provider}");
 
         // Of several schemes, the one the config names.
         let two = r#"{
@@ -2402,7 +2437,7 @@ mod tests {
             r#"  linkPages<ListRunsRequest, ListRunsResponse, "work_runs">({ items: "work_runs" }),"#,
             r#"export const issuesList = withClient("#,
             r#"  linkPages<IssuesListRequest, IssuesListResponse, "">({ more: "results" }),"#,
-            r#"  offsetPages<IncidentsListRequest, IncidentsListResponse, "incidents">({ items: "incidents", offset: "offset", limit: "page_size", more: "has_more" }),"#,
+            r#"  offsetPages<IncidentsListRequest, IncidentsListResponse, "incidents">({ items: "incidents", offset: "offset", more: "has_more" }),"#,
             r#"  cursorPages<MessagesQueryRequest, MessagesQueryResponse, "results">({ items: "results", cursor: "start_cursor", next: "next_cursor", more: "has_more" }),"#,
         ] {
             assert!(pages.lines().any(|found| found == line), "{line}\n{pages}");
@@ -2410,6 +2445,19 @@ mod tests {
         // No file when no operation pages.
         let files = generate(r#"{"operations": {"issues/create": {"name": "create"}}}"#).unwrap();
         assert!(!files.contains_key("pages.ts"));
+    }
+
+    #[test]
+    fn a_key_in_the_query_is_not_part_of_the_next_page() {
+        let config: Config = serde_json::from_str(CONFIG).unwrap();
+        let mut doc: Value = serde_json::from_str(SPEC).unwrap();
+        doc["components"]["securitySchemes"] =
+            serde_json::from_str(r#"{"key": {"type": "apiKey", "in": "query", "name": "api_key"}}"#).unwrap();
+        let catalog = Catalog::new(&doc, Some(&config));
+        config.apply(&mut doc).unwrap();
+        let forge: Forge = serde_json::from_value(doc).unwrap();
+        let pages = super::pagers(&forge, Some(&catalog)).unwrap().unwrap();
+        assert!(pages.contains(r#"({ omit: ["api_key"] }),"#), "{pages}");
     }
 
     #[test]

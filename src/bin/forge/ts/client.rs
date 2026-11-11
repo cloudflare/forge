@@ -27,7 +27,7 @@ pub(super) fn client(group: Group<'_>, transport: Transport, roles: &[Role]) -> 
     let methods: Vec<(Method<'_>, Request<'_>)> = group
         .methods()
         .filter(|&m| !skipped(m))
-        .map(|m| (m, Request::new(m)))
+        .map(|m| (m, Request::new(m, transport)))
         .collect();
 
     let mut f = File::new(Module::group(group).sub("client.ts"));
@@ -36,7 +36,7 @@ pub(super) fn client(group: Group<'_>, transport: Transport, roles: &[Role]) -> 
         let methods: Vec<(Method<'_>, Request<'_>)> = methods
             .iter()
             .filter(|&&(m, _)| (role.has)(m))
-            .map(|&(m, _)| (m, Request::new(m)))
+            .map(|&(m, _)| (m, Request::new(m, transport)))
             .collect();
         p!(f);
         client_interface(&mut f, &methods, &groups, &group_names, transport, role);
@@ -279,7 +279,13 @@ fn send(f: &File, m: Method<'_>, transport: Transport) -> Fragment {
 /// have and a connection is bound to.
 fn bound_of(group: Group<'_>, bound: &mut BTreeSet<String>) {
     for m in group.methods().filter(|&m| !skipped(m)) {
-        bound.extend(Request::new(m).params.into_iter().filter(|p| p.bound).map(|p| p.name));
+        bound.extend(
+            Request::new(m, Transport::Provider)
+                .params
+                .into_iter()
+                .filter(|p| p.bound)
+                .map(|p| p.name),
+        );
     }
     for sub in group.children() {
         bound_of(sub, bound);
@@ -543,7 +549,7 @@ impl<'f> Request<'f> {
     /// query parameter that is not [`kept`] has no field, and one named
     /// like another parameter gets a `$`. A parameter named `body` next to a
     /// body that is not flat gets a `$` too.
-    pub(crate) fn new(m: Method<'f>) -> Request<'f> {
+    pub(crate) fn new(m: Method<'f>, transport: Transport) -> Request<'f> {
         let request = m.request();
         let object = match request {
             Some(Type::Object(object)) => Some(object),
@@ -587,7 +593,10 @@ impl<'f> Request<'f> {
             while !taken.insert(name.clone()) {
                 name.push('$');
             }
-            let bound = location == Location::Path
+            // Only a client over a provider binds a parameter: what a
+            // document says of one changes no other client.
+            let bound = transport == Transport::Provider
+                && location == Location::Path
                 && provider_fact(m, "bound")
                     .and_then(Json::as_array)
                     .is_some_and(|bound| bound.iter().any(|name| name.as_str() == Some(field.wire_name())));
