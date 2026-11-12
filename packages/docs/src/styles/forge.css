@@ -1,0 +1,87 @@
+/* Forge's theme: "Furnace", on the page body only.
+ *
+ * The content column and its table of contents get a warm ground, a glow from
+ * the top, Space Grotesk headings and, in dark mode, an orange-to-amber title
+ * and orange primary buttons. The header and sidebar keep Nimbus's tokens.
+ * Everything is a --nb-* token scoped to those two regions, so a Nimbus
+ * update to globals.css stays a clean diff. */
+@import "@fontsource-variable/space-grotesk";
+
+:is(#main-content, [data-nb-toc-scroll-host]) {
+	--forge-font-heading: "Space Grotesk Variable", var(--nb-font-sans);
+	--forge-glow: oklch(0.8 0.12 60 / 0.18);
+
+	--nb-background: oklch(0.985 0.006 60);
+	--nb-foreground: oklch(0.2 0.015 40);
+	--nb-card: oklch(0.995 0.004 60);
+	--nb-muted: oklch(0.97 0.01 60);
+	--nb-muted-foreground: oklch(0.5 0.02 45);
+	--nb-accent: oklch(0.955 0.02 60);
+	--nb-border: oklch(0.92 0.014 60);
+	--nb-border-strong: oklch(0.85 0.02 60);
+	--nb-selected: oklch(0.93 0.045 60);
+	--nb-h1-weight: 600;
+	--nb-h1-tracking: -0.03em;
+	--nb-h2-weight: 600;
+
+	background-color: var(--nb-background);
+	color: var(--nb-foreground);
+}
+
+/* Tailwind's colour utilities read --color-*, which globals.css resolves once
+   on the root. Declaring them again here makes bg-card, text-muted-foreground
+   and the rest follow the tokens above inside these regions. */
+:is(#main-content, [data-nb-toc-scroll-host]) {
+	--color-background: var(--nb-background);
+	--color-foreground: var(--nb-foreground);
+	--color-card: var(--nb-card);
+	--color-card-foreground: var(--nb-foreground);
+	--color-muted: var(--nb-muted);
+	--color-muted-foreground: var(--nb-muted-foreground);
+	--color-accent: var(--nb-accent);
+	--color-accent-foreground: var(--nb-foreground);
+	--color-brand: var(--nb-brand);
+	--color-primary: var(--nb-primary);
+	--color-primary-foreground: var(--nb-primary-foreground);
+	--color-primary-hover: var(--nb-primary-hover);
+	--color-border: var(--nb-border);
+	--color-border-strong: var(--nb-border-strong);
+	--color-selected: var(--nb-selected);
+	--color-ring: var(--nb-ring);
+}
+
+[data-mode="dark"] :is(#main-content, [data-nb-toc-scroll-host]) {
+	--forge-glow: oklch(0.6 0.19 45 / 0.2);
+
+	--nb-background: oklch(0.14 0.012 45);
+	--nb-foreground: oklch(0.95 0.01 70);
+	--nb-card: oklch(0.17 0.014 45);
+	--nb-muted: oklch(0.12 0.01 45);
+	--nb-muted-foreground: oklch(0.72 0.03 60);
+	--nb-accent: oklch(0.24 0.03 50);
+	--nb-border: oklch(0.26 0.02 45);
+	--nb-border-strong: oklch(0.36 0.03 45);
+	--nb-selected: oklch(0.3 0.06 50);
+	--nb-primary: #ff8c3a;
+	--nb-primary-foreground: oklch(0.14 0.012 45);
+	--nb-primary-hover: #ffab6b;
+	--nb-brand: #ff8c3a;
+	--nb-ring: color-mix(in oklch, var(--nb-brand) 45%, transparent);
+	--color-ring: var(--nb-ring);
+}
+
+#main-content {
+	background-image: radial-gradient(50rem 22rem at 50% -8rem, var(--forge-glow), transparent 70%);
+	background-repeat: no-repeat;
+}
+
+#main-content :where(h1, h2, h3, h4) {
+	font-family: var(--forge-font-heading);
+}
+
+[data-mode="dark"] #main-content h1 {
+	background: linear-gradient(90deg, #ff7a1a, #ffc061);
+	-webkit-background-clip: text;
+	background-clip: text;
+	color: transparent;
+}

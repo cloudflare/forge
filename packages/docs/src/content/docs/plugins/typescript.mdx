@@ -53,10 +53,9 @@ export const { generate, generateGroup } = definePlugin({
 
 Build and run it:
 
-```sh
-npx forge-plugin build plugin.ts --out plugin.wasm
-npx forge openapi.json --target wasm://plugin.wasm --out docs
-```
+<PackageManagers type="exec" pkg="forge-plugin" args="build plugin.ts --out plugin.wasm" />
+
+<PackageManagers type="exec" pkg="forge" args="openapi.json --target wasm://plugin.wasm --out docs" />
 
 Building takes about half a second, and the component is about 1.8 MB, most of it the JavaScript
 engine. `--out` defaults to `plugin.wasm`.

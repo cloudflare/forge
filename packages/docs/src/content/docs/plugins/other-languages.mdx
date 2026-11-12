@@ -76,9 +76,7 @@ exports synchronously.
 
 Every route to bindings starts from the WIT file, which `forge-plugin` prints:
 
-```sh
-npx forge-plugin wit > wit/forge.wit
-```
+<PackageManagers type="exec" pkg="forge-plugin" args="wit > wit/forge.wit" />
 
 The package also exports it as `@cloudflare/forge/plugin/forge.wit`, and Rust code can read
 `forge::wasm::WIT` with the `wasm` feature. The WIT is versioned (`0.2.0` today). A plugin imports
