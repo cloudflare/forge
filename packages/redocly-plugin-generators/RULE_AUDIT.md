@@ -5,10 +5,12 @@ Goal: convert rules with OAS-native value, delete pure-Fern rules and track them
 
 ## Summary
 
-| Decision | Count | Rules |
-|----------|-------|-------|
-| **CONVERT to OAS-native** | 12 | See below |
-| **DELETE + TRACK** | 28 | Pure Fern validation — let Fern own these |
+| Decision | Count | Description |
+|----------|-------|-------------|
+| **CONVERT to OAS-native** | 12 | Strip Fern dependencies, keep as generator-agnostic OAS rules |
+| **DELETE — not relevant** | 14 | Pure Fern validation, no OAS or Forge equivalent |
+| **DELETE — requires uncommitted extensions** | 7 | Validates concepts Forge may want (pagination, streaming, etc.) but extensions don't exist yet |
+| **DELETE — covered by Forge normalizer** | 7 | Validates naming extensions that Forge already handles via `x-forge-*` |
 
 ---
 
@@ -317,69 +319,92 @@ standard OAS format semantics. This is JSON Schema validation of defaults — un
 
 ---
 
-## Rules to DELETE + TRACK (28)
+## Rules to DELETE (28)
 
-These rules validate Fern-specific extensions or are deeply coupled to Fern's naming/type system.
-Delete the implementation and let Fern own the validation. Track them here for reference.
+Delete these rules and their tests/fixtures. Tracked here for reference so we know what existed
+and why we dropped it.
 
-### Pure `x-fern-*` Extension Validation (19 rules)
+### Not Relevant (14 rules)
 
-These validate specific `x-fern-*` extensions — entirely Fern's responsibility.
+These validate Fern-specific concepts with no OAS or Forge equivalent. Pure Fern validation —
+Fern should own these.
 
-| Current Rule | Upstream Reference | What It Validates |
+| Current Rule | Upstream Reference | Why Not Relevant |
 |---|---|---|
-| matching-environment-urls | `fern-definition/matching-environment-urls` | `x-fern-server-name` environment mapping |
-| no-duplicate-example-names | `fern-definition/no-duplicate-example-names` | Duplicate `name` in `x-fern-examples` |
-| no-duplicate-overrides | `oss/no-duplicate-overrides` | Duplicate `x-fern-sdk-group-name` + `x-fern-sdk-method-name` |
-| no-response-property | `fern-definition/no-response-property` | `x-fern-sdk-return-value` points to response property |
-| no-undefined-example-reference | `fern-definition/no-undefined-example-reference` | `$Type.Example` refs in `x-fern-examples` |
-| no-undefined-type-reference | `fern-definition/no-undefined-type-reference` | `x-fern-type` syntax validation |
-| no-undefined-variable-reference | `fern-definition/no-undefined-variable-reference` | `x-fern-sdk-variable` → `x-fern-sdk-variables` |
-| valid-base-path | `fern-definition/valid-base-path` | `x-fern-base-path` structure |
-| valid-base-url-env | `fern-definition/valid-base-url-env` | `x-fern-base-url-env` value + servers |
-| valid-example-endpoint-call | `fern-definition/valid-example-endpoint-call` | `x-fern-examples` against endpoint model |
-| valid-global-parameters | `fern-definition/valid-global-parameters` | `x-fern-global-parameters` declarations |
-| valid-oauth | `fern-definition/valid-oauth` | OAuth config via rule options |
-| valid-pagination | `fern-definition/valid-pagination` | `x-fern-pagination` shape + selectors |
-| valid-service-urls | `fern-definition/valid-service-urls` | `x-fern-server-name` base URL matching |
-| valid-stream-condition | `fern-definition/valid-stream-condition` | `x-fern-streaming` config |
-| valid-version | `fern-definition/valid-version` | `x-fern-version` header/values/default |
-| valid-webhook-signature | `fern-definition/valid-webhook-signature` | `x-fern-webhook-signature` HMAC/asymmetric |
-| no-undefined-path-parameters (Part 2) | `fern-definition/no-undefined-path-parameters` | `x-fern-base-path` parameter validation |
-| no-extensions-with-file-upload | `fern-definition/no-extensions-with-file-upload` | `allOf` `$ref` in Fern multipart requests |
+| matching-environment-urls | `fern-definition/matching-environment-urls` | Fern's `x-fern-server-name` environment model. OAS `servers` is sufficient. |
+| no-component-schema-collisions | `oss/no-component-schema-collisions` | Fern multi-spec merge. OAS documents are self-contained. |
+| no-conflicting-request-wrapper-properties | `fern-definition/no-conflicting-request-wrapper-properties` | 900+ lines modeling Fern's request wrapper construction. |
+| no-duplicate-declarations | `fern-definition/no-duplicate-declarations` | Fern's type/request/error naming model. |
+| no-duplicate-example-names | `fern-definition/no-duplicate-example-names` | `x-fern-examples` naming. OAS examples use unique object keys. |
+| no-missing-auth | `fern-definition/no-missing-auth` | Fern's "supported scheme" filter — not the same as OAS security validation. |
+| no-non-component-refs | `docs/no-non-component-refs` | Fern's raw-text `$ref` scanning for docs. Non-component `$ref`s are valid OAS. |
+| no-schema-title-collisions | `oss/no-schema-title-collisions` | Fern's `title-as-schema-name` generator mode. |
+| no-undefined-example-reference | `fern-definition/no-undefined-example-reference` | `$Type.Example` refs in `x-fern-examples`. Fern-proprietary syntax. |
+| no-undefined-type-reference | `fern-definition/no-undefined-type-reference` | `x-fern-type` syntax (`optional<list<string>>`). Fern-proprietary type system. |
+| no-undefined-variable-reference | `fern-definition/no-undefined-variable-reference` | `x-fern-sdk-variable` → `x-fern-sdk-variables`. Fern-specific SDK variable system. |
+| valid-base-path | `fern-definition/valid-base-path` | `x-fern-base-path`. OAS `servers` handles base paths. |
+| valid-base-url-env | `fern-definition/valid-base-url-env` | `x-fern-base-url-env`. SDK config concern, not spec metadata. |
+| valid-oauth | `fern-definition/valid-oauth` | Fern OAuth config via rule options. OAS `securitySchemes.oauth2` is native. |
 
-### Deeply Coupled to Fern's Naming/Type System (9 rules)
+### Requires Uncommitted Extensions (7 rules)
 
-These use Fern's type-name generation, request wrapper model, or SDK naming — cannot be
-meaningfully converted without a complete rewrite.
+These validate concepts that Forge may want in the future, but the extensions don't exist yet.
+When Forge commits to these extensions, new rules should be written for `x-forge-*` — not
+converted from the Fern versions, which embed Fern-specific behavior.
 
-| Current Rule | Upstream Reference | Why Not Convertible |
-|---|---|---|
-| no-component-schema-collisions | `oss/no-component-schema-collisions` | Fern multi-spec merge — OAS has no merge concept |
-| no-conflicting-endpoint-parameters | `fern-definition/no-conflicting-endpoint-parameters` | Fern's reserved name "request" + request wrapper model |
-| no-conflicting-request-wrapper-properties | `fern-definition/no-conflicting-request-wrapper-properties` | 900+ lines of Fern's request wrapper model |
-| no-duplicate-declarations | `fern-definition/no-duplicate-declarations` | Fern's type/request/error naming model |
-| no-duplicate-field-names | `fern-definition/no-duplicate-field-names` | Fern's property + enum name generation |
-| no-missing-auth | `fern-definition/no-missing-auth` | Fern's "supported scheme" filter |
-| no-non-component-refs | `docs/no-non-component-refs` | Fern's raw-text `$ref` scanning |
-| no-schema-title-collisions | `oss/no-schema-title-collisions` | Fern's `title-as-schema-name` mode |
-| valid-field-names | `fern-definition/valid-field-names` | Fern's enum name generation algorithm |
-| valid-type-name | `fern-definition/valid-type-name` | Fern's type name generation + `x-fern-type-name` |
+| Current Rule | Upstream Reference | Concept | Future Forge Extension |
+|---|---|---|---|
+| valid-pagination | `fern-definition/valid-pagination` | Cursor/offset/URI pagination config + selector validation | `x-forge-pagination` |
+| valid-stream-condition | `fern-definition/valid-stream-condition` | Stream-condition: single endpoint returns stream or non-stream based on a request param (OAS 3.2 `itemSchema` covers SSE/NDJSON natively, but not the conditional pattern) | `x-forge-stream-condition` |
+| no-response-property | `fern-definition/no-response-property` | SDK returns a single response property instead of the full envelope | `x-forge-sdk-return-value` |
+| valid-version | `fern-definition/valid-version` | API version header with values and default | `x-forge-version` (if needed) |
+| valid-webhook-signature | `fern-definition/valid-webhook-signature` | Webhook HMAC/asymmetric signature verification config | `x-forge-webhook-signature` (if needed) |
+| valid-example-endpoint-call | `fern-definition/valid-example-endpoint-call` | Rich example validation beyond OAS native `examples` | `x-forge-examples` (if native examples are insufficient) |
+| valid-global-parameters | `fern-definition/valid-global-parameters` | Global parameter injection across operations | `x-forge-global-parameters` (if `components.parameters` + `$ref` is insufficient) |
+
+### Already Covered by Forge Normalizer (7 rules)
+
+These validate naming/grouping extensions that Forge already supports natively via `x-forge-*`.
+The Fern versions (`x-fern-sdk-method-name`, etc.) are normalized to `x-forge-*` by the Rust
+vendor adapter (`src/bin/forge/normalize/vendor/fern.rs`). Validation of the `x-forge-*`
+extensions should be done by Forge's own tooling, not the Redocly plugin.
+
+| Current Rule | Upstream Reference | Fern Extension | Forge Equivalent |
+|---|---|---|---|
+| no-duplicate-overrides | `oss/no-duplicate-overrides` | `x-fern-sdk-group-name` + `x-fern-sdk-method-name` | `x-forge-group-name` + `x-forge-method-name` |
+| no-conflicting-endpoint-parameters | `fern-definition/no-conflicting-endpoint-parameters` | `x-fern-parameter-name`, request wrapper model | `x-forge-parameter-name` |
+| no-duplicate-field-names | `fern-definition/no-duplicate-field-names` | `x-fern-property-name`, `x-fern-enum` | `x-forge-property-name` |
+| valid-field-names | `fern-definition/valid-field-names` | `x-fern-enum`, `x-fern-property-name`, `x-fern-type` | `x-forge-property-name`, `x-forge-model-name` |
+| valid-type-name | `fern-definition/valid-type-name` | `x-fern-type-name` | `x-forge-model-name` |
+| no-extensions-with-file-upload | `fern-definition/no-extensions-with-file-upload` | `allOf` `$ref` in Fern multipart (uses `x-fern-ignore`, Fern media type selection) | `x-forge-skip` |
+| no-undefined-path-parameters (Part 2) | `fern-definition/no-undefined-path-parameters` | `x-fern-base-path` parameter validation | No direct equivalent — OAS `servers` suffices |
+| valid-service-urls | `fern-definition/valid-service-urls` | `x-fern-server-name` base URL matching | No direct equivalent — OAS `servers` suffices |
 
 ---
 
 ## Future OAS-Native Rules (Not Conversions — New Rules)
 
-Ideas surfaced during the audit for generator-agnostic rules that don't exist yet:
+Ideas surfaced during the audit for generator-agnostic rules that don't exist yet.
+These would be new rules written from scratch, not conversions of Fern rules.
 
-1. **allOf property conflicts**: Two `allOf` members declaring the same property key with different schemas. (Inspired by `no-duplicate-field-names` but checks OAS semantics, not Fern naming.)
+1. **allOf property conflicts**: Two `allOf` members declaring the same property key with different
+   schemas. (Inspired by `no-duplicate-field-names` but checks OAS semantics, not Fern naming.)
 
-2. **Security requirements reference existing schemes**: Operations with `security` requirements should reference schemes in `components.securitySchemes`. (Inspired by `no-missing-auth` but without Fern's "supported" filter.)
+2. **Security requirements reference existing schemes**: Operations with `security` requirements
+   should reference schemes in `components.securitySchemes`. (Inspired by `no-missing-auth` but
+   without Fern's "supported" filter.)
 
-3. **Multipart allOf composition warning**: `allOf` `$ref` in multipart request body schemas is a common generator pitfall. (Inspired by `no-extensions-with-file-upload` but generator-agnostic.)
+3. **Multipart allOf composition warning**: `allOf` `$ref` in multipart request body schemas is a
+   common generator pitfall. (Inspired by `no-extensions-with-file-upload` but generator-agnostic.)
 
-4. **Servers quality**: Duplicate URLs, missing descriptions, unused server variables. (Inspired by `matching-environment-urls` but based on OAS `servers` semantics.)
+4. **Enum values are valid identifiers**: String enum values should be usable as identifier names
+   for code generation. (Inspired by `valid-field-names` but without Fern's name generation.)
 
-5. **Enum values are valid identifiers**: String enum values should be usable as identifier names. (Inspired by `valid-field-names` but without Fern's name generation.)
+5. **Component schema names start with a letter**: Schema keys in `components.schemas` should be
+   valid type names for code generation. (Inspired by `valid-type-name` but checking raw keys.)
 
-6. **Component schema names start with a letter**: Schema keys in `components.schemas` should be valid type names. (Inspired by `valid-type-name` but checking raw schema keys.)
+6. **Validate `x-forge-*` extensions**: The existing `x-forge-*` extensions (`x-forge-method-name`,
+   `x-forge-group-name`, `x-forge-skip`, `x-forge-availability`, `x-forge-parameter-name`,
+   `x-forge-model-name`, `x-forge-property-name`, `x-forge-hidden`, `x-forge-require-confirmation`,
+   `x-forge-aliases`, `x-forge-sensitive`, `x-forge-commands`, etc.) have no lint rules today.
+   Validation rules for these belong in this plugin as `generators/forge-*` rules.
