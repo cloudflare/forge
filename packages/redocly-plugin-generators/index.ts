@@ -151,7 +151,6 @@ export default function generatorsPlugin() {
     configs: {
       recommended: buildConfig({ includeBuiltIn: 'recommended' }),
       all: buildConfig({ includeBuiltIn: 'all', pluginSeverity: 'error' }),
-      fern: buildConfig({ includeBuiltIn: 'recommended', vendorFilter: 'fern' }),
       stainless: buildConfig({ includeBuiltIn: 'recommended', vendorFilter: 'stainless' }),
       forge: buildConfig({ includeBuiltIn: 'recommended', vendorFilter: 'forge' }),
     },

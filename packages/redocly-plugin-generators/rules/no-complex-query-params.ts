@@ -18,9 +18,7 @@ interface Found {
 
 function hasDiscriminatorMapping(schema: Record<string, unknown>): boolean {
   const discriminator = schema.discriminator;
-  return (
-    isPlainObject(discriminator) && discriminator.mapping !== null && discriminator.mapping !== undefined
-  );
+  return isPlainObject(discriminator) && discriminator.mapping !== null && discriminator.mapping !== undefined;
 }
 
 function findDiscriminatedUnion(ctx: UserContext, start: Located): Found | undefined {
@@ -54,16 +52,22 @@ function findDiscriminatedUnion(ctx: UserContext, start: Located): Found | undef
 
     if (schema.items !== undefined) {
       const found = visitChild(['items'], 'items');
-      if (found !== undefined) return found;
+      if (found !== undefined) {
+        return found;
+      }
     }
     if (isPlainObject(schema.additionalProperties)) {
       const found = visitChild(['additionalProperties'], 'additionalProperties');
-      if (found !== undefined) return found;
+      if (found !== undefined) {
+        return found;
+      }
     }
     if (isPlainObject(schema.properties)) {
       for (const property of Object.keys(schema.properties)) {
         const found = visitChild(['properties', property], `properties.${property}`);
-        if (found !== undefined) return found;
+        if (found !== undefined) {
+          return found;
+        }
       }
     }
     for (const keyword of ['allOf', 'oneOf', 'anyOf'] as const) {
@@ -73,7 +77,9 @@ function findDiscriminatedUnion(ctx: UserContext, start: Located): Found | undef
       }
       for (let index = 0; index < members.length; index++) {
         const found = visitChild([keyword, index], `${keyword}[${index}]`);
-        if (found !== undefined) return found;
+        if (found !== undefined) {
+          return found;
+        }
       }
     }
     return undefined;

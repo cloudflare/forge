@@ -14,7 +14,7 @@ export interface Located<T = AnyNode> {
 
 export type Severity = 'error' | 'warn';
 
-export type Vendor = 'fern' | 'stainless' | 'forge';
+export type Vendor = 'stainless' | 'forge';
 
 export interface RuleDefinition {
   /**
