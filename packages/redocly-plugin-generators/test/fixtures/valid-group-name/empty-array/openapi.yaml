@@ -1,0 +1,12 @@
+openapi: 3.1.0
+info:
+  title: Empty array
+  version: 1.0.0
+paths:
+  /thing:
+    get:
+      operationId: getThing
+      x-forge-group-name: []
+      responses:
+        '200':
+          description: OK

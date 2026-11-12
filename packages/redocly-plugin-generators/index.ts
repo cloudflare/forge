@@ -98,8 +98,9 @@ type ConfigShape = {
  *   `"all"` emits every built-in this plugin relies on.
  * - `pluginSeverity`: applied to every plugin rule included in the config (overrides the
  *   definition's own severity when set; otherwise the definition's severity is used).
- * - `vendorFilter`: when set, only plugin rules whose vendor matches (or is unset, i.e.
- *   generator-agnostic) are included.
+ * - `vendorFilter`: `"all"` includes every plugin rule regardless of vendor; a specific `Vendor`
+ *   value limits to generator-agnostic rules plus that vendor's rules; omitted limits to
+ *   generator-agnostic rules only.
  */
 function buildConfig({
   includeBuiltIn,
@@ -108,7 +109,7 @@ function buildConfig({
 }: {
   includeBuiltIn: 'recommended' | 'all';
   pluginSeverity?: Severity;
-  vendorFilter?: Vendor;
+  vendorFilter?: Vendor | 'all';
 }): ConfigShape {
   const rules: Record<string, Severity> = {};
   const oas3Rules: Record<string, Severity> = {};
@@ -125,8 +126,13 @@ function buildConfig({
     if (includeBuiltIn === 'recommended' && definition.recommended === false) {
       continue;
     }
-    if (vendorFilter !== undefined && definition.vendor !== undefined && definition.vendor !== vendorFilter) {
-      continue;
+    if (definition.vendor !== undefined) {
+      if (vendorFilter === undefined) {
+        continue;
+      }
+      if (vendorFilter !== 'all' && definition.vendor !== vendorFilter) {
+        continue;
+      }
     }
     const target = (definition.spec ?? 'oas3') === 'oas2' ? oas2Rules : oas3Rules;
     target[`${PLUGIN_ID}/${fullName(definition)}`] = pluginSeverity ?? definition.severity;
@@ -150,7 +156,8 @@ export default function generatorsPlugin() {
     },
     configs: {
       recommended: buildConfig({ includeBuiltIn: 'recommended' }),
-      all: buildConfig({ includeBuiltIn: 'all', pluginSeverity: 'error' }),
+      all: buildConfig({ includeBuiltIn: 'all', pluginSeverity: 'error', vendorFilter: 'all' }),
+      forge: buildConfig({ includeBuiltIn: 'recommended', vendorFilter: 'forge' }),
     },
   };
 }

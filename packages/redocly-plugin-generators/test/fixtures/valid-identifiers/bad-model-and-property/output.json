@@ -1,0 +1,14 @@
+[
+  {
+    "ruleId": "generators/forge-valid-identifiers",
+    "severity": "error",
+    "message": "x-forge-property-name must be a valid Forge identifier (starts with a letter, letters and digits only); got \"last_login\".",
+    "location": "openapi.yaml#/components/schemas/Thing/properties/last_login/x-forge-property-name (key)"
+  },
+  {
+    "ruleId": "generators/forge-valid-identifiers",
+    "severity": "error",
+    "message": "x-forge-model-name must be a valid Forge identifier (starts with a letter, letters and digits only); got \"2fa\".",
+    "location": "openapi.yaml#/components/schemas/Thing/x-forge-model-name (key)"
+  }
+]

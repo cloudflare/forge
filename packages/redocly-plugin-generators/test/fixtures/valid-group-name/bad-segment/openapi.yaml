@@ -1,0 +1,19 @@
+openapi: 3.1.0
+info:
+  title: Bad segment
+  version: 1.0.0
+paths:
+  /dotted:
+    get:
+      operationId: dotted
+      x-forge-group-name: zone.2settings
+      responses:
+        '200':
+          description: OK
+  /array:
+    get:
+      operationId: arr
+      x-forge-group-name: ['zone', 'bad-segment']
+      responses:
+        '200':
+          description: OK

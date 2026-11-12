@@ -1,0 +1,21 @@
+openapi: 3.1.0
+info:
+  title: Bad method name
+  version: 1.0.0
+paths:
+  /thing:
+    get:
+      operationId: getThing
+      x-forge-method-name: 2fa_check
+      responses:
+        '200':
+          description: OK
+  /other:
+    get:
+      operationId: getOther
+      x-forge-method-name: get-other
+      x-forge-aliases:
+        - x-forge-method-name: _hidden
+      responses:
+        '200':
+          description: OK

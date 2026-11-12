@@ -1,0 +1,32 @@
+openapi: 3.1.0
+info:
+  title: All valid pass
+  version: 1.0.0
+paths:
+  /things/{thingId}:
+    get:
+      operationId: getThing
+      x-forge-method-name: getThing
+      parameters:
+        - name: thingId
+          in: path
+          required: true
+          x-forge-parameter-name: thingId
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Thing'
+components:
+  schemas:
+    Thing:
+      type: object
+      x-forge-model-name: Thing
+      properties:
+        name:
+          type: string
+          x-forge-property-name: name

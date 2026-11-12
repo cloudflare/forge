@@ -1,6 +1,6 @@
 # @cloudflare/redocly-plugin-generators
 
-A [Redocly](https://redocly.com/docs/cli/) plugin bundling lint rules relevant to OpenAPI-driven code generators (Fern, Stainless, Forge, etc.). Rules are generator-agnostic and apply to any OpenAPI document; vendor-specific infrastructure is left in place for future `generators/forge-*` rules that validate `x-forge-*` extensions.
+A [Redocly](https://redocly.com/docs/cli/) plugin bundling lint rules relevant to OpenAPI-driven code generators (Fern, Stainless, Forge, etc.). Generator-agnostic rules apply to any OpenAPI document; vendor-specific rules validate `x-<vendor>-*` extensions for a single generator and opt in via a vendor config.
 
 This plugin began as a port of [`dimitropoulos/redocly-plugin-fern`](https://github.com/dimitropoulos/redocly-plugin-fern), then had its Fern-specific gating stripped so each surviving rule checks OAS-native semantics only.
 
@@ -14,8 +14,8 @@ See [`FUTURE.md`](./FUTURE.md) for candidate rules, scope changes, and built-ins
 
 ### Rule naming
 
-- **Generator-agnostic**: `generators/<base-name>` — no vendor prefix. Every rule today is in this bucket.
-- **Vendor-specific** (future): `generators/<vendor>-<base-name>` — e.g. a planned `generators/forge-*` family for `x-forge-*` extension validation. A rule declares its vendor in its `RuleDefinition` (`vendor: 'forge'`); the plugin derives the prefixed Redocly rule ID mechanically. `RuleDefinition.sourceRules` points at the upstream rule (e.g. `fern-definition/no-complex-query-params`) for provenance.
+- **Generator-agnostic**: `generators/<base-name>` — no vendor prefix. Enabled by `generators/recommended`.
+- **Vendor-specific**: `generators/<vendor>-<base-name>` — e.g. the `generators/forge-*` family that validates `x-forge-*` extensions. A rule declares its vendor in its `RuleDefinition` (`vendor: 'forge'`); the plugin derives the prefixed Redocly rule ID mechanically. Enabled only via the matching vendor config (e.g. `generators/forge`). `RuleDefinition.sourceRules` points at the upstream rule (e.g. `fern-definition/no-complex-query-params`) for provenance.
 
 ## Usage
 
@@ -26,6 +26,8 @@ plugins:
 
 extends:
   - generators/recommended
+  # Enable Forge extension rules in addition:
+  # - generators/forge
 
 rules:
   # opt out of a single rule:
@@ -34,10 +36,9 @@ rules:
 
 ### Configs
 
-- `generators/recommended` — rules at their default severity. Also enables the built-in Redocly rules this plugin relies on (configured to the recommended subset).
-- `generators/all` — every plugin rule at `error`, plus all the built-in Redocly rules.
-
-Vendor-specific configs (e.g. `generators/forge`) will be added alongside the first `generators/forge-*` rule.
+- `generators/recommended` — generator-agnostic rules at their default severity. Also enables the built-in Redocly rules this plugin relies on (configured to the recommended subset). Does not enable vendor-specific rules.
+- `generators/forge` — everything in `generators/recommended` plus the `generators/forge-*` rules that validate `x-forge-*` extensions. Use this when the spec is consumed by [Forge](https://github.com/cloudflare/forge).
+- `generators/all` — every plugin rule (generator-agnostic and vendor-specific) at `error`, plus all the built-in Redocly rules.
 
 ## Development
 

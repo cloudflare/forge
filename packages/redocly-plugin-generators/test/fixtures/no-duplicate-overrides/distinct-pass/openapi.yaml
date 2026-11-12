@@ -1,0 +1,20 @@
+openapi: 3.1.0
+info:
+  title: Distinct pass
+  version: 1.0.0
+paths:
+  /zones:
+    get:
+      operationId: listZones
+      x-forge-group-name: zones
+      x-forge-method-name: list
+      responses:
+        '200':
+          description: OK
+    post:
+      operationId: createZone
+      x-forge-group-name: zones
+      x-forge-method-name: create
+      responses:
+        '200':
+          description: OK

@@ -1,0 +1,8 @@
+[
+  {
+    "ruleId": "generators/forge-no-duplicate-overrides",
+    "severity": "error",
+    "message": "SDK method \"zone.settings.list\" already defined by GET /a. Change x-forge-group-name or x-forge-method-name on one of the operations.",
+    "location": "openapi.yaml#/paths/~1b/get/x-forge-method-name (key)"
+  }
+]

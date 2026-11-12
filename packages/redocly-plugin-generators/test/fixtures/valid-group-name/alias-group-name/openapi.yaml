@@ -1,0 +1,15 @@
+openapi: 3.1.0
+info:
+  title: Alias group name
+  version: 1.0.0
+paths:
+  /thing:
+    get:
+      operationId: getThing
+      x-forge-group-name: zone
+      x-forge-aliases:
+        - x-forge-method-name: fetchThing
+          x-forge-group-name: ['zone', 'bad-segment']
+      responses:
+        '200':
+          description: OK

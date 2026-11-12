@@ -1,0 +1,20 @@
+[
+  {
+    "ruleId": "generators/forge-valid-identifiers",
+    "severity": "error",
+    "message": "x-forge-method-name must be a valid Forge identifier (starts with a letter, letters and digits only); got \"_hidden\".",
+    "location": "openapi.yaml#/paths/~1other/get/x-forge-aliases/0/x-forge-method-name (key)"
+  },
+  {
+    "ruleId": "generators/forge-valid-identifiers",
+    "severity": "error",
+    "message": "x-forge-method-name must be a valid Forge identifier (starts with a letter, letters and digits only); got \"get-other\".",
+    "location": "openapi.yaml#/paths/~1other/get/x-forge-method-name (key)"
+  },
+  {
+    "ruleId": "generators/forge-valid-identifiers",
+    "severity": "error",
+    "message": "x-forge-method-name must be a valid Forge identifier (starts with a letter, letters and digits only); got \"2fa_check\".",
+    "location": "openapi.yaml#/paths/~1thing/get/x-forge-method-name (key)"
+  }
+]

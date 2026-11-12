@@ -1,0 +1,8 @@
+[
+  {
+    "ruleId": "generators/forge-boolean-extensions",
+    "severity": "error",
+    "message": "x-forge-sensitive must be boolean; got number.",
+    "location": "openapi.yaml#/components/schemas/Thing/x-forge-sensitive (key)"
+  }
+]
