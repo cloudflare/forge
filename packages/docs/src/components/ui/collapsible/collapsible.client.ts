@@ -1,14 +1,14 @@
 /** Wires Collapsible via the disclosure module. */
 
-import { mount, makeDisclosure } from '@cloudflare/nimbus-docs/client';
+import { mount, makeDisclosure } from "@cloudflare/nimbus-docs/client";
 
 function initCollapsible(root: HTMLElement): () => void {
-  const trigger = root.querySelector<HTMLElement>('[data-nb-collapsible-trigger]');
-  const content = root.querySelector<HTMLElement>('[data-nb-collapsible-content]');
+  const trigger = root.querySelector<HTMLElement>("[data-nb-collapsible-trigger]");
+  const content = root.querySelector<HTMLElement>("[data-nb-collapsible-content]");
 
   if (!trigger || !content) return () => {};
 
-  const defaultOpen = root.dataset.nbDefaultOpen === 'true';
+  const defaultOpen = root.dataset.nbDefaultOpen === "true";
 
   const disclosure = makeDisclosure({
     trigger,
@@ -19,4 +19,4 @@ function initCollapsible(root: HTMLElement): () => void {
   return () => disclosure.destroy();
 }
 
-mount('[data-nb-collapsible]', initCollapsible);
+mount("[data-nb-collapsible]", initCollapsible);

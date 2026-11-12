@@ -1,1 +1,1 @@
-export { default as PageActions } from './PageActions.astro';
+export { default as PageActions } from "./PageActions.astro";

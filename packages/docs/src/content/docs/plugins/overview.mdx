@@ -71,13 +71,11 @@ includes WebAssembly support; a `forge` built with Cargo needs the `wasm` featur
 
 ## Where next
 
-<NavList
-  items={[
-    { title: 'TypeScript plugins', description: 'definePlugin, the API, building and errors.', href: '/plugins/typescript/' },
-    { title: 'The TypeScript printer', description: 'Write TypeScript output with imports worked out for you.', href: '/plugins/ts-printer/' },
-    { title: 'Rust plugins', description: 'As a WebAssembly component, or Forge as a library.', href: '/plugins/rust/' },
-    { title: 'Other languages', description: 'Build a component of the plugin world in anything.', href: '/plugins/other-languages/' },
-    { title: 'Testing plugins', description: 'Snapshot output and check it compiles.', href: '/plugins/testing/' },
-    { title: 'Designing a target', description: 'Decisions every generator makes, and how the built-in ones make them.', href: '/plugins/designing-a-target/' },
-  ]}
-/>
+<CardGrid>
+  <LinkCard title="TypeScript plugins" description="definePlugin, the API, building and errors." href="/plugins/typescript/" />
+  <LinkCard title="The TypeScript printer" description="Write TypeScript output with imports worked out for you." href="/plugins/ts-printer/" />
+  <LinkCard title="Rust plugins" description="As a WebAssembly component, or Forge as a library." href="/plugins/rust/" />
+  <LinkCard title="Other languages" description="Build a component of the plugin world in anything." href="/plugins/other-languages/" />
+  <LinkCard title="Testing plugins" description="Snapshot output and check it compiles." href="/plugins/testing/" />
+  <LinkCard title="Designing a target" description="Decisions every generator makes, and how the built-in ones make them." href="/plugins/designing-a-target/" />
+</CardGrid>

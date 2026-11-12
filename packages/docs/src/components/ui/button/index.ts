@@ -1,4 +1,4 @@
-export { default as Button } from './Button.astro';
+export { default as Button } from "./Button.astro";
 export {
   buttonVariants,
   buttonBase,
@@ -10,4 +10,4 @@ export {
   type ButtonSize,
   type ButtonShape,
   type ButtonVariantsOptions,
-} from './variants';
+} from "./variants";

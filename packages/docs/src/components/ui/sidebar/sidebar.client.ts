@@ -1,8 +1,15 @@
-/** Sidebar runtime: filter, persistence, "/" shortcut. */
+/** Sidebar runtime: filter, persistence, "/" shortcut.
+ *
+ * Groups are native `<details>`: open state is the element's own `open`
+ * property, and changes arrive as `toggle` events (captured on the root —
+ * `toggle` doesn't bubble). No click simulation. Rows carry no class or data
+ * attribute, so a link row is any `li > a` and a group any `details`.
+ */
 
-import { mount } from '@cloudflare/nimbus-docs/client';
+import { mount, onShortcut, syncShortcutHints } from "@cloudflare/nimbus-docs/client";
+import { shortcuts } from "@/lib/shortcuts";
 
-const STORAGE_KEY = 'sidebar-state';
+const STORAGE_KEY = "sidebar-state";
 
 interface SidebarState {
   hash: string;
@@ -10,9 +17,15 @@ interface SidebarState {
   scroll: number;
 }
 
+function groupsOf(root: HTMLElement): HTMLDetailsElement[] {
+  return Array.from(
+    root.querySelectorAll<HTMLDetailsElement>("details"),
+  );
+}
+
 function initSidebar(root: HTMLElement): () => void {
   const teardowns: Array<() => void> = [];
-  const persist = root.hasAttribute('data-nb-sidebar-persist');
+  const persist = root.hasAttribute("data-nb-sidebar-persist");
 
   const filterTeardown = initFilter(root);
   if (filterTeardown) teardowns.push(filterTeardown);
@@ -30,12 +43,14 @@ function initSidebar(root: HTMLElement): () => void {
 // ---------------------------------------------------------------------------
 
 function initFilter(root: HTMLElement): (() => void) | null {
-  const input = root.querySelector<HTMLInputElement>('[data-nb-sidebar-filter-input]');
+  const input = root.querySelector<HTMLInputElement>("[data-nb-sidebar-filter-input]");
   // SidebarFilter is rendered *next to* Sidebar (sibling), so also look in
   // the parent — preserves the existing layout where filter sits above.
   const inputElement =
-    input ?? root.parentElement?.querySelector<HTMLInputElement>('[data-nb-sidebar-filter-input]') ?? null;
+    input ?? root.parentElement?.querySelector<HTMLInputElement>("[data-nb-sidebar-filter-input]") ?? null;
   if (!inputElement) return null;
+  // Its key's hint and `aria-keyshortcuts` follow the platform and the reader.
+  syncShortcutHints(inputElement.parentElement ?? inputElement);
 
   function handleInput() {
     const query = inputElement!.value.trim().toLowerCase();
@@ -47,66 +62,70 @@ function initFilter(root: HTMLElement): (() => void) | null {
   }
 
   function handleKeydown(e: KeyboardEvent) {
-    if (e.key === 'Escape') {
-      inputElement!.value = '';
+    if (e.key === "Escape") {
+      inputElement!.value = "";
       handleInput();
       inputElement!.blur();
     }
   }
 
-  inputElement.addEventListener('input', handleInput);
-  inputElement.addEventListener('keydown', handleKeydown);
+  inputElement.addEventListener("input", handleInput);
+  inputElement.addEventListener("keydown", handleKeydown);
 
   return () => {
-    inputElement.removeEventListener('input', handleInput);
-    inputElement.removeEventListener('keydown', handleKeydown);
+    inputElement.removeEventListener("input", handleInput);
+    inputElement.removeEventListener("keydown", handleKeydown);
     resetFilter(root);
   };
 }
 
 function resetFilter(root: HTMLElement): void {
-  root.querySelectorAll<HTMLElement>('[data-nb-sidebar-hidden]').forEach((el) => {
-    el.removeAttribute('data-nb-sidebar-hidden');
+  root.querySelectorAll<HTMLElement>("[data-nb-sidebar-hidden]").forEach((el) => {
+    el.removeAttribute("data-nb-sidebar-hidden");
   });
-  // Reset groups opened by the filter back to their saved state.
-  root.querySelectorAll<HTMLElement>('[data-nb-sidebar-group][data-nb-opened-by-filter]').forEach((group) => {
-    const trigger = group.querySelector<HTMLElement>('[data-nb-collapsible-trigger]');
-    trigger?.click();
-    group.removeAttribute('data-nb-opened-by-filter');
-  });
+  // Close groups the filter opened, restoring the reader's previous state.
+  root
+    .querySelectorAll<HTMLDetailsElement>("details[data-nb-opened-by-filter]")
+    .forEach((group) => {
+      group.open = false;
+      group.removeAttribute("data-nb-opened-by-filter");
+    });
 }
 
 function applyFilter(root: HTMLElement, query: string): void {
-  const links = root.querySelectorAll<HTMLElement>('[data-nb-sidebar-link]');
-  const groups = root.querySelectorAll<HTMLElement>('[data-nb-sidebar-group]');
+  const links = root.querySelectorAll<HTMLElement>("li > a");
+  const groups = root.querySelectorAll<HTMLElement>("details");
 
-  links.forEach((link) => link.setAttribute('data-nb-sidebar-hidden', ''));
-  groups.forEach((group) => group.setAttribute('data-nb-sidebar-hidden', ''));
+  links.forEach((link) => link.setAttribute("data-nb-sidebar-hidden", ""));
+  groups.forEach((group) => group.setAttribute("data-nb-sidebar-hidden", ""));
 
   links.forEach((link) => {
-    const text = link.textContent?.toLowerCase() ?? '';
+    // A method chip's `data-m` adds the full verb its label may abbreviate.
+    const method = link.querySelector<HTMLElement>("i[data-m]")?.dataset.m ?? "";
+    const text = `${link.textContent ?? ""} ${method}`.toLowerCase();
     if (!text.includes(query)) return;
-    link.removeAttribute('data-nb-sidebar-hidden');
+    link.removeAttribute("data-nb-sidebar-hidden");
     revealAncestors(link, root);
   });
 
   groups.forEach((group) => {
-    const label = group.querySelector('[data-nb-sidebar-group-label]');
-    const text = label?.textContent?.toLowerCase() ?? '';
+    const label = group.querySelector(":scope > summary");
+    const text = label?.textContent?.toLowerCase() ?? "";
     if (!text.includes(query)) return;
-    group.removeAttribute('data-nb-sidebar-hidden');
+    group.removeAttribute("data-nb-sidebar-hidden");
     openGroup(group);
-    group
-      .querySelectorAll<HTMLElement>('[data-nb-sidebar-link], [data-nb-sidebar-group]')
-      .forEach((child) => child.removeAttribute('data-nb-sidebar-hidden'));
+    // A matching group inside one that doesn't match shows its parents too.
+    revealAncestors(group, root);
+    group.querySelectorAll<HTMLElement>("li > a, details")
+      .forEach((child) => child.removeAttribute("data-nb-sidebar-hidden"));
   });
 }
 
 function revealAncestors(el: HTMLElement, scope: Element): void {
   let parent: HTMLElement | null = el.parentElement;
   while (parent && parent !== scope) {
-    if (parent.hasAttribute('data-nb-sidebar-group')) {
-      parent.removeAttribute('data-nb-sidebar-hidden');
+    if (parent instanceof HTMLDetailsElement) {
+      parent.removeAttribute("data-nb-sidebar-hidden");
       openGroup(parent);
     }
     parent = parent.parentElement;
@@ -114,11 +133,9 @@ function revealAncestors(el: HTMLElement, scope: Element): void {
 }
 
 function openGroup(group: HTMLElement): void {
-  const trigger = group.querySelector<HTMLElement>('[data-nb-collapsible-trigger]');
-  if (!trigger) return;
-  if (trigger.getAttribute('data-nb-state') === 'open') return;
-  group.setAttribute('data-nb-opened-by-filter', '');
-  trigger.click();
+  if (!(group instanceof HTMLDetailsElement) || group.open) return;
+  group.setAttribute("data-nb-opened-by-filter", "");
+  group.open = true;
 }
 
 // ---------------------------------------------------------------------------
@@ -126,19 +143,55 @@ function openGroup(group: HTMLElement): void {
 // ---------------------------------------------------------------------------
 
 function initPersistence(root: HTMLElement): (() => void) | null {
-  // The scrollable container is the closest <aside> or the root itself.
-  const scrollHost: HTMLElement = root.closest('aside') ?? root;
-  const hash = root.dataset.nbSidebarHash ?? '';
+  // The scrollable container: the movable tree wrapper (shared between the
+  // desktop rail and the drawer), the enclosing <aside>, or the root itself.
+  const scrollHost: HTMLElement =
+    root.closest<HTMLElement>("[data-nb-sidebar-tree]") ?? root.closest("aside") ?? root;
+  const hash = root.dataset.nbSidebarHash ?? "";
 
-  function readState(): SidebarState {
-    const groups = root.querySelectorAll<HTMLElement>('[data-nb-sidebar-group]');
-    const open: boolean[] = [];
-    groups.forEach((group) => {
-      const trigger = group.querySelector<HTMLElement>('[data-nb-collapsible-trigger]');
-      open.push(trigger?.getAttribute('data-nb-state') === 'open');
-    });
-    return { hash, open, scroll: scrollHost.scrollTop };
+  function savedScroll(): number | null {
+    try {
+      const saved = JSON.parse(sessionStorage.getItem(STORAGE_KEY) ?? "null");
+      return saved?.hash === hash && typeof saved.scroll === "number" ? saved.scroll : null;
+    } catch {
+      return null;
+    }
   }
+
+  // A hidden tree (the rail on a phone) reads scrollTop 0: keep the last
+  // scroll it had while visible.
+  function readState(): SidebarState {
+    return {
+      hash,
+      open: groupsOf(root).map((group) => group.open),
+      scroll: scrollHost.clientHeight > 0 ? scrollHost.scrollTop : (savedScroll() ?? 0),
+    };
+  }
+
+  // Shown after being hidden (the mobile drawer opening): apply the saved
+  // scroll, then bring the current page into view if it is outside it.
+  function restoreScroll() {
+    const scroll = savedScroll();
+    if (scroll !== null) scrollHost.scrollTop = scroll;
+    const active = root.querySelector("[aria-current='page']");
+    if (!active) return;
+    const box = scrollHost.getBoundingClientRect();
+    const item = active.getBoundingClientRect();
+    if (item.top < box.top || item.bottom > box.bottom) {
+      scrollHost.scrollTop += item.top - box.top - box.height / 2 + item.height / 2;
+    }
+  }
+
+  let visible = scrollHost.clientHeight > 0;
+  const resize =
+    typeof ResizeObserver === "undefined"
+      ? undefined
+      : new ResizeObserver(() => {
+          const nowVisible = scrollHost.clientHeight > 0;
+          if (nowVisible && !visible) restoreScroll();
+          visible = nowVisible;
+        });
+  resize?.observe(scrollHost);
 
   function save() {
     try {
@@ -146,58 +199,57 @@ function initPersistence(root: HTMLElement): (() => void) | null {
     } catch {}
   }
 
-  // Observe state changes on each group's trigger.
-  const observer = new MutationObserver(save);
-  root.querySelectorAll<HTMLElement>('[data-nb-collapsible-trigger]').forEach((trigger) => {
-    observer.observe(trigger, {
-      attributes: true,
-      attributeFilter: ['data-nb-state'],
-    });
-  });
+  // `toggle` doesn't bubble; capture on the root observes every group. A
+  // group the filter opened is transient state and not saved.
+  const handleToggle = (event: Event) => {
+    const group = event.target as HTMLElement | null;
+    if (!(group instanceof HTMLDetailsElement)) return;
+    if (group.hasAttribute("data-nb-opened-by-filter")) return;
+    save();
+  };
+  root.addEventListener("toggle", handleToggle, true);
 
   function handleVisibility() {
-    if (document.visibilityState === 'hidden') save();
+    if (document.visibilityState === "hidden") save();
   }
-  document.addEventListener('visibilitychange', handleVisibility);
-  window.addEventListener('pagehide', save);
+  document.addEventListener("visibilitychange", handleVisibility);
+  window.addEventListener("pagehide", save);
 
   let raf = 0;
   function handleScroll() {
     cancelAnimationFrame(raf);
     raf = requestAnimationFrame(save);
   }
-  scrollHost.addEventListener('scroll', handleScroll);
+  scrollHost.addEventListener("scroll", handleScroll);
 
   return () => {
-    observer.disconnect();
-    document.removeEventListener('visibilitychange', handleVisibility);
-    window.removeEventListener('pagehide', save);
-    scrollHost.removeEventListener('scroll', handleScroll);
+    resize?.disconnect();
+    root.removeEventListener("toggle", handleToggle, true);
+    document.removeEventListener("visibilitychange", handleVisibility);
+    window.removeEventListener("pagehide", save);
+    scrollHost.removeEventListener("scroll", handleScroll);
     cancelAnimationFrame(raf);
   };
 }
 
 // ---------------------------------------------------------------------------
-// Global `/` shortcut — bound once at module load
+// The filter's shortcut (`/` by default, from src/lib/shortcuts.ts) — bound once
 // ---------------------------------------------------------------------------
 
 (function bindFilterShortcut() {
-  if (document.documentElement.hasAttribute('data-nb-sidebar-shortcut-bound')) return;
-  document.documentElement.setAttribute('data-nb-sidebar-shortcut-bound', '');
+  if (document.documentElement.hasAttribute("data-nb-sidebar-shortcut-bound")) return;
+  document.documentElement.setAttribute("data-nb-sidebar-shortcut-bound", "");
 
-  document.addEventListener('keydown', (e) => {
-    if (e.key !== '/') return;
-    const active = document.activeElement as HTMLElement | null;
-    if (active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.isContentEditable)) {
-      return;
-    }
-    const desktopInput = document.querySelector<HTMLInputElement>(
-      '[data-nb-sidebar-persist] ~ * [data-nb-sidebar-filter-input], [data-nb-desktop-sidebar] [data-nb-sidebar-filter-input]',
-    );
-    if (!desktopInput) return;
+  onShortcut(shortcuts.filterSidebar, (e) => {
+    // One tree per page now: the filter input travels with it between the
+    // rail and the drawer, so take the first visible input.
+    const input = Array.from(
+      document.querySelectorAll<HTMLInputElement>("[data-nb-sidebar-filter-input]"),
+    ).find((candidate) => candidate.offsetParent !== null);
+    if (!input) return;
     e.preventDefault();
-    desktopInput.focus();
+    input.focus();
   });
 })();
 
-mount('[data-nb-sidebar]', initSidebar);
+mount("[data-nb-sidebar]", initSidebar);

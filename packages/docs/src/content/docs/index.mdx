@@ -1,74 +1,63 @@
 ---
 title: Forge
-description: A pluggable, schema-first code generator. Forge reads an OpenAPI document into one typed model and hands it to plugins that write SDKs, CLIs, MCP servers and docs.
-mode: custom
+description: One OpenAPI document in; an SDK, MCP tools, a server or your own output out.
+sidebar:
+  order: 0
 ---
 
-<Hero
-	eyebrow="Open source, from Cloudflare"
-	title="One spec in. Every SDK out."
-	tagline="Forge reads an OpenAPI document into one typed, language-neutral model, then hands it to plugins that write SDKs, CLIs, MCP servers and docs. The generators that ship with it are plugins too, so yours get the same footing."
->
-	<PipelineFigure />
-</Hero>
+Forge reads an OpenAPI document into one typed, language-neutral model, then hands that model to a plugin that writes the files. The generators that ship with Forge are plugins too, so one you write gets the same model they do.
 
-<Prose>
+It is for teams that publish an API on more than one surface: an SDK, the tools of an MCP server, a server that exposes the SDK, or something only your API needs.
 
-## Why Forge
+## What you can do
 
-Every API needs more surfaces than it used to: an SDK per language, a CLI, an MCP server for agents,
-reference docs, and whatever your users' favourite framework wants next. Forge is the pipeline for
-all of them. It does the hard, shared part once (reading the document, following every `$ref`,
-deciding what is a method and what is a model) and leaves the language-specific part to plugins.
+<CardGrid>
+  <LinkCard title="Generate a TypeScript SDK" description="A typed client per group, and a small runtime." href="/targets/typescript/" />
+  <LinkCard title="Generate MCP tools" description="One tool per method, for the MCP TypeScript SDK." href="/targets/mcp/" />
+  <LinkCard title="Write a plugin" description="In TypeScript, in Rust, or in any language that compiles to a WebAssembly component." href="/plugins/overview/" />
+  <LinkCard title="Prepare a document" description="The extensions Forge reads, and how to name methods and groups." href="/openapi/extensions/" />
+</CardGrid>
 
-<Features />
+## How it works
 
-## Generate something in a minute
+Forge does the shared part once: it reads the document, follows every `$ref`, and decides what is a group, a method and a model. A plugin does the part that belongs to one language. [The pipeline](/concepts/pipeline/) has each step and what it guarantees.
 
-Forge ships as one native binary, wrapped in an npm package. Install it, point it at a document and
-pick a target:
+## Generate something
 
-```sh
-npm install --save-dev https://pkg.pr.new/cloudflare/forge/@cloudflare/forge@main
-npx forge openapi.json --target ts --out sdk
-```
+Forge is one native binary in an npm package. Install it:
 
-That writes a TypeScript SDK: one directory per group, a typed client per directory, and a small
-runtime. Swap `--target ts` for `--target mcp` and you get a Rust crate for an MCP server instead.
+<PackageManagers pkg="https://pkg.pr.new/cloudflare/forge/@cloudflare/forge@main" dev />
 
-## Or write your own generator
+Point it at a document and pick a target:
 
-A plugin is two functions: one called once for the whole document, and one called for each group,
-in parallel. Here is a complete plugin, in TypeScript, that writes a Markdown file per group:
+<PackageManagers type="exec" pkg="forge" args="openapi.json --target ts --out sdk" />
 
-```ts
+That writes a TypeScript SDK to `sdk/`. [The quickstart](/start/quickstart/) walks through its output, and generates MCP tools from the same document.
+
+## Write your own
+
+A plugin is one function, `generate`, which takes the model and returns files. This one writes a list of method names for each group:
+
+```ts title="plugin.ts"
 import { definePlugin } from '@cloudflare/forge/plugin';
 
-export const { generate, generateGroup } = definePlugin({
-  generateGroup(group) {
-    const rows = group.methods.map((m) => `- \`${m.name.camel()}\`: ${m.httpMethod} ${m.path}`);
-    return [{ path: `${group.path.map((n) => n.kebab()).join('/')}.md`, content: rows.join('\n') }];
+export const { generate } = definePlugin({
+  generate(forge) {
+    return forge.groups.map((group) => {
+      const names = group.methods.map((m) => m.name.camel());
+      const path = [...group.path.map((name) => name.kebab()), 'methods.txt'].join('/');
+      return { path, content: names.join('\n') };
+    });
   },
 });
 ```
 
-Compile it to a WebAssembly component and run it like any other target:
+Compile it to a WebAssembly component:
 
-```sh
-npx forge-plugin build plugin.ts --out plugin.wasm
-npx forge openapi.json --target wasm://plugin.wasm --out docs
-```
+<PackageManagers type="exec" pkg="forge-plugin" args="build plugin.ts --out plugin.wasm" />
 
-[Read the plugin guide &rarr;](/plugins/overview/)
+Then run it as a target:
 
-## Get going
+<PackageManagers type="exec" pkg="forge" args="openapi.json --target wasm://plugin.wasm --out out" />
 
-<NavList items={[
-	{ title: "Introduction", description: "What Forge is, what it is for, and where it is going.", href: "/start/introduction/" },
-	{ title: "Quickstart", description: "Generate a TypeScript SDK and an MCP server from one document.", href: "/start/quickstart/" },
-	{ title: "The model", description: "Groups, methods, models and types: what every plugin reads.", href: "/concepts/the-model/" },
-	{ title: "Writing plugins", description: "In TypeScript, in Rust, or in any language with component tooling.", href: "/plugins/overview/" },
-	{ title: "Authoring OpenAPI", description: "The extensions Forge reads, and what it supports.", href: "/openapi/extensions/" },
-]} />
-
-</Prose>
+[The plugin guide](/plugins/overview/) covers the model, testing and the other languages.

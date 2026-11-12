@@ -2,8 +2,8 @@
 
 Astro, with [Nimbus](https://nimbus-docs.com) (`@cloudflare/nimbus-docs`) as the docs framework. The
 package handles content schemas, sidebar and TOC, MDX to markdown, search, OG cards, `llms.txt`,
-build hooks, and the `nimbus-docs` CLI. Everything in `src/` is a real file in this repo and yours to
-edit, including the files the scaffold wrote.
+build hooks, and the `nimbus-docs` CLI. The files in `src/` outside `src/content/` are Nimbus's
+starter, kept as Nimbus writes them; the README lists the few the site changes, and why.
 
 `README.md` next to this file explains how the site looks and why.
 
@@ -28,18 +28,16 @@ route yet.
 astro.config.ts              # nimbus(defineNimbusConfig({...})): sidebar, lint rules, markdown plugins
 nimbus.json                  # what the scaffold and the registry installed. Committed.
 .nimbus/                     # build scratch. Gitignored.
-fonts/                       # build-time only, for the OG cards. Not under public/ on purpose.
-og-assets/                   # the mark drawn on OG cards
 src/
 ├── components.ts            # MDX globals registry: every component used in .mdx must be listed
-├── components/              # ours: Hero, PipelineFigure, Features, NavList, Logo, Header, Prose
-│   └── ui/<slug>/           # from the Nimbus registry
+├── components/              # Nimbus's, except Logo.astro and logo.ts, which are the site's lockup
+│   └── ui/<slug>/           # from the Nimbus starter and registry
 ├── content/docs/**/*.mdx    # the pages, one directory per sidebar group
 ├── content/partials/        # partials for <Render file="..." />; none yet
 ├── content.config.ts
 ├── layouts/                 # BaseLayout (head, theme bootstrap), DocsLayout (three columns)
-├── lib/                     # cn.ts
-├── pages/                   # [...slug].astro, 404, llms.txt, robots.txt, og/
+├── lib/                     # cn.ts and the starter's helpers
+├── pages/                   # [...slug].astro, 404, llms.txt, robots.txt, og/ (_card.ts is the card's look)
 └── styles/                  # globals.css (tokens and shell), prose.css
 public/                      # favicon, _headers
 wrangler.jsonc
@@ -73,7 +71,10 @@ Rules:
   fails.
 - **Components must be PascalCase and registered in `src/components.ts`.**
 - **Partials use `<Render file="..." />`.** Don't import `.mdx` directly.
-- **A `mode: custom` page gets a bare `<main>`**, so its prose must be wrapped in `<Prose>`.
+- **Nimbus's components first.** Use what the starter and registry have (`Aside`, `CardGrid`,
+  `LinkCard`, `Steps`, `Tabs`, `PackageManagers`, and the rest from `nimbus-docs add`). A site
+  component needs a reason no Nimbus component meets, written in the README's table of changes.
+- **Commands are `<PackageManagers>`.** Never hard-code `npm install` or `npx`.
 - **Don't remove `<AgentDirective />` from `BaseLayout.astro`.** It points agents at `/llms.txt`.
 
 - **Other generators live under Compatibility Modes.** Forge's own conventions (methods named by a
@@ -99,24 +100,18 @@ internal work in generic terms.
 | New doc page         | `src/content/docs/<group>/<slug>.mdx`, with `sidebar.order`. The group autogenerates.       |
 | New sidebar group    | A directory under `src/content/docs/` and an entry in `astro.config.ts`.                    |
 | UI from the registry | `pnpm exec nimbus-docs add <slug>`, then register it in `src/components.ts` if MDX uses it. |
-| OG card restyle      | `src/pages/og/_og-card-config.ts`.                                                          |
+| OG card restyle      | `src/pages/og/_card.ts`.                                                                    |
 | Check it builds      | `pnpm exec nimbus-docs check --json`, then a build for link checking.                       |
 
-Two registry components are modified, so `add --overwrite` will undo the changes:
-`page-actions/PageActions.astro` (a `data-pagefind-ignore` on the actions, a fixed locale and time
-zone for the "Updated" date, and the divider at `/70`, which keeps it above 3:1 in both schemes) and
-`breadcrumbs/Breadcrumbs.astro` (separators that inherit `text-muted-foreground`, for contrast).
+Files under `src/` outside `src/content/` are Nimbus's, byte for byte, except the changes listed
+in the README. To update Nimbus, copy the new starter over them and reapply those changes; Forge's
+formatter skips `src/` so the diff stays readable.
 
 ## Don't
 
-- Spend the orange accent on anything but calls to action and the active state. Prose links are
-  ink.
-- Darken or theme-swap `--fg-orange`. It is Cloudflare orange, `#f6821f`, on both schemes. For
-  orange text on a light background, use `--fg-orange-text`, which is readable.
-- Dim text with `opacity`, or Tailwind's alpha modifier. `--nb-muted-foreground` is the measured
-  secondary colour. The page-actions divider is the one measured exception.
-- Recolour the logo. Its two oranges are the Cloudflare mark's own, in `Logo.astro`, the favicon and
-  `og-assets/`.
+- Change a Nimbus file without adding a row to the README's table of changes.
+- Spend `--nb-brand` on anything but where you are and what you can act on. Prose links are ink.
+- Recolour the logo. Its two oranges are the Cloudflare mark's own, in `logo.ts` and the favicon.
 - Hand-add a component under `src/components/ui/` that the registry has. Use `nimbus-docs add`.
 - Attach remark or rehype plugins via `mdx({ remarkPlugins })`: they are silently dropped. Markdown
   transformations go in `markdown.mdastPlugins` and `hastPlugins`.
