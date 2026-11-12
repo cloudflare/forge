@@ -1,0 +1,25 @@
+openapi: 3.1.0
+info:
+  title: Plants
+  version: 1.0.0
+paths:
+  /plants:
+    post:
+      operationId: createPlant
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                type: string
+      responses:
+        '201':
+          description: Created
+      x-fern-examples:
+        - request:
+            - $Plant.Example
+            - $commons.Plant.Example
+            - $Plant.9
+            - $commons.1Plant.Example
+            - $commons.Plant.Example.Extra

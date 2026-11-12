@@ -1,0 +1,45 @@
+openapi: 3.1.0
+info:
+  title: Documents
+  version: 1.0.0
+paths:
+  /documents:
+    post:
+      operationId: createDocument
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                title:
+                  type: string
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              properties:
+                title:
+                  type: string
+            encoding:
+              title:
+                contentType: text/plain
+      responses:
+        '201':
+          description: Created
+  /search:
+    get:
+      operationId: search
+      requestBody:
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              properties:
+                q:
+                  type: string
+            encoding:
+              q:
+                contentType: text/plain
+      responses:
+        '200':
+          description: OK

@@ -129,13 +129,13 @@ fn generate(spec: &Path, target: Target, out: &Path) -> Result<(), Err> {
             // so they run at the same time.
             let (plugin, forge) = rayon::join(|| forge::wasm::WasmPlugin::from_file(&path), || read(spec));
             let (plugin, forge) = (plugin?, forge?);
-            forge::write(out, forge::run(&forge, &plugin)?)
+            forge::write(out, plugin.generate(&forge)?)
         }
     }
 }
 
 fn run_plugin(plugin: &impl Plugin, spec: &Path, out: &Path) -> Result<(), Err> {
-    forge::write(out, forge::run(&read(spec)?, plugin)?)
+    forge::write(out, plugin.generate(&read(spec)?)?)
 }
 
 /// Reads the document at `path`, or from standard input when `path` is `-`.

@@ -1,0 +1,5 @@
+rules:
+  generators/fern-valid-oauth:
+    severity: error
+    refreshToken:
+      endpoint: 42

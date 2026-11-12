@@ -1,0 +1,8 @@
+[
+  {
+    "ruleId": "operation-operationId-unique",
+    "severity": "error",
+    "message": "Every operation must have a unique `operationId`.",
+    "location": "openapi.yaml#/paths/~1v2~1plants/get/listPlants"
+  }
+]

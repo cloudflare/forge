@@ -1,0 +1,39 @@
+openapi: 3.1.0
+info:
+  title: Plant Store
+  version: 1.0.0
+paths:
+  /plants:
+    get:
+      operationId: listPlants
+      responses:
+        '200':
+          description: The plants.
+          content:
+            application/json:
+              schema:
+                type: object
+                x-fern-type-name: Plant
+                properties:
+                  name:
+                    type: string
+components:
+  schemas:
+    Plant:
+      type: object
+      properties:
+        owner:
+          x-fern-type-name: Owner
+          type: object
+          properties:
+            name:
+              type: string
+        color:
+          x-fern-type-name: Owner
+          type: string
+          enum: [green, red]
+    Owner:
+      type: object
+      properties:
+        name:
+          type: string

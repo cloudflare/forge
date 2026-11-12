@@ -1,0 +1,14 @@
+openapi: 3.1.0
+info:
+  title: Plant Store
+  version: 1.0.0
+paths: {}
+components:
+  schemas:
+    Tree:
+      type: object
+      properties:
+        height:
+          type: number
+    Plant:
+      $ref: ./plant.yaml

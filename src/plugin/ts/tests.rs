@@ -368,16 +368,46 @@ fn display() {
 fn models() {
     let forge: Forge = serde_json::from_str(
         r##"{
-          "openapi": "3.0.3", "info": {"title": "t", "version": "1"},
+          "openapi": "3.0.3",
+          "info": {"title": "t", "version": "1"},
           "paths": {
-            "/a": {"get": {"x-forge-group-name": ["pet-store", "list_all"], "x-forge-method-name": "get",
-              "responses": {"200": {"description": "ok", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/pet_owner"}}}}}}},
-            "/b": {"get": {"x-forge-group-name": ["pet-store"], "x-forge-method-name": "get",
-              "responses": {"200": {"description": "ok", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/2fa"}}}}}}},
-            "/c": {"get": {"x-forge-group-name": ["other"], "x-forge-method-name": "get",
-              "responses": {"200": {"description": "ok", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/2fa"}}}}}}}
+            "/a": {
+              "get": {
+                "x-forge-group-name": ["pet-store", "list_all"],
+                "x-forge-method-name": "get",
+                "responses": {"200": {
+                  "description": "ok",
+                  "content": {"application/json": {"schema": {"$ref": "#/components/schemas/pet_owner"}}}
+                }}
+              }
+            },
+            "/b": {
+              "get": {
+                "x-forge-group-name": ["pet-store"],
+                "x-forge-method-name": "get",
+                "responses": {"200": {
+                  "description": "ok",
+                  "content": {"application/json": {"schema": {"$ref": "#/components/schemas/2fa"}}}
+                }}
+              }
+            },
+            "/c": {
+              "get": {
+                "x-forge-group-name": ["other"],
+                "x-forge-method-name": "get",
+                "responses": {"200": {
+                  "description": "ok",
+                  "content": {"application/json": {"schema": {"$ref": "#/components/schemas/2fa"}}}
+                }}
+              }
+            }
           },
-          "components": {"schemas": {"pet_owner": {"type": "string"}, "2fa": {"type": "string"}}}
+          "components": {
+            "schemas": {
+              "pet_owner": {"type": "string"},
+              "2fa": {"type": "string"}
+            }
+          }
         }"##,
     )
     .unwrap();
@@ -389,13 +419,13 @@ fn models() {
         forge
             .groups()
             .flat_map(|group| group.models())
-            .chain(forge.models())
             .find(|model| model.schema_name() == schema_name)
             .unwrap()
     };
     let (owner, two_fa) = (model("pet_owner"), model("2fa"));
 
     assert_eq!(Module::ROOT.sub("models.ts"), Module::new("models.ts"));
+    assert_eq!(Module::group(forge.groups().next().unwrap()), Module::ROOT);
     assert_eq!(Module::group(group(&["pet-store"])), Module::new("petStore"));
     assert_eq!(
         Module::group(group(&["pet-store", "list_all"])).sub("client.ts"),

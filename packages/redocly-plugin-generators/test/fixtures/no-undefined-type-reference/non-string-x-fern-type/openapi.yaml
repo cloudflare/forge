@@ -1,0 +1,20 @@
+openapi: 3.1.0
+info:
+  title: Test API
+  version: 1.0.0
+paths: {}
+components:
+  schemas:
+    Pet:
+      type: object
+      properties:
+        name:
+          type: string
+    Holder:
+      type: object
+      properties:
+        meta:
+          type: object
+          x-fern-type:
+            properties:
+              a: string

@@ -1,0 +1,8 @@
+[
+  {
+    "ruleId": "generators/fern-no-conflicting-request-wrapper-properties",
+    "severity": "error",
+    "message": "Multiple request properties resolve to the same generated name \"pageSize\" after camelCase normalization: query parameter \"page_size\" (SDK name \"page_size\"), query parameter \"pageSize\" (SDK name \"pageSize\"). This causes broken generated code. Use x-fern-parameter-name on a parameter to disambiguate.",
+    "location": "openapi.yaml#/paths/~1plants/get (key)"
+  }
+]

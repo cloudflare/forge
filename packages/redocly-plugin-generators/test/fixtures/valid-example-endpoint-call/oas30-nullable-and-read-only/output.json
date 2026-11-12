@@ -1,0 +1,8 @@
+[
+  {
+    "ruleId": "generators/fern-valid-example-endpoint-call",
+    "severity": "error",
+    "message": "Invalid request example at \"/name\": Expected example to be a string. Example is: null",
+    "location": "openapi.yaml#/paths/~1plants/post/x-fern-examples/2/request/name"
+  }
+]

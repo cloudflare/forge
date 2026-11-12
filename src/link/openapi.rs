@@ -236,15 +236,18 @@ pub(super) struct Operation {
     pub(super) responses: Span<(Str, Id<Response>)>,
 }
 
-/// The extensions that make an Operation Object, or an alias of one in its
+/// The keys that make an Operation Object, or an alias of one in its
 /// `x-forge-aliases`, a method.
 #[derive(Default)]
 pub(super) struct Definition {
     /// The `x-forge-method-name`, or empty for none.
     pub(super) method_name: Str,
     /// The `x-forge-group-name`: the group path, top level first, or
-    /// empty for none.
+    /// empty for the root.
     pub(super) group_names: Span<Str>,
+    /// The `operationId`, or empty for none. It names the method when
+    /// `x-forge-group-name` and `x-forge-method-name` do not.
+    pub(super) operation_id: Str,
     /// `x-forge-skip`.
     pub(super) skip: bool,
     /// `x-forge-hidden`.
@@ -852,7 +855,8 @@ impl Read for Types {
 }
 
 /// Reads an `x-forge-group-name`: a string split on dots, or an array of
-/// strings that are not split. The empty string is no group.
+/// strings that are not split. The empty string is no group names, as the
+/// empty array is: the root.
 struct GroupNames;
 
 impl Read for GroupNames {
@@ -1187,6 +1191,7 @@ keys! {
     DefinitionKey {
         MethodName = "x-forge-method-name",
         GroupNames = "x-forge-group-name",
+        OperationId = "operationId",
         Skip = "x-forge-skip",
         Hidden = "x-forge-hidden",
         Confirmation = "x-forge-require-confirmation",
@@ -1205,6 +1210,7 @@ impl Definition {
         match key {
             DefinitionKey::MethodName => self.method_name = map.next_value_seed(seed::<ReadStr>(doc))?,
             DefinitionKey::GroupNames => self.group_names = map.next_value_seed(seed::<GroupNames>(doc))?,
+            DefinitionKey::OperationId => self.operation_id = map.next_value_seed(seed::<ReadStr>(doc))?,
             DefinitionKey::Skip => self.skip = map.next_value()?,
             DefinitionKey::Hidden => self.hidden = map.next_value()?,
             DefinitionKey::Confirmation => {
@@ -1220,8 +1226,8 @@ impl Definition {
 }
 
 /// Reads an alias in `x-forge-aliases`: an object of the keys of a
-/// definition and other extensions. Its keys that are not extensions are
-/// skipped, and so is an `x-forge-aliases` in it, since aliases do not
+/// definition and other extensions. Its other keys that are not extensions
+/// are skipped, and so is an `x-forge-aliases` in it, since aliases do not
 /// nest.
 struct Alias;
 

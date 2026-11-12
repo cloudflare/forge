@@ -1,4 +1,4 @@
-use forge::{Forge, Group, Name};
+use forge::{Forge, Group, Method, Name};
 
 use crate::common::{group, method, parse, parse_err};
 
@@ -6,9 +6,17 @@ use crate::common::{group, method, parse, parse_err};
 fn string_group_name_splits_on_dots() {
     let forge = parse(
         r#"{
-          "openapi": "3.0.3", "info": {"title": "t", "version": "1"},
-          "paths": {"/a": {"get": {"x-forge-group-name": "accounts.members", "x-forge-method-name": "list",
-            "responses": {"204": {"description": "ok"}}}}}
+          "openapi": "3.0.3",
+          "info": {"title": "t", "version": "1"},
+          "paths": {
+            "/a": {
+              "get": {
+                "x-forge-group-name": "accounts.members",
+                "x-forge-method-name": "list",
+                "responses": {"204": {"description": "ok"}}
+              }
+            }
+          }
         }"#,
     );
 
@@ -20,9 +28,17 @@ fn string_group_name_splits_on_dots() {
 fn group_name_that_is_neither_a_string_nor_an_array_is_an_error() {
     let err = parse_err(
         r#"{
-          "openapi": "3.0.3", "info": {"title": "t", "version": "1"},
-          "paths": {"/a": {"get": {"x-forge-group-name": 1, "x-forge-method-name": "list",
-            "responses": {"204": {"description": "ok"}}}}}
+          "openapi": "3.0.3",
+          "info": {"title": "t", "version": "1"},
+          "paths": {
+            "/a": {
+              "get": {
+                "x-forge-group-name": 1,
+                "x-forge-method-name": "list",
+                "responses": {"204": {"description": "ok"}}
+              }
+            }
+          }
         }"#,
     );
 
@@ -33,9 +49,17 @@ fn group_name_that_is_neither_a_string_nor_an_array_is_an_error() {
 fn array_group_name_has_a_group_per_element() {
     let forge = parse(
         r#"{
-          "openapi": "3.0.3", "info": {"title": "t", "version": "1"},
-          "paths": {"/a": {"get": {"x-forge-group-name": ["accounts", "members"], "x-forge-method-name": "list",
-            "responses": {"204": {"description": "ok"}}}}}
+          "openapi": "3.0.3",
+          "info": {"title": "t", "version": "1"},
+          "paths": {
+            "/a": {
+              "get": {
+                "x-forge-group-name": ["accounts", "members"],
+                "x-forge-method-name": "list",
+                "responses": {"204": {"description": "ok"}}
+              }
+            }
+          }
         }"#,
     );
 
@@ -47,18 +71,70 @@ fn array_group_name_has_a_group_per_element() {
 fn array_element_with_a_dot_is_one_group() {
     let forge = parse(
         r#"{
-          "openapi": "3.0.3", "info": {"title": "t", "version": "1"},
-          "paths": {"/a": {"get": {"x-forge-group-name": ["zones.settings"], "x-forge-method-name": "get",
-            "responses": {"204": {"description": "ok"}}}}}
+          "openapi": "3.0.3",
+          "info": {"title": "t", "version": "1"},
+          "paths": {
+            "/a": {
+              "get": {
+                "x-forge-group-name": ["zones.settings"],
+                "x-forge-method-name": "get",
+                "responses": {"204": {"description": "ok"}}
+              }
+            }
+          }
         }"#,
     );
 
     let groups: Vec<Group> = forge.groups().collect();
-    let [settings] = groups[..] else {
-        panic!("want one group, got {groups:?}");
+    let [root, settings] = groups[..] else {
+        panic!("want the root and one group, got {groups:?}");
     };
+    assert_eq!(root.parent(), None);
     assert_eq!(settings.name(), &Name::new("zones.settings"));
-    assert_eq!(settings.parent(), None);
+    assert_eq!(settings.parent(), Some(root));
+}
+
+#[test]
+fn every_group_is_inside_the_root() {
+    let forge = parse(&method_in(r#""accounts.members""#));
+
+    // The root comes first.
+    let root = forge.groups().next().unwrap();
+    assert!(root.name().is_empty());
+    assert_eq!(root.path().count(), 0);
+    assert_eq!(root.parent(), None);
+    assert_eq!(root.description(), "");
+
+    let accounts = group(&forge, "accounts");
+    assert_eq!(accounts.parent(), Some(root));
+    assert_eq!(root.children().collect::<Vec<_>>(), [accounts]);
+    let descendants: Vec<Group> = root.descendants().collect();
+    assert_eq!(descendants, forge.groups().skip(1).collect::<Vec<_>>());
+}
+
+#[test]
+fn a_forge_with_no_methods_has_only_the_root() {
+    let forge = parse(
+        r#"{
+          "openapi": "3.0.3",
+          "info": {"title": "t", "version": "1"},
+          "paths": {}
+        }"#,
+    );
+
+    let groups: Vec<Group> = forge.groups().collect();
+    let [root] = groups[..] else {
+        panic!("want the root alone, got {groups:?}");
+    };
+    assert_eq!(root.parent(), None);
+    assert!(root.name().is_empty());
+
+    let forge = Forge::default();
+    let groups: Vec<Group> = forge.groups().collect();
+    let [root] = groups[..] else {
+        panic!("want the root alone, got {groups:?}");
+    };
+    assert_eq!(root.parent(), None);
 }
 
 /// Returns a document with one method, `GET /a`, whose group path is written
@@ -66,9 +142,17 @@ fn array_element_with_a_dot_is_one_group() {
 fn method_in(group: &str) -> String {
     format!(
         r#"{{
-          "openapi": "3.0.3", "info": {{"title": "t", "version": "1"}},
-          "paths": {{"/a": {{"get": {{"x-forge-group-name": {group}, "x-forge-method-name": "get",
-            "responses": {{"204": {{"description": "ok"}}}}}}}}}}
+          "openapi": "3.0.3",
+          "info": {{"title": "t", "version": "1"}},
+          "paths": {{
+            "/a": {{
+              "get": {{
+                "x-forge-group-name": {group},
+                "x-forge-method-name": "get",
+                "responses": {{"204": {{"description": "ok"}}}}
+              }}
+            }}
+          }}
         }}"#
     )
 }
@@ -116,25 +200,36 @@ fn a_dotted_string_and_an_array_with_that_name_are_different_groups() {
 
     assert_eq!(group_with_the_method(&string).path().count(), 2);
     assert_eq!(group_with_the_method(&array).path().count(), 1);
-    assert_eq!(string.groups().count(), 2, "zones and zones.settings");
-    assert_eq!(array.groups().count(), 1);
+    assert_eq!(string.groups().count(), 3, "the root, zones and zones.settings");
+    assert_eq!(array.groups().count(), 2);
 }
 
 #[test]
 fn groups_with_equal_names_are_one_group() {
     let forge = parse(
         r#"{
-          "openapi": "3.0.3", "info": {"title": "t", "version": "1"},
+          "openapi": "3.0.3",
+          "info": {"title": "t", "version": "1"},
           "paths": {
-            "/a": {"get": {"x-forge-group-name": "abuse-reports", "x-forge-method-name": "list",
-              "responses": {"204": {"description": "ok"}}}},
-            "/b": {"get": {"x-forge-group-name": ["abuse_reports"], "x-forge-method-name": "get",
-              "responses": {"204": {"description": "ok"}}}}
+            "/a": {
+              "get": {
+                "x-forge-group-name": "abuse-reports",
+                "x-forge-method-name": "list",
+                "responses": {"204": {"description": "ok"}}
+              }
+            },
+            "/b": {
+              "get": {
+                "x-forge-group-name": ["abuse_reports"],
+                "x-forge-method-name": "get",
+                "responses": {"204": {"description": "ok"}}
+              }
+            }
           }
         }"#,
     );
 
-    assert_eq!(forge.groups().count(), 1);
+    assert_eq!(group(&forge, "").children().count(), 1);
     assert_eq!(group(&forge, "abuse_reports").methods().len(), 2);
 }
 
@@ -142,12 +237,23 @@ fn groups_with_equal_names_are_one_group() {
 fn subgroup_and_method_can_share_a_name() {
     let forge = parse(
         r#"{
-          "openapi": "3.0.3", "info": {"title": "t", "version": "1"},
+          "openapi": "3.0.3",
+          "info": {"title": "t", "version": "1"},
           "paths": {
-            "/a": {"delete": {"x-forge-group-name": "members", "x-forge-method-name": "delete",
-              "responses": {"204": {"description": "ok"}}}},
-            "/b": {"post": {"x-forge-group-name": ["members", "delete"], "x-forge-method-name": "bulk",
-              "responses": {"204": {"description": "ok"}}}}
+            "/a": {
+              "delete": {
+                "x-forge-group-name": "members",
+                "x-forge-method-name": "delete",
+                "responses": {"204": {"description": "ok"}}
+              }
+            },
+            "/b": {
+              "post": {
+                "x-forge-group-name": ["members", "delete"],
+                "x-forge-method-name": "bulk",
+                "responses": {"204": {"description": "ok"}}
+              }
+            }
           }
         }"#,
     );
@@ -156,45 +262,129 @@ fn subgroup_and_method_can_share_a_name() {
     method(&forge, "members.delete.bulk");
 }
 
+/// Returns every method of `forge`, in every group.
+fn methods(forge: &Forge) -> Vec<Method<'_>> {
+    forge.groups().flat_map(|group| group.methods()).collect()
+}
+
 #[test]
-fn operation_without_a_group_is_not_a_method() {
+fn operation_without_a_group_is_a_method_of_the_root() {
     let forge = parse(
         r#"{
-          "openapi": "3.0.3", "info": {"title": "t", "version": "1"},
-          "paths": {"/a": {"get": {"x-forge-method-name": "get",
-            "responses": {"204": {"description": "ok"}}}}}
+          "openapi": "3.0.3",
+          "info": {"title": "t", "version": "1"},
+          "paths": {
+            "/a": {
+              "get": {
+                "x-forge-method-name": "get",
+                "responses": {"204": {"description": "ok"}}
+              }
+            }
+          }
         }"#,
     );
 
-    assert_eq!(forge.groups().count(), 0);
+    let get = method(&forge, "get");
+    assert_eq!(get.group(), group(&forge, ""));
+    assert_eq!(get.path(), "/a");
+    assert_eq!(forge.groups().count(), 1, "the root alone");
+}
+
+#[test]
+fn root_methods_and_groups_can_share_a_name() {
+    let forge = parse(
+        r#"{
+          "openapi": "3.0.3",
+          "info": {"title": "t", "version": "1"},
+          "paths": {
+            "/a": {
+              "get": {
+                "x-forge-method-name": "accounts",
+                "responses": {"204": {"description": "ok"}}
+              },
+              "post": {
+                "x-forge-group-name": "accounts",
+                "x-forge-method-name": "create",
+                "responses": {"204": {"description": "ok"}}
+              }
+            }
+          }
+        }"#,
+    );
+
+    method(&forge, "accounts");
+    method(&forge, "accounts.create");
+}
+
+#[test]
+fn duplicate_method_in_the_root_is_an_error() {
+    let err = parse_err(
+        r#"{
+          "openapi": "3.0.3",
+          "info": {"title": "t", "version": "1"},
+          "paths": {
+            "/a": {
+              "get": {
+                "x-forge-method-name": "list",
+                "responses": {"204": {"description": "ok"}}
+              }
+            },
+            "/b": {
+              "get": {
+                "x-forge-group-name": [],
+                "x-forge-method-name": "list",
+                "responses": {"204": {"description": "ok"}}
+              }
+            }
+          }
+        }"#,
+    );
+
+    assert!(err.contains("GET /a") && err.contains("GET /b"), "{err}");
 }
 
 #[test]
 fn vendor_group_and_method_names_do_not_make_a_method() {
     let forge = parse(
         r#"{
-          "openapi": "3.0.3", "info": {"title": "t", "version": "1"},
-          "paths": {"/a": {"get": {
-            "x-fern-sdk-group-name": "a", "x-fern-sdk-method-name": "get",
-            "responses": {"204": {"description": "ok"}}}}}
+          "openapi": "3.0.3",
+          "info": {"title": "t", "version": "1"},
+          "paths": {
+            "/a": {
+              "get": {
+                "x-fern-sdk-group-name": "a",
+                "x-fern-sdk-method-name": "get",
+                "responses": {"204": {"description": "ok"}}
+              }
+            }
+          }
         }"#,
     );
 
-    assert_eq!(forge.groups().count(), 0);
+    assert_eq!(methods(&forge), []);
 }
 
 #[test]
-fn empty_group_name_is_no_group() {
-    for group in [r#""""#, "[]"] {
+fn empty_group_name_is_the_root() {
+    for written in [r#""""#, "[]"] {
         let forge = parse(&format!(
             r#"{{
-              "openapi": "3.0.3", "info": {{"title": "t", "version": "1"}},
-              "paths": {{"/a": {{"get": {{"x-forge-group-name": {group}, "x-forge-method-name": "get",
-                "responses": {{"204": {{"description": "ok"}}}}}}}}}}
+              "openapi": "3.0.3",
+              "info": {{"title": "t", "version": "1"}},
+              "paths": {{
+                "/a": {{
+                  "get": {{
+                    "x-forge-group-name": {written},
+                    "x-forge-method-name": "get",
+                    "responses": {{"204": {{"description": "ok"}}}}
+                  }}
+                }}
+              }}
             }}"#
         ));
 
-        assert_eq!(forge.groups().count(), 0, "{group}");
+        assert_eq!(method(&forge, "get").group(), group(&forge, ""), "{written}");
+        assert_eq!(forge.groups().count(), 1, "{written}");
     }
 }
 
@@ -202,39 +392,65 @@ fn empty_group_name_is_no_group() {
 fn operation_without_a_method_name_is_not_a_method() {
     let forge = parse(
         r#"{
-          "openapi": "3.0.3", "info": {"title": "t", "version": "1"},
-          "paths": {"/a": {"get": {"x-forge-group-name": "a",
-            "responses": {"204": {"description": "ok"}}}}}
+          "openapi": "3.0.3",
+          "info": {"title": "t", "version": "1"},
+          "paths": {
+            "/a": {
+              "get": {
+                "x-forge-group-name": "a",
+                "responses": {"204": {"description": "ok"}}
+              }
+            }
+          }
         }"#,
     );
 
-    assert_eq!(forge.groups().count(), 0);
+    assert_eq!(methods(&forge), []);
+    assert_eq!(forge.groups().count(), 1, "the root alone");
 }
 
 #[test]
 fn empty_method_name_is_not_a_method() {
     let forge = parse(
         r#"{
-          "openapi": "3.0.3", "info": {"title": "t", "version": "1"},
-          "paths": {"/a": {"get": {"x-forge-group-name": "a", "x-forge-method-name": "",
-            "responses": {"204": {"description": "ok"}}}}}
+          "openapi": "3.0.3",
+          "info": {"title": "t", "version": "1"},
+          "paths": {
+            "/a": {
+              "get": {
+                "x-forge-group-name": "a",
+                "x-forge-method-name": "",
+                "responses": {"204": {"description": "ok"}}
+              }
+            }
+          }
         }"#,
     );
 
-    assert_eq!(forge.groups().count(), 0);
+    assert_eq!(methods(&forge), []);
 }
 
 #[test]
 fn skipped_operation_is_not_a_method() {
     let forge = parse(
         r#"{
-          "openapi": "3.0.3", "info": {"title": "t", "version": "1"},
-          "paths": {"/a": {
-            "get": {"x-forge-group-name": "a", "x-forge-method-name": "list",
-              "responses": {"204": {"description": "ok"}}},
-            "post": {"x-forge-group-name": "a", "x-forge-method-name": "create", "x-forge-skip": true,
-              "responses": {"204": {"description": "ok"}}}
-          }}
+          "openapi": "3.0.3",
+          "info": {"title": "t", "version": "1"},
+          "paths": {
+            "/a": {
+              "get": {
+                "x-forge-group-name": "a",
+                "x-forge-method-name": "list",
+                "responses": {"204": {"description": "ok"}}
+              },
+              "post": {
+                "x-forge-group-name": "a",
+                "x-forge-method-name": "create",
+                "x-forge-skip": true,
+                "responses": {"204": {"description": "ok"}}
+              }
+            }
+          }
         }"#,
     );
 
@@ -253,9 +469,17 @@ fn group_name_without_letters_is_an_error() {
     ] {
         let err = parse_err(&format!(
             r#"{{
-              "openapi": "3.0.3", "info": {{"title": "t", "version": "1"}},
-              "paths": {{"/a": {{"get": {{"x-forge-group-name": {group}, "x-forge-method-name": "list",
-                "responses": {{"204": {{"description": "ok"}}}}}}}}}}
+              "openapi": "3.0.3",
+              "info": {{"title": "t", "version": "1"}},
+              "paths": {{
+                "/a": {{
+                  "get": {{
+                    "x-forge-group-name": {group},
+                    "x-forge-method-name": "list",
+                    "responses": {{"204": {{"description": "ok"}}}}
+                  }}
+                }}
+              }}
             }}"#
         ));
 
@@ -270,12 +494,23 @@ fn group_name_without_letters_is_an_error() {
 fn duplicate_method_in_a_group_is_an_error() {
     let err = parse_err(
         r#"{
-          "openapi": "3.0.3", "info": {"title": "t", "version": "1"},
+          "openapi": "3.0.3",
+          "info": {"title": "t", "version": "1"},
           "paths": {
-            "/a": {"get": {"x-forge-group-name": "a", "x-forge-method-name": "list",
-              "responses": {"204": {"description": "ok"}}}},
-            "/b": {"get": {"x-forge-group-name": "a", "x-forge-method-name": "list",
-              "responses": {"204": {"description": "ok"}}}}
+            "/a": {
+              "get": {
+                "x-forge-group-name": "a",
+                "x-forge-method-name": "list",
+                "responses": {"204": {"description": "ok"}}
+              }
+            },
+            "/b": {
+              "get": {
+                "x-forge-group-name": "a",
+                "x-forge-method-name": "list",
+                "responses": {"204": {"description": "ok"}}
+              }
+            }
           }
         }"#,
     );
@@ -287,12 +522,23 @@ fn duplicate_method_in_a_group_is_an_error() {
 fn method_names_are_equal_as_names() {
     let err = parse_err(
         r#"{
-          "openapi": "3.0.3", "info": {"title": "t", "version": "1"},
+          "openapi": "3.0.3",
+          "info": {"title": "t", "version": "1"},
           "paths": {
-            "/a": {"get": {"x-forge-group-name": "a", "x-forge-method-name": "list_all",
-              "responses": {"204": {"description": "ok"}}}},
-            "/b": {"get": {"x-forge-group-name": "a", "x-forge-method-name": "listAll",
-              "responses": {"204": {"description": "ok"}}}}
+            "/a": {
+              "get": {
+                "x-forge-group-name": "a",
+                "x-forge-method-name": "list_all",
+                "responses": {"204": {"description": "ok"}}
+              }
+            },
+            "/b": {
+              "get": {
+                "x-forge-group-name": "a",
+                "x-forge-method-name": "listAll",
+                "responses": {"204": {"description": "ok"}}
+              }
+            }
           }
         }"#,
     );
@@ -304,22 +550,39 @@ fn method_names_are_equal_as_names() {
 fn groups_are_depth_first() {
     let forge = parse(
         r#"{
-          "openapi": "3.0.3", "info": {"title": "t", "version": "1"},
+          "openapi": "3.0.3",
+          "info": {"title": "t", "version": "1"},
           "paths": {
-            "/a": {"get": {"x-forge-group-name": ["a", "b", "c"], "x-forge-method-name": "get",
-              "responses": {"204": {"description": "ok"}}}},
-            "/b": {"get": {"x-forge-group-name": "x", "x-forge-method-name": "get",
-              "responses": {"204": {"description": "ok"}}}},
-            "/c": {"get": {"x-forge-group-name": ["a", "d"], "x-forge-method-name": "get",
-              "responses": {"204": {"description": "ok"}}}}
+            "/a": {
+              "get": {
+                "x-forge-group-name": ["a", "b", "c"],
+                "x-forge-method-name": "get",
+                "responses": {"204": {"description": "ok"}}
+              }
+            },
+            "/b": {
+              "get": {
+                "x-forge-group-name": "x",
+                "x-forge-method-name": "get",
+                "responses": {"204": {"description": "ok"}}
+              }
+            },
+            "/c": {
+              "get": {
+                "x-forge-group-name": ["a", "d"],
+                "x-forge-method-name": "get",
+                "responses": {"204": {"description": "ok"}}
+              }
+            }
           }
         }"#,
     );
 
     // Each group is followed by everything below it, whatever the order of
-    // siblings.
+    // siblings, starting with the root.
     let groups: Vec<Group> = forge.groups().collect();
-    assert_eq!(groups.len(), 5);
+    assert_eq!(groups.len(), 6);
+    assert_eq!(groups[0].parent(), None);
     for (i, group) in groups.iter().enumerate() {
         let below = group.descendants().count();
         for after in &groups[i + 1..i + 1 + below] {
@@ -339,9 +602,17 @@ fn iter_parents(group: Group<'_>) -> impl Iterator<Item = Group<'_>> {
 fn group_description_comes_from_x_forge_commands() {
     let forge = parse(
         r#"{
-          "openapi": "3.0.3", "info": {"title": "t", "version": "1"},
-          "paths": {"/a": {"get": {"x-forge-group-name": "accounts", "x-forge-method-name": "list",
-            "responses": {"204": {"description": "ok"}}}}},
+          "openapi": "3.0.3",
+          "info": {"title": "t", "version": "1"},
+          "paths": {
+            "/a": {
+              "get": {
+                "x-forge-group-name": "accounts",
+                "x-forge-method-name": "list",
+                "responses": {"204": {"description": "ok"}}
+              }
+            }
+          },
           "x-forge-commands": {"accounts": {"description": "Accounts."}}
         }"#,
     );
@@ -353,9 +624,17 @@ fn group_description_comes_from_x_forge_commands() {
 fn subgroup_description_is_in_its_parents_command() {
     let forge = parse(
         r#"{
-          "openapi": "3.0.3", "info": {"title": "t", "version": "1"},
-          "paths": {"/a": {"get": {"x-forge-group-name": ["accounts", "members"], "x-forge-method-name": "list",
-            "responses": {"204": {"description": "ok"}}}}},
+          "openapi": "3.0.3",
+          "info": {"title": "t", "version": "1"},
+          "paths": {
+            "/a": {
+              "get": {
+                "x-forge-group-name": ["accounts", "members"],
+                "x-forge-method-name": "list",
+                "responses": {"204": {"description": "ok"}}
+              }
+            }
+          },
           "x-forge-commands": {"accounts": {"groups": {"members": {"description": "Members."}}}}
         }"#,
     );
@@ -376,14 +655,23 @@ fn with_commands(groups: &[&str], commands: &str) -> String {
                 .collect::<Vec<_>>()
                 .join(", ");
             format!(
-                r#""/{i}": {{"get": {{"x-forge-group-name": [{group}], "x-forge-method-name": "list",
-                  "responses": {{"204": {{"description": "ok"}}}}}}}}"#
+                r#""/{i}": {{
+                  "get": {{
+                    "x-forge-group-name": [{group}],
+                    "x-forge-method-name": "list",
+                    "responses": {{"204": {{"description": "ok"}}}}
+                  }}
+                }}"#
             )
         })
         .collect();
     format!(
-        r#"{{"openapi": "3.0.3", "info": {{"title": "t", "version": "1"}},
-          "paths": {{{}}}, "x-forge-commands": {commands}}}"#,
+        r#"{{
+          "openapi": "3.0.3",
+          "info": {{"title": "t", "version": "1"}},
+          "paths": {{{}}},
+          "x-forge-commands": {commands}
+        }}"#,
         paths.join(", ")
     )
 }
@@ -392,9 +680,14 @@ fn with_commands(groups: &[&str], commands: &str) -> String {
 fn dotted_group_key_describes_a_subgroup() {
     let forge = parse(&with_commands(
         &["ai.dynamic-routing.deployments", "ai.dynamic-routing"],
-        r#"{"ai": {"groups": {
-          "dynamic-routing": {"description": "Routes."},
-          "dynamic-routing.deployments": {"description": "Deployments."}}}}"#,
+        r#"{
+          "ai": {
+            "groups": {
+              "dynamic-routing": {"description": "Routes."},
+              "dynamic-routing.deployments": {"description": "Deployments."}
+            }
+          }
+        }"#,
     ));
 
     assert_eq!(group(&forge, "ai.dynamic_routing").description(), "Routes.");
@@ -419,7 +712,10 @@ fn dotted_root_key_describes_a_subgroup() {
 fn dotted_key_can_come_before_its_parents_entry() {
     let forge = parse(&with_commands(
         &["a.b.c", "a.b", "a"],
-        r#"{"a.b.c": {"description": "C."}, "a": {"description": "A.", "groups": {"b": {"description": "B."}}}}"#,
+        r#"{
+          "a.b.c": {"description": "C."},
+          "a": {"description": "A.", "groups": {"b": {"description": "B."}}}
+        }"#,
     ));
 
     assert_eq!(group(&forge, "a").description(), "A.");
@@ -431,7 +727,10 @@ fn dotted_key_can_come_before_its_parents_entry() {
 fn dotted_and_nested_entries_for_a_group_are_an_error() {
     let err = parse_err(&with_commands(
         &["a.b"],
-        r#"{"a": {"groups": {"b": {"description": "One."}}}, "a.b": {"description": "Two."}}"#,
+        r#"{
+          "a": {"groups": {"b": {"description": "One."}}},
+          "a.b": {"description": "Two."}
+        }"#,
     ));
 
     assert!(
@@ -444,9 +743,17 @@ fn dotted_and_nested_entries_for_a_group_are_an_error() {
 fn command_matches_a_group_with_an_equal_name() {
     let forge = parse(
         r#"{
-          "openapi": "3.0.3", "info": {"title": "t", "version": "1"},
-          "paths": {"/a": {"get": {"x-forge-group-name": "abuse_reports", "x-forge-method-name": "list",
-            "responses": {"204": {"description": "ok"}}}}},
+          "openapi": "3.0.3",
+          "info": {"title": "t", "version": "1"},
+          "paths": {
+            "/a": {
+              "get": {
+                "x-forge-group-name": "abuse_reports",
+                "x-forge-method-name": "list",
+                "responses": {"204": {"description": "ok"}}
+              }
+            }
+          },
           "x-forge-commands": {"abuse-reports": {"description": "Abuse reports."}}
         }"#,
     );
@@ -458,24 +765,36 @@ fn command_matches_a_group_with_an_equal_name() {
 fn group_without_a_command_has_no_description() {
     let forge = parse(
         r#"{
-          "openapi": "3.0.3", "info": {"title": "t", "version": "1"},
-          "paths": {"/a": {"get": {"x-forge-group-name": "accounts", "x-forge-method-name": "list",
-            "responses": {"204": {"description": "ok"}}}}},
+          "openapi": "3.0.3",
+          "info": {"title": "t", "version": "1"},
+          "paths": {
+            "/a": {
+              "get": {
+                "x-forge-group-name": "accounts",
+                "x-forge-method-name": "list",
+                "responses": {"204": {"description": "ok"}}
+              }
+            }
+          },
           "x-forge-commands": {"zones": {"description": "Zones."}}
         }"#,
     );
 
     assert_eq!(group(&forge, "accounts").description(), "");
-    assert_eq!(forge.groups().count(), 1);
+    assert_eq!(group(&forge, "").children().count(), 1);
 }
 
 #[test]
 fn commands_with_equal_names_are_an_error() {
     let err = parse_err(
         r#"{
-          "openapi": "3.0.3", "info": {"title": "t", "version": "1"},
+          "openapi": "3.0.3",
+          "info": {"title": "t", "version": "1"},
           "paths": {},
-          "x-forge-commands": {"abuse-reports": {"description": "One."}, "abuse_reports": {"description": "Two."}}
+          "x-forge-commands": {
+            "abuse-reports": {"description": "One."},
+            "abuse_reports": {"description": "Two."}
+          }
         }"#,
     );
 
@@ -486,16 +805,37 @@ fn commands_with_equal_names_are_an_error() {
 fn groups_are_sorted_by_name() {
     let forge = parse(
         r#"{
-          "openapi": "3.0.3", "info": {"title": "t", "version": "1"},
+          "openapi": "3.0.3",
+          "info": {"title": "t", "version": "1"},
           "paths": {
-            "/a": {"get": {"x-forge-group-name": "zones", "x-forge-method-name": "get",
-              "responses": {"204": {"description": "ok"}}}},
-            "/b": {"get": {"x-forge-group-name": ["accounts", "members"], "x-forge-method-name": "get",
-              "responses": {"204": {"description": "ok"}}}},
-            "/c": {"get": {"x-forge-group-name": "dns", "x-forge-method-name": "get",
-              "responses": {"204": {"description": "ok"}}}},
-            "/d": {"get": {"x-forge-group-name": ["accounts", "billing"], "x-forge-method-name": "get",
-              "responses": {"204": {"description": "ok"}}}}
+            "/a": {
+              "get": {
+                "x-forge-group-name": "zones",
+                "x-forge-method-name": "get",
+                "responses": {"204": {"description": "ok"}}
+              }
+            },
+            "/b": {
+              "get": {
+                "x-forge-group-name": ["accounts", "members"],
+                "x-forge-method-name": "get",
+                "responses": {"204": {"description": "ok"}}
+              }
+            },
+            "/c": {
+              "get": {
+                "x-forge-group-name": "dns",
+                "x-forge-method-name": "get",
+                "responses": {"204": {"description": "ok"}}
+              }
+            },
+            "/d": {
+              "get": {
+                "x-forge-group-name": ["accounts", "billing"],
+                "x-forge-method-name": "get",
+                "responses": {"204": {"description": "ok"}}
+              }
+            }
           }
         }"#,
     );
@@ -506,7 +846,7 @@ fn groups_are_sorted_by_name() {
         .collect();
     assert_eq!(
         paths,
-        ["accounts", "accounts.billing", "accounts.members", "dns", "zones"]
+        ["", "accounts", "accounts.billing", "accounts.members", "dns", "zones"]
     );
 }
 
@@ -514,15 +854,27 @@ fn groups_are_sorted_by_name() {
 fn methods_are_sorted_by_name() {
     let forge = parse(
         r#"{
-          "openapi": "3.0.3", "info": {"title": "t", "version": "1"},
-          "paths": {"/a": {
-            "get": {"x-forge-group-name": "a", "x-forge-method-name": "list",
-              "responses": {"204": {"description": "ok"}}},
-            "post": {"x-forge-group-name": "a", "x-forge-method-name": "create",
-              "responses": {"204": {"description": "ok"}}},
-            "delete": {"x-forge-group-name": "a", "x-forge-method-name": "delete",
-              "responses": {"204": {"description": "ok"}}}
-          }}
+          "openapi": "3.0.3",
+          "info": {"title": "t", "version": "1"},
+          "paths": {
+            "/a": {
+              "get": {
+                "x-forge-group-name": "a",
+                "x-forge-method-name": "list",
+                "responses": {"204": {"description": "ok"}}
+              },
+              "post": {
+                "x-forge-group-name": "a",
+                "x-forge-method-name": "create",
+                "responses": {"204": {"description": "ok"}}
+              },
+              "delete": {
+                "x-forge-group-name": "a",
+                "x-forge-method-name": "delete",
+                "responses": {"204": {"description": "ok"}}
+              }
+            }
+          }
         }"#,
     );
 

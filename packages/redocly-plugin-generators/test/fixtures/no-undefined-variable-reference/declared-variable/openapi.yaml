@@ -1,0 +1,27 @@
+openapi: 3.1.0
+info:
+  title: Test API
+  version: 1.0.0
+x-fern-sdk-variables:
+  appId:
+    type: string
+    description: The application id.
+    x-fern-env: APP_ID
+paths:
+  /apps/{appId}/users:
+    get:
+      operationId: listUsers
+      parameters:
+        - $ref: '#/components/parameters/AppId'
+      responses:
+        '200':
+          description: OK
+components:
+  parameters:
+    AppId:
+      name: appId
+      in: path
+      required: true
+      schema:
+        type: string
+      x-fern-sdk-variable: appId

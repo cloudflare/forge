@@ -105,8 +105,8 @@ impl Module {
 
     /// Returns the directory that holds `group`'s files, its
     /// [`sub`](Module::sub) modules: the group's path, with each name in
-    /// camelCase and prefixed with `_` if it starts with a digit. Top-level
-    /// files go in [`Module::ROOT`] instead.
+    /// camelCase and prefixed with `_` if it starts with a digit. The root
+    /// group's path is empty, so its directory is [`Module::ROOT`].
     ///
     /// A group `list_all` inside `pet-store` gets `petStore/listAll`.
     pub fn group(group: Group<'_>) -> Module {
@@ -189,16 +189,16 @@ pub struct Ident {
 impl Ident {
     /// Returns the identifier of `model`: its name in PascalCase, prefixed
     /// with `_` if it starts with a digit, declared in the `models.ts` of
-    /// its group's directory ([`Module::group`]), or of the root for a
-    /// top-level model. Call [`ty`](Ident::ty) on it to import it with
-    /// `import type`.
+    /// its group's directory ([`Module::group`]). Call [`ty`](Ident::ty) on
+    /// it to import it with `import type`.
     ///
     /// A generator that names models differently, such as with a prefix,
     /// changes the identifier and prints that one everywhere it refers to
     /// the model.
     pub fn model(model: Model<'_>) -> Ident {
-        let dir = model.group().map_or(Module::ROOT, Module::group);
-        dir.sub("models.ts").ident(identifier(model.name().pascal()))
+        Module::group(model.group())
+            .sub("models.ts")
+            .ident(identifier(model.name().pascal()))
     }
 
     /// Returns the identifier marked as only a type, so files import it

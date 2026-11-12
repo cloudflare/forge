@@ -1,0 +1,8 @@
+[
+  {
+    "ruleId": "generators/fern-valid-oauth",
+    "severity": "error",
+    "message": "The getToken.requestProperties.clientSecret option of generators/valid-oauth must be a string selector such as '$request.client_secret'.",
+    "location": "openapi.yaml#/paths/~1token/post"
+  }
+]

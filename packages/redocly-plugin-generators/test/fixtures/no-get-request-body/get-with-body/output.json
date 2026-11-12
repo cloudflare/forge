@@ -1,0 +1,8 @@
+[
+  {
+    "ruleId": "generators/fern-no-get-request-body",
+    "severity": "error",
+    "message": "Operation is a GET, so it cannot have a request body. Fern ignores the `requestBody` of GET operations, so the generated SDKs never send it.",
+    "location": "openapi.yaml#/paths/~1plants/get/requestBody (key)"
+  }
+]

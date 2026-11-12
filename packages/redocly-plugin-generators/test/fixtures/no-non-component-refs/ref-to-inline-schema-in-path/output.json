@@ -1,0 +1,8 @@
+[
+  {
+    "ruleId": "generators/fern-no-non-component-refs",
+    "severity": "error",
+    "message": "Reference \"#/paths/~1users/post/requestBody/content/application~1json/schema\" points to a non-component location. OpenAPI references should point to reusable components under #/components/ (e.g., #/components/schemas/MySchema, #/components/responses/MyResponse). Direct references to paths, operations, or other spec sections are not supported.",
+    "location": "openapi.yaml#/paths/~1users/post/responses/201/content/application~1json/schema/properties/user/$ref"
+  }
+]

@@ -1,0 +1,3 @@
+rules:
+  generators/fern-no-conflicting-request-wrapper-properties: error
+  generators/fern-no-conflicting-parameter-names: error

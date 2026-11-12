@@ -1,0 +1,7 @@
+rules:
+  generators/fern-valid-oauth:
+    severity: error
+    getToken:
+      endpoint: POST /oauth/token
+    refreshToken:
+      endpoint: GET /token

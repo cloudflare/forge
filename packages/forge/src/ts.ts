@@ -31,9 +31,8 @@
  * }
  * ```
  *
- * A `File` is a plugin's file as it is: return it from `generate` or
- * `generateGroup`. One with nothing printed renders as nothing, so forge
- * doesn't write it.
+ * A `File` is a plugin's file as it is: return it from `generate`. One with
+ * nothing printed renders as nothing, so forge doesn't write it.
  *
  * This is forge's Rust `forge::ts`, and renders the same text, with tagged
  * templates in place of its macros: `` f`…` ``, calling the file, for `p!`, `` frag`…` ``
@@ -256,7 +255,7 @@ export const module: {
    * Returns the directory that holds `group`'s files: the group's path,
    * with each name in camelCase and prefixed with `_` if it starts with a
    * digit. A group `list_all` inside `pet-store` gets `petStore/listAll`.
-   * Top-level files go in `module.ROOT` instead.
+   * The root group's path is empty, so its directory is `module.ROOT`.
    */
   group(group: Pick<Group, 'path'>): Module;
 } = Object.freeze(
@@ -274,8 +273,8 @@ export const ident: {
   /**
    * Returns the identifier of `model`: its name in PascalCase, prefixed
    * with `_` if it starts with a digit, declared in the `models.ts` of its
-   * group's directory (`module.group`), or of the root for a top-level
-   * model. Call `ty` on it to import it with `import type`.
+   * group's directory (`module.group`). Call `ty` on it to import it with
+   * `import type`.
    *
    * A plugin that names models differently makes its own identifier, and
    * prints that one everywhere it refers to the model.
@@ -303,8 +302,7 @@ export const ident: {
     },
     {
       model(model: Pick<Model, 'name' | 'group'>): Ident {
-        const dir = model.group ? module.group(model.group) : module.ROOT;
-        return dir.sub('models.ts').ident(identifier(model.name.pascal()));
+        return module.group(model.group).sub('models.ts').ident(identifier(model.name.pascal()));
       },
     },
   ),

@@ -1,0 +1,8 @@
+[
+  {
+    "ruleId": "generators/fern-no-duplicate-declarations",
+    "severity": "error",
+    "message": "The schema components.schemas.NotFoundErrorBody is named \"NotFoundErrorBody\", which is already declared by the schema components.schemas.NotFoundError (renamed with a \"Body\" suffix because \"NotFoundError\" is a Fern error name) at #/components/schemas/NotFoundError. Both become Fern types named \"NotFoundErrorBody\" in the same file, so Fern keeps only one of them and silently drops the other; references to the dropped schema point to the one Fern keeps. Rename one of them with x-fern-type-name.",
+    "location": "openapi.yaml#/components/schemas/NotFoundErrorBody (key)"
+  }
+]

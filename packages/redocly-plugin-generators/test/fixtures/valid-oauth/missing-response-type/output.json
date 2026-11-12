@@ -1,0 +1,20 @@
+[
+  {
+    "ruleId": "generators/fern-valid-oauth",
+    "severity": "error",
+    "message": "OAuth configuration for endpoint getToken is missing a valid client-secret, such as '$request.client_secret'. Add an `in: query` parameter or request body property named client_secret whose type is a string, or point the getToken.requestProperties.clientSecret option at an existing one.",
+    "location": "openapi.yaml#/paths/~1token/post/requestBody"
+  },
+  {
+    "ruleId": "generators/fern-valid-oauth",
+    "severity": "error",
+    "message": "OAuth configuration for endpoint getToken must define a response type: its success response has no JSON content.",
+    "location": "openapi.yaml#/paths/~1token/post/responses/204"
+  },
+  {
+    "ruleId": "generators/fern-valid-oauth",
+    "severity": "error",
+    "message": "OAuth configuration for endpoint streamToken must define a response type: the operation streams its response (x-fern-streaming), so it has no regular response.",
+    "location": "openapi.yaml#/paths/~1token~1stream/post"
+  }
+]

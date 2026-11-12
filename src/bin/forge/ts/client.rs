@@ -12,26 +12,25 @@ use super::operation::operation;
 use super::types::{
     Prec, all_optional, alternatives, doc, has_fields, identifier, js_string, key, object_like, typ, valid_name,
 };
-use super::{Node, request_options, runtime};
+use super::{request_options, runtime};
 
-/// Returns the client.ts of `node`: its ClientOptions and Client,
+/// Returns the client.ts of `group`: its ClientOptions and Client,
 /// createClient and bind, the request and response types of each method,
 /// then the operation of each method. The library has already rejected
-/// methods and groups with no name and duplicate methods, and equal group
-/// names are one group.
-pub(super) fn client(node: Node<'_>) -> File {
-    let groups = node.children();
+/// methods and subgroups with no name and duplicate methods, and equal
+/// group names are one group.
+pub(super) fn client(group: Group<'_>) -> File {
+    let groups: Vec<Group<'_>> = group.children().collect();
     let group_names: HashMap<String, Group<'_>> = groups.iter().map(|&sub| (group_name(sub), sub)).collect();
 
     // A method that is not JSON is left out (specs/13-non-json-operations.md).
-    let methods: Vec<(Method<'_>, Request<'_>)> = node
+    let methods: Vec<(Method<'_>, Request<'_>)> = group
         .methods()
-        .into_iter()
         .filter(|&m| !skipped(m))
         .map(|m| (m, Request::new(m)))
         .collect();
 
-    let mut f = File::new(node.dir().sub("client.ts"));
+    let mut f = File::new(Module::group(group).sub("client.ts"));
     client_options(&mut f);
     p!(f);
     client_interface(&mut f, &methods, &groups, &group_names);

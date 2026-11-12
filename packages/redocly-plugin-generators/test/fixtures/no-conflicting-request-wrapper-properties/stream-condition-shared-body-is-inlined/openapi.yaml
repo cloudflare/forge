@@ -1,0 +1,81 @@
+openapi: 3.0.3
+info:
+  title: Chat API
+  version: 1.0.0
+paths:
+  /chat:
+    post:
+      operationId: chat
+      x-fern-streaming:
+        stream-condition: $request.stream
+        response:
+          type: string
+        response-stream:
+          type: string
+      parameters:
+        - name: body
+          in: query
+          schema:
+            type: string
+        - name: q
+          in: query
+          x-fern-parameter-name: prompt
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChatBody'
+      responses:
+        '200':
+          description: OK
+  /completions:
+    post:
+      operationId: complete
+      parameters:
+        - name: body
+          in: query
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChatBody'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: string
+  /completions/batch:
+    post:
+      operationId: completeBatch
+      parameters:
+        - name: prompt
+          in: query
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChatBody'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: string
+components:
+  schemas:
+    ChatBody:
+      type: object
+      properties:
+        prompt:
+          type: string
+        stream:
+          type: boolean

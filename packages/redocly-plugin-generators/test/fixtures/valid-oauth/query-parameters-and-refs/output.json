@@ -1,0 +1,20 @@
+[
+  {
+    "ruleId": "generators/fern-valid-oauth",
+    "severity": "error",
+    "message": "OAuth configuration for endpoint getToken specifies 'scopes' $request.scope, which is not a valid 'scopes' type. It must point to an `in: query` parameter or request body property whose type is a string.",
+    "location": "components.yaml#/components/parameters/Scope/schema"
+  },
+  {
+    "ruleId": "generators/fern-valid-oauth",
+    "severity": "error",
+    "message": "OAuth configuration for endpoint getToken specifies 'expires-in' $response.data.expires_in, which is not a valid 'expires-in' type. It must point to a property of the JSON success response whose type is an integer.",
+    "location": "components.yaml#/components/responses/Token/content/application~1json/schema/properties/data/properties/expires_in"
+  },
+  {
+    "ruleId": "generators/fern-valid-oauth",
+    "severity": "error",
+    "message": "OAuth configuration for endpoint getToken is missing a valid client-secret, such as '$request.client_secret'. Add an `in: query` parameter or request body property named client_secret whose type is a string, or point the getToken.requestProperties.clientSecret option at an existing one.",
+    "location": "token.yaml#/post"
+  }
+]

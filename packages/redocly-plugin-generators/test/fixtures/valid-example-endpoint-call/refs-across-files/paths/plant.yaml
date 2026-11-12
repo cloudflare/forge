@@ -1,0 +1,38 @@
+parameters:
+  - $ref: ../components.yaml#/components/parameters/PlantId
+put:
+  operationId: updatePlant
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          $ref: ../components.yaml#/components/schemas/Plant
+  responses:
+    '200':
+      description: The plant
+      content:
+        application/json:
+          schema:
+            $ref: ../components.yaml#/components/schemas/Plant
+  x-fern-examples:
+    - name: Valid
+      path-parameters:
+        plantId: 1
+      request:
+        name: Fern
+        soil:
+          ph: 6
+      response:
+        body:
+          name: Fern
+    - name: Invalid
+      path-parameters:
+        plantId: one
+      request:
+        name: Fern
+        soil:
+          ph: acidic
+      response:
+        body:
+          soil: {}

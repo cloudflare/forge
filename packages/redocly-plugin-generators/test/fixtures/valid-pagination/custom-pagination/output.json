@@ -1,0 +1,8 @@
+[
+  {
+    "ruleId": "generators/fern-valid-pagination",
+    "severity": "error",
+    "message": "x-fern-pagination for endpoint listUsersCustomBroken specifies 'results' $response.missing, which is not a valid 'results' type. It must point to an existing property of the JSON success response.",
+    "location": "openapi.yaml#/paths/~1users~1broken/get/x-fern-pagination/results"
+  }
+]

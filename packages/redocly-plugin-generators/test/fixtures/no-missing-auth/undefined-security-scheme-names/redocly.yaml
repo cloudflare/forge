@@ -1,0 +1,3 @@
+rules:
+  security-defined: error
+  generators/fern-no-missing-auth: error

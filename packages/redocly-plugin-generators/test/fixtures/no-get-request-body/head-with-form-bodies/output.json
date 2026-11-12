@@ -1,0 +1,20 @@
+[
+  {
+    "ruleId": "generators/fern-no-get-request-body",
+    "severity": "error",
+    "message": "Operation is a HEAD, so it cannot have a request body.",
+    "location": "openapi.yaml#/paths/~1binary/head/requestBody (key)"
+  },
+  {
+    "ruleId": "generators/fern-no-get-request-body",
+    "severity": "error",
+    "message": "Operation is a HEAD, so it cannot have a request body.",
+    "location": "openapi.yaml#/paths/~1form/head/requestBody (key)"
+  },
+  {
+    "ruleId": "generators/fern-no-get-request-body",
+    "severity": "error",
+    "message": "Operation is a HEAD, so it cannot have a request body.",
+    "location": "openapi.yaml#/paths/~1upload/head/requestBody (key)"
+  }
+]

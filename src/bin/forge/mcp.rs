@@ -3,9 +3,10 @@
 //! TypeScript SDK, `@modelcontextprotocol/server`. It generates no server:
 //! each server lists and calls the tools in its own way.
 //!
-//! Every group with tools gets a `tools.ts` in its directory: the tools of
-//! its methods, each MCP's Tool, with the JSON Schema of its arguments, its
-//! output schema and its hints, as `tools/list` sends it. Under the runtime's
+//! Every group with tools, the root included, gets a `tools.ts` in its
+//! directory: the tools of its methods, each MCP's Tool, with the JSON Schema
+//! of its arguments, its output schema and its hints, as `tools/list` sends
+//! it. Under the runtime's
 //! `OPERATION` symbol, which `JSON.stringify` leaves out, each holds what only
 //! the server needs, as data: the API method, its path template, its query
 //! parameters, headers and body media types, and the JSON Schemas of its
@@ -15,17 +16,16 @@
 //! `index.ts` with every tool, `operation`, which reads a tool's operation,
 //! and `registerTools`, which registers the tools on an `McpServer`, for the
 //! SDK to validate each call's arguments against the input schema, and builds
-//! each call's request from the operation; the top-level models' schemas;
-//! and the runtime itself in `_/tool.ts`, which imports the SDK's
-//! `fromJsonSchema`.
+//! each call's request from the operation; and the runtime itself in
+//! `_/tool.ts`, which imports the SDK's `fromJsonSchema`.
 //!
-//! Each group's files depend only on the group, so they are generated in
-//! parallel with [`Plugin::generate_group`]. A tool is named after its
-//! groups and method, each in camelCase, joined by `_`, such as
-//! `webAssets_discovery_operations_bulkEdit`, so tools of different groups
-//! never share a name. Its arguments are objects by where they go: `path`,
-//! `query` and `headers`, each keyed by the parameters' names on the wire,
-//! and the JSON body as `body`, as the API takes it.
+//! Each group's files depend only on the group, so the groups are generated
+//! in parallel. A tool is named after its groups and method, each in
+//! camelCase, joined by `_`, such as `webAssets_discovery_operations_bulkEdit`,
+//! so tools of different groups never share a name. A tool of the root is
+//! named after its method alone. Its arguments are objects by where they go:
+//! `path`, `query` and `headers`, each keyed by the parameters' names on the
+//! wire, and the JSON body as `body`, as the API takes it.
 
 use std::borrow::Cow;
 use std::collections::HashSet;
@@ -36,6 +36,7 @@ use serde_json::{Map, Value, json};
 
 mod schema;
 
+use rayon::prelude::*;
 use schema::{Direction, Refs, Schemas, reach};
 
 /// Generates an MCP server.
@@ -44,44 +45,49 @@ pub struct Generator;
 impl Plugin for Generator {
     type File = File;
 
-    /// Returns the files of the root: `index.ts` with every tool, the
-    /// runtime, and the schemas of the top-level models.
+    /// Returns `index.ts` with every tool, and the runtime, then the files
+    /// of each group, which are generated in parallel.
     fn generate(&self, forge: &Forge) -> Result<impl Iterator<Item = File>, Err> {
         let groups: Vec<Group<'_>> = forge
             .groups()
             .filter(|&group| verdicts(group).iter().any(|(_, name)| name.is_some()))
             .collect();
 
-        let mut files = model_files(Module::ROOT, forge.models(), forge.groups());
-        files.push(File::Ts(index(forge, &groups)));
+        let mut files = vec![File::Ts(index(forge, &groups))];
         files.extend(RUNTIME.iter().map(|&(path, source)| File::Text {
             path: RUNTIME_DIR.sub(path).as_str().to_owned(),
             content: format!("{PREAMBLE}{source}"),
         }));
+        let all: Vec<Group<'_>> = forge.groups().collect();
+        let per_group = all
+            .par_iter()
+            .map(|&group| group_files(group))
+            .collect::<Result<Vec<_>, Err>>()?;
+        files.extend(per_group.into_iter().flatten());
         Ok(files.into_iter())
     }
+}
 
-    /// Returns the files of `group`: a `tools.ts` with the tools of its
-    /// methods, and the schemas of the models placed in it.
-    fn generate_group(&self, group: Group<'_>) -> Result<impl Iterator<Item = File>, Err> {
-        let mut tools = Vec::new();
-        for (m, name) in verdicts(group) {
-            if let Some(name) = name {
-                tools.push(Tool::new(m, name)?);
-            }
+/// Returns the files of `group`: a `tools.ts` with the tools of its methods,
+/// and the schemas of the models placed in it.
+fn group_files(group: Group<'_>) -> Result<Vec<File>, Err> {
+    let mut tools = Vec::new();
+    for (m, name) in verdicts(group) {
+        if let Some(name) = name {
+            tools.push(Tool::new(m, name)?);
         }
-        tools.sort_by(|a, b| a.name.cmp(&b.name));
-        let mut files = Vec::new();
-        if !tools.is_empty() {
-            files.push(File::Ts(tools_file(group, &tools)));
-        }
-        files.extend(model_files(
-            Module::group(group),
-            group.models(),
-            std::iter::once(group).chain(group.descendants()),
-        ));
-        Ok(files.into_iter())
     }
+    tools.sort_by(|a, b| a.name.cmp(&b.name));
+    let mut files = Vec::new();
+    if !tools.is_empty() {
+        files.push(File::Ts(tools_file(group, &tools)));
+    }
+    files.extend(model_files(
+        Module::group(group),
+        group.models(),
+        std::iter::once(group).chain(group.descendants()),
+    ));
+    Ok(files)
 }
 
 /// A file of the server.
@@ -514,11 +520,12 @@ impl SchemaFile {
 }
 
 /// Returns the constant with the schema of `model` in a file of `kind`,
-/// declared in its group's directory, or the root's for a top-level model.
-/// Forge places each model, so any file can name its constant.
+/// declared in its group's directory. Forge places each model, so any file
+/// can name its constant.
 fn model_ident(model: Model<'_>, kind: SchemaFile) -> Ident {
-    let dir = model.group().map_or(Module::ROOT, Module::group);
-    dir.sub(kind.file()).ident(constant_name(&schema::key(model)))
+    Module::group(model.group())
+        .sub(kind.file())
+        .ident(constant_name(&schema::key(model)))
 }
 
 /// Returns the name of the constant of the model whose `$defs` key is `key`:
@@ -672,8 +679,12 @@ fn tools_file(group: Group<'_>, tools: &[Tool<'_>]) -> ts::File {
     let tool = RUNTIME_TOOL.ident("Tool").ty();
     let operation = RUNTIME_TOOL.ident("OPERATION");
     let encode_path = RUNTIME_TOOL.ident("encodePath");
-    let dotted: Vec<String> = group.path().map(Name::camel).collect();
-    f.doc(&format!("The tools of `{}`.", dotted.join(".")));
+    if group.parent().is_none() {
+        f.doc("The tools of the methods in no group.");
+    } else {
+        let dotted: Vec<String> = group.path().map(Name::camel).collect();
+        f.doc(&format!("The tools of `{}`.", dotted.join(".")));
+    }
     p!(f, "export const tools: readonly ", tool, "[] = [");
     f.indent(|f| {
         for t in tools {
@@ -809,11 +820,16 @@ fn index(forge: &Forge, groups: &[Group<'_>]) -> ts::File {
     p!(f, "export const tools: readonly ", tool, "[] = [");
     f.indent(|f| {
         for group in groups {
-            let alias: Vec<String> = group.path().map(|name| name.camel()).collect();
+            let alias = if group.parent().is_none() {
+                "root".to_owned()
+            } else {
+                let names: Vec<String> = group.path().map(|name| name.camel()).collect();
+                ts_identifier(&names.join("_"))
+            };
             let ident = Module::group(*group)
                 .sub("tools.ts")
                 .ident("tools")
-                .alias(format!("{}Tools", ts_identifier(&alias.join("_"))));
+                .alias(format!("{alias}Tools"));
             p!(f, "...", ident, ",");
         }
     });
@@ -896,16 +912,16 @@ fn ts_identifier(s: &str) -> String {
 
 #[cfg(test)]
 mod tests {
-    use forge::{File as _, Forge};
+    use forge::{File as _, Forge, Plugin as _};
 
     use super::Generator;
 
     /// Returns the files the generator makes from `spec`, by path.
     fn generate(spec: &str) -> Vec<(String, String)> {
         let forge: Forge = serde_json::from_str(spec).unwrap();
-        let mut files: Vec<(String, String)> = forge::run(&forge, &Generator)
+        let mut files: Vec<(String, String)> = Generator
+            .generate(&forge)
             .unwrap()
-            .into_iter()
             .map(|f| {
                 let content = String::from_utf8(f.content().unwrap().into_owned()).unwrap();
                 (f.path().to_owned(), content)
@@ -925,53 +941,101 @@ mod tests {
             .clone()
     }
 
-    const PETS: &str = r##"{"openapi": "3.1.0", "info": {"title": "Pets", "version": "2"},
-        "servers": [{"url": "https://api.example.com/v1"}],
-        "paths": {
-            "/stores/{store_id}/pets": {
-                "get": {"x-forge-group-name": "pets", "x-forge-method-name": "list",
-                    "summary": "List pets", "x-api-token-group": ["Pets Read"],
-                    "parameters": [
-                        {"name": "store_id", "in": "path", "required": true, "schema": {"type": "string"}},
-                        {"name": "tag", "in": "query", "explode": false,
-                         "schema": {"type": "array", "items": {"type": "string"}}},
-                        {"name": "X-Trace", "in": "header", "schema": {"type": "string"}}
-                    ],
-                    "responses": {
-                        "200": {"description": "ok", "content": {"application/json": {
-                            "schema": {"type": "array", "items": {"$ref": "#/components/schemas/Pet"}}}}},
-                        "4XX": {"description": "failed"}}},
-                "post": {"x-forge-group-name": "pets", "x-forge-method-name": "create",
-                    "x-forge-require-confirmation": "This adopts a pet.",
-                    "parameters": [{"name": "store_id", "in": "path", "required": true, "schema": {"type": "string"}}],
-                    "requestBody": {"required": true, "content": {"application/json": {
-                        "schema": {"$ref": "#/components/schemas/Pet"}}}},
-                    "responses": {"200": {"description": "ok"}}}
-            },
-            "/stores/{store_id}/pets/{pet_id}": {
-                "delete": {"x-forge-group-name": "pets", "x-forge-method-name": "delete",
-                    "parameters": [
-                        {"name": "store_id", "in": "path", "required": true, "schema": {"type": "string"}},
-                        {"name": "pet_id", "in": "path", "required": true, "schema": {"type": "integer"}}
-                    ],
-                    "responses": {"200": {"description": "ok"}}},
-                "put": {"x-forge-group-name": "pets", "x-forge-method-name": "replace", "deprecated": true,
-                    "parameters": [
-                        {"name": "store_id", "in": "path", "required": true, "schema": {"type": "string"}},
-                        {"name": "pet_id", "in": "path", "required": true, "schema": {"type": "integer"}}
-                    ],
-                    "responses": {"200": {"description": "ok"}}}
-            },
-            "/stores/{store_id}/photos": {
-                "post": {"x-forge-group-name": "pets.photos", "x-forge-method-name": "upload",
-                    "parameters": [{"name": "store_id", "in": "path", "required": true, "schema": {"type": "string"}}],
-                    "requestBody": {"required": true, "content": {"image/png": {"schema": {"type": "string"}}}},
-                    "responses": {"200": {"description": "ok"}}}
+    const PETS: &str = r##"{
+      "openapi": "3.1.0",
+      "info": {"title": "Pets", "version": "2"},
+      "servers": [{"url": "https://api.example.com/v1"}],
+      "paths": {
+        "/stores/{store_id}/pets": {
+          "get": {
+            "x-forge-group-name": "pets",
+            "x-forge-method-name": "list",
+            "summary": "List pets",
+            "x-api-token-group": ["Pets Read"],
+            "parameters": [
+              {"name": "store_id", "in": "path", "required": true, "schema": {"type": "string"}},
+              {
+                "name": "tag",
+                "in": "query",
+                "explode": false,
+                "schema": {"type": "array", "items": {"type": "string"}}
+              },
+              {"name": "X-Trace", "in": "header", "schema": {"type": "string"}}
+            ],
+            "responses": {
+              "200": {
+                "description": "ok",
+                "content": {
+                  "application/json": {"schema": {"type": "array", "items": {"$ref": "#/components/schemas/Pet"}}}
+                }
+              },
+              "4XX": {"description": "failed"}
             }
+          },
+          "post": {
+            "x-forge-group-name": "pets",
+            "x-forge-method-name": "create",
+            "x-forge-require-confirmation": "This adopts a pet.",
+            "parameters": [
+              {"name": "store_id", "in": "path", "required": true, "schema": {"type": "string"}}
+            ],
+            "requestBody": {
+              "required": true,
+              "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Pet"}}}
+            },
+            "responses": {"200": {"description": "ok"}}
+          }
         },
-        "components": {"schemas": {"Pet": {"type": "object", "required": ["name"],
-            "properties": {"id": {"type": "string", "readOnly": true}, "name": {"type": "string"},
-                           "friends": {"type": "array", "items": {"$ref": "#/components/schemas/Pet"}}}}}}}"##;
+        "/stores/{store_id}/pets/{pet_id}": {
+          "delete": {
+            "x-forge-group-name": "pets",
+            "x-forge-method-name": "delete",
+            "parameters": [
+              {"name": "store_id", "in": "path", "required": true, "schema": {"type": "string"}},
+              {"name": "pet_id", "in": "path", "required": true, "schema": {"type": "integer"}}
+            ],
+            "responses": {"200": {"description": "ok"}}
+          },
+          "put": {
+            "x-forge-group-name": "pets",
+            "x-forge-method-name": "replace",
+            "deprecated": true,
+            "parameters": [
+              {"name": "store_id", "in": "path", "required": true, "schema": {"type": "string"}},
+              {"name": "pet_id", "in": "path", "required": true, "schema": {"type": "integer"}}
+            ],
+            "responses": {"200": {"description": "ok"}}
+          }
+        },
+        "/stores/{store_id}/photos": {
+          "post": {
+            "x-forge-group-name": "pets.photos",
+            "x-forge-method-name": "upload",
+            "parameters": [
+              {"name": "store_id", "in": "path", "required": true, "schema": {"type": "string"}}
+            ],
+            "requestBody": {
+              "required": true,
+              "content": {"image/png": {"schema": {"type": "string"}}}
+            },
+            "responses": {"200": {"description": "ok"}}
+          }
+        }
+      },
+      "components": {
+        "schemas": {
+          "Pet": {
+            "type": "object",
+            "required": ["name"],
+            "properties": {
+              "id": {"type": "string", "readOnly": true},
+              "name": {"type": "string"},
+              "friends": {"type": "array", "items": {"$ref": "#/components/schemas/Pet"}}
+            }
+          }
+        }
+      }
+    }"##;
 
     #[test]
     fn files() {
@@ -1115,14 +1179,42 @@ mod tests {
 
         let tools = file(
             &generate(
-                r##"{"openapi": "3.1.0", "info": {"title": "t", "version": "1"},
-                "paths": {"/a": {"post": {"x-forge-group-name": "a", "x-forge-method-name": "make",
-                    "responses": {
-                        "200": {"description": "ok", "content": {"application/json": {"schema": {"type": "string"}}}},
-                        "201": {"description": "made", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/A"}}}},
-                        "202": {"description": "same", "content": {"application/json": {"schema": {"type": "string"}}}},
-                        "4XX": {"description": "failed", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/E"}}}}}}}},
-                "components": {"schemas": {"A": {"type": "object"}, "E": {"type": "object"}}}}"##,
+                r##"{
+                  "openapi": "3.1.0",
+                  "info": {"title": "t", "version": "1"},
+                  "paths": {
+                    "/a": {
+                      "post": {
+                        "x-forge-group-name": "a",
+                        "x-forge-method-name": "make",
+                        "responses": {
+                          "200": {
+                            "description": "ok",
+                            "content": {"application/json": {"schema": {"type": "string"}}}
+                          },
+                          "201": {
+                            "description": "made",
+                            "content": {"application/json": {"schema": {"$ref": "#/components/schemas/A"}}}
+                          },
+                          "202": {
+                            "description": "same",
+                            "content": {"application/json": {"schema": {"type": "string"}}}
+                          },
+                          "4XX": {
+                            "description": "failed",
+                            "content": {"application/json": {"schema": {"$ref": "#/components/schemas/E"}}}
+                          }
+                        }
+                      }
+                    }
+                  },
+                  "components": {
+                    "schemas": {
+                      "A": {"type": "object"},
+                      "E": {"type": "object"}
+                    }
+                  }
+                }"##,
             ),
             "a/tools.ts",
         );
@@ -1157,24 +1249,61 @@ mod tests {
     #[test]
     fn bodies_in_any_media_type() {
         let files = generate(
-            r##"{"openapi": "3.1.0", "info": {"title": "t", "version": "1"},
-                "paths": {
-                    "/values/{key}": {"put": {"x-forge-group-name": "kv", "x-forge-method-name": "put",
-                        "parameters": [{"name": "key", "in": "path", "required": true, "schema": {"type": "string"}}],
-                        "requestBody": {"required": true, "content": {
-                            "multipart/form-data": {"schema": {"type": "object", "required": ["value"], "properties": {
-                                "value": {"type": "string", "format": "binary"},
-                                "metadata": {"type": "object"}}}},
-                            "application/octet-stream": {"schema": {"type": "string", "format": "binary"}}}},
-                        "responses": {"200": {"description": "ok"}}}},
-                    "/query": {"post": {"x-forge-group-name": "kv", "x-forge-method-name": "query",
-                        "requestBody": {"required": true, "content": {
-                            "text/plain": {"schema": {"type": "string"}},
-                            "application/json": {"schema": {"type": "object", "properties": {"sql": {"type": "string"}}}}}},
-                        "responses": {"200": {"description": "ok"}}}},
-                    "/sql": {"post": {"x-forge-group-name": "kv", "x-forge-method-name": "sql",
-                        "requestBody": {"required": true, "content": {"text/plain": {"schema": {"type": "string"}}}},
-                        "responses": {"200": {"description": "ok"}}}}}}"##,
+            r##"{
+              "openapi": "3.1.0",
+              "info": {"title": "t", "version": "1"},
+              "paths": {
+                "/values/{key}": {
+                  "put": {
+                    "x-forge-group-name": "kv",
+                    "x-forge-method-name": "put",
+                    "parameters": [
+                      {"name": "key", "in": "path", "required": true, "schema": {"type": "string"}}
+                    ],
+                    "requestBody": {
+                      "required": true,
+                      "content": {
+                        "multipart/form-data": {"schema": {
+                          "type": "object",
+                          "required": ["value"],
+                          "properties": {
+                            "value": {"type": "string", "format": "binary"},
+                            "metadata": {"type": "object"}
+                          }
+                        }},
+                        "application/octet-stream": {"schema": {"type": "string", "format": "binary"}}
+                      }
+                    },
+                    "responses": {"200": {"description": "ok"}}
+                  }
+                },
+                "/query": {
+                  "post": {
+                    "x-forge-group-name": "kv",
+                    "x-forge-method-name": "query",
+                    "requestBody": {
+                      "required": true,
+                      "content": {
+                        "text/plain": {"schema": {"type": "string"}},
+                        "application/json": {"schema": {"type": "object", "properties": {"sql": {"type": "string"}}}}
+                      }
+                    },
+                    "responses": {"200": {"description": "ok"}}
+                  }
+                },
+                "/sql": {
+                  "post": {
+                    "x-forge-group-name": "kv",
+                    "x-forge-method-name": "sql",
+                    "requestBody": {
+                      "required": true,
+                      "content": {"text/plain": {"schema": {"type": "string"}}}
+                    },
+                    "responses": {"200": {"description": "ok"}}
+                  }
+                }
+              }
+            }"##,
         );
         let tools = file(&files, "kv/tools.ts");
         let compact: String = tools.split_whitespace().collect();
@@ -1218,15 +1347,33 @@ mod tests {
     #[test]
     fn names() {
         let files = generate(
-            r#"{"openapi": "3.1.0", "info": {"title": "t", "version": "1"},
-                "paths": {
-                    "/a": {"get": {"x-forge-group-name": "a.b", "x-forge-method-name": "c",
-                        "responses": {"200": {"description": "ok"}}}},
-                    "/b": {"get": {"x-forge-group-name": "a", "x-forge-method-name": "b_c",
-                        "responses": {"200": {"description": "ok"}}}},
-                    "/c": {"get": {"x-forge-group-name": "web_assets.discovery", "x-forge-method-name": "bulk_edit",
-                        "responses": {"200": {"description": "ok"}}}}
-                }}"#,
+            r#"{
+              "openapi": "3.1.0",
+              "info": {"title": "t", "version": "1"},
+              "paths": {
+                "/a": {
+                  "get": {
+                    "x-forge-group-name": "a.b",
+                    "x-forge-method-name": "c",
+                    "responses": {"200": {"description": "ok"}}
+                  }
+                },
+                "/b": {
+                  "get": {
+                    "x-forge-group-name": "a",
+                    "x-forge-method-name": "b_c",
+                    "responses": {"200": {"description": "ok"}}
+                  }
+                },
+                "/c": {
+                  "get": {
+                    "x-forge-group-name": "web_assets.discovery",
+                    "x-forge-method-name": "bulk_edit",
+                    "responses": {"200": {"description": "ok"}}
+                  }
+                }
+              }
+            }"#,
         );
         assert!(file(&files, "a/b/tools.ts").contains(r#"name: "a_b_c","#));
         assert!(file(&files, "a/tools.ts").contains(r#"name: "a_bC","#));
@@ -1238,13 +1385,26 @@ mod tests {
     #[test]
     fn same_spelling() {
         let files = generate(
-            r#"{"openapi": "3.1.0", "info": {"title": "t", "version": "1"},
-                "paths": {
-                    "/a": {"get": {"x-forge-group-name": "a", "x-forge-method-name": "x1b",
-                        "responses": {"200": {"description": "ok"}}}},
-                    "/b": {"get": {"x-forge-group-name": "a", "x-forge-method-name": "x_1b",
-                        "responses": {"200": {"description": "ok"}}}}
-                }}"#,
+            r#"{
+              "openapi": "3.1.0",
+              "info": {"title": "t", "version": "1"},
+              "paths": {
+                "/a": {
+                  "get": {
+                    "x-forge-group-name": "a",
+                    "x-forge-method-name": "x1b",
+                    "responses": {"200": {"description": "ok"}}
+                  }
+                },
+                "/b": {
+                  "get": {
+                    "x-forge-group-name": "a",
+                    "x-forge-method-name": "x_1b",
+                    "responses": {"200": {"description": "ok"}}
+                  }
+                }
+              }
+            }"#,
         );
         let tools = file(&files, "a/tools.ts");
         assert_eq!(tools.matches("\n    name: ").count(), 1, "one tool for both: {tools}");
@@ -1256,22 +1416,49 @@ mod tests {
     #[test]
     fn models_across_groups() {
         let files = generate(
-            r##"{"openapi": "3.1.0", "info": {"title": "t", "version": "1"},
-                "paths": {
-                    "/a": {"get": {"x-forge-group-name": "a.x", "x-forge-method-name": "get",
-                        "responses": {"200": {"description": "ok", "content": {"application/json": {
-                            "schema": {"$ref": "#/components/schemas/Shared$1"}}}}}}},
-                    "/b": {"post": {"x-forge-group-name": "a.y", "x-forge-method-name": "make",
-                        "requestBody": {"required": true, "content": {"application/json": {
-                            "schema": {"$ref": "#/components/schemas/Shared$1"}}}},
-                        "responses": {"200": {"description": "ok"}}}},
-                    "/c": {"get": {"x-forge-group-name": "b", "x-forge-method-name": "get",
-                        "responses": {"200": {"description": "ok", "content": {"application/json": {
-                            "schema": {"$ref": "#/components/schemas/Top"}}}}}}}
+            r##"{
+              "openapi": "3.1.0",
+              "info": {"title": "t", "version": "1"},
+              "paths": {
+                "/a": {
+                  "get": {
+                    "x-forge-group-name": "a.x",
+                    "x-forge-method-name": "get",
+                    "responses": {"200": {
+                      "description": "ok",
+                      "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Shared$1"}}}
+                    }}
+                  }
                 },
-                "components": {"schemas": {
-                    "Shared$1": {"type": "object", "properties": {"top": {"$ref": "#/components/schemas/Top"}}},
-                    "Top": {"type": "object", "properties": {"n": {"type": "integer"}}}}}}"##,
+                "/b": {
+                  "post": {
+                    "x-forge-group-name": "a.y",
+                    "x-forge-method-name": "make",
+                    "requestBody": {
+                      "required": true,
+                      "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Shared$1"}}}
+                    },
+                    "responses": {"200": {"description": "ok"}}
+                  }
+                },
+                "/c": {
+                  "get": {
+                    "x-forge-group-name": "b",
+                    "x-forge-method-name": "get",
+                    "responses": {"200": {
+                      "description": "ok",
+                      "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Top"}}}
+                    }}
+                  }
+                }
+              },
+              "components": {
+                "schemas": {
+                  "Shared$1": {"type": "object", "properties": {"top": {"$ref": "#/components/schemas/Top"}}},
+                  "Top": {"type": "object", "properties": {"n": {"type": "integer"}}}
+                }
+              }
+            }"##,
         );
         let paths: Vec<&str> = files.iter().map(|(path, _)| path.as_str()).collect();
         assert!(
@@ -1298,16 +1485,37 @@ mod tests {
     #[test]
     fn models_with_the_same_name() {
         let files = generate(
-            r##"{"openapi": "3.1.0", "info": {"title": "t", "version": "1"},
-                "paths": {"/a": {"post": {"x-forge-group-name": "a", "x-forge-method-name": "make",
-                    "requestBody": {"required": true, "content": {"application/json": {"schema": {
-                        "type": "object", "properties": {
-                            "x": {"$ref": "#/components/schemas/logs-list"},
-                            "y": {"$ref": "#/components/schemas/logs_list"},
-                            "z": {"$ref": "#/components/schemas/2fa"}}}}}},
-                    "responses": {"200": {"description": "ok"}}}}},
-                "components": {"schemas": {"logs-list": {"type": "object"}, "logs_list": {"type": "object", "required": ["a"]},
-                    "2fa": {"type": "array"}}}}"##,
+            r##"{
+              "openapi": "3.1.0",
+              "info": {"title": "t", "version": "1"},
+              "paths": {
+                "/a": {
+                  "post": {
+                    "x-forge-group-name": "a",
+                    "x-forge-method-name": "make",
+                    "requestBody": {
+                      "required": true,
+                      "content": {"application/json": {"schema": {
+                        "type": "object",
+                        "properties": {
+                          "x": {"$ref": "#/components/schemas/logs-list"},
+                          "y": {"$ref": "#/components/schemas/logs_list"},
+                          "z": {"$ref": "#/components/schemas/2fa"}
+                        }
+                      }}}
+                    },
+                    "responses": {"200": {"description": "ok"}}
+                  }
+                }
+              },
+              "components": {
+                "schemas": {
+                  "logs-list": {"type": "object"},
+                  "logs_list": {"type": "object", "required": ["a"]},
+                  "2fa": {"type": "array"}
+                }
+              }
+            }"##,
         );
         let schemas = file(&files, "a/schemas.ts");
         assert!(schemas.contains("export const logs$$list: JSONObject = {"), "{schemas}");
@@ -1325,17 +1533,36 @@ mod tests {
     #[test]
     fn compact_input_schemas() {
         let files = generate(
-            r##"{"openapi": "3.1.0", "info": {"title": "t", "version": "1"},
-                "paths": {"/zones/{zone_id}": {"get": {"x-forge-group-name": "zones", "x-forge-method-name": "get",
+            r##"{
+              "openapi": "3.1.0",
+              "info": {"title": "t", "version": "1"},
+              "paths": {
+                "/zones/{zone_id}": {
+                  "get": {
+                    "x-forge-group-name": "zones",
+                    "x-forge-method-name": "get",
                     "description": "Gets a zone.\n",
                     "parameters": [
-                        {"name": "zone_id", "in": "path", "required": true, "description": "The zone.\n",
-                         "schema": {"$ref": "#/components/schemas/identifier"}},
-                        {"name": "kind", "in": "query", "schema": {"$ref": "#/components/schemas/kind"}}],
-                    "responses": {"200": {"description": "ok"}}}}},
-                "components": {"schemas": {
-                    "identifier": {"type": "string", "description": "Identifier."},
-                    "kind": {"type": "string", "enum": ["full", "partial"]}}}}"##,
+                      {
+                        "name": "zone_id",
+                        "in": "path",
+                        "required": true,
+                        "description": "The zone.\n",
+                        "schema": {"$ref": "#/components/schemas/identifier"}
+                      },
+                      {"name": "kind", "in": "query", "schema": {"$ref": "#/components/schemas/kind"}}
+                    ],
+                    "responses": {"200": {"description": "ok"}}
+                  }
+                }
+              },
+              "components": {
+                "schemas": {
+                  "identifier": {"type": "string", "description": "Identifier."},
+                  "kind": {"type": "string", "enum": ["full", "partial"]}
+                }
+              }
+            }"##,
         );
         let tools = file(&files, "zones/tools.ts");
         assert!(!tools.contains("$defs"), "scalar models are inline: {tools}");

@@ -1,0 +1,8 @@
+[
+  {
+    "ruleId": "generators/fern-valid-base-path",
+    "severity": "error",
+    "message": "x-fern-base-path must specify a `path` string; Fern ignores the base path without one.",
+    "location": "openapi.yaml#/x-fern-base-path/path (key)"
+  }
+]

@@ -1,0 +1,8 @@
+openapi: 3.1.0
+info:
+  title: Test API
+  version: 1.0.0
+x-fern-version:
+  header: X-API-Version
+  values: '1.0.0'
+paths: {}

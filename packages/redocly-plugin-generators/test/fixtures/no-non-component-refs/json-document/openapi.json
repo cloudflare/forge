@@ -1,0 +1,22 @@
+{
+  "openapi": "3.0.3",
+  "info": { "title": "Users", "version": "1.0.0" },
+  "paths": {
+    "/users": {
+      "get": {
+        "operationId": "listUsers",
+        "parameters": [{ "$ref": "#/paths/~1admins/get/parameters/0" }],
+        "responses": { "200": { "description": "OK" } }
+      }
+    },
+    "/admins": {
+      "get": {
+        "operationId": "listAdmins",
+        "parameters": [
+          { "name": "limit", "in": "query", "schema": { "type": "integer" } }
+        ],
+        "responses": { "200": { "description": "OK" } }
+      }
+    }
+  }
+}

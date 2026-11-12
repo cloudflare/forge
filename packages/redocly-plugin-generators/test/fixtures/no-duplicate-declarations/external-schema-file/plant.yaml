@@ -1,0 +1,5 @@
+x-fern-type-name: Tree
+type: object
+properties:
+  name:
+    type: string

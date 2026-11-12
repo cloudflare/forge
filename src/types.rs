@@ -386,11 +386,14 @@ impl<'f> Field<'f> {
     /// field appears in responses.
     ///
     /// Corresponds to `readOnly: true` on the property's schema, or on the
-    /// schema its `$ref` points to, following `$ref`s through any chain of
-    /// them: the field is read-only if any of them says so, and a
-    /// `readOnly: false` does not undo another's `true`. From OpenAPI 3.1,
-    /// a `readOnly` next to a `$ref` is the property's own; in 3.0 it is
-    /// ignored, as every keyword next to a `$ref` is. A value that is not a
+    /// schema its `$ref` points to, or on any of its `allOf` members,
+    /// following `$ref`s and `allOf`s through any chain of them: the field
+    /// is read-only if any of them says so, and a `readOnly: false` does
+    /// not undo another's `true`. The members of `anyOf` and `oneOf` do not
+    /// count. From OpenAPI 3.1, a `readOnly` or an `allOf` next to a `$ref`
+    /// is the property's own; in 3.0 they are ignored, as every keyword
+    /// next to a `$ref` is, so a 3.0 property marks a `$ref` read-only with
+    /// `allOf: [{"$ref": ...}, {"readOnly": true}]`. A value that is not a
     /// boolean is an error.
     ///
     /// Forge keeps a read-only field in its object: a model is the same
@@ -412,7 +415,8 @@ impl<'f> Field<'f> {
     /// token, which a client should mask when it shows it.
     ///
     /// Corresponds to the `x-forge-sensitive: true` extension on the property's
-    /// schema, or on any schema along its chain of `$ref`s. `x-sensitive`, which
+    /// schema, or on any schema along its chain of `$ref`s and `allOf`
+    /// members, read as for [`Field::is_read_only`]. `x-sensitive`, which
     /// other systems write for the same thing, is not read: `forge normalize`
     /// rewrites it. Unlike
     /// `readOnly`, an `x-forge-sensitive` next to a `$ref` counts in every

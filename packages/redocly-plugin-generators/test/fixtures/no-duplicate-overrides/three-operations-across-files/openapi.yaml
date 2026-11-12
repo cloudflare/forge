@@ -1,0 +1,15 @@
+openapi: 3.1.0
+info:
+  title: Sample API
+  version: 1.0.0
+paths:
+  /plants:
+    get:
+      operationId: list
+      x-fern-sdk-group-name: plants
+      x-fern-sdk-method-name: list
+      responses:
+        '200':
+          description: OK
+  /plants/v2:
+    $ref: ./paths/plants-v2.yaml

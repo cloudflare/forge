@@ -1,0 +1,13 @@
+openapi: 3.1.0
+info:
+  title: Documents
+  version: 1.0.0
+paths:
+  /documents:
+    post:
+      operationId: createDocument
+      requestBody:
+        $ref: './request-bodies.yaml#/CreateDocument'
+      responses:
+        '201':
+          description: Created

@@ -1,0 +1,14 @@
+[
+  {
+    "ruleId": "generators/fern-valid-oauth",
+    "severity": "error",
+    "message": "Failed to resolve endpoint post /oauth/token: Fern resolves OAuth endpoints written as \"METHOD /path\", with an uppercase method and the path as written under paths (operationIds are not resolved).",
+    "location": "openapi.yaml#/paths"
+  },
+  {
+    "ruleId": "generators/fern-valid-oauth",
+    "severity": "error",
+    "message": "Failed to resolve endpoint refreshToken: Fern resolves OAuth endpoints written as \"METHOD /path\", with an uppercase method and the path as written under paths (operationIds are not resolved).",
+    "location": "openapi.yaml#/paths"
+  }
+]

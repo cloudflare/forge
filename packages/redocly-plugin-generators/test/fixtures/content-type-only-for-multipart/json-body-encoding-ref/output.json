@@ -1,0 +1,8 @@
+[
+  {
+    "ruleId": "generators/fern-content-type-only-for-multipart",
+    "severity": "error",
+    "message": "Property \"attachment\" has `encoding.attachment.contentType`, but the request body is `application/json`, not multipart. Fern only applies per-property content types to multipart/form-data request bodies and ignores this one.",
+    "location": "request-bodies.yaml#/CreateDocument/content/application~1json/encoding/attachment/contentType (key)"
+  }
+]

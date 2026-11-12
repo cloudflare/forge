@@ -1,0 +1,13 @@
+MovieList:
+  description: OK
+  content:
+    application/json:
+      schema:
+        $ref: '#/MovieListBody'
+MovieListBody:
+  type: object
+  properties:
+    items:
+      type: array
+      items:
+        type: string

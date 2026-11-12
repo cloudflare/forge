@@ -1,0 +1,29 @@
+openapi: 3.1.0
+info:
+  title: Forms
+  version: 1.0.0
+paths:
+  /form:
+    post:
+      operationId: submitForm
+      requestBody:
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              properties:
+                metadata:
+                  type: object
+                  properties:
+                    author:
+                      type: string
+                name:
+                  type: string
+            encoding:
+              metadata:
+                contentType: application/json
+              name:
+                style: form
+      responses:
+        '200':
+          description: OK

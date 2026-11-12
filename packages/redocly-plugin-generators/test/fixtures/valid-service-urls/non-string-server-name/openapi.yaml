@@ -1,0 +1,15 @@
+openapi: 3.1.0
+info:
+  title: Test API
+  version: 1.0.0
+servers:
+  - url: https://api.example.com
+paths:
+  /files:
+    get:
+      operationId: listFiles
+      x-fern-server-name:
+        name: Upload
+      responses:
+        '200':
+          description: OK

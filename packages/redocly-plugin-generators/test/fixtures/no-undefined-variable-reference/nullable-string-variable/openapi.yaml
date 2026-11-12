@@ -1,0 +1,22 @@
+openapi: 3.0.3
+info:
+  title: Test API
+  version: 1.0.0
+x-fern-sdk-variables:
+  appId:
+    type: string
+    nullable: true
+paths:
+  /apps/{appId}/users:
+    get:
+      operationId: listUsers
+      parameters:
+        - name: appId
+          in: path
+          required: true
+          schema:
+            type: string
+          x-fern-sdk-variable: appId
+      responses:
+        '200':
+          description: OK

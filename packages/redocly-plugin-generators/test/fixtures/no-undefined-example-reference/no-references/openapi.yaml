@@ -1,0 +1,27 @@
+openapi: 3.0.3
+info:
+  title: Plants
+  version: 1.0.0
+paths:
+  /plants:
+    post:
+      operationId: createPlant
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '201':
+          description: Created
+      x-fern-examples:
+        - name: Strings that are not example references
+          request:
+            price: $3.00
+            escaped: \$Plant.Example
+            single: $plant
+            tooManyParts: $a.b.c.d
+            digitAfterDollar: $1Plant.Example
+            empty: $.Example
+            $Plant.Example: keys are not scanned

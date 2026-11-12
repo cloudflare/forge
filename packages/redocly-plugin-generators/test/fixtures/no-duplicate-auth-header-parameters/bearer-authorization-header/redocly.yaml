@@ -1,0 +1,2 @@
+rules:
+  generators/fern-no-duplicate-auth-header-parameters: warn

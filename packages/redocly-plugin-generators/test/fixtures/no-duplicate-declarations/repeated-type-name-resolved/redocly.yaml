@@ -1,0 +1,4 @@
+rules:
+  generators/fern-no-duplicate-declarations:
+    severity: error
+    resolveSchemaCollisions: true

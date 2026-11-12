@@ -24,9 +24,11 @@ use std::collections::HashSet;
 use forge::ts::{File, Fragment, Ident, Module, PREAMBLE, frag, p};
 use forge::{Err, Forge, Group, Method, Plugin};
 
+use rayon::prelude::*;
+
 use crate::ts::client::{Request, group_name, method_doc, method_name, request_name, response_name, skipped};
 use crate::ts::types::{doc, identifier, key};
-use crate::ts::{self, Node};
+use crate::ts::{self, path};
 
 /// Generates a Cap'n Web server.
 pub struct Generator;
@@ -34,21 +36,21 @@ pub struct Generator;
 impl Plugin for Generator {
     type File = ts::File;
 
-    /// Returns the server.ts and index.ts of the root, and the options.ts
-    /// every server imports.
+    /// Returns the options.ts every server imports, then the server.ts and
+    /// index.ts of each group, which are generated in parallel.
     fn generate(&self, forge: &Forge) -> Result<impl Iterator<Item = ts::File>, Err> {
-        let root = Node::Root(forge);
         let (_, source) = OPTIONS_SOURCE.split_once('\n').unwrap_or_default();
-        let options = ts::File::Runtime {
+        let mut files = vec![ts::File::Runtime {
             path: OPTIONS.as_str().to_owned(),
             content: format!("{PREAMBLE}{source}"),
-        };
-        Ok([ts::File::Ts(server(root)?), ts::File::Ts(index(root)), options].into_iter())
-    }
-
-    fn generate_group(&self, group: Group<'_>) -> Result<impl Iterator<Item = ts::File>, Err> {
-        let group = Node::Group(group);
-        Ok([ts::File::Ts(server(group)?), ts::File::Ts(index(group))].into_iter())
+        }];
+        let groups: Vec<Group<'_>> = forge.groups().collect();
+        let per_group = groups
+            .par_iter()
+            .map(|&group| Ok(vec![ts::File::Ts(server(group)?), ts::File::Ts(index(group))]))
+            .collect::<Result<Vec<_>, Err>>()?;
+        files.extend(per_group.into_iter().flatten());
+        Ok(files.into_iter())
     }
 }
 
@@ -89,14 +91,15 @@ fn request_options() -> Ident {
     OPTIONS.ident("requestOptions")
 }
 
-/// Returns the module of the SDK that exports the Client of `node` and the
+/// Returns the module of the SDK that exports the Client of `group` and the
 /// request and response types of its methods: `#sdk` for the root, and
 /// `#sdk/` followed by the directory of the group otherwise, such as
 /// `#sdk/projects/members`.
-fn sdk(node: Node<'_>) -> Module {
-    match node {
-        Node::Root(_) => SDK,
-        Node::Group(_) => Module::from(format!("{SDK}/{}", node.dir())),
+fn sdk(group: Group<'_>) -> Module {
+    if group.parent().is_none() {
+        SDK
+    } else {
+        Module::from(format!("{SDK}/{}", Module::group(group)))
     }
 }
 
@@ -134,18 +137,19 @@ const RESERVED: [&str; 18] = [
     "onRpcBroken",
 ];
 
-/// Returns the server.ts of `node`, which declares its `Api`: its methods
+/// Returns the server.ts of `group`, which declares its `Api`: its methods
 /// that the SDK keeps, then its subgroups.
-fn server(node: Node<'_>) -> Result<File, Err> {
-    let methods: Vec<Method<'_>> = node.methods().into_iter().filter(|&m| !skipped(m)).collect();
-    let groups = node.children();
-    check(node, &methods, &groups)?;
+fn server(group: Group<'_>) -> Result<File, Err> {
+    let methods: Vec<Method<'_>> = group.methods().filter(|&m| !skipped(m)).collect();
+    let groups: Vec<Group<'_>> = group.children().collect();
+    check(group, &methods, &groups)?;
 
-    let mut f = File::new(node.dir().sub("server.ts"));
-    let client = sdk(node).ident("Client").ty();
-    let what = match node {
-        Node::Root(_) => "the API".to_owned(),
-        Node::Group(_) => format!("the {} group of the API", node.path()),
+    let mut f = File::new(Module::group(group).sub("server.ts"));
+    let client = sdk(group).ident("Client").ty();
+    let what = if group.parent().is_none() {
+        "the API".to_owned()
+    } else {
+        format!("the {} group of the API", path(group))
     };
     f.doc(&format!(
         "Serves {what} over Cap'n Web with a Client of the SDK. \
@@ -164,7 +168,7 @@ fn server(node: Node<'_>) -> Result<File, Err> {
         p!(f, "}");
         for &m in &methods {
             p!(f);
-            method(f, node, m);
+            method(f, group, m);
         }
         for &sub in &groups {
             p!(f);
@@ -175,11 +179,11 @@ fn server(node: Node<'_>) -> Result<File, Err> {
     Ok(f)
 }
 
-/// Reports the members of the server of `node` that it can't serve, naming
+/// Reports the members of the server of `group` that it can't serve, naming
 /// the group and the member: a name that Cap'n Web reserves, and a method
 /// and a subgroup with the same name.
-fn check(node: Node<'_>, methods: &[Method<'_>], groups: &[Group<'_>]) -> Result<(), Err> {
-    let path = node.path();
+fn check(group: Group<'_>, methods: &[Method<'_>], groups: &[Group<'_>]) -> Result<(), Err> {
+    let path = path(group);
     let prefix = if path.is_empty() {
         String::new()
     } else {
@@ -212,16 +216,16 @@ fn check(node: Node<'_>, methods: &[Method<'_>], groups: &[Group<'_>]) -> Result
 }
 
 /// Declares a method of a server that calls the method of the Client.
-fn method(f: &mut File, node: Node<'_>, m: Method<'_>) {
+fn method(f: &mut File, group: Group<'_>, m: Method<'_>) {
     let name = method_name(m);
     f.doc(&doc(&method_doc(m), m.is_deprecated()));
     p!(
         f,
         key(&name),
         "(",
-        params(node, m),
+        params(group, m),
         "): Promise<",
-        response_ident(node, m),
+        response_ident(group, m),
         "> {"
     );
     f.indent(|f| {
@@ -251,18 +255,18 @@ fn subgroup(f: &mut File, sub: Group<'_>) {
 
 /// Returns the parameters of a method of a server: the request of the SDK's
 /// method, optional when it is optional there, and the options.
-fn params(node: Node<'_>, m: Method<'_>) -> Fragment {
+fn params(group: Group<'_>, m: Method<'_>) -> Fragment {
     frag!(
         "request",
         if Request::new(m).optional() { "?: " } else { ": " },
-        sdk(node).ident(request_name(m)).ty(),
+        sdk(group).ident(request_name(m)).ty(),
         ", options?: ",
         options_type()
     )
 }
 
-fn response_ident(node: Node<'_>, m: Method<'_>) -> Ident {
-    sdk(node).ident(response_name(m)).ty()
+fn response_ident(group: Group<'_>, m: Method<'_>) -> Ident {
+    sdk(group).ident(response_name(m)).ty()
 }
 
 /// Returns the property access of `name`: `.name`, or `["name"]` when it
@@ -276,10 +280,10 @@ fn access(name: &str) -> String {
     }
 }
 
-/// Returns the index.ts of `node`, the module of its server, which exports
+/// Returns the index.ts of `group`, the module of its server, which exports
 /// only its `Api`.
-fn index(node: Node<'_>) -> File {
-    let mut f = File::new(node.dir().sub("index.ts"));
+fn index(group: Group<'_>) -> File {
+    let mut f = File::new(Module::group(group).sub("index.ts"));
     p!(f, "export { ", API, r#" } from "./server.js";"#);
     f
 }
@@ -295,16 +299,22 @@ mod tests {
 
     /// Returns the forge of an OpenAPI document with `paths`.
     fn build(paths: &str) -> Forge {
-        let doc = format!(r#"{{"openapi": "3.0.3", "info": {{"title": "t", "version": "1"}}, "paths": {paths}}}"#);
+        let doc = format!(
+            r#"{{
+              "openapi": "3.0.3",
+              "info": {{"title": "t", "version": "1"}},
+              "paths": {paths}
+            }}"#
+        );
         serde_json::from_str(&doc).unwrap()
     }
 
     /// Returns the content of every file of the server, by path, without
     /// the preamble.
     fn generate(forge: &Forge) -> BTreeMap<String, String> {
-        forge::run(forge, &Generator)
+        Generator
+            .generate(forge)
             .unwrap()
-            .into_iter()
             .map(|file| {
                 let content = forge::File::content(&file).unwrap();
                 let content = String::from_utf8(content.into_owned()).unwrap();
@@ -321,7 +331,10 @@ mod tests {
     }
 
     /// A JSON response with an object body.
-    const OK: &str = r#""responses": {"200": {"description": "ok", "content": {"application/json": {"schema": {"type": "object", "properties": {"id": {"type": "string"}}}}}}}"#;
+    const OK: &str = r#""responses": {"200": {
+      "description": "ok",
+      "content": {"application/json": {"schema": {"type": "object", "properties": {"id": {"type": "string"}}}}}
+    }}"#;
 
     /// A path parameter `id`.
     const ID: &str = r#""parameters": [{"name": "id", "in": "path", "required": true, "schema": {"type": "string"}}]"#;
@@ -330,13 +343,51 @@ mod tests {
     fn generate_server() {
         let forge = build(&format!(
             r#"{{
-              "/projects/{{id}}": {{"get": {{"x-forge-group-name": "projects", "x-forge-method-name": "get", "summary": "Gets a project.", {ID}, {OK}}}}},
-              "/projects": {{"get": {{"x-forge-group-name": "projects", "x-forge-method-name": "list",
-                "parameters": [{{"name": "cursor", "in": "query", "schema": {{"type": "string"}}}}], {OK}}}}},
-              "/projects/{{id}}/archive": {{"post": {{"x-forge-group-name": "projects", "x-forge-method-name": "archive", {ID}, {OK}}}}},
-              "/projects/{{id}}/members": {{"get": {{"x-forge-group-name": "projects.members", "x-forge-method-name": "list", {ID}, {OK}}}}},
-              "/projects/upload": {{"post": {{"x-forge-group-name": "projects", "x-forge-method-name": "upload",
-                "requestBody": {{"content": {{"application/octet-stream": {{"schema": {{"type": "string", "format": "binary"}}}}}}}}, {OK}}}}}
+              "/projects/{{id}}": {{
+                "get": {{
+                  "x-forge-group-name": "projects",
+                  "x-forge-method-name": "get",
+                  "summary": "Gets a project.",
+                  {ID},
+                  {OK}
+                }}
+              }},
+              "/projects": {{
+                "get": {{
+                  "x-forge-group-name": "projects",
+                  "x-forge-method-name": "list",
+                  "parameters": [
+                    {{"name": "cursor", "in": "query", "schema": {{"type": "string"}}}}
+                  ],
+                  {OK}
+                }}
+              }},
+              "/projects/{{id}}/archive": {{
+                "post": {{
+                  "x-forge-group-name": "projects",
+                  "x-forge-method-name": "archive",
+                  {ID},
+                  {OK}
+                }}
+              }},
+              "/projects/{{id}}/members": {{
+                "get": {{
+                  "x-forge-group-name": "projects.members",
+                  "x-forge-method-name": "list",
+                  {ID},
+                  {OK}
+                }}
+              }},
+              "/projects/upload": {{
+                "post": {{
+                  "x-forge-group-name": "projects",
+                  "x-forge-method-name": "upload",
+                  "requestBody": {{
+                    "content": {{"application/octet-stream": {{"schema": {{"type": "string", "format": "binary"}}}}}}
+                  }},
+                  {OK}
+                }}
+              }}
             }}"#
         ));
         let files = generate(&forge);
@@ -462,20 +513,36 @@ mod tests {
         // Cap'n Web never delivers a call to then or toString.
         let forge = build(&format!(
             r#"{{
-              "/a": {{"get": {{"x-forge-group-name": "a", "x-forge-method-name": "then", {OK}}}}},
-              "/b": {{"get": {{"x-forge-group-name": "to-string", "x-forge-method-name": "get", {OK}}}}}
+              "/b": {{
+                "get": {{
+                  "x-forge-group-name": "to-string",
+                  "x-forge-method-name": "get",
+                  {OK}
+                }}
+              }}
             }}"#
         ));
-        let root = Generator.generate(&forge).err().unwrap().to_string();
+        let err = Generator.generate(&forge).err().unwrap().to_string();
         assert!(
-            root.contains(r#"group "toString" cannot be served over Cap'n Web"#),
-            "{root}"
+            err.contains(r#"group "toString" cannot be served over Cap'n Web"#),
+            "{err}"
         );
-        let a = forge.groups().find(|g| g.name().camel() == "a").unwrap();
-        let group = Generator.generate_group(a).err().unwrap().to_string();
+
+        let forge = build(&format!(
+            r#"{{
+              "/a": {{
+                "get": {{
+                  "x-forge-group-name": "a",
+                  "x-forge-method-name": "then",
+                  {OK}
+                }}
+              }}
+            }}"#
+        ));
+        let err = Generator.generate(&forge).err().unwrap().to_string();
         assert!(
-            group.contains(r#"group "a": method "then" cannot be served over Cap'n Web"#),
-            "{group}"
+            err.contains(r#"group "a": method "then" cannot be served over Cap'n Web"#),
+            "{err}"
         );
     }
 
@@ -484,12 +551,25 @@ mod tests {
         // The SDK serves both as one property, which Cap'n Web can't type.
         let forge = build(&format!(
             r#"{{
-              "/projects/{{id}}/archive": {{"post": {{"x-forge-group-name": "projects", "x-forge-method-name": "archive", {ID}, {OK}}}}},
-              "/projects/{{id}}/archive/restore": {{"post": {{"x-forge-group-name": "projects.archive", "x-forge-method-name": "restore", {ID}, {OK}}}}}
+              "/projects/{{id}}/archive": {{
+                "post": {{
+                  "x-forge-group-name": "projects",
+                  "x-forge-method-name": "archive",
+                  {ID},
+                  {OK}
+                }}
+              }},
+              "/projects/{{id}}/archive/restore": {{
+                "post": {{
+                  "x-forge-group-name": "projects.archive",
+                  "x-forge-method-name": "restore",
+                  {ID},
+                  {OK}
+                }}
+              }}
             }}"#
         ));
-        let projects = forge.groups().find(|g| g.name().camel() == "projects").unwrap();
-        let err = Generator.generate_group(projects).err().unwrap().to_string();
+        let err = Generator.generate(&forge).err().unwrap().to_string();
         assert!(
             err.contains(r#"group "projects": a method and a group are both named "archive""#),
             "{err}"

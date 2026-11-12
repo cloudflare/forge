@@ -1,0 +1,8 @@
+[
+  {
+    "ruleId": "generators/fern-valid-global-parameters",
+    "severity": "error",
+    "message": "x-fern-global-parameters must be a list of global parameter declarations, each with a name. Fern ignores this value.",
+    "location": "openapi.yaml#/x-fern-global-parameters"
+  }
+]

@@ -1,0 +1,20 @@
+[
+  {
+    "ruleId": "generators/fern-valid-webhook-signature",
+    "severity": "error",
+    "message": "Invalid encoding \"base32\". Must be one of: base64, hex. Fern ignores it and falls back to base64.",
+    "location": "openapi.yaml#/webhooks/petUpdated/post/x-fern-webhook-signature/encoding"
+  },
+  {
+    "ruleId": "generators/fern-valid-webhook-signature",
+    "severity": "error",
+    "message": "Invalid HMAC algorithm \"md5\". Must be one of: sha256, sha1, sha384, sha512. Fern ignores it and falls back to sha256.",
+    "location": "openapi.yaml#/x-fern-webhook-signature/algorithm"
+  },
+  {
+    "ruleId": "generators/fern-valid-webhook-signature",
+    "severity": "error",
+    "message": "Invalid encoding \"base32\". Must be one of: base64, hex. Fern ignores it and falls back to base64.",
+    "location": "openapi.yaml#/x-fern-webhook-signature/encoding"
+  }
+]

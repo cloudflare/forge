@@ -1,0 +1,12 @@
+swagger: '2.0'
+info:
+  title: Pets
+  version: 1.0.0
+paths:
+  /pets:
+    get:
+      operationId: listPets
+      security: []
+      responses:
+        '200':
+          description: OK

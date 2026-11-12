@@ -1,0 +1,44 @@
+[
+  {
+    "ruleId": "generators/fern-valid-example-endpoint-call",
+    "severity": "error",
+    "message": "Example is missing response.body; Fern requires it because examples without response.stream also apply to the non-streaming endpoint it generates for this stream-condition operation, which returns the x-fern-streaming response schema.",
+    "location": "openapi.yaml#/paths/~1chat/post/x-fern-examples/0"
+  },
+  {
+    "ruleId": "generators/fern-valid-example-endpoint-call",
+    "severity": "error",
+    "message": "Invalid stream event 0 example at \"/delta\": Expected example to be a string. Example is: 3",
+    "location": "openapi.yaml#/paths/~1chat/post/x-fern-examples/1/response/stream/0/delta"
+  },
+  {
+    "ruleId": "generators/fern-valid-example-endpoint-call",
+    "severity": "error",
+    "message": "Invalid response example at \"/name\": Expected example to be a string. Example is: 4",
+    "location": "openapi.yaml#/paths/~1chat/post/x-fern-examples/3/response/body/name"
+  },
+  {
+    "ruleId": "generators/fern-valid-example-endpoint-call",
+    "severity": "error",
+    "message": "Invalid request example at \"/stream\": Expected example to be true. Example is: false (the stream-condition property is the constant true on Fern's streaming endpoint (examples with response.stream or without a response))",
+    "location": "openapi.yaml#/paths/~1chat/post/x-fern-examples/4/request/stream"
+  },
+  {
+    "ruleId": "generators/fern-valid-example-endpoint-call",
+    "severity": "error",
+    "message": "Invalid request example at \"/stream\": Expected example to be false. Example is: true (the stream-condition property is the constant false on Fern's non-streaming endpoint (examples without response.stream))",
+    "location": "openapi.yaml#/paths/~1chat/post/x-fern-examples/5/request/stream"
+  },
+  {
+    "ruleId": "generators/fern-valid-example-endpoint-call",
+    "severity": "error",
+    "message": "Invalid TooManyRequestsError response example at \"/retryAfter\": Expected example to be an integer. Example is: \"soon\"",
+    "location": "openapi.yaml#/paths/~1chat/post/x-fern-examples/6/response/body/retryAfter"
+  },
+  {
+    "ruleId": "generators/fern-valid-example-endpoint-call",
+    "severity": "error",
+    "message": "Example is missing response.body; Fern requires it because examples without response.stream also apply to the non-streaming endpoint it generates for this stream-condition operation, which returns the x-fern-streaming response schema.",
+    "location": "openapi.yaml#/paths/~1chat/post/x-fern-examples/7/response"
+  }
+]

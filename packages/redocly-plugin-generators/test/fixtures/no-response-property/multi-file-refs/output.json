@@ -1,0 +1,8 @@
+[
+  {
+    "ruleId": "generators/fern-no-response-property",
+    "severity": "error",
+    "message": "Response does not have a property named movie. x-fern-sdk-return-value must name a top-level property of the response of endpoint createMovie.",
+    "location": "movies.yaml#/post/x-fern-sdk-return-value"
+  }
+]

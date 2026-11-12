@@ -1,0 +1,31 @@
+openapi: 3.0.3
+info:
+  title: Test API
+  version: 1.0.0
+paths:
+  /plants:
+    parameters:
+      - name: organization_id
+        in: query
+        schema:
+          type: string
+      - name: Organization-Id
+        in: header
+        schema:
+          type: string
+    get:
+      operationId: listPlants
+      parameters:
+        - name: organization_id
+          in: query
+          x-fern-parameter-name: org
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+    post:
+      operationId: createPlant
+      responses:
+        '200':
+          description: OK

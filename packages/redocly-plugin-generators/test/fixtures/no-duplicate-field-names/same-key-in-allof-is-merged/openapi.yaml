@@ -1,0 +1,23 @@
+openapi: 3.1.0
+info:
+  title: Plant Store
+  version: 1.0.0
+paths: {}
+
+components:
+  schemas:
+    BlogPost:
+      type: object
+      properties:
+        blogPostName:
+          type: string
+    BlogPostAlias:
+      allOf:
+        - $ref: '#/components/schemas/BlogPost'
+    FeaturedPost:
+      allOf:
+        - $ref: '#/components/schemas/BlogPostAlias'
+      type: object
+      properties:
+        blogPostName:
+          type: string

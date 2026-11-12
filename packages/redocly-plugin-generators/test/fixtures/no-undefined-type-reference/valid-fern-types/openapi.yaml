@@ -1,0 +1,52 @@
+openapi: 3.1.0
+info:
+  title: Test API
+  version: 1.0.0
+x-fern-global-headers:
+  - header: X-API-Version
+    type: literal<"2024-01-01">
+  - header: X-Trace
+x-fern-idempotency-headers:
+  - header: Idempotency-Key
+    type: optional<uuid>
+paths: {}
+components:
+  schemas:
+    Pet:
+      type: object
+      properties:
+        name:
+          type: string
+    Holder:
+      type: object
+      properties:
+        a:
+          type: string
+          x-fern-type: datetime
+        b:
+          type: string
+          x-fern-type: optional<list<string>>
+        c:
+          type: string
+          x-fern-type: map<string, Pet>
+        d:
+          type: string
+          x-fern-type: literal<"fixed">
+        e:
+          type: string
+          x-fern-type: literal<true>
+        f:
+          type: string
+          x-fern-type: unknown
+        g:
+          type: string
+          x-fern-type: nullable<set<uuid>>
+        h:
+          type: string
+          x-fern-type: Pet
+        i:
+          type: string
+          x-fern-type: datetime-rfc-2822
+        j:
+          type: string
+          x-fern-type: map<uuid, list<optional<Pet>>>

@@ -1,0 +1,20 @@
+[
+  {
+    "ruleId": "generators/fern-no-response-property",
+    "severity": "error",
+    "message": "x-fern-sdk-return-value has no effect on endpoint jsonStreamExistingProperty: it streams JSON (x-fern-streaming), and Fern only applies it to non-streaming JSON responses.",
+    "location": "openapi.yaml#/paths/~1a/post/x-fern-sdk-return-value"
+  },
+  {
+    "ruleId": "generators/fern-no-response-property",
+    "severity": "error",
+    "message": "x-fern-sdk-return-value has no effect on endpoint jsonStreamMissing: it streams JSON (x-fern-streaming), and Fern only applies it to non-streaming JSON responses.",
+    "location": "openapi.yaml#/paths/~1b/post/x-fern-sdk-return-value"
+  },
+  {
+    "ruleId": "generators/fern-no-response-property",
+    "severity": "error",
+    "message": "Response does not have a property named data. x-fern-sdk-return-value must name a top-level property of the response of endpoint conditionMissing.",
+    "location": "openapi.yaml#/paths/~1d/post/x-fern-sdk-return-value"
+  }
+]

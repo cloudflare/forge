@@ -1,0 +1,14 @@
+[
+  {
+    "ruleId": "generators/fern-valid-service-urls",
+    "severity": "error",
+    "message": "Server 'https://ec2.aws.com' has no x-fern-server-name, so Fern ignores it. The document has no top-level `servers` either, so the SDK has no URL for POST /ec2/boot and callers must pass a base URL. Add top-level servers and name operation- and path-level servers with x-fern-server-name.",
+    "location": "openapi.yaml#/paths/~1ec2~1boot/post/servers/0"
+  },
+  {
+    "ruleId": "generators/fern-valid-service-urls",
+    "severity": "error",
+    "message": "Server 'https://staging.ec2.aws.com' has no x-fern-server-name, so Fern ignores it. The document has no top-level `servers` either, so the SDK has no URL for POST /ec2/boot and callers must pass a base URL. Add top-level servers and name operation- and path-level servers with x-fern-server-name.",
+    "location": "openapi.yaml#/paths/~1ec2~1boot/post/servers/1"
+  }
+]

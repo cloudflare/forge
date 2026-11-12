@@ -1,0 +1,91 @@
+openapi: 3.1.0
+info:
+  title: Mappings
+  version: 1.0.0
+paths:
+  /search:
+    get:
+      operationId: search
+      parameters:
+        - name: objectWithMapping
+          in: query
+          schema:
+            $ref: '#/components/schemas/ObjectWithMapping'
+        - name: undiscriminatedWithMapping
+          in: query
+          schema:
+            $ref: '#/components/schemas/UndiscriminatedWithMapping'
+        - name: notDiscriminatedWithMapping
+          in: query
+          schema:
+            $ref: '#/components/schemas/NotDiscriminatedWithMapping'
+        - name: anyOfWithMapping
+          in: query
+          schema:
+            $ref: '#/components/schemas/AnyOfWithMapping'
+        - name: objectUndiscriminated
+          in: query
+          schema:
+            $ref: '#/components/schemas/ObjectUndiscriminated'
+      responses:
+        '200':
+          description: OK
+components:
+  schemas:
+    A:
+      type: object
+      properties:
+        kind:
+          type: string
+    B:
+      type: object
+      properties:
+        kind:
+          type: string
+    ObjectWithMapping:
+      type: object
+      discriminator:
+        propertyName: kind
+        mapping:
+          a: '#/components/schemas/A'
+          b: '#/components/schemas/B'
+    UndiscriminatedWithMapping:
+      x-fern-undiscriminated: true
+      oneOf:
+        - $ref: '#/components/schemas/A'
+        - $ref: '#/components/schemas/B'
+      discriminator:
+        propertyName: kind
+        mapping:
+          a: '#/components/schemas/A'
+          b: '#/components/schemas/B'
+    NotDiscriminatedWithMapping:
+      x-fern-discriminated: false
+      oneOf:
+        - $ref: '#/components/schemas/A'
+        - $ref: '#/components/schemas/B'
+      discriminator:
+        propertyName: kind
+        mapping:
+          a: '#/components/schemas/A'
+          b: '#/components/schemas/B'
+    AnyOfWithMapping:
+      anyOf:
+        - $ref: '#/components/schemas/A'
+        - $ref: '#/components/schemas/B'
+      discriminator:
+        propertyName: kind
+        mapping:
+          a: '#/components/schemas/A'
+          b: '#/components/schemas/B'
+    ObjectUndiscriminated:
+      type: object
+      x-fern-undiscriminated: true
+      oneOf:
+        - $ref: '#/components/schemas/A'
+        - $ref: '#/components/schemas/B'
+      discriminator:
+        propertyName: kind
+        mapping:
+          a: '#/components/schemas/A'
+          b: '#/components/schemas/B'

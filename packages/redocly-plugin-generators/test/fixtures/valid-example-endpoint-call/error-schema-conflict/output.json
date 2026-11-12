@@ -1,0 +1,8 @@
+[
+  {
+    "ruleId": "generators/fern-valid-example-endpoint-call",
+    "severity": "error",
+    "message": "Invalid ConflictError response example: Expected example to be an object. Example is: \"not a problem object\"",
+    "location": "openapi.yaml#/paths/~1plants/get/x-fern-examples/1/response/body"
+  }
+]

@@ -1,0 +1,10 @@
+Team:
+  type: object
+  properties:
+    lead:
+      $ref: '#/Member'
+Member:
+  type: object
+  properties:
+    id:
+      type: string

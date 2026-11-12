@@ -1,0 +1,37 @@
+openapi: 3.0.3
+info:
+  title: Chat
+  version: 1.0.0
+paths:
+  /chat:
+    post:
+      operationId: chat
+      x-fern-request-name: Talk
+      x-fern-streaming:
+        stream-condition: $request.stream
+        response:
+          $ref: '#/components/schemas/ChatResponse'
+        response-stream:
+          $ref: '#/components/schemas/ChatChunk'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Foo'
+      responses:
+        '200':
+          description: OK
+components:
+  schemas:
+    Foo:
+      type: object
+      properties:
+        stream:
+          type: boolean
+        prompt:
+          type: string
+    ChatResponse:
+      type: string
+    ChatChunk:
+      type: string

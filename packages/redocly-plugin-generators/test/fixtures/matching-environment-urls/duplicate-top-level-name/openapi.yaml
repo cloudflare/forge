@@ -1,0 +1,12 @@
+openapi: 3.1.0
+info:
+  title: Test API
+  version: 1.0.0
+servers:
+  - url: https://api.example.com
+    x-fern-server-name: Production
+  - url: https://api.example.com
+    x-fern-server-name: Production
+  - url: https://api.eu.example.com
+    x-fern-server-name: Production
+paths: {}

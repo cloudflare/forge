@@ -1,0 +1,4 @@
+rules:
+  generators/fern-no-schema-title-collisions:
+    severity: error
+    resolveSchemaCollisions: false

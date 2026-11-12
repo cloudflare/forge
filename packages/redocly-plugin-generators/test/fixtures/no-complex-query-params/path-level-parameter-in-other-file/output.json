@@ -1,0 +1,8 @@
+[
+  {
+    "ruleId": "generators/fern-no-complex-query-params",
+    "severity": "error",
+    "message": "`in: query` parameter \"filter\" has a schema that contains the discriminated union \"Shape\" (at properties.shape). Discriminated unions are not valid types for query parameters. Fern imports a oneOf/anyOf as a discriminated union when it has a `discriminator.mapping` or when each member has a distinct single-value string `enum`/`const` in the same property; on a oneOf, `x-fern-discriminated: false` imports it as an undiscriminated union instead.",
+    "location": "parameters.yaml#/ShapeFilter/schema (key)"
+  }
+]

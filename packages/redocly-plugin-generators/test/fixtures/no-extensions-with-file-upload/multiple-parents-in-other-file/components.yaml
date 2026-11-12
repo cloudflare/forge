@@ -1,0 +1,24 @@
+requestBodies:
+  Upload:
+    content:
+      multipart/form-data:
+        schema:
+          type: object
+          properties:
+            file:
+              type: string
+              format: binary
+          allOf:
+            - $ref: '#/schemas/Named'
+            - $ref: '#/schemas/Described'
+schemas:
+  Named:
+    type: object
+    properties:
+      name:
+        type: string
+  Described:
+    type: object
+    properties:
+      description:
+        type: string

@@ -1,0 +1,29 @@
+openapi: 3.1.0
+info:
+  title: Test API
+  version: 1.0.0
+x-fern-base-path:
+  path: /{tenant}/{region}
+  parameters:
+    tenant:
+      docs: The tenant.
+    region:
+      default: us
+paths:
+  /users/{id}/friends/{friendId}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: friendId
+        in: path
+        required: true
+        schema:
+          type: string
+    get:
+      operationId: getFriend
+      responses:
+        '200':
+          description: OK

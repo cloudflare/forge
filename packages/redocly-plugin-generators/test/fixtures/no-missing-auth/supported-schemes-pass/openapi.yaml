@@ -1,0 +1,89 @@
+openapi: 3.0.3
+info:
+  title: Auth
+  version: 1.0.0
+security:
+  - bearer: []
+paths:
+  /bearer:
+    get:
+      operationId: bearer
+      responses:
+        '200':
+          description: OK
+  /basic:
+    get:
+      operationId: basic
+      security:
+        - basic: []
+      responses:
+        '200':
+          description: OK
+  /header-key:
+    get:
+      operationId: headerKey
+      security:
+        - headerKey: []
+      responses:
+        '200':
+          description: OK
+  /oauth:
+    get:
+      operationId: oauth
+      security:
+        - oauth: [read]
+      responses:
+        '200':
+          description: OK
+  /oidc:
+    get:
+      operationId: oidc
+      security:
+        - oidc: []
+      responses:
+        '200':
+          description: OK
+  /cookie-or-bearer:
+    get:
+      operationId: cookieOrBearer
+      security:
+        - cookie: []
+        - bearer: []
+      responses:
+        '200':
+          description: OK
+  /cookie-and-bearer:
+    get:
+      operationId: cookieAndBearer
+      security:
+        - cookie: []
+          bearer: []
+      responses:
+        '200':
+          description: OK
+components:
+  securitySchemes:
+    bearer:
+      type: http
+      scheme: Bearer
+    basic:
+      type: http
+      scheme: basic
+    headerKey:
+      type: apiKey
+      in: header
+      name: X-API-Key
+    oauth:
+      type: oauth2
+      flows:
+        clientCredentials:
+          tokenUrl: https://example.com/token
+          scopes:
+            read: Read access
+    oidc:
+      type: openIdConnect
+      openIdConnectUrl: https://example.com/.well-known/openid-configuration
+    cookie:
+      type: apiKey
+      in: cookie
+      name: session

@@ -1,0 +1,24 @@
+openapi: 3.1.0
+info:
+  title: Test API
+  version: 1.0.0
+security:
+  - Bearer: []
+paths:
+  /plants:
+    get:
+      operationId: listPlants
+      parameters:
+        - name: Authorization
+          in: header
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+components:
+  securitySchemes:
+    Bearer:
+      type: http
+      scheme: bearer

@@ -1,0 +1,28 @@
+openapi: 3.0.3
+info:
+  title: Test API
+  version: 1.0.0
+servers:
+  - url: https://{region}.example.com
+    variables:
+      region:
+        default: us
+paths:
+  /files:
+    post:
+      operationId: uploadFile
+      servers:
+        - url: https://upload.example.com
+      responses:
+        '200':
+          description: OK
+    get:
+      operationId: listFiles
+      servers:
+        - url: https://{region}.example.com
+          variables:
+            region:
+              default: us
+      responses:
+        '200':
+          description: OK

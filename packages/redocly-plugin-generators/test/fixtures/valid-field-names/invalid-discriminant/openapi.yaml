@@ -1,0 +1,53 @@
+openapi: 3.1.0
+info:
+  title: Plant Store
+  version: 1.0.0
+paths: {}
+
+components:
+  schemas:
+    UnionWithInvalidDiscriminant:
+      oneOf:
+        - $ref: '#/components/schemas/A'
+        - $ref: '#/components/schemas/B'
+      discriminator:
+        propertyName: _type
+        mapping:
+          a: '#/components/schemas/A'
+          b: '#/components/schemas/B'
+    UnionWithInvalidName:
+      oneOf:
+        - $ref: '#/components/schemas/A'
+        - $ref: '#/components/schemas/B'
+      discriminator:
+        propertyName: type
+        x-fern-property-name: _type
+        mapping:
+          a: '#/components/schemas/A'
+          b: '#/components/schemas/B'
+    UnionWithInvalidDiscriminantButValidName:
+      oneOf:
+        - $ref: '#/components/schemas/A'
+        - $ref: '#/components/schemas/B'
+      discriminator:
+        propertyName: _type
+        x-fern-property-name: type
+        mapping:
+          a: '#/components/schemas/A'
+          b: '#/components/schemas/B'
+    ObjectWithMapping:
+      type: object
+      discriminator:
+        propertyName: '@kind'
+        mapping:
+          a: '#/components/schemas/A'
+    A:
+      type: object
+      properties:
+        _type:
+          type: string
+    B:
+      type: object
+      properties:
+        _type:
+          type: string

@@ -1,0 +1,14 @@
+openapi: 3.1.0
+info:
+  title: Plant Store
+  version: 1.0.0
+paths: {}
+
+components:
+  schemas:
+    Status:
+      type: string
+      enum: [active, enabled]
+      x-fern-enum:
+        enabled:
+          name: 1active

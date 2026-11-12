@@ -1,0 +1,86 @@
+openapi: 3.1.0
+info:
+  title: Fern port of the valid query parameter types
+  version: 1.0.0
+paths:
+  /search:
+    post:
+      operationId: search
+      parameters:
+        - name: a
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: b
+          in: query
+          schema:
+            type: string
+        - name: c
+          in: query
+          schema:
+            type: array
+            items:
+              type: string
+        - name: d
+          in: query
+          schema: {}
+        - name: e
+          in: query
+          schema:
+            type: [boolean, 'null']
+        - name: i
+          in: query
+          schema:
+            $ref: '#/components/schemas/Color'
+        - name: j
+          in: query
+          schema:
+            const: hello world
+        - name: k
+          in: query
+          schema:
+            $ref: '#/components/schemas/Object'
+        - name: m
+          in: query
+          schema:
+            $ref: '#/components/schemas/NestedObject'
+        - name: s
+          in: query
+          schema:
+            type: object
+            additionalProperties:
+              type: string
+        - name: u
+          in: query
+          schema:
+            type: object
+            additionalProperties:
+              $ref: '#/components/schemas/Object'
+        - name: v
+          in: query
+          schema:
+            type: object
+            additionalProperties: true
+        - name: noSchema
+          in: query
+      responses:
+        '200':
+          description: OK
+components:
+  schemas:
+    Color:
+      type: string
+      enum: [RED, BLACK]
+    Object:
+      type: object
+      properties:
+        foo:
+          type: string
+    NestedObject:
+      type: object
+      properties:
+        foo:
+          type: string
+        object:
+          $ref: '#/components/schemas/Object'

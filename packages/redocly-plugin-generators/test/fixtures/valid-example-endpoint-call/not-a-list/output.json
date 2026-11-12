@@ -1,0 +1,8 @@
+[
+  {
+    "ruleId": "generators/fern-valid-example-endpoint-call",
+    "severity": "error",
+    "message": "x-fern-examples must be a list of example objects; Fern cannot read it.",
+    "location": "openapi.yaml#/paths/~1plants/get/x-fern-examples"
+  }
+]

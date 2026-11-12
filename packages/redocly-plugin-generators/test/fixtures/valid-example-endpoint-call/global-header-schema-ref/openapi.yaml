@@ -1,0 +1,50 @@
+openapi: 3.0.3
+info:
+  title: Plants
+  version: 1.0.0
+paths:
+  /plants:
+    get:
+      operationId: listPlants
+      parameters:
+        - name: X-Region
+          in: header
+          schema:
+            $ref: '#/components/schemas/Region'
+        - name: X-Trace
+          in: header
+          schema:
+            type: string
+        - name: X-Sort
+          in: header
+          schema:
+            $ref: '#/components/schemas/Region'
+      responses:
+        '200':
+          description: The plants
+      x-fern-examples:
+        - name: Optional headers omitted
+        - name: All headers given
+          headers:
+            X-Region: eu
+            X-Trace: t1
+            X-Sort: name
+  /gardens:
+    get:
+      operationId: listGardens
+      parameters:
+        - name: X-Region
+          in: header
+          schema:
+            $ref: '#/components/schemas/Region'
+        - name: X-Trace
+          in: header
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The gardens
+components:
+  schemas:
+    Region:
+      type: string

@@ -1,0 +1,72 @@
+openapi: 3.1.0
+info:
+  title: Fern port of the no-conflicting-endpoint-paths fixture
+  version: 1.0.0
+paths:
+  /a/foo:
+    get:
+      operationId: a_foo
+      responses:
+        '200':
+          description: OK
+  /a/bar:
+    get:
+      operationId: a_bar
+      responses:
+        '200':
+          description: OK
+  /{pathParam}/foo:
+    get:
+      operationId: b_foo
+      parameters:
+        - $ref: '#/components/parameters/PathParam'
+      responses:
+        '200':
+          description: OK
+  /{pathParam}/bar:
+    get:
+      operationId: b_bar
+      parameters:
+        - $ref: '#/components/parameters/PathParam'
+      responses:
+        '200':
+          description: OK
+  /c/foo:
+    get:
+      operationId: c_foo
+      responses:
+        '200':
+          description: OK
+  /c/{pathParam}:
+    parameters:
+      - $ref: '#/components/parameters/PathParam'
+    get:
+      operationId: c_bar
+      responses:
+        '200':
+          description: OK
+    post:
+      operationId: c_samePathDifferentMethod
+      responses:
+        '200':
+          description: OK
+  /d:
+    get:
+      operationId: d_foo
+      responses:
+        '200':
+          description: OK
+  /d/:
+    get:
+      operationId: d_bar
+      responses:
+        '200':
+          description: OK
+components:
+  parameters:
+    PathParam:
+      name: pathParam
+      in: path
+      required: true
+      schema:
+        type: string

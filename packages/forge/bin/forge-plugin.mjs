@@ -28,7 +28,7 @@ const usage = `usage: forge-plugin build <entry> [-o plugin.wasm]
        forge-plugin wit
 
 build   compiles the plugin whose entry module is <entry>, a .ts or .js file
-        that exports definePlugin's generate and generateGroup, into a
+        that exports definePlugin's generate, into a
         WebAssembly component with QuickJS. Run it with:
             forge openapi.json --target wasm://plugin.wasm --out sdk
         -o, --out      the component to write (default: plugin.wasm)

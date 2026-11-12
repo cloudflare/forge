@@ -1,0 +1,8 @@
+rules:
+  generators/fern-valid-oauth:
+    severity: error
+    getToken:
+      endpoint: POST /token
+      requestProperties:
+        clientId: $request.credentials.client_id
+        clientSecret: $request.credentials.client_secret

@@ -1,0 +1,19 @@
+openapi: 3.1.0
+info:
+  title: Plant Store
+  version: 1.0.0
+paths: {}
+components:
+  schemas:
+    Leaf:
+      x-fern-type-name: Foliage
+      type: object
+      properties:
+        color:
+          type: string
+    Needle:
+      x-fern-type-name: Foliage
+      type: object
+      properties:
+        length:
+          type: number

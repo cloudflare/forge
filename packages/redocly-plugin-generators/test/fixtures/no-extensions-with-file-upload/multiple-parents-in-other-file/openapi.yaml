@@ -1,0 +1,13 @@
+openapi: 3.1.0
+info:
+  title: Uploads
+  version: 1.0.0
+paths:
+  /upload:
+    post:
+      operationId: upload
+      requestBody:
+        $ref: './components.yaml#/requestBodies/Upload'
+      responses:
+        '200':
+          description: OK

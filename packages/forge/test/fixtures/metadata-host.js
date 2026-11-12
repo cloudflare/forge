@@ -16,12 +16,29 @@ export function info() {
   return { version: '1', description: '', baseUrl: '' };
 }
 
-export function models() {
-  return types.map((_, id) => id);
+// The root, group 0, holds every model, and the top-level group `pets`,
+// group 1, holds nothing.
+export function groups() {
+  return [0, 1];
+}
+
+export function getGroup(id) {
+  if (id === 0) {
+    return {
+      name: [],
+      description: '',
+      path: [],
+      parent: null,
+      children: [1],
+      methods: [],
+      models: types.map((_, model) => model),
+    };
+  }
+  return { name: ['pets'], description: '', path: [1], parent: 0, children: [], methods: [], models: [] };
 }
 
 export function getModel(id) {
-  return { schemaName: `Type${id}`, name: [`type${id}`], description: '', deprecated: false, group: undefined, ty: id };
+  return { schemaName: `Type${id}`, name: [`type${id}`], description: '', deprecated: false, group: 0, ty: id };
 }
 
 export function getType(id) {

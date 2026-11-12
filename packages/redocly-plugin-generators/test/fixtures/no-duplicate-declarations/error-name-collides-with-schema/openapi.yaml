@@ -1,0 +1,38 @@
+openapi: 3.0.3
+info:
+  title: Plant Store
+  version: 1.0.0
+paths:
+  /plants/{plantId}:
+    get:
+      operationId: getPlant
+      parameters:
+        - name: plantId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The plant.
+        '404':
+          description: Not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/not_found_error'
+        4XX:
+          description: Another client error.
+components:
+  schemas:
+    not_found_error:
+      type: object
+      properties:
+        message:
+          type: string
+    Error:
+      x-fern-type-name: ClientRequestError
+      type: object
+      properties:
+        message:
+          type: string

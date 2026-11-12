@@ -1,0 +1,7 @@
+openapi: 3.0.3
+info:
+  title: Plants
+  version: 1.0.0
+paths:
+  /plants/{plantId}:
+    $ref: paths/plant.yaml

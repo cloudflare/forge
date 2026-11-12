@@ -1,0 +1,20 @@
+openapi: 3.1.0
+info:
+  title: Test API
+  version: 1.0.0
+servers:
+  - url: https://api.example.com
+paths:
+  /files:
+    servers:
+      - url: https://files.example.com
+    get:
+      operationId: listFiles
+      responses:
+        '200':
+          description: OK
+    post:
+      operationId: uploadFile
+      responses:
+        '200':
+          description: OK
