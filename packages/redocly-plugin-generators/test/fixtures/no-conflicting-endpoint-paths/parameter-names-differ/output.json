@@ -1,12 +1,12 @@
 [
   {
-    "ruleId": "generators/fern-no-conflicting-endpoint-paths",
+    "ruleId": "generators/no-conflicting-endpoint-paths",
     "severity": "error",
     "message": "Endpoint path /users/{id} conflicts with other PUT operations whose paths match the same URLs (a path parameter segment matches any segment): PUT /users/{userId} (operationId updateUser).",
     "location": "openapi.yaml#/paths/~1users~1{id}/put (key)"
   },
   {
-    "ruleId": "generators/fern-no-conflicting-endpoint-paths",
+    "ruleId": "generators/no-conflicting-endpoint-paths",
     "severity": "error",
     "message": "Endpoint path /users/{userId} conflicts with other PUT operations whose paths match the same URLs (a path parameter segment matches any segment): PUT /users/{id} (operationId replaceUser).",
     "location": "openapi.yaml#/paths/~1users~1{userId}/put (key)"

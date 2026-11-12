@@ -1,1 +1,14 @@
-[]
+[
+  {
+    "ruleId": "generators/no-get-request-body",
+    "severity": "error",
+    "message": "HEAD operations cannot have a request body (RFC 9110 §9.3).",
+    "location": "openapi.yaml#/paths/~1empty/head/requestBody (key)"
+  },
+  {
+    "ruleId": "generators/no-get-request-body",
+    "severity": "error",
+    "message": "HEAD operations cannot have a request body (RFC 9110 §9.3).",
+    "location": "openapi.yaml#/paths/~1plain/head/requestBody (key)"
+  }
+]

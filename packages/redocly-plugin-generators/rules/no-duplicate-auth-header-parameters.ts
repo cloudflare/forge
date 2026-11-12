@@ -33,7 +33,6 @@ function authHeaderNames(ctx: Ctx, root: Located): Set<string> {
 
 export const noDuplicateAuthHeaderParameters: RuleDefinition = {
   name: 'no-duplicate-auth-header-parameters',
-  vendor: 'fern',
   sourceRules: ['oss/no-duplicate-auth-header-parameters'],
   severity: 'warn',
   description: 'Header parameters must not redeclare a header that a security scheme already defines.',
@@ -69,7 +68,7 @@ export const noDuplicateAuthHeaderParameters: RuleDefinition = {
             }
             reported.add(location.absolutePointer);
             ctx.report({
-              message: `Header parameter '${node.name}' conflicts with the '${node.name}' header already defined by a security scheme. This parameter will be ignored during SDK generation.`,
+              message: `Header parameter '${node.name}' is redundant with the '${node.name}' header already defined by a security scheme.`,
               location,
             });
           });

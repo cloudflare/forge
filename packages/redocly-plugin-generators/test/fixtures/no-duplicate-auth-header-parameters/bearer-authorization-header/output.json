@@ -1,8 +1,8 @@
 [
   {
-    "ruleId": "generators/fern-no-duplicate-auth-header-parameters",
+    "ruleId": "generators/no-duplicate-auth-header-parameters",
     "severity": "warn",
-    "message": "Header parameter 'Authorization' conflicts with the 'Authorization' header already defined by a security scheme. This parameter will be ignored during SDK generation.",
+    "message": "Header parameter 'Authorization' is redundant with the 'Authorization' header already defined by a security scheme.",
     "location": "openapi.yaml#/paths/~1plants/get/parameters/0/name"
   }
 ]

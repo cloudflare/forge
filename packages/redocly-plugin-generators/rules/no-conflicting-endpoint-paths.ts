@@ -6,7 +6,6 @@
  */
 import type { OperationInfo } from '../utils/document.ts';
 import { getOperations, operationLabel, rootOf } from '../utils/document.ts';
-import { isFernEndpoint } from '../utils/structure.ts';
 import type { AnyNode, RuleDefinition, UserContext } from '../utils/types.ts';
 
 function isPathParameter(segment: string): boolean {
@@ -74,14 +73,13 @@ function describe(operation: OperationInfo): string {
 
 export const noConflictingEndpointPaths: RuleDefinition = {
   name: 'no-conflicting-endpoint-paths',
-  vendor: 'fern',
   sourceRules: ['fern-definition/no-conflicting-endpoint-paths'],
   severity: 'warn',
   description: 'Operations with the same HTTP method should not have paths that match the same URLs.',
   rule: () => ({
     Root: {
       leave(root: AnyNode, ctx: UserContext) {
-        const operations = getOperations(ctx, rootOf(root, ctx)).filter(isFernEndpoint);
+        const operations = getOperations(ctx, rootOf(root, ctx));
         const tree = new PathTree();
         for (const operation of operations) {
           tree.insert(segmentsOf(operation.path), operation);

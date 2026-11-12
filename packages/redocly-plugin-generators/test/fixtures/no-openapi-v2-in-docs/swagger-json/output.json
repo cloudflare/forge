@@ -1,6 +1,6 @@
 [
   {
-    "ruleId": "generators/fern-no-openapi-v2-in-docs",
+    "ruleId": "generators/no-openapi-v2-in-docs",
     "severity": "error",
     "message": "OpenAPI version 2.0 (Swagger) detected. Consider upgrading to OpenAPI 3.0 or later.",
     "location": "openapi.json#/swagger (key)"
