@@ -1,0 +1,8 @@
+[
+  {
+    "ruleId": "generators/only-object-allof-refs",
+    "severity": "error",
+    "message": "allOf $ref \"NameString\" is a string, not an object; a value cannot be both an object and a non-object.",
+    "location": "openapi.yaml#/components/schemas/Name/allOf/0/$ref (key)"
+  }
+]

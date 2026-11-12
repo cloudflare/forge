@@ -1,0 +1,26 @@
+[
+  {
+    "ruleId": "generators/only-object-allof-refs",
+    "severity": "error",
+    "message": "allOf $ref \"Tags\" is a array, not an object; a value cannot be both an object and a non-object.",
+    "location": "openapi.yaml#/components/schemas/Child/allOf/0/$ref (key)"
+  },
+  {
+    "ruleId": "generators/only-object-allof-refs",
+    "severity": "error",
+    "message": "allOf $ref \"Color\" is an enum of string, not an object; a value cannot be both an object and a non-object.",
+    "location": "openapi.yaml#/components/schemas/Child/allOf/1/$ref (key)"
+  },
+  {
+    "ruleId": "generators/only-object-allof-refs",
+    "severity": "error",
+    "message": "allOf $ref \"Count\" is a integer, not an object; a value cannot be both an object and a non-object.",
+    "location": "openapi.yaml#/components/schemas/Child/allOf/2/$ref (key)"
+  },
+  {
+    "ruleId": "generators/only-object-allof-refs",
+    "severity": "error",
+    "message": "allOf $ref \"Anything\" is untyped, not an object; a value cannot be both an object and a non-object.",
+    "location": "openapi.yaml#/components/schemas/Child/allOf/5/$ref (key)"
+  }
+]

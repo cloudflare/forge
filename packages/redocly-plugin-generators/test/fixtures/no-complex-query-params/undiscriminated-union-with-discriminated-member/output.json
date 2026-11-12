@@ -1,8 +1,8 @@
 [
   {
-    "ruleId": "generators/fern-no-complex-query-params",
+    "ruleId": "generators/no-complex-query-params",
     "severity": "error",
-    "message": "`in: query` parameter \"p\" has a schema that contains the discriminated union \"Union\" (at oneOf[2]). Discriminated unions are not valid types for query parameters. Fern imports a oneOf/anyOf as a discriminated union when it has a `discriminator.mapping` or when each member has a distinct single-value string `enum`/`const` in the same property; on a oneOf, `x-fern-discriminated: false` imports it as an undiscriminated union instead.",
+    "message": "`in: query` parameter \"p\" has a schema that contains the discriminated union \"Union\" (at oneOf[2]). Discriminated unions cannot be serialized as query strings.",
     "location": "openapi.yaml#/paths/~1search/get/parameters/0/schema (key)"
   }
 ]

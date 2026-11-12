@@ -1,14 +1,32 @@
 [
   {
-    "ruleId": "generators/fern-no-complex-query-params",
+    "ruleId": "generators/no-complex-query-params",
     "severity": "error",
-    "message": "`in: query` parameter \"objectWithMapping\" has a schema that is the discriminated union \"ObjectWithMapping\". Discriminated unions are not valid types for query parameters. Fern imports a oneOf/anyOf as a discriminated union when it has a `discriminator.mapping` or when each member has a distinct single-value string `enum`/`const` in the same property; on a oneOf, `x-fern-discriminated: false` imports it as an undiscriminated union instead.",
+    "message": "`in: query` parameter \"objectWithMapping\" has a schema that is the discriminated union \"ObjectWithMapping\". Discriminated unions cannot be serialized as query strings.",
     "location": "openapi.yaml#/paths/~1search/get/parameters/0/schema (key)"
   },
   {
-    "ruleId": "generators/fern-no-complex-query-params",
+    "ruleId": "generators/no-complex-query-params",
     "severity": "error",
-    "message": "`in: query` parameter \"objectUndiscriminated\" has a schema that is the discriminated union \"ObjectUndiscriminated\". Discriminated unions are not valid types for query parameters. Fern imports a oneOf/anyOf as a discriminated union when it has a `discriminator.mapping` or when each member has a distinct single-value string `enum`/`const` in the same property; on a oneOf, `x-fern-discriminated: false` imports it as an undiscriminated union instead.",
+    "message": "`in: query` parameter \"undiscriminatedWithMapping\" has a schema that is the discriminated union \"UndiscriminatedWithMapping\". Discriminated unions cannot be serialized as query strings.",
+    "location": "openapi.yaml#/paths/~1search/get/parameters/1/schema (key)"
+  },
+  {
+    "ruleId": "generators/no-complex-query-params",
+    "severity": "error",
+    "message": "`in: query` parameter \"notDiscriminatedWithMapping\" has a schema that is the discriminated union \"NotDiscriminatedWithMapping\". Discriminated unions cannot be serialized as query strings.",
+    "location": "openapi.yaml#/paths/~1search/get/parameters/2/schema (key)"
+  },
+  {
+    "ruleId": "generators/no-complex-query-params",
+    "severity": "error",
+    "message": "`in: query` parameter \"anyOfWithMapping\" has a schema that is the discriminated union \"AnyOfWithMapping\". Discriminated unions cannot be serialized as query strings.",
+    "location": "openapi.yaml#/paths/~1search/get/parameters/3/schema (key)"
+  },
+  {
+    "ruleId": "generators/no-complex-query-params",
+    "severity": "error",
+    "message": "`in: query` parameter \"objectUndiscriminated\" has a schema that is the discriminated union \"ObjectUndiscriminated\". Discriminated unions cannot be serialized as query strings.",
     "location": "openapi.yaml#/paths/~1search/get/parameters/4/schema (key)"
   }
 ]

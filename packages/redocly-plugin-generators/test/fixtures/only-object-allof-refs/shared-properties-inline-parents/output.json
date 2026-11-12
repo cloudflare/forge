@@ -1,0 +1,8 @@
+[
+  {
+    "ruleId": "generators/only-object-allof-refs",
+    "severity": "error",
+    "message": "allOf $ref \"Tags\" is a array, not an object; a value cannot be both an object and a non-object.",
+    "location": "openapi.yaml#/components/schemas/NoPropertiesChild/allOf/0/$ref (key)"
+  }
+]

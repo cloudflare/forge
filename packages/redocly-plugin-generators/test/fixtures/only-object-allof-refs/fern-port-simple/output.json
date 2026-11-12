@@ -1,0 +1,20 @@
+[
+  {
+    "ruleId": "generators/only-object-allof-refs",
+    "severity": "error",
+    "message": "allOf $ref \"CommonString\" is a string, not an object; a value cannot be both an object and a non-object.",
+    "location": "openapi.yaml#/components/schemas/MyObject/allOf/1/$ref (key)"
+  },
+  {
+    "ruleId": "generators/only-object-allof-refs",
+    "severity": "error",
+    "message": "allOf $ref \"LocalString\" is a string, not an object; a value cannot be both an object and a non-object.",
+    "location": "openapi.yaml#/components/schemas/MyObject/allOf/3/$ref (key)"
+  },
+  {
+    "ruleId": "generators/only-object-allof-refs",
+    "severity": "error",
+    "message": "allOf $ref \"LocalString\" is a string, not an object; a value cannot be both an object and a non-object.",
+    "location": "openapi.yaml#/paths/~1/post/requestBody/content/application~1json/schema/allOf/1/$ref (key)"
+  }
+]
