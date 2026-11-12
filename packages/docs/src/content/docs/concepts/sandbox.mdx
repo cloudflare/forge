@@ -33,27 +33,18 @@ In a JavaScript plugin, `console` is not defined. Throw an error to report a pro
 The model is never copied into the plugin. It stays in Forge's process, and the plugin reads it a
 part at a time: a group, method, model or type is a `u32` id, and `get-group`, `get-method`,
 `get-model` or `get-type` returns the part's data, with ids for the parts inside it. A plugin that
-generates one group's files never pays for the rest of the document.
+reads one group never pays for the rest of the document.
 
 An id the host never handed out traps the plugin, rather than crashing Forge.
 
 The TypeScript library hides this: `group.methods` fetches each method the first time it is read and
-keeps it until the call ends.
+keeps it for the rest of the run, so reading it again is free.
 
 ## Instances
 
-Forge compiles the component once, then keeps a pool of instances. `generate` and each
-`generate_group` take an instance from the pool, or make one if none is free, and return it when they
-finish, so groups run in parallel on all your cores without compiling or instantiating the plugin
-again.
-
-Two consequences:
-
-- Calls that run at the same time never share memory.
-- A call can get an instance that an earlier call used, so module-level state may or may not
-  survive from one call to the next. Do not rely on it either way.
-
-An instance whose plugin traps (a Rust panic, for example) is dropped, not returned to the pool.
+Forge compiles the component once, and makes a fresh instance for each run of `generate`, which runs
+on one thread. An instance only ever reads one model, and nothing a plugin keeps in module state
+survives to another run.
 
 ## What Forge checks
 
