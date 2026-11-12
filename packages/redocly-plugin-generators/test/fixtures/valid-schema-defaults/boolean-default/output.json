@@ -1,0 +1,20 @@
+[
+  {
+    "ruleId": "generators/valid-schema-defaults",
+    "severity": "error",
+    "message": "Default value '1' is not a boolean.",
+    "location": "openapi.yaml#/components/schemas/Plant/properties/indoor/default"
+  },
+  {
+    "ruleId": "generators/valid-schema-defaults",
+    "severity": "error",
+    "message": "Default value 'yes' is not a boolean.",
+    "location": "openapi.yaml#/components/schemas/Plant/properties/outdoor/default"
+  },
+  {
+    "ruleId": "generators/valid-schema-defaults",
+    "severity": "error",
+    "message": "Default value 'FALSE' is not a boolean.",
+    "location": "openapi.yaml#/components/schemas/Plant/properties/potted/default"
+  }
+]

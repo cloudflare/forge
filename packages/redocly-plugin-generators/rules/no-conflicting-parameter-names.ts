@@ -1,25 +1,17 @@
 /**
- * Reports parameters of one operation (path-level and operation-level merged) whose effective
- * names (`x-fern-parameter-name` or `name`) normalize to the same camelCase name while living in
- * different locations (`in: header` vs `in: query`, ...). SDK generators emit one argument or
- * property per parameter, so these collide (duplicate keyword arguments in Python, duplicate
- * properties in TypeScript).
+ * Reports parameters of one operation (path-level and operation-level merged) whose names
+ * normalize to the same camelCase identifier while living in different locations (`in: header` vs
+ * `in: query`, ...). SDK generators emit one argument or property per parameter, so these
+ * collide (duplicate keyword arguments in Python, duplicate properties in TypeScript).
  */
+import { camelCase } from 'lodash-es';
 import type { ParameterInfo } from '../utils/document.ts';
 import { getOperations, rootOf } from '../utils/document.ts';
-import { fernParameterCamelCase, stringExtension } from '../utils/naming.ts';
 import type { AnyNode, RuleDefinition, UserContext } from '../utils/types.ts';
-
-/** The HTTP methods Fern's OpenAPI rules look at. */
-export const FERN_HTTP_METHODS = new Set(['get', 'put', 'post', 'delete', 'options', 'head', 'patch', 'trace']);
 
 export interface ParameterNameCollision {
   normalizedName: string;
   parameters: ParameterInfo[];
-}
-
-function effectiveName(parameter: ParameterInfo): string {
-  return stringExtension(parameter.node, 'x-fern-parameter-name') ?? parameter.name;
 }
 
 /**
@@ -38,7 +30,7 @@ export function parameterNameCollisions(allParameters: ParameterInfo[]): Paramet
   ];
   const groups = new Map<string, ParameterInfo[]>();
   for (const parameter of merged) {
-    const normalizedName = fernParameterCamelCase(effectiveName(parameter));
+    const normalizedName = camelCase(parameter.name);
     if (normalizedName === '') {
       continue;
     }
@@ -57,7 +49,6 @@ export function parameterNameCollisions(allParameters: ParameterInfo[]): Paramet
 
 export const noConflictingParameterNames: RuleDefinition = {
   name: 'no-conflicting-parameter-names',
-  vendor: 'fern',
   sourceRules: ['oss/no-conflicting-parameter-names'],
   severity: 'error',
   description: 'Parameters of an operation in different locations must not normalize to the same camelCase name.',
@@ -65,18 +56,12 @@ export const noConflictingParameterNames: RuleDefinition = {
     Root: {
       leave(root: AnyNode, ctx: UserContext) {
         for (const operation of getOperations(ctx, rootOf(root, ctx))) {
-          if (!FERN_HTTP_METHODS.has(operation.method)) {
-            continue;
-          }
           for (const { normalizedName, parameters } of parameterNameCollisions(operation.allParameters)) {
             const descriptions = parameters
-              .map((parameter) => `${parameter.in} parameter '${effectiveName(parameter)}'`)
+              .map((parameter) => `${parameter.in} parameter '${parameter.name}'`)
               .join(', ');
             ctx.report({
-              message:
-                `Parameters ${descriptions} all normalize to '${normalizedName}' in generated SDKs. ` +
-                `This causes broken code (duplicate keyword arguments in Python, duplicate properties in TypeScript). ` +
-                `Rename one of the parameters to avoid the collision.`,
+              message: `Parameters ${descriptions} all normalize to '${normalizedName}' in camelCase, which collides in generated code. Rename one of the parameters.`,
               location: operation.location.key(),
             });
           }

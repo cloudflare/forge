@@ -1,0 +1,8 @@
+[
+  {
+    "ruleId": "generators/valid-schema-defaults",
+    "severity": "error",
+    "message": "Default value 'green' is not an array.",
+    "location": "openapi.yaml#/components/schemas/Plant/properties/tags/default"
+  }
+]

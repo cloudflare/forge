@@ -1,47 +1,48 @@
 /**
- * Reports `encoding.<property>.contentType` on request bodies that Fern does not import as
- * multipart. Fern only reads per-property content types for `multipart/*` request bodies and
- * ignores them on form-urlencoded, JSON and other request bodies.
+ * Reports `encoding.<property>.contentType` on non-multipart request bodies. Per OAS 3.x §4.8.24.1
+ * (Encoding Object), `contentType` is only meaningful for `multipart/*` request bodies.
  */
 import { getOperations, rootOf } from '../utils/document.ts';
 import { isPlainObject, resolveChild } from '../utils/resolve.ts';
-import { fernRequestMediaTypes, isFernEndpoint } from '../utils/structure.ts';
+import { isMultipartMediaType } from '../utils/structure.ts';
 import type { AnyNode, RuleDefinition, UserContext } from '../utils/types.ts';
 
 export const contentTypeOnlyForMultipart: RuleDefinition = {
   name: 'content-type-only-for-multipart',
-  vendor: 'fern',
   sourceRules: ['fern-definition/content-type-only-for-multipart'],
   severity: 'error',
-  description: 'Per-property `encoding.contentType` is only supported on multipart request bodies.',
+  description: 'Per-property `encoding.contentType` is only meaningful on multipart request bodies.',
   rule: () => ({
     Root: {
       leave(root: AnyNode, ctx: UserContext) {
         const reported = new Set<string>();
         for (const operation of getOperations(ctx, rootOf(root, ctx))) {
-          if (!isFernEndpoint(operation)) {
+          const requestBody = resolveChild(ctx, { node: operation.node, location: operation.location }, 'requestBody');
+          const content = requestBody === undefined ? undefined : resolveChild(ctx, requestBody, 'content');
+          if (content === undefined || !isPlainObject(content.node)) {
             continue;
           }
-          for (const mediaType of fernRequestMediaTypes(ctx, operation)) {
-            if (mediaType.kind === 'multipart') {
+          for (const mediaType of Object.keys(content.node)) {
+            if (isMultipartMediaType(mediaType)) {
               continue;
             }
-            const encoding = resolveChild(ctx, mediaType, 'encoding');
+            const entry = resolveChild(ctx, content, mediaType);
+            const encoding = entry === undefined ? undefined : resolveChild(ctx, entry, 'encoding');
             if (encoding === undefined || !isPlainObject(encoding.node)) {
               continue;
             }
             for (const key of Object.keys(encoding.node)) {
-              const entry = resolveChild(ctx, encoding, key);
-              if (entry === undefined || !isPlainObject(entry.node) || entry.node.contentType === undefined) {
+              const property = resolveChild(ctx, encoding, key);
+              if (property === undefined || !isPlainObject(property.node) || property.node.contentType === undefined) {
                 continue;
               }
-              const location = entry.location.child('contentType');
+              const location = property.location.child('contentType');
               if (reported.has(location.absolutePointer)) {
                 continue;
               }
               reported.add(location.absolutePointer);
               ctx.report({
-                message: `Property "${key}" has \`encoding.${key}.contentType\`, but the request body is \`${mediaType.mediaType}\`, not multipart. Fern only applies per-property content types to multipart/form-data request bodies and ignores this one.`,
+                message: `Property "${key}" sets \`encoding.${key}.contentType\`, but the request body is \`${mediaType}\`, not multipart. Per-property \`contentType\` is only meaningful for multipart request bodies (OAS 3.x §4.8.24.1).`,
                 location: location.key(),
               });
             }

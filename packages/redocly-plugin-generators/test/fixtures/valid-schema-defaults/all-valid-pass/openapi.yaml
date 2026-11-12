@@ -1,0 +1,35 @@
+openapi: 3.0.3
+info:
+  title: Plants
+  version: 1.0.0
+paths: {}
+components:
+  schemas:
+    Plant:
+      type: object
+      properties:
+        name:
+          type: string
+          default: Fern
+        kind:
+          type: string
+          enum: [fern, moss]
+          default: fern
+        height:
+          type: integer
+          minimum: 0
+          maximum: 100
+          multipleOf: 5
+          default: 10
+        ratio:
+          type: number
+          minimum: 0.5
+          default: 1.5
+        indoor:
+          type: boolean
+          default: true
+        tags:
+          type: array
+          items:
+            type: string
+          default: []

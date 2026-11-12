@@ -1,0 +1,20 @@
+[
+  {
+    "ruleId": "generators/valid-schema-defaults",
+    "severity": "error",
+    "message": "Default value 'blue' is not a valid enum value. Enum values are: green, red.",
+    "location": "openapi.yaml#/components/schemas/Color/default"
+  },
+  {
+    "ruleId": "generators/valid-schema-defaults",
+    "severity": "error",
+    "message": "Default value 'tree' is not a valid enum value. Enum values are: fern, moss.",
+    "location": "openapi.yaml#/components/schemas/Kind/default"
+  },
+  {
+    "ruleId": "generators/valid-schema-defaults",
+    "severity": "error",
+    "message": "Default value '3' is not a valid enum value. Enum values are: small, large.",
+    "location": "openapi.yaml#/components/schemas/Size/default"
+  }
+]
