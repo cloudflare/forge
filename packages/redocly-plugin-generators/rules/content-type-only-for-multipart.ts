@@ -1,6 +1,12 @@
 /**
  * Reports `encoding.<property>.contentType` on non-multipart request bodies. Per OAS 3.x §4.8.24.1
  * (Encoding Object), `contentType` is only meaningful for `multipart/*` request bodies.
+ *
+ * Generators that honor the Encoding Object use `contentType` to pick a per-part serializer when
+ * assembling a multipart message; on any other media type (`application/x-www-form-urlencoded`,
+ * `application/json`, ...) the field has no defined effect and is silently ignored, so an author
+ * who set it expecting it to take effect gets wrong wire output. Move the property into a
+ * multipart body, or drop the per-property `contentType`.
  */
 import { getOperations, getRequestBodyContent, rootOf } from '../utils/document.ts';
 import { isPlainObject, resolveChild } from '../utils/resolve.ts';

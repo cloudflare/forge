@@ -1,13 +1,21 @@
 /**
- * A schema's `default` must be a valid value for the schema's type and enum, and integer
- * validation keywords (`minimum`, `maximum`, `multipleOf`) must be integers.
+ * Reports schema `default` values that don't match the schema's declared type or enum, and
+ * integer-schema bounds (`minimum`, `maximum`, `multipleOf`) that aren't integers.
  *
- * - string enums: `default` must be one of the values
- * - string: `default` must be a string
- * - boolean: `default` must be a boolean
- * - integer: `default` must be an integer; `minimum`, `maximum` and `multipleOf` must be integers
- * - number: `default` must be a number
- * - array: `default` must be an array
+ * Code generators emit defaults directly into typed fields of the generated SDK; a mismatch
+ * either fails to compile (TypeScript, Rust) or raises at deserialization (Python, Go). A
+ * non-integer bound on an `integer` schema similarly breaks typed validators that expect the
+ * bound and the value to share a type.
+ *
+ * Checks (only applied when the schema declares a single non-null type):
+ * - string enums: `default` must be one of the enum values
+ * - `string`: `default` must be a string
+ * - `boolean`: `default` must be a boolean
+ * - `integer`: `default` must be an integer; `minimum`, `maximum`, `multipleOf` must be integers
+ * - `number`: `default` must be a number
+ * - `array`: `default` must be an array
+ *
+ * Schemas with multiple non-null types (e.g. `type: ['string', 'number']`) are skipped.
  */
 import { isPlainObject } from '../utils/resolve.ts';
 import { schemaTypes } from '../utils/schema.ts';

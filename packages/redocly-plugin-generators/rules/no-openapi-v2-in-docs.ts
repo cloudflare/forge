@@ -1,5 +1,11 @@
 /**
  * Reports Swagger 2.0 (OpenAPI v2) documents. This rule runs on OAS 2 documents only.
+ *
+ * Modern OpenAPI tooling — including most code generators and this plugin's other rules —
+ * targets OpenAPI 3.x. Swagger 2 omits concepts the generators rely on (`requestBody`,
+ * `components.schemas` composition, `oneOf`/`anyOf`, nullable types via `type: ['x', 'null']`),
+ * so a v2 document produces degraded or broken output. Upgrade the spec to OpenAPI 3.0 or 3.1
+ * before consuming it here.
  */
 import type { AnyNode, RuleDefinition, UserContext } from '../utils/types.ts';
 

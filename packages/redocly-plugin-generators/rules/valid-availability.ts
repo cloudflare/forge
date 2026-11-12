@@ -1,6 +1,13 @@
 /**
- * Reports `x-forge-availability` values that are not one of the five Forge availability stages.
- * Checks operations and `x-forge-aliases[*]` elements.
+ * Reports `x-forge-availability` values that are not a recognized Forge availability stage.
+ * Allowed stages: `alpha`, `beta`, `preview`, `generally-available`, `deprecated`. Non-string
+ * values are also reported.
+ *
+ * Forge's parser deserializes this extension into an `Availability` enum; an unknown value
+ * fails import. Downstream consumers (SDKs, docs) also render the stage as a visible badge, so
+ * a typo silently mislabels the surface area.
+ *
+ * Checked on operations and `x-forge-aliases[*]` elements.
  */
 import { getOperations, rootOf } from '../utils/document.ts';
 import { describeKind, forEachForgeTarget } from '../utils/extensions.ts';
