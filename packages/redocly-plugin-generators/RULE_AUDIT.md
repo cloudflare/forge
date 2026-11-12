@@ -10,7 +10,7 @@ Goal: convert rules with OAS-native value, delete pure-Fern rules and track them
 | **CONVERT to OAS-native** | 12 | Strip Fern dependencies, keep as generator-agnostic OAS rules |
 | **DELETE — not relevant** | 14 | Pure Fern validation, no OAS or Forge equivalent |
 | **DELETE — requires uncommitted extensions** | 7 | Validates concepts Forge may want (pagination, streaming, etc.) but extensions don't exist yet |
-| **DELETE — covered by Forge normalizer** | 7 | Validates naming extensions that Forge already handles via `x-forge-*` |
+| **DELETE — Forge has equivalent extensions** | 7 | Forge has `x-forge-*` equivalents; new rules needed for those, not the Fern versions |
 
 ---
 
@@ -362,30 +362,32 @@ converted from the Fern versions, which embed Fern-specific behavior.
 | valid-example-endpoint-call | `fern-definition/valid-example-endpoint-call` | Rich example validation beyond OAS native `examples` | `x-forge-examples` (if native examples are insufficient) |
 | valid-global-parameters | `fern-definition/valid-global-parameters` | Global parameter injection across operations | `x-forge-global-parameters` (if `components.parameters` + `$ref` is insufficient) |
 
-### Already Covered by Forge Normalizer (7 rules)
+### Forge Has Equivalent Extensions — Needs New Rules (7 rules)
 
-These validate naming/grouping extensions that Forge already supports natively via `x-forge-*`.
-The Fern versions (`x-fern-sdk-method-name`, etc.) are normalized to `x-forge-*` by the Rust
-vendor adapter (`src/bin/forge/normalize/vendor/fern.rs`). Validation of the `x-forge-*`
-extensions should be done by Forge's own tooling, not the Redocly plugin.
+These validate naming/grouping concepts that Forge already supports via `x-forge-*` extensions.
+The Fern versions are normalized to `x-forge-*` by the Rust vendor adapter
+(`src/bin/forge/normalize/vendor/fern.rs`), but normalization is not validation — we still need
+lint rules for the `x-forge-*` extensions. The Fern rule implementations can't be reused because
+they embed Fern-specific naming logic; new `generators/forge-*` rules should be written.
 
-| Current Rule | Upstream Reference | Fern Extension | Forge Equivalent |
-|---|---|---|---|
-| no-duplicate-overrides | `oss/no-duplicate-overrides` | `x-fern-sdk-group-name` + `x-fern-sdk-method-name` | `x-forge-group-name` + `x-forge-method-name` |
-| no-conflicting-endpoint-parameters | `fern-definition/no-conflicting-endpoint-parameters` | `x-fern-parameter-name`, request wrapper model | `x-forge-parameter-name` |
-| no-duplicate-field-names | `fern-definition/no-duplicate-field-names` | `x-fern-property-name`, `x-fern-enum` | `x-forge-property-name` |
-| valid-field-names | `fern-definition/valid-field-names` | `x-fern-enum`, `x-fern-property-name`, `x-fern-type` | `x-forge-property-name`, `x-forge-model-name` |
-| valid-type-name | `fern-definition/valid-type-name` | `x-fern-type-name` | `x-forge-model-name` |
-| no-extensions-with-file-upload | `fern-definition/no-extensions-with-file-upload` | `allOf` `$ref` in Fern multipart (uses `x-fern-ignore`, Fern media type selection) | `x-forge-skip` |
-| no-undefined-path-parameters (Part 2) | `fern-definition/no-undefined-path-parameters` | `x-fern-base-path` parameter validation | No direct equivalent — OAS `servers` suffices |
-| valid-service-urls | `fern-definition/valid-service-urls` | `x-fern-server-name` base URL matching | No direct equivalent — OAS `servers` suffices |
+| Current Rule | Upstream Reference | Fern Extension | Forge Equivalent | New Rule Needed |
+|---|---|---|---|---|
+| no-duplicate-overrides | `oss/no-duplicate-overrides` | `x-fern-sdk-group-name` + `x-fern-sdk-method-name` | `x-forge-group-name` + `x-forge-method-name` | Duplicate group+method detection |
+| no-conflicting-endpoint-parameters | `fern-definition/no-conflicting-endpoint-parameters` | `x-fern-parameter-name`, request wrapper model | `x-forge-parameter-name` | Parameter name conflicts with Forge naming |
+| no-duplicate-field-names | `fern-definition/no-duplicate-field-names` | `x-fern-property-name`, `x-fern-enum` | `x-forge-property-name` | Property name collisions using Forge naming |
+| valid-field-names | `fern-definition/valid-field-names` | `x-fern-enum`, `x-fern-property-name`, `x-fern-type` | `x-forge-property-name`, `x-forge-model-name` | Valid identifier check for Forge names |
+| valid-type-name | `fern-definition/valid-type-name` | `x-fern-type-name` | `x-forge-model-name` | `x-forge-model-name` starts with a letter |
+| no-extensions-with-file-upload | `fern-definition/no-extensions-with-file-upload` | `allOf` `$ref` in Fern multipart (uses `x-fern-ignore`, Fern media type selection) | `x-forge-skip` | Multipart `allOf` composition warning |
+| no-undefined-path-parameters (Part 2) | `fern-definition/no-undefined-path-parameters` | `x-fern-base-path` parameter validation | No equivalent — OAS `servers` suffices | None needed |
+| valid-service-urls | `fern-definition/valid-service-urls` | `x-fern-server-name` base URL matching | No equivalent — OAS `servers` suffices | None needed |
 
 ---
 
-## Future OAS-Native Rules (Not Conversions — New Rules)
+## Future Rules (Not Conversions — New Rules)
 
-Ideas surfaced during the audit for generator-agnostic rules that don't exist yet.
-These would be new rules written from scratch, not conversions of Fern rules.
+Ideas surfaced during the audit. These would be written from scratch, not converted from Fern.
+
+### OAS-Native Rules
 
 1. **allOf property conflicts**: Two `allOf` members declaring the same property key with different
    schemas. (Inspired by `no-duplicate-field-names` but checks OAS semantics, not Fern naming.)
@@ -403,8 +405,18 @@ These would be new rules written from scratch, not conversions of Fern rules.
 5. **Component schema names start with a letter**: Schema keys in `components.schemas` should be
    valid type names for code generation. (Inspired by `valid-type-name` but checking raw keys.)
 
-6. **Validate `x-forge-*` extensions**: The existing `x-forge-*` extensions (`x-forge-method-name`,
-   `x-forge-group-name`, `x-forge-skip`, `x-forge-availability`, `x-forge-parameter-name`,
-   `x-forge-model-name`, `x-forge-property-name`, `x-forge-hidden`, `x-forge-require-confirmation`,
-   `x-forge-aliases`, `x-forge-sensitive`, `x-forge-commands`, etc.) have no lint rules today.
-   Validation rules for these belong in this plugin as `generators/forge-*` rules.
+### `x-forge-*` Extension Validation Rules
+
+The existing `x-forge-*` extensions have no lint rules today. New `generators/forge-*` rules for:
+
+- **`x-forge-method-name`** / **`x-forge-group-name`**: Validate format, detect duplicate
+  group+method combinations across operations.
+- **`x-forge-model-name`**: Must start with a letter, be a valid identifier.
+- **`x-forge-property-name`** / **`x-forge-parameter-name`**: Must be valid identifiers, detect
+  collisions after normalization.
+- **`x-forge-availability`**: Must be one of `alpha`, `beta`, `preview`, `generally-available`,
+  `deprecated`.
+- **`x-forge-aliases`**: Validate alias structure, detect duplicate alias method names.
+- **`x-forge-skip`**: Must be boolean.
+- **`x-forge-commands`**: Validate command group structure.
+- **`x-forge-sensitive`** / **`x-forge-hidden`** / **`x-forge-require-confirmation`**: Type checks.
