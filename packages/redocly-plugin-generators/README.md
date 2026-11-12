@@ -2,7 +2,9 @@
 
 A [Redocly](https://redocly.com/docs/cli/) plugin bundling lint rules relevant to OpenAPI-driven code generators (Fern, Stainless, Forge, etc.). Rules are generator-agnostic and apply to any OpenAPI document; vendor-specific infrastructure is left in place for future `generators/forge-*` rules that validate `x-forge-*` extensions.
 
-This plugin began as a port of [`dimitropoulos/redocly-plugin-fern`](https://github.com/dimitropoulos/redocly-plugin-fern), then had its Fern-specific gating stripped so each surviving rule checks OAS-native semantics only. See `RULE_AUDIT.md` for the per-rule conversion and deletion log.
+This plugin began as a port of [`dimitropoulos/redocly-plugin-fern`](https://github.com/dimitropoulos/redocly-plugin-fern), then had its Fern-specific gating stripped so each surviving rule checks OAS-native semantics only.
+
+See [`FUTURE.md`](./FUTURE.md) for candidate rules, scope changes, and built-ins we may adopt later.
 
 ## Scope
 
