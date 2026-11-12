@@ -232,6 +232,33 @@ test('the sidebar filter finds cf commands beside API pages', async ({ page }) =
   );
 });
 
+test('sidebar filter results look like tree rows and open at the top', async ({ page }) => {
+  await page.goto('/api/dns/records/methods/create/');
+  const row = (selector: string) =>
+    page
+      .locator(selector)
+      .first()
+      .evaluate((a) => {
+        const s = getComputedStyle(a);
+        return [s.fontSize, s.fontWeight, s.color, s.paddingLeft, s.minHeight].join(' ');
+      });
+  const treeRow = await row('[data-nb-api-nav] li > a:not([aria-current])');
+  const scroller = page.locator('[data-nb-api-tree]');
+  await scroller.evaluate((el) => (el.scrollTop = 1500));
+
+  await page.locator('[data-nb-sidebar-filter-input]').fill('dns record');
+  const status = page.locator('[data-nb-nav-status]');
+  await expect(status).toHaveText('19 pages');
+  expect(await row('[data-nb-nav-results] li > a')).toBe(treeRow);
+  // The status line sits below the sticky filter bar, not under it.
+  const barBottom = await page.locator('.sb-filter-bar').evaluate((el) => el.getBoundingClientRect().bottom);
+  expect(await status.evaluate((el) => el.getBoundingClientRect().top)).toBeGreaterThanOrEqual(barBottom - 1);
+
+  await page.keyboard.press('Escape');
+  await expect(page.locator('[data-nb-api-nav]')).toBeVisible();
+  expect(await scroller.evaluate((el) => el.scrollTop)).toBe(1500);
+});
+
 test('the phone menu lists the header links the header has no room for', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 800 });
   await page.goto('/api/dns/records/methods/get/');
