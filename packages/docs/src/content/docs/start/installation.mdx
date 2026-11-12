@@ -14,15 +14,11 @@ that picks the right one. It is not on the npm registry yet: builds are publishe
 [pkg.pr.new](https://pkg.pr.new) from the repository, and you install one by URL. The newest build
 of `main` is:
 
-```sh
-npm install --save-dev https://pkg.pr.new/cloudflare/forge/@cloudflare/forge@main
-```
+<PackageManagers pkg="https://pkg.pr.new/cloudflare/forge/@cloudflare/forge@main" dev />
 
 Then run it through your package manager:
 
-```sh
-npx forge openapi.json --target ts --out sdk
-```
+<PackageManagers type="exec" pkg="forge" args="openapi.json --target ts --out sdk" />
 
 Every build can be installed in three ways, each a suffix on
 `https://pkg.pr.new/cloudflare/forge/@cloudflare/forge`:
@@ -50,9 +46,7 @@ The package also has the `forge-plugin` command and the libraries for
 [writing plugins in TypeScript](/plugins/typescript/). Plugin authors need one more package, which
 is an optional peer dependency because nobody else does:
 
-```sh
-npm install --save-dev @bytecodealliance/jco
-```
+<PackageManagers pkg="@bytecodealliance/jco" dev />
 
 <Aside type="note" title="Installing a tarball">
 `just pack` in the repository builds the same package as a tarball in `packages/forge/dist/`. Install

@@ -1,63 +1,164 @@
 ---
 title: Forge
 description: One OpenAPI document in; an SDK, MCP tools, a server or your own output out.
+mode: custom
 sidebar:
   order: 0
 ---
 
-Forge reads an OpenAPI document into one typed, language-neutral model, then hands that model to a plugin that writes the files. The generators that ship with Forge are plugins too, so one you write gets the same model they do.
+<section class="mx-auto grid max-w-6xl items-center gap-12 px-4 pt-16 pb-20 md:px-6 lg:grid-cols-[1fr_1.1fr] lg:pt-24">
+  <div class="min-w-0">
+    <Badge text="Open source · Apache 2.0" variant="outline" />
 
-It is for teams that publish an API on more than one surface: an SDK, the tools of an MCP server, a server that exposes the SDK, or something only your API needs.
+    <h1 class="mt-5 text-4xl font-semibold leading-[1.05] tracking-[-0.035em] text-balance md:text-6xl">One OpenAPI document. Every surface.</h1>
 
-## What you can do
+    <p class="mt-5 max-w-xl text-lg leading-relaxed text-muted-foreground">Forge reads an OpenAPI document into one typed model, then hands it to plugins that write SDKs, MCP tools, servers and docs. The targets that ship with Forge are plugins too, so yours gets the same model they do.</p>
 
-<CardGrid>
-  <LinkCard title="Generate a TypeScript SDK" description="A typed client per group, and a small runtime." href="/targets/typescript/" />
-  <LinkCard title="Generate MCP tools" description="One tool per method, for the MCP TypeScript SDK." href="/targets/mcp/" />
-  <LinkCard title="Write a plugin" description="In TypeScript, in Rust, or in any language that compiles to a WebAssembly component." href="/plugins/overview/" />
-  <LinkCard title="Prepare a document" description="The extensions Forge reads, and how to name methods and groups." href="/openapi/extensions/" />
-</CardGrid>
+    <div class="mt-8 flex flex-wrap gap-3">
+      <LinkButton href="/start/quickstart/" variant="primary" size="lg" icon>Get started</LinkButton>
+      <LinkButton href="/plugins/overview/" variant="secondary" size="lg">Write a plugin</LinkButton>
+    </div>
 
-## How it works
+    <div class="mt-8 max-w-xl">
+      <PackageManagers pkg="https://pkg.pr.new/cloudflare/forge/@cloudflare/forge@main" dev />
+    </div>
+  </div>
 
-Forge does the shared part once: it reads the document, follows every `$ref`, and decides what is a group, a method and a model. A plugin does the part that belongs to one language. [The pipeline](/concepts/pipeline/) has each step and what it guarantees.
+  <div class="docs-content min-w-0">
+    <CodeGroup titles={["openapi.json", "TypeScript SDK", "MCP tool"]}>
 
-## Generate something
+```json
+"/pets": {
+  "get": {
+    "operationId": "pets.list",
+    "summary": "List pets",
+    "parameters": [
+      { "name": "limit", "in": "query",
+        "schema": { "type": "integer" } }
+    ],
+    "responses": {
+      "200": {
+        "description": "The pets.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "array",
+              "items": { "$ref": "#/components/schemas/Pet" }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+```
 
-Forge is one native binary in an npm package. Install it:
+```ts
+import { createClient } from './sdk/index.js';
 
-<PackageManagers pkg="https://pkg.pr.new/cloudflare/forge/@cloudflare/forge@main" dev />
+const client = createClient({ baseUrl: 'https://api.example.com/v1', token: process.env.API_TOKEN! });
 
-Point it at a document and pick a target:
+const pets = await client.pets.list({ limit: 10 });
+console.log(pets[0]?.name, pets[0]?.bornAt?.toString());
+```
 
-<PackageManagers type="exec" pkg="forge" args="openapi.json --target ts --out sdk" />
+```ts
+{
+  name: "pets_list",
+  title: "List pets",
+  description: "List pets\n\nGET /pets",
+  inputSchema: {
+    type: "object",
+    properties: {
+      "query": { "type": "object", "properties": { "limit": { "type": "integer" } } }
+    },
+  },
+  annotations: { "readOnlyHint": true, "idempotentHint": true, "openWorldHint": true },
+}
+```
 
-That writes a TypeScript SDK to `sdk/`. [The quickstart](/start/quickstart/) walks through its output, and generates MCP tools from the same document.
+    </CodeGroup>
+  </div>
+</section>
 
-## Write your own
+<section class="border-t border-border">
+  <div class="mx-auto max-w-6xl px-4 py-20 md:px-6">
+    <h2 class="text-3xl font-semibold tracking-[-0.025em]">What you can generate</h2>
+    <p class="mt-3 max-w-2xl text-muted-foreground">Each target is a plugin that reads the same model, so they agree on every name and type.</p>
 
-A plugin is one function, `generate`, which takes the model and returns files. This one writes a list of method names for each group:
+    <div class="mt-10">
+      <CardGrid>
+        <Card title="A TypeScript SDK" icon="ph:brackets-curly" href="/targets/typescript/">A typed client per group, models that decode dates and big numbers, and a small runtime.</Card>
+        <Card title="MCP tools" icon="ph:robot" href="/targets/mcp/">One tool per method for the MCP TypeScript SDK, with schemas, hints and requests built for you.</Card>
+        <Card title="Your own target" icon="ph:puzzle-piece" href="/plugins/overview/">In TypeScript, in Rust, or in any language that compiles to a WebAssembly component.</Card>
+        <Card title="A better document" icon="ph:file-magnifying-glass" href="/openapi/extensions/">The extensions Forge reads, and how to name methods and groups.</Card>
+      </CardGrid>
+    </div>
+  </div>
+</section>
+
+<section class="border-t border-border">
+  <div class="mx-auto max-w-6xl px-4 py-20 md:px-6">
+    <h2 class="text-3xl font-semibold tracking-[-0.025em]">How it works</h2>
+    <p class="mt-3 max-w-2xl text-muted-foreground">Forge does the shared part once. A plugin does the part that belongs to one language.</p>
+
+    <div class="mt-10">
+      <CardGrid class="lg:grid-cols-3">
+        <Card title="1. Read" icon="ph:file-code">Forge parses the document and follows every `$ref` to a parameter, body, response or schema.</Card>
+        <Card title="2. Model" icon="ph:tree-structure">It decides what is a group, a method and a model, and names each one, once for every target.</Card>
+        <Card title="3. Generate" icon="ph:lightning">A plugin takes the model and returns files. Forge writes them, and a plugin cannot write outside `--out`.</Card>
+      </CardGrid>
+    </div>
+
+    <div class="mt-8">
+      <LinkButton href="/concepts/pipeline/" variant="minimal" icon>The pipeline, step by step</LinkButton>
+    </div>
+  </div>
+</section>
+
+<section class="border-t border-border">
+  <div class="mx-auto grid max-w-6xl items-center gap-12 px-4 py-20 md:px-6 lg:grid-cols-[1fr_1.2fr]">
+    <div>
+      <h2 class="text-3xl font-semibold tracking-[-0.025em]">Your target is one function</h2>
+      <p class="mt-3 text-muted-foreground">A plugin is `generate`: it takes the model and returns files. Compile it to a WebAssembly component and run it like a built-in target.</p>
+
+      <div class="mt-8 flex flex-wrap gap-3">
+        <LinkButton href="/plugins/typescript/" variant="secondary" icon>TypeScript plugins</LinkButton>
+        <LinkButton href="/plugins/rust/" variant="minimal" icon>Rust plugins</LinkButton>
+      </div>
+    </div>
+
+    <div class="docs-content min-w-0">
 
 ```ts title="plugin.ts"
 import { definePlugin } from '@cloudflare/forge/plugin';
 
 export const { generate } = definePlugin({
   generate(forge) {
-    return forge.groups.map((group) => {
-      const names = group.methods.map((m) => m.name.camel());
-      const path = [...group.path.map((name) => name.kebab()), 'methods.txt'].join('/');
-      return { path, content: names.join('\n') };
-    });
+    return forge.groups
+      .filter((group) => group.methods.length > 0)
+      .map((group) => ({
+        path: [...group.path.map((name) => name.kebab()), 'methods.txt'].join('/'),
+        content: group.methods.map((m) => m.name.camel()).join('\n'),
+      }));
   },
 });
 ```
 
-Compile it to a WebAssembly component:
-
 <PackageManagers type="exec" pkg="forge-plugin" args="build plugin.ts --out plugin.wasm" />
-
-Then run it as a target:
 
 <PackageManagers type="exec" pkg="forge" args="openapi.json --target wasm://plugin.wasm --out out" />
 
-[The plugin guide](/plugins/overview/) covers the model, testing and the other languages.
+    </div>
+  </div>
+</section>
+
+<section class="border-t border-border">
+  <div class="mx-auto flex max-w-6xl flex-col items-start gap-6 px-4 py-20 md:flex-row md:items-center md:justify-between md:px-6">
+    <div>
+      <h2 class="text-3xl font-semibold tracking-[-0.025em]">From a document to a client in four steps</h2>
+      <p class="mt-3 text-muted-foreground">The quickstart takes one small document through every kind of target.</p>
+    </div>
+    <LinkButton href="/start/quickstart/" variant="primary" size="lg" icon>Start the quickstart</LinkButton>
+  </div>
+</section>

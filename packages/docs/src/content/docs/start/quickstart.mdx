@@ -100,18 +100,21 @@ Run the `ts` target:
 forge openapi.json --target ts --out sdk
 ```
 
-Forge writes a directory per group, and a small runtime in `_/`:
+Forge writes a directory per group, and a small runtime in `_/`. The root `client.ts` has a
+property per top-level group, `pets/client.ts` has `list`, `create` and `delete`, and
+`pets/models.ts` has `Pet` and `NewPet`:
 
-```text
-sdk/
-├── _/                 # the runtime: transport, codecs, errors
-├── client.ts          # the root client, with a property per top-level group
-├── index.ts
-└── pets/
-    ├── client.ts      # list, create and delete
-    ├── index.ts
-    └── models.ts      # Pet and NewPet
-```
+<FileTree>
+- sdk/
+  - _/
+    - ...
+  - client.ts
+  - index.ts
+  - pets/
+    - **client.ts**
+    - index.ts
+    - **models.ts**
+</FileTree>
 
 The models are plain TypeScript. Names come out in the casing of the language: `born_at` is
 `bornAt`, and a `date-time` is a `Temporal.Instant`:
