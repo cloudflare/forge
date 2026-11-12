@@ -1,0 +1,32 @@
+openapi: 3.0.3
+info:
+  title: Plants
+  version: 1.0.0
+paths:
+  /plants:
+    get:
+      operationId: listPlants
+      responses:
+        '200':
+          description: The plants
+      x-fern-examples:
+        - name: Samples
+          code-samples:
+            - language: shell
+              code: curl https://api.example.com/plants
+        - name: Samples
+          code-samples:
+            - language: python
+              code: client.list_plants()
+    delete:
+      operationId: deletePlants
+      responses:
+        '204':
+          description: Deleted
+      x-fern-examples:
+        - name: Samples
+          headers: {}
+        - name: Samples
+          code-samples:
+            - language: shell
+              code: curl -X DELETE https://api.example.com/plants

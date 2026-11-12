@@ -1,0 +1,8 @@
+[
+  {
+    "ruleId": "generators/fern-no-conflicting-request-wrapper-properties",
+    "severity": "error",
+    "message": "Multiple request properties have the name \"name\": query parameter \"q\" (x-fern-parameter-name: \"name\"), requestBody property \"name\". This is not suitable for code generation. Use x-fern-parameter-name on a parameter or x-fern-property-name on a requestBody property to deconflict.",
+    "location": "openapi.yaml#/paths/~1plants/post (key)"
+  }
+]

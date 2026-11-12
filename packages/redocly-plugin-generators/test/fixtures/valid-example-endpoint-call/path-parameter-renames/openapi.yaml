@@ -1,0 +1,113 @@
+openapi: 3.0.3
+info:
+  title: Plants
+  version: 1.0.0
+paths:
+  /plants/{id}:
+    put:
+      operationId: updatePlant
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                id:
+                  type: string
+                name:
+                  type: string
+      responses:
+        '204':
+          description: Updated
+      x-fern-examples:
+        - name: Uses the OpenAPI name
+          path-parameters:
+            id: p1
+          request:
+            name: Fern
+        - name: Uses the renamed key
+          path-parameters:
+            idPathParam: p1
+          request:
+            name: Fern
+  /plants/{id}/notes:
+    get:
+      operationId: listNotes
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: id
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The notes
+      x-fern-examples:
+        - path-parameters:
+            id: p1
+  /gardens/{gardenId}:
+    put:
+      operationId: updateGarden
+      parameters:
+        - name: gardenId
+          in: path
+          required: true
+          x-fern-parameter-name: garden_id
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Garden'
+      responses:
+        '204':
+          description: Updated
+      x-fern-examples:
+        - name: Uses the OpenAPI name instead of x-fern-parameter-name
+          path-parameters:
+            gardenId: g1
+        - name: Uses x-fern-parameter-name
+          path-parameters:
+            garden_id: g1
+  /beds/{name}:
+    put:
+      operationId: updateBed
+      parameters:
+        - name: name
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Garden'
+      responses:
+        '204':
+          description: Updated
+      x-fern-examples:
+        - name: Referenced body, original key
+          path-parameters:
+            name: b1
+        - name: Referenced body, renamed key
+          path-parameters:
+            namePathParam: b1
+components:
+  schemas:
+    Garden:
+      type: object
+      properties:
+        name:
+          type: string

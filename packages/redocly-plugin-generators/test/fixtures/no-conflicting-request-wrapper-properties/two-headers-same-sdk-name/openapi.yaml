@@ -1,0 +1,26 @@
+openapi: 3.0.3
+info:
+  title: Test API
+  version: 1.0.0
+paths:
+  /health:
+    get:
+      operationId: health
+      responses:
+        '200':
+          description: OK
+  /plants:
+    get:
+      operationId: listPlants
+      parameters:
+        - name: X-Request-Id
+          in: header
+          schema:
+            type: string
+        - name: Request-Id
+          in: header
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK

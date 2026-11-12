@@ -1,0 +1,8 @@
+[
+  {
+    "ruleId": "generators/fern-no-duplicate-example-names",
+    "severity": "error",
+    "message": "Duplicate example name: Default. x-fern-examples entry 0 of this operation already uses it.",
+    "location": "plants.yaml#/get/x-fern-examples/1/name"
+  }
+]

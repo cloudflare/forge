@@ -1,0 +1,53 @@
+openapi: 3.1.0
+info:
+  title: Files
+  version: 1.0.0
+paths:
+  /files/{name}.json:
+    get:
+      operationId: getJsonFile
+      parameters:
+        - name: name
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+  /files/{name}.xml:
+    get:
+      operationId: getXmlFile
+      parameters:
+        - name: name
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+  /archives/{name}.zip:
+    get:
+      operationId: getArchive
+      parameters:
+        - name: name
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+  /archives/{id}:
+    get:
+      operationId: getArchiveById
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK

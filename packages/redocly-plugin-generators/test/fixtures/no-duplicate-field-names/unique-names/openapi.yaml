@@ -1,0 +1,19 @@
+openapi: 3.1.0
+info:
+  title: Plant Store
+  version: 1.0.0
+paths: {}
+
+components:
+  schemas:
+    Plant:
+      type: object
+      properties:
+        name:
+          type: string
+        display_name:
+          x-fern-property-name: displayName
+          type: string
+    Status:
+      type: string
+      enum: [active, inactive, in-progress]

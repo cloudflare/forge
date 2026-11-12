@@ -1,0 +1,23 @@
+openapi: 3.1.0
+info:
+  title: Sample API
+  version: 1.0.0
+paths:
+  /admin/members:
+    put:
+      operationId: adminAdd
+      x-fern-sdk-group-name: [members]
+      x-fern-sdk-method-name: add
+      x-fern-audiences: [admin]
+      responses:
+        '200':
+          description: OK
+  /internal/members:
+    put:
+      operationId: internalAdd
+      x-fern-sdk-group-name: [members]
+      x-fern-sdk-method-name: add
+      x-fern-audiences: [internal]
+      responses:
+        '200':
+          description: OK

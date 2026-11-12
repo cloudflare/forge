@@ -1,0 +1,8 @@
+[
+  {
+    "ruleId": "generators/fern-no-undefined-path-parameters",
+    "severity": "error",
+    "message": "x-fern-base-path '/{tenant}/projects/{tenant}' has duplicate path parameter: tenant.",
+    "location": "openapi.yaml#/x-fern-base-path/path"
+  }
+]

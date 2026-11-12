@@ -1,0 +1,26 @@
+[
+  {
+    "ruleId": "generators/fern-valid-type-reference-with-default-and-validation",
+    "severity": "error",
+    "message": "Validation for 'max' must be an integer, but found '9.5'. The schema is an integer, so maximum must be a whole number.",
+    "location": "openapi.yaml#/components/schemas/Plant/properties/height/maximum"
+  },
+  {
+    "ruleId": "generators/fern-valid-type-reference-with-default-and-validation",
+    "severity": "error",
+    "message": "Validation for 'min' must be an integer, but found '0.5'. The schema is an integer, so minimum must be a whole number.",
+    "location": "openapi.yaml#/components/schemas/Plant/properties/height/minimum"
+  },
+  {
+    "ruleId": "generators/fern-valid-type-reference-with-default-and-validation",
+    "severity": "error",
+    "message": "Validation for 'multipleOf' must be an integer, but found '0.5'. The schema is an integer, so multipleOf must be a whole number.",
+    "location": "openapi.yaml#/components/schemas/Plant/properties/height/multipleOf"
+  },
+  {
+    "ruleId": "generators/fern-valid-type-reference-with-default-and-validation",
+    "severity": "error",
+    "message": "Validation for 'min' must be an integer, but found '1.5'. The schema is an integer, so minimum must be a whole number.",
+    "location": "openapi.yaml#/components/schemas/Plant/properties/rings/minimum"
+  }
+]

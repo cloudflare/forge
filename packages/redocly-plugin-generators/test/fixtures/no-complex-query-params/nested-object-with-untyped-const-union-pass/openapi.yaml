@@ -1,0 +1,71 @@
+openapi: 3.1.0
+info:
+  title: Fern port of ObjectWithUnion and NestedObjectWithUnion
+  version: 1.0.0
+paths:
+  /search:
+    get:
+      operationId: search
+      parameters:
+        - name: q
+          in: query
+          style: deepObject
+          schema:
+            $ref: '#/components/schemas/ObjectWithUnion'
+        - name: r
+          in: query
+          style: deepObject
+          schema:
+            $ref: '#/components/schemas/NestedObjectWithUnion'
+        - name: k
+          in: query
+          style: deepObject
+          schema:
+            $ref: '#/components/schemas/NestedObject'
+      responses:
+        '200':
+          description: OK
+components:
+  schemas:
+    Object:
+      type: object
+      properties:
+        foo:
+          type: string
+    NestedObject:
+      type: object
+      properties:
+        foo:
+          type: string
+        object:
+          $ref: '#/components/schemas/Object'
+    ObjectWithUnion:
+      type: object
+      properties:
+        foo:
+          type: string
+        union:
+          $ref: '#/components/schemas/Union'
+    NestedObjectWithUnion:
+      type: object
+      properties:
+        foo:
+          type: string
+        object:
+          $ref: '#/components/schemas/ObjectWithUnion'
+    Union:
+      oneOf:
+        - type: object
+          properties:
+            type:
+              const: str
+            value:
+              type: string
+        - type: object
+          properties:
+            type:
+              const: bool
+            value:
+              type: boolean
+      discriminator:
+        propertyName: type

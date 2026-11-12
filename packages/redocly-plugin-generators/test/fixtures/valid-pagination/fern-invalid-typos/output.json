@@ -1,0 +1,20 @@
+[
+  {
+    "ruleId": "generators/fern-valid-pagination",
+    "severity": "error",
+    "message": "x-fern-pagination for endpoint listWithPaginationTypos specifies 'cursor' $request.typo, which is not a valid 'cursor' type. It must point to an `in: query` parameter or request body property whose type is a string, integer or number.",
+    "location": "openapi.yaml#/paths/~1users/get/x-fern-pagination/cursor"
+  },
+  {
+    "ruleId": "generators/fern-valid-pagination",
+    "severity": "error",
+    "message": "x-fern-pagination for endpoint listWithPaginationTypos specifies 'next_cursor' $response.typo.next.starting_after, which is not a valid 'next_cursor' type. It must point to a property of the JSON success response whose type is a string, integer or number.",
+    "location": "openapi.yaml#/paths/~1users/get/x-fern-pagination/next_cursor"
+  },
+  {
+    "ruleId": "generators/fern-valid-pagination",
+    "severity": "error",
+    "message": "x-fern-pagination for endpoint listWithPaginationTypos specifies 'results' $response.typo, which is not a valid 'results' type. It must point to an existing property of the JSON success response.",
+    "location": "openapi.yaml#/paths/~1users/get/x-fern-pagination/results"
+  }
+]

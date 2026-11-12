@@ -1,0 +1,31 @@
+openapi: 3.0.3
+info:
+  title: Plants
+  version: 1.0.0
+security:
+  - apiKey: []
+paths:
+  /plants:
+    get:
+      operationId: listPlants
+      parameters:
+        - name: X-Api-Key
+          in: header
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The plants
+      x-fern-examples:
+        - name: Lists the API key
+          headers:
+            X-Api-Key: secret
+        - name: Omits the API key
+          headers: {}
+components:
+  securitySchemes:
+    apiKey:
+      type: apiKey
+      in: header
+      name: X-Api-Key

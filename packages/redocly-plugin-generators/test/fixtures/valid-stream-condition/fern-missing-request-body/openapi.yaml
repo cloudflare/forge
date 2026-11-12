@@ -1,0 +1,70 @@
+openapi: 3.0.3
+info:
+  title: Chat
+  version: 1.0.0
+paths:
+  /chat:
+    post:
+      operationId: missingRequestBody
+      x-fern-streaming:
+        stream-condition: $request.stream
+        response:
+          type: string
+        response-stream:
+          type: string
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: string
+
+  /chat/form:
+    post:
+      operationId: formRequestBody
+      x-fern-streaming:
+        stream-condition: $request.stream
+        response:
+          type: string
+        response-stream:
+          type: string
+      requestBody:
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              properties:
+                stream:
+                  type: boolean
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: string
+
+  /chat/array:
+    post:
+      operationId: arrayRequestBody
+      x-fern-streaming:
+        stream-condition: $request.stream
+        response:
+          type: string
+        response-stream:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                type: string
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: string

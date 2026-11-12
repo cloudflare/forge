@@ -1,0 +1,162 @@
+openapi: 3.0.3
+info:
+  title: Users
+  version: 1.0.0
+paths:
+  /orgs/{cursor}/users:
+    parameters:
+      - name: cursor
+        in: path
+        required: true
+        schema:
+          type: string
+    get:
+      operationId: pathParameterIsNotACursor
+      x-fern-pagination:
+        cursor: $request.cursor
+        next_cursor: $response.next
+        results: $response.data
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Paged'
+  /users/header:
+    get:
+      operationId: headerIsNotACursor
+      x-fern-pagination:
+        cursor: $request.X-Cursor
+        next_cursor: $response.next
+        results: $response.data
+      parameters:
+        - name: X-Cursor
+          in: header
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Paged'
+  /users/nested-body:
+    post:
+      operationId: nestedBodyCursor
+      x-fern-pagination:
+        cursor: $request.pagination.cursor
+        next_cursor: $response.next
+        results: $response.data
+      requestBody:
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/Filter'
+                - type: object
+                  properties:
+                    pagination:
+                      $ref: '#/components/schemas/PaginationRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Paged'
+  /users/nested-query:
+    get:
+      operationId: nestedPathDoesNotMatchQuery
+      x-fern-pagination:
+        cursor: $request.pagination.cursor
+        next_cursor: $response.next
+        results: $response.data
+      parameters:
+        - name: pagination.cursor
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Paged'
+  /users/union:
+    post:
+      operationId: unionIsNotTraversed
+      x-fern-pagination:
+        cursor: $request.pagination.cursor
+        next_cursor: $response.next
+        results: $response.data
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                pagination:
+                  oneOf:
+                    - $ref: '#/components/schemas/PaginationRequest'
+                    - $ref: '#/components/schemas/Filter'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Paged'
+  /users/fallback:
+    post:
+      operationId: queryInvalidBodyValid
+      x-fern-pagination:
+        cursor: $request.cursor
+        next_cursor: $response.next
+        results: $response.data
+      parameters:
+        - $ref: '#/components/parameters/BooleanCursor'
+      requestBody:
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              properties:
+                cursor:
+                  type: string
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Paged'
+components:
+  parameters:
+    BooleanCursor:
+      name: cursor
+      in: query
+      schema:
+        type: boolean
+  schemas:
+    Filter:
+      type: object
+      properties:
+        name:
+          type: string
+    PaginationRequest:
+      type: object
+      properties:
+        cursor:
+          type: string
+    Paged:
+      type: object
+      properties:
+        next:
+          type: string
+        data:
+          type: array
+          items:
+            type: string

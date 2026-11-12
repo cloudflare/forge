@@ -1,0 +1,20 @@
+[
+  {
+    "ruleId": "generators/fern-no-undefined-variable-reference",
+    "severity": "error",
+    "message": "Variable appId has invalid x-fern-env: expected a non-empty string but got \"\". Fern fails to import the document.",
+    "location": "openapi.yaml#/x-fern-sdk-variables/appId/x-fern-env"
+  },
+  {
+    "ruleId": "generators/fern-no-undefined-variable-reference",
+    "severity": "error",
+    "message": "Variable region has invalid x-fern-env: expected a non-empty string but got \"   \". Fern fails to import the document.",
+    "location": "openapi.yaml#/x-fern-sdk-variables/region/x-fern-env"
+  },
+  {
+    "ruleId": "generators/fern-no-undefined-variable-reference",
+    "severity": "error",
+    "message": "Variable tenant has invalid x-fern-env: expected a non-empty string but got 5. Fern fails to import the document.",
+    "location": "openapi.yaml#/x-fern-sdk-variables/tenant/x-fern-env"
+  }
+]

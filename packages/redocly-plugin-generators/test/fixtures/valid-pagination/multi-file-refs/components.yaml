@@ -1,0 +1,22 @@
+components:
+  parameters:
+    Offset:
+      name: offset
+      in: query
+      schema:
+        type: string
+  schemas:
+    UserPage:
+      type: object
+      properties:
+        data:
+          $ref: '#/components/schemas/Users'
+        more:
+          type: string
+    Users:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            type: string

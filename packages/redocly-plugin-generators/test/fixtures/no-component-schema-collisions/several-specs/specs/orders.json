@@ -1,0 +1,8 @@
+{
+  "openapi": "3.1.0",
+  "info": { "title": "Orders", "version": "1.0.0" },
+  "paths": {},
+  "components": {
+    "schemas": { "Order": { "type": "object" }, "User": { "type": "object" } }
+  }
+}

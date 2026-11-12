@@ -1,0 +1,26 @@
+openapi: 3.1.0
+info:
+  title: Plant Store
+  version: 1.0.0
+paths:
+  /plants:
+    post:
+      operationId: createPlant
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/日本'
+      responses:
+        '204':
+          description: Created.
+components:
+  schemas:
+    日本:
+      type: object
+      properties:
+        names:
+          type: array
+          items:
+            type: string

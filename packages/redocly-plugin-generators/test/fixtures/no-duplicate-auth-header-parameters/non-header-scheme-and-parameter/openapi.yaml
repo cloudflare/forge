@@ -1,0 +1,30 @@
+openapi: 3.1.0
+info:
+  title: Test API
+  version: 1.0.0
+paths:
+  /plants:
+    get:
+      operationId: listPlants
+      parameters:
+        - name: api_key
+          in: header
+          schema:
+            type: string
+        - name: X-Token
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+components:
+  securitySchemes:
+    QueryKey:
+      type: apiKey
+      in: query
+      name: api_key
+    HeaderKey:
+      type: apiKey
+      in: header
+      name: X-Token

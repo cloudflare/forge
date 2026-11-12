@@ -1,0 +1,14 @@
+[
+  {
+    "ruleId": "generators/fern-valid-type-reference-with-default-and-validation",
+    "severity": "error",
+    "message": "Default value 'tall' is not a valid integer.",
+    "location": "openapi.yaml#/components/schemas/Plant/properties/height/default"
+  },
+  {
+    "ruleId": "generators/fern-valid-type-reference-with-default-and-validation",
+    "severity": "error",
+    "message": "Default value 'tree' is not a valid enum value. Enum values are: fern, moss. Fern's importer drops the default.",
+    "location": "openapi.yaml#/components/schemas/Plant/properties/kind/default"
+  }
+]

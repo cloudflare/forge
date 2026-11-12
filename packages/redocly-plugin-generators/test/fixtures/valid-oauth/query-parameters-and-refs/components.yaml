@@ -1,0 +1,22 @@
+components:
+  parameters:
+    Scope:
+      name: scope
+      in: query
+      schema:
+        type: boolean
+  responses:
+    Token:
+      description: OK
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              data:
+                type: object
+                properties:
+                  access_token:
+                    type: string
+                  expires_in:
+                    type: string

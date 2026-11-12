@@ -1,0 +1,16 @@
+rules:
+  generators/fern-valid-oauth:
+    severity: error
+    getToken:
+      endpoint: POST /token
+      responseProperties:
+        accessToken: $response.accessToken
+        expiresIn: $response.expiresIn
+    refreshToken:
+      endpoint: POST /token/refresh
+      requestProperties:
+        refreshToken: $request.refreshTokenDoesNotExist
+      responseProperties:
+        accessToken: $response.accessTokenDoesNotExist
+        expiresIn: $response.expiresInDoesNotExist
+        refreshToken: $response.refreshTokenDoesNotExist

@@ -1,0 +1,40 @@
+openapi: 3.1.0
+info:
+  title: Shapes
+  version: 1.0.0
+paths:
+  /shapes:
+    get:
+      operationId: listShapes
+      parameters:
+        - name: shapes
+          in: query
+          explode: true
+          schema:
+            type: array
+            items:
+              $ref: '#/components/schemas/Shape'
+      responses:
+        '200':
+          description: OK
+components:
+  schemas:
+    Shape:
+      oneOf:
+        - $ref: '#/components/schemas/Circle'
+        - $ref: '#/components/schemas/Square'
+      discriminator:
+        propertyName: type
+        mapping:
+          circle: '#/components/schemas/Circle'
+          square: '#/components/schemas/Square'
+    Circle:
+      type: object
+      properties:
+        type:
+          type: string
+    Square:
+      type: object
+      properties:
+        type:
+          type: string

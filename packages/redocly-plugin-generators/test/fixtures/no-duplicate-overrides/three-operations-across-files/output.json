@@ -1,0 +1,14 @@
+[
+  {
+    "ruleId": "generators/fern-no-duplicate-overrides",
+    "severity": "error",
+    "message": "SDK method plants.list already exists (x-fern-sdk-group-name: plants, x-fern-sdk-method-name: list)",
+    "location": "paths/plants-v2.yaml#/get/x-fern-sdk-method-name"
+  },
+  {
+    "ruleId": "generators/fern-no-duplicate-overrides",
+    "severity": "error",
+    "message": "SDK method plants.list already exists (x-fern-sdk-group-name: plants, x-fern-sdk-method-name: list)",
+    "location": "paths/plants-v2.yaml#/post/x-fern-sdk-method-name"
+  }
+]

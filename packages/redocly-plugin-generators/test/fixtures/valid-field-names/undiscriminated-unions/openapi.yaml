@@ -1,0 +1,41 @@
+openapi: 3.1.0
+info:
+  title: Plant Store
+  version: 1.0.0
+paths: {}
+
+components:
+  schemas:
+    Undiscriminated:
+      x-fern-undiscriminated: true
+      oneOf:
+        - $ref: '#/components/schemas/A'
+      discriminator:
+        propertyName: _type
+        mapping:
+          a: '#/components/schemas/A'
+    NotDiscriminated:
+      x-fern-discriminated: false
+      oneOf:
+        - $ref: '#/components/schemas/A'
+      discriminator:
+        propertyName: _type
+        mapping:
+          a: '#/components/schemas/A'
+    WithoutMapping:
+      oneOf:
+        - $ref: '#/components/schemas/A'
+      discriminator:
+        propertyName: _type
+    AnyOfWithMapping:
+      anyOf:
+        - $ref: '#/components/schemas/A'
+      discriminator:
+        propertyName: _type
+        mapping:
+          a: '#/components/schemas/A'
+    A:
+      type: object
+      properties:
+        _type:
+          type: string

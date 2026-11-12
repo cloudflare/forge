@@ -1,0 +1,8 @@
+[
+  {
+    "ruleId": "generators/fern-no-undefined-path-parameters",
+    "severity": "error",
+    "message": "Path '/a/{id}/b/{id}/c/{id}' has duplicate path parameter: id.",
+    "location": "openapi.yaml#/paths/~1a~1{id}~1b~1{id}~1c~1{id} (key)"
+  }
+]

@@ -1,0 +1,19 @@
+parameters:
+  - name: plantId
+    in: path
+    required: true
+    schema:
+      type: string
+get:
+  requestBody:
+    $ref: '#/components/requestBodies/Filter'
+  responses:
+    '200':
+      description: OK
+components:
+  requestBodies:
+    Filter:
+      content:
+        application/json:
+          schema:
+            type: object

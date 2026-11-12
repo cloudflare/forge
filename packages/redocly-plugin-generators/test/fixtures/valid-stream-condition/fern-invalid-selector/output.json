@@ -1,0 +1,26 @@
+[
+  {
+    "ruleId": "generators/fern-valid-stream-condition",
+    "severity": "error",
+    "message": "Please specify path to a valid property (e.g. $request.stream). stream-condition must name a top-level property of the JSON request body, optionally prefixed with $request.",
+    "location": "openapi.yaml#/paths/~1chat/post/x-fern-streaming/stream-condition"
+  },
+  {
+    "ruleId": "generators/fern-valid-stream-condition",
+    "severity": "error",
+    "message": "Please specify path to a valid property (e.g. $request.stream). stream-condition must name a top-level property of the JSON request body, optionally prefixed with $request.",
+    "location": "openapi.yaml#/paths/~1chat~1empty/post/x-fern-streaming/stream-condition"
+  },
+  {
+    "ruleId": "generators/fern-valid-stream-condition",
+    "severity": "error",
+    "message": "Please specify path to a valid property (e.g. $request.stream). stream-condition must name a top-level property of the JSON request body, optionally prefixed with $request.",
+    "location": "openapi.yaml#/paths/~1chat~1number/post/x-fern-streaming/stream-condition"
+  },
+  {
+    "ruleId": "generators/fern-valid-stream-condition",
+    "severity": "error",
+    "message": "Please specify path to a valid property (e.g. $request.stream). stream-condition must name a top-level property of the JSON request body, optionally prefixed with $request.",
+    "location": "openapi.yaml#/paths/~1chat~1query/post/x-fern-streaming/stream-condition"
+  }
+]

@@ -1,0 +1,9 @@
+[
+  {
+    "ruleId": "no-invalid-media-type-examples",
+    "severity": "error",
+    "message": "Example value must conform to the schema: `name` property type must be string.",
+    "location": "openapi.yaml#/paths/~1plants/post/requestBody/content/application~1json/examples/wrongType/value/name",
+    "from": "openapi.yaml#/paths/~1plants/post/requestBody/content/application~1json"
+  }
+]

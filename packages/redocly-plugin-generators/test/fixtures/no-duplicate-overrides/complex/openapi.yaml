@@ -1,0 +1,33 @@
+openapi: 3.1.0
+info:
+  title: Sample API
+  version: 1.0.0
+paths:
+  /a/{alpha}:
+    get:
+      operationId: operation-id-a
+      x-fern-sdk-group-name:
+        - a
+        - b
+        - c
+      x-fern-sdk-method-name: d
+      parameters:
+        - name: alpha
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+  /a/b:
+    get:
+      operationId: operation-id-b
+      x-fern-sdk-group-name:
+        - a
+        - b
+        - c
+      x-fern-sdk-method-name: d
+      responses:
+        '200':
+          description: OK

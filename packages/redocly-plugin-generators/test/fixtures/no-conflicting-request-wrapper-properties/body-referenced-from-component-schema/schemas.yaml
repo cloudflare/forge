@@ -1,0 +1,9 @@
+components:
+  schemas:
+    Plant:
+      type: object
+      properties:
+        name:
+          type: string
+        parent:
+          $ref: '#/components/schemas/Plant'

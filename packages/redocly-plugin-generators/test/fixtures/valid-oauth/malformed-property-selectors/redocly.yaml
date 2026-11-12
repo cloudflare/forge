@@ -1,0 +1,10 @@
+rules:
+  generators/fern-valid-oauth:
+    severity: error
+    getToken:
+      endpoint: POST /token
+      requestProperties:
+        clientId: client_id
+      responseProperties:
+        accessToken: access_token
+        expiresIn: $request.expires_in

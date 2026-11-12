@@ -1,0 +1,20 @@
+openapi: 3.1.0
+info:
+  title: Test API
+  version: 1.0.0
+x-fern-base-path:
+  path: /{tenant}
+  paths-include-base-path: true
+paths:
+  /{tenant}users:
+    get:
+      operationId: listUsers
+      parameters:
+        - name: tenant
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK

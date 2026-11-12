@@ -10,6 +10,7 @@ dist/
 openapi.json
 openapi.*.json
 **/openapi.forge.json
+!packages/redocly-plugin-generators/test/fixtures/**/openapi.json
 
 # Build output. Every member of the workspace builds into the target
 # directory at its root.

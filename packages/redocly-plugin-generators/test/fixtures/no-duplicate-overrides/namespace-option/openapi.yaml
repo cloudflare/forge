@@ -1,0 +1,23 @@
+openapi: 3.0.0
+info:
+  title: Sample API
+  version: 1.0.0
+paths:
+  /referrals/reward-balance:
+    get:
+      operationId: getRewardBalance
+      x-fern-sdk-group-name: [referrals]
+      x-fern-sdk-method-name: fetchRewardBalance
+      x-fern-audiences: [public]
+      responses:
+        '200':
+          description: OK
+  /v2/referrals/reward-balance:
+    get:
+      operationId: getRewardBalanceV2
+      x-fern-sdk-group-name: [referrals]
+      x-fern-sdk-method-name: fetchRewardBalance
+      x-fern-audiences: [public]
+      responses:
+        '200':
+          description: OK

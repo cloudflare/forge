@@ -1,0 +1,64 @@
+openapi: 3.1.0
+info:
+  title: Plants
+  version: 1.0.0
+paths:
+  /plants/events:
+    get:
+      operationId: plantEvents
+      responses:
+        '200':
+          description: Server-sent plant events
+          content:
+            text/event-stream:
+              schema:
+                $ref: '#/components/schemas/PlantEvent'
+      x-fern-examples:
+        - name: Valid events
+          response:
+            stream:
+              - event: grown
+                data:
+                  plant: Fern
+                  height: 3
+              - event: watered
+                data:
+                  plant: Moss
+        - name: Invalid events
+          response:
+            stream:
+              - event: grown
+                data:
+                  plant: Fern
+                  height: tall
+              - plant: Moss
+              - just text
+  /plants/feed:
+    get:
+      operationId: plantFeed
+      x-fern-streaming:
+        format: sse
+      responses:
+        '200':
+          description: Server-sent plant events
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlantEvent'
+      x-fern-examples:
+        - name: x-fern-streaming with format sse
+          response:
+            stream:
+              - event: grown
+                data:
+                  height: 3
+components:
+  schemas:
+    PlantEvent:
+      type: object
+      required: [plant]
+      properties:
+        plant:
+          type: string
+        height:
+          type: number

@@ -1,0 +1,18 @@
+openapi: 3.1.0
+info:
+  title: Test API
+  version: 1.0.0
+paths:
+  /requests/{request}:
+    get:
+      operationId: getRequest
+      parameters:
+        - name: request
+          in: path
+          required: true
+          x-fern-parameter-name: requestId
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK

@@ -1,0 +1,26 @@
+openapi: 3.1.0
+info:
+  title: Users
+  version: 1.0.0
+x-fern-global-headers:
+  - header: X-Request-Id
+    schema:
+      $ref: '#/info/x-request-id-schema'
+paths:
+  /users:
+    get:
+      operationId: listUsers
+      x-code-samples-meta:
+        nested:
+          - $ref: '#/paths/~1users/get/responses'
+          - $ref: '#/components/schemas/User'
+      responses:
+        '200':
+          description: OK
+components:
+  schemas:
+    User:
+      type: object
+      properties:
+        id:
+          type: string

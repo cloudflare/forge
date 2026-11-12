@@ -1,0 +1,8 @@
+[
+  {
+    "ruleId": "generators/fern-no-duplicate-auth-header-parameters",
+    "severity": "error",
+    "message": "Header parameter 'AUTHORIZATION' conflicts with the 'AUTHORIZATION' header already defined by a security scheme. This parameter will be ignored during SDK generation.",
+    "location": "paths/plants.yaml#/post/parameters/0/name"
+  }
+]

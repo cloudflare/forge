@@ -1,0 +1,10 @@
+openapi: 3.1.0
+info:
+  title: Plants
+  version: 1.0.0
+paths:
+  plants:
+    get:
+      responses:
+        '200':
+          description: OK

@@ -1,0 +1,47 @@
+openapi: 3.1.0
+info:
+  title: Users
+  version: 1.0.0
+paths:
+  /users/me:
+    get:
+      operationId: getMe
+      responses:
+        '200':
+          description: OK
+  /users/{id}:
+    get:
+      operationId: getUser
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+  /teams/{teamId}:
+    get:
+      operationId: getTeam
+      parameters:
+        - name: teamId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+  /teams/{id}:
+    delete:
+      operationId: deleteTeam
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Deleted

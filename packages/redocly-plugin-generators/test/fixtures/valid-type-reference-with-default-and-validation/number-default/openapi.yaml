@@ -1,0 +1,21 @@
+openapi: 3.0.3
+info:
+  title: Plants
+  version: 1.0.0
+paths: {}
+components:
+  schemas:
+    Plant:
+      type: object
+      properties:
+        ratio:
+          type: number
+          default: fast
+        weight:
+          type: number
+          format: float
+          default: '1.5'
+        growth:
+          type: number
+          format: double
+          default: 2

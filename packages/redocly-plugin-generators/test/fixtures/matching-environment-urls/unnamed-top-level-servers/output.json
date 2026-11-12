@@ -1,0 +1,8 @@
+[
+  {
+    "ruleId": "generators/fern-matching-environment-urls",
+    "severity": "warn",
+    "message": "Top-level server 'https://staging.example.com' is dropped: none of the top-level servers has an x-fern-server-name, so Fern only uses the first one ('https://api.example.com') as the 'Default' environment. Name each server with x-fern-server-name to get one environment per server. Its description 'Staging' is not used as a name: Fern only derives names from the descriptions 'Production' and 'Sandbox'.",
+    "location": "openapi.yaml#/servers/2"
+  }
+]

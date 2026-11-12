@@ -1,0 +1,30 @@
+openapi: 3.0.3
+info:
+  title: Uploads
+  version: 1.0.0
+paths:
+  /upload:
+    post:
+      operationId: upload
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+                metadata:
+                  type: object
+                  properties:
+                    author:
+                      type: string
+            encoding:
+              file:
+                contentType: image/png, image/jpeg
+              metadata:
+                contentType: application/json
+      responses:
+        '200':
+          description: OK

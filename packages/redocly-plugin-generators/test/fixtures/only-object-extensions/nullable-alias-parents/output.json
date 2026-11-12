@@ -1,0 +1,32 @@
+[
+  {
+    "ruleId": "generators/fern-only-object-extensions",
+    "severity": "error",
+    "message": "Objects can only extend other objects, and \"AllOfAliasOfNullable\" is not an object: it is nullable, which Fern imports as a nullable alias rather than an object. Fern turns this `allOf` `$ref` into an `extends`, so the referenced schema must be an object schema with `properties`.",
+    "location": "openapi.yaml#/components/schemas/Child/allOf/0/$ref (key)"
+  },
+  {
+    "ruleId": "generators/fern-only-object-extensions",
+    "severity": "error",
+    "message": "Objects can only extend other objects, and \"RefAliasOfNullable\" is not an object: it is nullable, which Fern imports as a nullable alias rather than an object. Fern turns this `allOf` `$ref` into an `extends`, so the referenced schema must be an object schema with `properties`.",
+    "location": "openapi.yaml#/components/schemas/Child/allOf/1/$ref (key)"
+  },
+  {
+    "ruleId": "generators/fern-only-object-extensions",
+    "severity": "error",
+    "message": "Objects can only extend other objects, and \"NullableAliasOfObject\" is not an object: it is nullable, which Fern imports as a nullable alias rather than an object. Fern turns this `allOf` `$ref` into an `extends`, so the referenced schema must be an object schema with `properties`.",
+    "location": "openapi.yaml#/components/schemas/Child/allOf/2/$ref (key)"
+  },
+  {
+    "ruleId": "generators/fern-only-object-extensions",
+    "severity": "error",
+    "message": "Objects can only extend other objects, and \"NullableString\" is not an object: it is nullable, which Fern imports as a nullable alias rather than an object. Fern turns this `allOf` `$ref` into an `extends`, so the referenced schema must be an object schema with `properties`.",
+    "location": "openapi.yaml#/components/schemas/Child/allOf/3/$ref (key)"
+  },
+  {
+    "ruleId": "generators/fern-only-object-extensions",
+    "severity": "error",
+    "message": "Objects can only extend other objects, and \"NullableMap\" is not an object: it is nullable, which Fern imports as a nullable alias rather than an object. Fern turns this `allOf` `$ref` into an `extends`, so the referenced schema must be an object schema with `properties`.",
+    "location": "openapi.yaml#/components/schemas/Child/allOf/4/$ref (key)"
+  }
+]

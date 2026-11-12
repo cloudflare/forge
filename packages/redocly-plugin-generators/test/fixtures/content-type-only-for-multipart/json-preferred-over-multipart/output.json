@@ -1,0 +1,8 @@
+[
+  {
+    "ruleId": "generators/fern-content-type-only-for-multipart",
+    "severity": "error",
+    "message": "Property \"title\" has `encoding.title.contentType`, but the request body is `application/vnd.api+json`, not multipart. Fern only applies per-property content types to multipart/form-data request bodies and ignores this one.",
+    "location": "openapi.yaml#/paths/~1documents/post/requestBody/content/application~1vnd.api+json/encoding/title/contentType (key)"
+  }
+]

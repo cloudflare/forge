@@ -1,0 +1,7 @@
+post:
+  operationId: uploadFile
+  servers:
+    - $ref: ./server.yaml
+  responses:
+    '200':
+      description: OK

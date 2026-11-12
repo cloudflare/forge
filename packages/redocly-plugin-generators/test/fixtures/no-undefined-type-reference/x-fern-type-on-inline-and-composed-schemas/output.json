@@ -1,0 +1,14 @@
+[
+  {
+    "ruleId": "generators/fern-no-undefined-type-reference",
+    "severity": "error",
+    "message": "Type Tag is not defined. x-fern-type 'Tag' references it, but it is neither a Fern primitive nor a key of components.schemas, so Fern treats it as unknown.",
+    "location": "openapi.yaml#/paths/~1pets/get/parameters/1/schema/x-fern-type"
+  },
+  {
+    "ruleId": "generators/fern-no-undefined-type-reference",
+    "severity": "error",
+    "message": "Type Owner is not defined. x-fern-type 'nullable<Owner>' references it, but it is neither a Fern primitive nor a key of components.schemas, so Fern treats it as unknown.",
+    "location": "openapi.yaml#/paths/~1pets/get/responses/200/content/application~1json/schema/allOf/1/properties/owner/x-fern-type"
+  }
+]

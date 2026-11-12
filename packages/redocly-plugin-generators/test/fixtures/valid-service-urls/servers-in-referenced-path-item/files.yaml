@@ -1,0 +1,7 @@
+get:
+  operationId: listFiles
+  servers:
+    - url: https://files.example.com
+  responses:
+    '200':
+      description: OK

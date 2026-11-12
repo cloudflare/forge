@@ -1,0 +1,13 @@
+openapi: 3.1.0
+info:
+  title: Test API
+  version: 1.0.0
+x-fern-global-headers:
+  - header: X-API-Version
+    type: Version
+  - header: X-Tags
+    type: map<Tag, string>
+x-fern-idempotency-headers:
+  - header: Idempotency-Key
+    type: optional<Key>
+paths: {}

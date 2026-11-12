@@ -1,0 +1,20 @@
+[
+  {
+    "ruleId": "generators/fern-valid-type-name",
+    "severity": "error",
+    "message": "Type name must begin with a letter: Fern generates the type name \"_\" from the components.schemas key \"_\". Add x-fern-type-name with a name that begins with a letter.",
+    "location": "openapi.yaml#/components/schemas/_ (key)"
+  },
+  {
+    "ruleId": "generators/fern-valid-type-name",
+    "severity": "error",
+    "message": "Type name must begin with a letter: Fern generates the type name \"$$\" from the components.schemas key \"$$\". Add x-fern-type-name with a name that begins with a letter.",
+    "location": "openapi.yaml#/components/schemas/$$ (key)"
+  },
+  {
+    "ruleId": "generators/fern-valid-type-name",
+    "severity": "error",
+    "message": "Type name must begin with a letter: Fern generates the type name \"日本\" from the components.schemas key \"日本\". Add x-fern-type-name with a name that begins with a letter.",
+    "location": "openapi.yaml#/components/schemas/日本 (key)"
+  }
+]

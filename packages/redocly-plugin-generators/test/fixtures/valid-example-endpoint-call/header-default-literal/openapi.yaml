@@ -1,0 +1,36 @@
+openapi: 3.0.3
+info:
+  title: Plants
+  version: 1.0.0
+paths:
+  /plants:
+    get:
+      operationId: listPlants
+      parameters:
+        - name: X-Api-Version
+          in: header
+          schema:
+            type: string
+            default: '2024-01-01'
+        - name: X-Format
+          in: header
+          schema:
+            $ref: '#/components/schemas/Format'
+      responses:
+        '200':
+          description: The plants
+      x-fern-examples:
+        - name: Matching constant
+          headers:
+            X-Api-Version: '2024-01-01'
+        - name: Different value
+          headers:
+            X-Api-Version: '2023-01-01'
+        - name: Constant header omitted
+          headers:
+            X-Format: json
+components:
+  schemas:
+    Format:
+      type: string
+      default: json

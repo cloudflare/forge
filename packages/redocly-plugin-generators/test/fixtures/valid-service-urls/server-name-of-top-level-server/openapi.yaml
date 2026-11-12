@@ -1,0 +1,17 @@
+openapi: 3.1.0
+info:
+  title: Test API
+  version: 1.0.0
+servers:
+  - url: https://api.example.com
+    x-fern-server-name: Production
+  - url: https://staging.example.com
+    x-fern-server-name: Staging
+paths:
+  /files:
+    get:
+      operationId: listFiles
+      x-fern-server-name: Staging
+      responses:
+        '200':
+          description: OK

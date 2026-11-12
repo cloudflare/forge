@@ -1,0 +1,44 @@
+openapi: 3.0.3
+info:
+  title: Plants
+  version: 1.0.0
+paths:
+  /plants:
+    get:
+      operationId: listPlants
+      parameters:
+        - name: legacy
+          in: query
+          required: true
+          x-fern-ignore: true
+          schema:
+            type: string
+        - name: User-Agent
+          in: header
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The plants
+      x-fern-examples:
+        - name: Lists parameters Fern drops
+          query-parameters:
+            legacy: 'yes'
+          headers:
+            User-Agent: plants-cli
+    post:
+      operationId: createPlant
+      x-fern-ignore: true
+      parameters:
+        - name: X-Required
+          in: header
+          required: true
+          schema:
+            type: string
+      responses:
+        '201':
+          description: Created
+      x-fern-examples:
+        - name: Ignored operations are not checked
+          headers: {}

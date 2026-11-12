@@ -1,0 +1,18 @@
+openapi: 3.1.0
+info:
+  title: Plant Store
+  version: 1.0.0
+paths: {}
+
+components:
+  schemas:
+    Sizes:
+      type: object
+      properties:
+        2xl:
+          type: integer
+        _2xl:
+          type: integer
+        3xl:
+          x-fern-property-name: xxxl
+          type: integer

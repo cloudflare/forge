@@ -1,0 +1,15 @@
+openapi: 3.0.3
+info:
+  title: Plant Store
+  version: 1.0.0
+paths: {}
+components:
+  schemas:
+    Operator:
+      type: string
+      enum: ['~', '^', '$', 'eq']
+      x-fern-enum:
+        '~':
+          name: Tilde
+        '$':
+          name: _dollar

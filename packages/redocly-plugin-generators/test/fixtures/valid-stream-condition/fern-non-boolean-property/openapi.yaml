@@ -1,0 +1,54 @@
+openapi: 3.1.0
+info:
+  title: Chat
+  version: 1.0.0
+paths:
+  /chat:
+    post:
+      operationId: nonBooleanStreamCondition
+      x-fern-streaming:
+        stream-condition: $request.stream
+        response:
+          type: string
+        response-stream:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                stream:
+                  type: string
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: string
+
+  /chat/enum:
+    post:
+      operationId: nullableIntegerStreamCondition
+      x-fern-streaming:
+        stream-condition: stream
+        response:
+          type: string
+        response-stream:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                stream:
+                  type: [integer, 'null']
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: string

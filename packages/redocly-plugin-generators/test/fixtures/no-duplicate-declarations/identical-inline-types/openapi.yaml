@@ -1,0 +1,21 @@
+openapi: 3.1.0
+info:
+  title: Plant Store
+  version: 1.0.0
+paths: {}
+components:
+  schemas:
+    Plant:
+      type: object
+      properties:
+        leafColor:
+          x-fern-type-name: Color
+          type: string
+          enum: [green, red]
+        flowerColor:
+          x-fern-type-name: Color
+          type: string
+          enum: [green, red]
+        nickname:
+          x-fern-type-name: Nickname
+          type: string

@@ -1,0 +1,23 @@
+openapi: 3.0.3
+info:
+  title: Plant Store
+  version: 1.0.0
+paths: {}
+
+components:
+  schemas:
+    Status:
+      type: string
+      enum: [ok, failed]
+      x-enum-varnames: [1_OK, 2_FAILED]
+    Priority:
+      type: string
+      enum: [first, second]
+      x-enum-varnames: [PRIORITY_1, PRIORITY_2]
+    Mixed:
+      type: string
+      enum: [up, down]
+      x-enum-varnames: [UP, DOWN]
+      x-fern-enum:
+        up:
+          name: 1up

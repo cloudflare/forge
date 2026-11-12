@@ -1,0 +1,4 @@
+rules:
+  generators/fern-no-component-schema-collisions:
+    severity: warn
+    apis: [specs/api2.yaml, specs/orders.json]

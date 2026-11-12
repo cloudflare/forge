@@ -1,0 +1,47 @@
+openapi: 3.1.0
+info:
+  title: Uploads
+  version: 1.0.0
+paths:
+  /upload:
+    post:
+      operationId: upload
+      requestBody:
+        $ref: '#/components/requestBodies/Upload'
+      responses:
+        '200':
+          description: OK
+components:
+  requestBodies:
+    Upload:
+      content:
+        multipart/form-data:
+          schema:
+            $ref: '#/components/schemas/UploadForm'
+          encoding:
+            count:
+              explode: true
+            metadata:
+              explode: true
+              contentType: text/plain
+            nullableName:
+              explode: true
+            color:
+              explode: true
+  schemas:
+    UploadForm:
+      type: object
+      properties:
+        count:
+          type: integer
+        metadata:
+          $ref: '#/components/schemas/Metadata'
+        nullableName:
+          type: [string, 'null']
+        color:
+          enum: [red, green]
+    Metadata:
+      type: object
+      properties:
+        author:
+          type: string

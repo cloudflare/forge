@@ -1,0 +1,12 @@
+openapi: 3.1.0
+info:
+  title: Test API
+  version: 1.0.0
+x-fern-global-parameters:
+  - in: query
+    type: string
+  - name: 42
+    in: header
+  - currency
+  - name: valid
+paths: {}

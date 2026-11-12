@@ -1,0 +1,8 @@
+[
+  {
+    "ruleId": "generators/fern-valid-type-reference-with-default-and-validation",
+    "severity": "error",
+    "message": "Default value 'green' is not valid: the default value for a list type must be an array.",
+    "location": "openapi.yaml#/components/schemas/Plant/properties/tags/default"
+  }
+]

@@ -1,0 +1,29 @@
+openapi: 3.0.3
+info:
+  title: Plants
+  version: 1.0.0
+paths: {}
+components:
+  schemas:
+    Plant:
+      type: object
+      properties:
+        height:
+          type: integer
+          default: 1.5
+        width:
+          type: integer
+          format: int32
+          default: '5'
+        seeds:
+          type: integer
+          format: int64
+          default: '5'
+        leaves:
+          type: integer
+          format: uint32
+          default: 2.5
+        rings:
+          type: number
+          format: int32
+          default: 1.5

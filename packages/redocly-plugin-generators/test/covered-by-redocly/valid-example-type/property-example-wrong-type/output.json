@@ -1,0 +1,16 @@
+[
+  {
+    "ruleId": "no-invalid-schema-examples",
+    "severity": "error",
+    "message": "Example value must conform to the schema: must be >= 0.",
+    "location": "openapi.yaml#/components/schemas/Height/examples/0",
+    "from": "openapi.yaml#/components/schemas/Height"
+  },
+  {
+    "ruleId": "no-invalid-schema-examples",
+    "severity": "error",
+    "message": "Example value must conform to the schema: must be equal to one of the allowed values \"fern\", \"moss\".",
+    "location": "openapi.yaml#/components/schemas/Kind/example",
+    "from": "openapi.yaml#/components/schemas/Kind"
+  }
+]

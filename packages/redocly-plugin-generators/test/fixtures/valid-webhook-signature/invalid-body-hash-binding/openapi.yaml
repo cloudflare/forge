@@ -1,0 +1,104 @@
+openapi: 3.1.0
+info:
+  title: Test API
+  version: 1.0.0
+paths: {}
+webhooks:
+  a:
+    post:
+      operationId: a
+      x-fern-webhook-signature:
+        type: hmac
+        header: X-Signature
+        payload-format:
+          components: [notification-url, body]
+        body-hash-binding:
+          algorithm: md5
+          encoding: base32
+          location:
+            type: query-parameter
+            name: ''
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: OK
+  b:
+    post:
+      operationId: b
+      x-fern-webhook-signature:
+        type: hmac
+        header: X-Signature
+        payload-format:
+          components: [notification-url, body]
+        body-hash-binding:
+          algorithm: sha256
+          location:
+            type: header
+            name: X-Body-Hash
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: OK
+  c:
+    post:
+      operationId: c
+      x-fern-webhook-signature:
+        type: hmac
+        header: X-Signature
+        payload-format:
+          components: [notification-url, body]
+        body-hash-binding:
+          algorithm: sha256
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: OK
+  d:
+    post:
+      operationId: d
+      x-fern-webhook-signature:
+        type: hmac
+        header: X-Signature
+        payload-format:
+          components: [body]
+        body-hash-binding:
+          algorithm: sha256
+          encoding: base32
+          location:
+            type: query-parameter
+            name: ''
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: OK
+  e:
+    post:
+      operationId: e
+      x-fern-webhook-signature:
+        type: hmac
+        header: X-Signature
+        body-hash-binding: sha256
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: OK

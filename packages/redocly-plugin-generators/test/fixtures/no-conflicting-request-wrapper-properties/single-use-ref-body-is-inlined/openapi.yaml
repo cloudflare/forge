@@ -1,0 +1,42 @@
+openapi: 3.1.0
+info:
+  title: Test API
+  version: 1.0.0
+paths:
+  /health:
+    get:
+      operationId: health
+      responses:
+        '200':
+          description: OK
+  /plants:
+    post:
+      operationId: createPlant
+      parameters:
+        - name: q
+          in: query
+          x-fern-parameter-name: title
+          schema:
+            type: string
+        - name: body
+          in: query
+          schema:
+            type: string
+      requestBody:
+        $ref: '#/components/requestBodies/CreatePlant'
+      responses:
+        '200':
+          description: OK
+components:
+  requestBodies:
+    CreatePlant:
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/CreatePlantRequest'
+  schemas:
+    CreatePlantRequest:
+      type: object
+      properties:
+        title:
+          type: string

@@ -1,0 +1,8 @@
+[
+  {
+    "ruleId": "generators/fern-no-conflicting-parameter-names",
+    "severity": "error",
+    "message": "Parameters path parameter 'plant_id', query parameter 'plantId', header parameter 'Plant-Id' all normalize to 'plantId' in generated SDKs. This causes broken code (duplicate keyword arguments in Python, duplicate properties in TypeScript). Rename one of the parameters to avoid the collision.",
+    "location": "openapi.yaml#/paths/~1plants~1{plant_id}/get (key)"
+  }
+]

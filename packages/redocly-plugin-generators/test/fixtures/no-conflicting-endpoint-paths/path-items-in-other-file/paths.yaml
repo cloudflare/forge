@@ -1,0 +1,24 @@
+ProjectSettings:
+  parameters:
+    - name: projectId
+      in: path
+      required: true
+      schema:
+        type: string
+  patch:
+    operationId: updateProjectSettings
+    responses:
+      '200':
+        description: OK
+DefaultProjectSection:
+  parameters:
+    - name: section
+      in: path
+      required: true
+      schema:
+        type: string
+  patch:
+    operationId: updateDefaultProjectSection
+    responses:
+      '200':
+        description: OK

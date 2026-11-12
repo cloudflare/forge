@@ -1,0 +1,12 @@
+openapi: 3.0.3
+info:
+  title: Test API
+  version: 1.0.0
+servers:
+  - url: https://api.example.com
+    x-fern-server-name: Production
+  - url: https://sandbox.example.com
+    description: Sandbox
+  - url: https://staging.example.com
+    description: Staging environment
+paths: {}

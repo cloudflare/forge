@@ -1,0 +1,14 @@
+openapi: 3.0.3
+info:
+  title: Test API
+  version: 1.0.0
+x-fern-base-url-env: PETSTORE_BASE_URL
+servers:
+  - url: https://api.example.com
+paths:
+  /pets:
+    get:
+      operationId: listPets
+      responses:
+        '200':
+          description: OK

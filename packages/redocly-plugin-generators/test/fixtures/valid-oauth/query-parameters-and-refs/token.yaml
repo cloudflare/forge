@@ -1,0 +1,15 @@
+post:
+  operationId: getToken
+  parameters:
+    - name: client_id
+      in: query
+      schema:
+        type: string
+    - name: client_secret
+      in: header
+      schema:
+        type: string
+    - $ref: ./components.yaml#/components/parameters/Scope
+  responses:
+    '200':
+      $ref: ./components.yaml#/components/responses/Token

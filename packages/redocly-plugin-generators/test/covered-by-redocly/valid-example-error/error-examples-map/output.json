@@ -1,0 +1,16 @@
+[
+  {
+    "ruleId": "no-invalid-media-type-examples",
+    "severity": "error",
+    "message": "Example value must conform to the schema: must have required property 'errors'.",
+    "location": "openapi.yaml#/paths/~1plants/post/responses/422/content/application~1json/examples/missingName/value",
+    "from": "openapi.yaml#/paths/~1plants/post/responses/422/content/application~1json"
+  },
+  {
+    "ruleId": "no-invalid-media-type-examples",
+    "severity": "error",
+    "message": "Example value must conform to the schema: must NOT have unevaluated properties `message`.",
+    "location": "openapi.yaml#/paths/~1plants/post/responses/422/content/application~1json/examples/missingName/value/message (key)",
+    "from": "openapi.yaml#/paths/~1plants/post/responses/422/content/application~1json"
+  }
+]

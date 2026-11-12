@@ -1,0 +1,20 @@
+[
+  {
+    "ruleId": "generators/fern-no-duplicate-example-names",
+    "severity": "error",
+    "message": "Duplicate example name: Page. x-fern-examples entry 0 of this operation already uses it.",
+    "location": "openapi.yaml#/paths/~1plants/get/x-fern-examples/1/name"
+  },
+  {
+    "ruleId": "generators/fern-no-duplicate-example-names",
+    "severity": "error",
+    "message": "Duplicate example name: Page. x-fern-examples entry 0 of this operation already uses it.",
+    "location": "openapi.yaml#/paths/~1plants/get/x-fern-examples/3/name"
+  },
+  {
+    "ruleId": "generators/fern-no-duplicate-example-names",
+    "severity": "error",
+    "message": "Duplicate example name: Last page. x-fern-examples entry 2 of this operation already uses it.",
+    "location": "openapi.yaml#/paths/~1plants/get/x-fern-examples/4/name"
+  }
+]

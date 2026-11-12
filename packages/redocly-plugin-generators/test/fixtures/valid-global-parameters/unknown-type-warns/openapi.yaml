@@ -1,0 +1,12 @@
+openapi: 3.1.0
+info:
+  title: Test API
+  version: 1.0.0
+x-fern-global-parameters:
+  - name: requestId
+    in: header
+    type: uuid
+  - name: count
+    in: query
+    type: double
+paths: {}

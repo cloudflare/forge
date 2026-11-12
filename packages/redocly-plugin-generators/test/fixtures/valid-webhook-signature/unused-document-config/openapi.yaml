@@ -1,0 +1,24 @@
+openapi: 3.1.0
+info:
+  title: Test API
+  version: 1.0.0
+x-fern-webhook-signature:
+  type: hmac
+  header: ''
+  algorithm: md5
+paths: {}
+webhooks:
+  petUpdated:
+    post:
+      operationId: petUpdated
+      x-fern-webhook-signature:
+        type: hmac
+        header: X-Signature
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: OK

@@ -1,0 +1,35 @@
+openapi: 3.1.0
+info:
+  title: Test API
+  version: 1.0.0
+x-fern-base-path:
+  path: /{tenant}/v1
+  parameters:
+    tenant:
+      docs: The tenant id.
+  paths-include-base-path: true
+paths:
+  /{tenant}/v1/pets:
+    parameters:
+      - name: tenant
+        in: path
+        required: true
+        schema:
+          type: string
+    get:
+      operationId: listPets
+      responses:
+        '200':
+          description: OK
+  /{tenant}/v1:
+    parameters:
+      - name: tenant
+        in: path
+        required: true
+        schema:
+          type: string
+    get:
+      operationId: getRoot
+      responses:
+        '200':
+          description: OK

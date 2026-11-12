@@ -1,0 +1,21 @@
+openapi: 3.0.3
+info:
+  title: Plants
+  version: 1.0.0
+paths: {}
+components:
+  schemas:
+    Plant:
+      type: object
+      properties:
+        name:
+          type: string
+          default: 3
+        planted:
+          type: string
+          format: date-time
+          default: false
+        notes:
+          type: string
+          default:
+            text: none

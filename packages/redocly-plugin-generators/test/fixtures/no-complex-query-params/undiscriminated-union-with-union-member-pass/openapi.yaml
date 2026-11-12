@@ -1,0 +1,52 @@
+openapi: 3.1.0
+info:
+  title: Fern port of UndiscriminatedUnion and PrimitiveUndiscriminatedUnion
+  version: 1.0.0
+paths:
+  /search:
+    get:
+      operationId: search
+      parameters:
+        - name: p
+          in: query
+          schema:
+            $ref: '#/components/schemas/UndiscriminatedUnion'
+        - name: w
+          in: query
+          schema:
+            $ref: '#/components/schemas/PrimitiveUndiscriminatedUnion'
+      responses:
+        '200':
+          description: OK
+components:
+  schemas:
+    PrimitiveUndiscriminatedUnion:
+      oneOf:
+        - type: string
+        - type: boolean
+    UndiscriminatedUnion:
+      oneOf:
+        - type: string
+        - $ref: '#/components/schemas/Object'
+        - $ref: '#/components/schemas/Union'
+    Object:
+      type: object
+      properties:
+        foo:
+          type: string
+    Union:
+      oneOf:
+        - $ref: '#/components/schemas/Str'
+        - $ref: '#/components/schemas/Bool'
+      discriminator:
+        propertyName: type
+    Str:
+      type: object
+      properties:
+        type:
+          type: string
+    Bool:
+      type: object
+      properties:
+        type:
+          type: string

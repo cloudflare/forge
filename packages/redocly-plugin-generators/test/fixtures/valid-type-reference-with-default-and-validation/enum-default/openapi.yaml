@@ -1,0 +1,19 @@
+openapi: 3.0.3
+info:
+  title: Plants
+  version: 1.0.0
+paths: {}
+components:
+  schemas:
+    Kind:
+      type: string
+      enum: [fern, moss]
+      default: tree
+    Color:
+      type: string
+      nullable: true
+      enum: [green, red, null]
+      default: blue
+    Size:
+      enum: [small, large]
+      default: 3

@@ -1,0 +1,35 @@
+openapi: 3.1.0
+info:
+  title: Plant Store
+  version: 1.0.0
+paths: {}
+
+components:
+  schemas:
+    Shape:
+      type: object
+      discriminator:
+        propertyName: kind
+        mapping:
+          circle: '#/components/schemas/Circle'
+          square: '#/components/schemas/Square'
+      oneOf:
+        - $ref: '#/components/schemas/Circle'
+        - $ref: '#/components/schemas/Square'
+      properties:
+        kind:
+          type: string
+    Circle:
+      type: object
+      properties:
+        kind:
+          type: string
+        radius:
+          type: number
+    Square:
+      type: object
+      properties:
+        kind:
+          type: string
+        side:
+          type: number

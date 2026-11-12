@@ -1,0 +1,14 @@
+[
+  {
+    "ruleId": "generators/fern-no-conflicting-request-wrapper-properties",
+    "severity": "error",
+    "message": "Multiple request properties resolve to the same generated name \"orgId\" after camelCase normalization: header parameter \"X-Org-Id\" (SDK name \"orgId\"), requestBody property \"org_id\" (SDK name \"org_id\"). This causes broken generated code. Use x-fern-parameter-name on a parameter or x-fern-property-name on a requestBody property to disambiguate.",
+    "location": "openapi.yaml#/paths/~1plants/post (key)"
+  },
+  {
+    "ruleId": "generators/fern-no-conflicting-request-wrapper-properties",
+    "severity": "error",
+    "message": "Multiple request properties resolve to the same generated name \"pageSize\" after camelCase normalization: query parameter \"page_size\" (SDK name \"page_size\"), requestBody property \"pageSize\" (SDK name \"pageSize\"). This causes broken generated code. Use x-fern-parameter-name on a parameter or x-fern-property-name on a requestBody property to disambiguate.",
+    "location": "openapi.yaml#/paths/~1plants/post (key)"
+  }
+]

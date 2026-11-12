@@ -1,0 +1,30 @@
+openapi: 3.1.0
+info:
+  title: Uploads
+  version: 1.0.0
+paths:
+  /upload:
+    post:
+      operationId: upload
+      requestBody:
+        content:
+          application/json:
+            x-fern-sdk-method-name: uploadJson
+            schema:
+              type: object
+              properties:
+                tag:
+                  type: string
+          multipart/form-data:
+            x-fern-sdk-method-name: uploadMultipart
+            schema:
+              type: object
+              properties:
+                tag:
+                  type: string
+            encoding:
+              tag:
+                explode: true
+      responses:
+        '200':
+          description: OK

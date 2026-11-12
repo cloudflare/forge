@@ -1,0 +1,14 @@
+[
+  {
+    "ruleId": "generators/fern-no-conflicting-endpoint-paths",
+    "severity": "error",
+    "message": "Endpoint path /archives/{id} conflicts with other GET operations whose paths match the same URLs (a path parameter segment matches any segment): GET /archives/{name}.zip (operationId getArchive).",
+    "location": "openapi.yaml#/paths/~1archives~1{id}/get (key)"
+  },
+  {
+    "ruleId": "generators/fern-no-conflicting-endpoint-paths",
+    "severity": "error",
+    "message": "Endpoint path /archives/{name}.zip conflicts with other GET operations whose paths match the same URLs (a path parameter segment matches any segment): GET /archives/{id} (operationId getArchiveById).",
+    "location": "openapi.yaml#/paths/~1archives~1{name}.zip/get (key)"
+  }
+]

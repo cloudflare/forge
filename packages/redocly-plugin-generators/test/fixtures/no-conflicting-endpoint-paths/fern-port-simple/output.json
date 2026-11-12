@@ -1,0 +1,50 @@
+[
+  {
+    "ruleId": "generators/fern-no-conflicting-endpoint-paths",
+    "severity": "error",
+    "message": "Endpoint path /{pathParam}/bar conflicts with other GET operations whose paths match the same URLs (a path parameter segment matches any segment): GET /a/bar (operationId a_bar), GET /c/{pathParam} (operationId c_bar).",
+    "location": "openapi.yaml#/paths/~1{pathParam}~1bar/get (key)"
+  },
+  {
+    "ruleId": "generators/fern-no-conflicting-endpoint-paths",
+    "severity": "error",
+    "message": "Endpoint path /{pathParam}/foo conflicts with other GET operations whose paths match the same URLs (a path parameter segment matches any segment): GET /a/foo (operationId a_foo), GET /c/foo (operationId c_foo), GET /c/{pathParam} (operationId c_bar).",
+    "location": "openapi.yaml#/paths/~1{pathParam}~1foo/get (key)"
+  },
+  {
+    "ruleId": "generators/fern-no-conflicting-endpoint-paths",
+    "severity": "error",
+    "message": "Endpoint path /a/bar conflicts with other GET operations whose paths match the same URLs (a path parameter segment matches any segment): GET /{pathParam}/bar (operationId b_bar).",
+    "location": "openapi.yaml#/paths/~1a~1bar/get (key)"
+  },
+  {
+    "ruleId": "generators/fern-no-conflicting-endpoint-paths",
+    "severity": "error",
+    "message": "Endpoint path /a/foo conflicts with other GET operations whose paths match the same URLs (a path parameter segment matches any segment): GET /{pathParam}/foo (operationId b_foo).",
+    "location": "openapi.yaml#/paths/~1a~1foo/get (key)"
+  },
+  {
+    "ruleId": "generators/fern-no-conflicting-endpoint-paths",
+    "severity": "error",
+    "message": "Endpoint path /c/{pathParam} conflicts with other GET operations whose paths match the same URLs (a path parameter segment matches any segment): GET /c/foo (operationId c_foo), GET /{pathParam}/foo (operationId b_foo), GET /{pathParam}/bar (operationId b_bar).",
+    "location": "openapi.yaml#/paths/~1c~1{pathParam}/get (key)"
+  },
+  {
+    "ruleId": "generators/fern-no-conflicting-endpoint-paths",
+    "severity": "error",
+    "message": "Endpoint path /c/foo conflicts with other GET operations whose paths match the same URLs (a path parameter segment matches any segment): GET /c/{pathParam} (operationId c_bar), GET /{pathParam}/foo (operationId b_foo).",
+    "location": "openapi.yaml#/paths/~1c~1foo/get (key)"
+  },
+  {
+    "ruleId": "generators/fern-no-conflicting-endpoint-paths",
+    "severity": "error",
+    "message": "Endpoint path /d conflicts with other GET operations whose paths match the same URLs (a path parameter segment matches any segment): GET /d/ (operationId d_bar).",
+    "location": "openapi.yaml#/paths/~1d/get (key)"
+  },
+  {
+    "ruleId": "generators/fern-no-conflicting-endpoint-paths",
+    "severity": "error",
+    "message": "Endpoint path /d/ conflicts with other GET operations whose paths match the same URLs (a path parameter segment matches any segment): GET /d (operationId d_foo).",
+    "location": "openapi.yaml#/paths/~1d~1/get (key)"
+  }
+]

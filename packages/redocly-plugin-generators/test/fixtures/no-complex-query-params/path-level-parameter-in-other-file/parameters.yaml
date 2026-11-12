@@ -1,0 +1,20 @@
+ShapeFilter:
+  name: filter
+  in: query
+  schema:
+    type: object
+    properties:
+      shape:
+        $ref: '#/Shape'
+Shape:
+  oneOf:
+    - $ref: '#/Circle'
+  discriminator:
+    propertyName: type
+    mapping:
+      circle: '#/Circle'
+Circle:
+  type: object
+  properties:
+    type:
+      type: string
