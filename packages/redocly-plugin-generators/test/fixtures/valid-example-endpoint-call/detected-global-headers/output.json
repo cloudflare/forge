@@ -1,8 +1,0 @@
-[
-  {
-    "ruleId": "generators/fern-valid-example-endpoint-call",
-    "severity": "error",
-    "message": "Example is missing required header \"X-Client\" (Fern makes it a global header because every operation declares it, and takes its definition from listPlants, where it is required)",
-    "location": "openapi.yaml#/paths/~1plants/post/x-fern-examples/0/headers (key)"
-  }
-]

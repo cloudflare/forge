@@ -1,8 +1,0 @@
-[
-  {
-    "ruleId": "generators/fern-no-duplicate-overrides",
-    "severity": "error",
-    "message": "SDK method plants.list already exists (x-fern-sdk-group-name: plants, x-fern-sdk-method-name: list)",
-    "location": "openapi.yaml#/paths/~1d/get/x-fern-sdk-method-name"
-  }
-]

@@ -1,5 +1,0 @@
-title: Plant
-type: object
-properties:
-  id:
-    type: string

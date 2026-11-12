@@ -1,8 +1,0 @@
-[
-  {
-    "ruleId": "generators/fern-no-duplicate-declarations",
-    "severity": "error",
-    "message": "The inline schema at #/paths/~1plants/get/responses/200/content/application~1json/schema (named by its x-fern-type-name) is named \"Plant\", which is already declared by the schema components.schemas.Plant at #/components/schemas/Plant. fern check fails with \"Plant is already declared\". Rename one of them with x-fern-type-name.",
-    "location": "openapi.yaml#/paths/~1plants/get/responses/200/content/application~1json/schema/x-fern-type-name"
-  }
-]

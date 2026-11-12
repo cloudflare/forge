@@ -1,8 +1,0 @@
-type: object
-properties:
-  owner:
-    type: string
-    x-fern-type: optional<Owner>
-  sibling:
-    type: string
-    x-fern-type: Pet

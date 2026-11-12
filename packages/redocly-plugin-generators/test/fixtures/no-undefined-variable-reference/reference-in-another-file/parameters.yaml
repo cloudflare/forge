@@ -1,7 +1,0 @@
-AppId:
-  name: appId
-  in: path
-  required: true
-  schema:
-    type: string
-  x-fern-sdk-variable: app

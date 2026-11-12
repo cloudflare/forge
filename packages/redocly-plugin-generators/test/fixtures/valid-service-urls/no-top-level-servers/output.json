@@ -1,8 +1,0 @@
-[
-  {
-    "ruleId": "generators/fern-valid-service-urls",
-    "severity": "error",
-    "message": "Server 'https://upload.example.com' (x-fern-server-name 'Upload') is ignored because the document has no top-level `servers`: Fern builds environments from the top-level servers and adds named operation- and path-level servers to them.",
-    "location": "openapi.yaml#/paths/~1files/post/servers/0"
-  }
-]

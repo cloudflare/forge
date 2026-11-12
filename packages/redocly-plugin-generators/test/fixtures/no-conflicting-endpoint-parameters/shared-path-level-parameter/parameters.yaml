@@ -1,6 +1,0 @@
-Request:
-  name: request
-  in: path
-  required: true
-  schema:
-    type: string

@@ -1,8 +1,0 @@
-[
-  {
-    "ruleId": "generators/fern-valid-webhook-signature",
-    "severity": "error",
-    "message": "x-fern-webhook-signature is ignored on POST /pets: it only applies to webhooks (operations under `webhooks`, or with x-fern-webhook: true).",
-    "location": "openapi.yaml#/paths/~1pets/post/x-fern-webhook-signature (key)"
-  }
-]

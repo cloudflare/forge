@@ -1,8 +1,0 @@
-[
-  {
-    "ruleId": "generators/fern-no-duplicate-field-names",
-    "severity": "error",
-    "message": "Fern silently drops enum value \"enabled\" from the generated SDK: its name \"On\" is also the name of the earlier value \"active\". Give each value a unique name with x-fern-enum.",
-    "location": "openapi.yaml#/components/schemas/Status/x-fern-enum/enabled/name"
-  }
-]

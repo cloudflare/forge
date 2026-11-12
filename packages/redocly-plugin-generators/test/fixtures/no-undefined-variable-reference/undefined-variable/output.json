@@ -1,8 +1,0 @@
-[
-  {
-    "ruleId": "generators/fern-no-undefined-variable-reference",
-    "severity": "error",
-    "message": "Variable applicationId is not defined. Declare it in x-fern-sdk-variables at the root of the document.",
-    "location": "openapi.yaml#/paths/~1apps~1{appId}~1users/get/parameters/0/x-fern-sdk-variable"
-  }
-]

@@ -1,8 +1,0 @@
-[
-  {
-    "ruleId": "generators/fern-valid-type-name",
-    "severity": "error",
-    "message": "Type name must begin with a letter: Fern generates the type name \"10000\" from the components.schemas key \"10000\". Add x-fern-type-name with a name that begins with a letter.",
-    "location": "openapi.yaml#/components/schemas/10000 (key)"
-  }
-]

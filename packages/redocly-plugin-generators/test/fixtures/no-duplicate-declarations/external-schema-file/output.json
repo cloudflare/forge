@@ -1,8 +1,0 @@
-[
-  {
-    "ruleId": "generators/fern-no-duplicate-declarations",
-    "severity": "error",
-    "message": "The schema components.schemas.Plant (named by its x-fern-type-name) is named \"Tree\", which is already declared by the schema components.schemas.Tree at #/components/schemas/Tree. Both become Fern types named \"Tree\" in the same file, so Fern keeps only one of them and silently drops the other; references to the dropped schema point to the one Fern keeps. Rename one of them with x-fern-type-name.",
-    "location": "plant.yaml#/x-fern-type-name"
-  }
-]

@@ -1,8 +1,0 @@
-[
-  {
-    "ruleId": "generators/fern-valid-service-urls",
-    "severity": "error",
-    "message": "x-fern-server-name 'Production' on GET /files does not name a base URL: no operation- or path-level server with a url has x-fern-server-name 'Production'. 'Production' names a top-level server, and top-level servers become environments rather than base URLs. fern check does not catch this, but the generated SDK sends the operation to a base URL that no environment defines. Use one of the configured base URLs:\n  - Base\n  - Upload",
-    "location": "openapi.yaml#/paths/~1files/get/x-fern-server-name"
-  }
-]
