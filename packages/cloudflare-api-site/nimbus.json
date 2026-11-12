@@ -1,7 +1,7 @@
 {
   "$schema": "https://nimbus-docs.com/schema/nimbus.json",
   "version": "0.7.12",
-  "lastReviewedNimbusVersion": "0.18.0",
+  "lastReviewedNimbusVersion": "0.20.0",
   "templatesTag": "templates-v0.7.12",
   "variant": "empty",
   "registry": "https://nimbus-docs.com/registry",
@@ -14,5 +14,214 @@
       "@/*": "src/*"
     }
   },
-  "components": []
+  "components": [
+    {
+      "slug": "cn",
+      "type": "registry:lib",
+      "version": "0.19.0",
+      "source": "https://nimbus-docs.com/registry",
+      "hash": "sha256:7c54894573a1398333b41a63838db5de40ba05ad3fdb71048414baf912bb0070",
+      "files": ["src/lib/cn.ts"],
+      "fileHashes": {
+        "src/lib/cn.ts": "sha256:4575f5bcc29804b00c7cc1e3090aec2194b462bdd3c33a5620dc47d09bfe26d8"
+      }
+    },
+    {
+      "slug": "collapsible",
+      "type": "registry:ui",
+      "version": "0.19.0",
+      "source": "https://nimbus-docs.com/registry",
+      "hash": "sha256:b0e52e1cb2631065fe013b1171be0970ced4bf8fa7658c1b7cba60c01fe18d45",
+      "files": [
+        "src/components/ui/collapsible/Collapsible.astro",
+        "src/components/ui/collapsible/CollapsibleContent.astro",
+        "src/components/ui/collapsible/CollapsibleTrigger.astro",
+        "src/components/ui/collapsible/collapsible.client.ts",
+        "src/components/ui/collapsible/index.ts"
+      ],
+      "fileHashes": {
+        "src/components/ui/collapsible/Collapsible.astro": "sha256:148476eea68d73e8ac8874797dab242efcbb3ab1c92f5c2eefb7326965fc4e60",
+        "src/components/ui/collapsible/CollapsibleContent.astro": "sha256:51bedf24e5a9404f18f1801c6c9cbdcdccba829abfb9c7279a6e202177cd6106",
+        "src/components/ui/collapsible/CollapsibleTrigger.astro": "sha256:7d59886fd63bd29717a09227eb53e77efa383338fec9913b838926fb424307bf",
+        "src/components/ui/collapsible/collapsible.client.ts": "sha256:fb861d33e17cc5db74bd6a932269d3cff6775ce17959509f97e211eba25708bd",
+        "src/components/ui/collapsible/index.ts": "sha256:ee9f123942f7e2348f4e6ea3b42e52e55964c77e5fedb2ab24b7bfae75b0bbfd"
+      }
+    },
+    {
+      "slug": "api-sidebar",
+      "type": "registry:ui",
+      "version": "0.19.0",
+      "source": "https://nimbus-docs.com/registry",
+      "hash": "sha256:41d432bb3e12a07b704c475b717d9f5942eeb84de9d0190ef77ad5ef7dc0ebfb",
+      "files": [
+        "src/components/ui/api-sidebar/ApiMethodChip.astro",
+        "src/components/ui/api-sidebar/ApiSidebar.astro",
+        "src/components/ui/api-sidebar/ApiSidebarItem.astro",
+        "src/components/ui/api-sidebar/api-nav-filter.client.ts",
+        "src/components/ui/api-sidebar/index.ts",
+        "src/components/ui/api-sidebar/method.ts"
+      ],
+      "fileHashes": {
+        "src/components/ui/api-sidebar/ApiMethodChip.astro": "sha256:c40ee4ee67b0f2b66db30760756d0bc1fb3f4d37a3046272f1663dc7a9d7988d",
+        "src/components/ui/api-sidebar/ApiSidebar.astro": "sha256:64ae08b7d41823f9f6b7aa76ce0a5772006dcbf895cc19af25c7be076fbe10dc",
+        "src/components/ui/api-sidebar/ApiSidebarItem.astro": "sha256:a9a7c97c61ab7f6b0b4b4582e4448f40abbf0567b353b7d3744c546192b19588",
+        "src/components/ui/api-sidebar/api-nav-filter.client.ts": "sha256:099654abe0d02aa2c12b8da40f08be46858e2fb4f552cfc640965e915e258c74",
+        "src/components/ui/api-sidebar/index.ts": "sha256:1d027fa7b01ffaa4461b0b0165d2fcb7bed9fa0f44dac72d5fc3e4c275877573",
+        "src/components/ui/api-sidebar/method.ts": "sha256:5b68e560c4c2729e569ac03468269c31c1d16468651061730e77dbea9900c130"
+      }
+    },
+    {
+      "slug": "api-field-row",
+      "type": "registry:ui",
+      "version": "0.19.0",
+      "source": "https://nimbus-docs.com/registry",
+      "hash": "sha256:d25541a78637136378e70027c1975700cff60678d6a8e7e1a627995f732fabd4",
+      "files": [
+        "src/components/ui/api-field-row/ApiFieldList.astro",
+        "src/components/ui/api-field-row/ApiFieldRow.astro",
+        "src/components/ui/api-field-row/ApiUnionExplorer.astro",
+        "src/components/ui/api-field-row/api-field-row.client.ts",
+        "src/components/ui/api-field-row/field-list.css",
+        "src/components/ui/api-field-row/index.ts",
+        "src/components/ui/api-field-row/type-display.ts"
+      ],
+      "fileHashes": {
+        "src/components/ui/api-field-row/ApiFieldList.astro": "sha256:cc400943531f5c8d32a7d4558f8de5eff6bda39a0ae1807560a5da1aeed6ee1a",
+        "src/components/ui/api-field-row/ApiFieldRow.astro": "sha256:5b6bced35cb72c32451d5fcc8166c3b42e72b0a526fad2613057365a0fb863d9",
+        "src/components/ui/api-field-row/ApiUnionExplorer.astro": "sha256:73084f8b2bde5abe2adb765df3b0ed4afb6c51aaee88fb3496d84a078953d0b2",
+        "src/components/ui/api-field-row/api-field-row.client.ts": "sha256:c6622936f6f652556f0b138785f1ca8795576a4e8f802526db4603e5962201ba",
+        "src/components/ui/api-field-row/field-list.css": "sha256:5419b59655d8bd95c8d2c3a9a4e60ea0bd756ce873b06b9021cd847bb0cdc19b",
+        "src/components/ui/api-field-row/index.ts": "sha256:48442d96649611ff858e93ad18155e267ba7137ef5dfb9d6e83420d9fff50cb2",
+        "src/components/ui/api-field-row/type-display.ts": "sha256:f572ebafa6775316008c1186075060b333df58d2a04242ce521773a0f04cd18f"
+      }
+    },
+    {
+      "slug": "layer-card",
+      "type": "registry:ui",
+      "version": "0.19.0",
+      "source": "https://nimbus-docs.com/registry",
+      "hash": "sha256:ff1f8173d09b8523284fb8777be508b71a7519553a3960e340387426c3d24b1f",
+      "files": [
+        "src/components/ui/layer-card/LayerCard.astro",
+        "src/components/ui/layer-card/LayerCardContent.astro",
+        "src/components/ui/layer-card/LayerCardHeader.astro",
+        "src/components/ui/layer-card/index.ts"
+      ],
+      "fileHashes": {
+        "src/components/ui/layer-card/LayerCard.astro": "sha256:0803c1f9fe69649466526a7266e64a1cf83edf7a8d06978fb2629e57f961bb9d",
+        "src/components/ui/layer-card/LayerCardContent.astro": "sha256:702b2d01f6219fa4feb02ca14475bdb6ad8736c4e800b24a30f3b65495c22638",
+        "src/components/ui/layer-card/LayerCardHeader.astro": "sha256:97bf782f09930c2e7a6158531f20291d2acf6830d0b61c0ec233c2f5d5b0db53",
+        "src/components/ui/layer-card/index.ts": "sha256:165fe2d8ac54c9dd5679725bb6767e11bf57c3301b5c630a8ec9afa6ae47bc8e"
+      }
+    },
+    {
+      "slug": "api-code-rail",
+      "type": "registry:ui",
+      "version": "0.19.0",
+      "source": "https://nimbus-docs.com/registry",
+      "hash": "sha256:08bbd9c0bb6a97b08a89941d581ef848d1f7db16529cabaf4dd1b3e9ccc777a0",
+      "files": [
+        "src/components/ui/api-code-rail/ApiCodeRail.astro",
+        "src/components/ui/api-code-rail/code-rail.client.ts",
+        "src/components/ui/api-code-rail/code-rail.css",
+        "src/components/ui/api-code-rail/index.ts"
+      ],
+      "fileHashes": {
+        "src/components/ui/api-code-rail/ApiCodeRail.astro": "sha256:92fed11d92fc4d3f5e15741cb226704335197f04f864d2211df531ec48b8613f",
+        "src/components/ui/api-code-rail/code-rail.client.ts": "sha256:e460f5ed2895b64153cac02a7c51918435496aa6139eb413bddf5c16a9863bdb",
+        "src/components/ui/api-code-rail/code-rail.css": "sha256:3fe78830f81bd692834fde2165414be9a815037209d8ffe1a4adf3500bc9151f",
+        "src/components/ui/api-code-rail/index.ts": "sha256:e42620fbe3b0b530139aa50748cab8f4521a58a2522515696d212f11381f2a98"
+      }
+    },
+    {
+      "slug": "pagination",
+      "type": "registry:ui",
+      "version": "0.19.0",
+      "source": "https://nimbus-docs.com/registry",
+      "hash": "sha256:4774f88a71e134759faf409114f5d8efdbfa6dd963214815a990667cdf3771c3",
+      "files": [
+        "src/components/ui/pagination/Pagination.astro",
+        "src/components/ui/pagination/PaginationKey.astro",
+        "src/components/ui/pagination/PaginationLink.astro",
+        "src/components/ui/pagination/index.ts",
+        "src/components/ui/pagination/pagination.client.ts"
+      ],
+      "fileHashes": {
+        "src/components/ui/pagination/Pagination.astro": "sha256:0429c94c1d33b36043083a13497ae334e50b24c2f16548c3d587f8661ea03a3e",
+        "src/components/ui/pagination/PaginationKey.astro": "sha256:862c2d088f6a1c5d1f88134a1cb391bd9b58d8ed0870f85425fb6e619b2278ef",
+        "src/components/ui/pagination/PaginationLink.astro": "sha256:3a54023a27297913de445dba4c875e76d1abbdbe11015fc34561430bcab8bd1d",
+        "src/components/ui/pagination/index.ts": "sha256:a56cc406fa1d608dc4b1b174de1c4d9b8fed3559e8a3bc23d9bc7d13af52683d",
+        "src/components/ui/pagination/pagination.client.ts": "sha256:2a5b7cc123810ec8670ae09f58404a870c41d795b110bde5208af1bead4f0715"
+      }
+    },
+    {
+      "slug": "popover",
+      "type": "registry:ui",
+      "version": "0.19.0",
+      "source": "https://nimbus-docs.com/registry",
+      "hash": "sha256:1e9c5da6177a5cd296f2fcd3be00b3ff25dca92eb5259bf5f9f938b9784c929d",
+      "files": [
+        "src/components/ui/popover/Popover.astro",
+        "src/components/ui/popover/PopoverContent.astro",
+        "src/components/ui/popover/PopoverTrigger.astro",
+        "src/components/ui/popover/index.ts",
+        "src/components/ui/popover/popover.client.ts"
+      ],
+      "fileHashes": {
+        "src/components/ui/popover/Popover.astro": "sha256:e17e73037fb07134a905181a53507396825a0295ce6624d3d604d92836b4993b",
+        "src/components/ui/popover/PopoverContent.astro": "sha256:11df5954a76f0e8be53f5a87402683dd26381d984f42f6beb9f2d4e99b94254f",
+        "src/components/ui/popover/PopoverTrigger.astro": "sha256:51ebfe033cadd5a287657eca1aa39ff201739dc885415dff37e278da42ebfb83",
+        "src/components/ui/popover/index.ts": "sha256:3ebe8e8356065dc37af316224a4b266c80234641eea82c29b8c6e7e3d372c5fc",
+        "src/components/ui/popover/popover.client.ts": "sha256:63255680808d8ce01b59dcfd041c1e66e3b7ccde8ea5fc04e9149fabdf15ca3e"
+      }
+    },
+    {
+      "slug": "version-switcher",
+      "type": "registry:ui",
+      "version": "0.19.0",
+      "source": "https://nimbus-docs.com/registry",
+      "hash": "sha256:b12bbdb26b876403cddd83472c7a75653041c1722e0a283cfae4b09afd3118d2",
+      "files": [
+        "src/components/ui/version-switcher/VersionSwitcher.astro",
+        "src/components/ui/version-switcher/index.ts"
+      ],
+      "fileHashes": {
+        "src/components/ui/version-switcher/VersionSwitcher.astro": "sha256:acdbd5e2da6a77df70db0cf461b4bc7c94cd87355d4b17c22695ce48afdd243c",
+        "src/components/ui/version-switcher/index.ts": "sha256:32762ad0d535d1bcaca0babda65e812cc245df2b40e9bc2408ec39f8f16e5289"
+      }
+    },
+    {
+      "slug": "api-layout",
+      "type": "registry:ui",
+      "version": "0.19.0",
+      "source": "https://nimbus-docs.com/registry",
+      "hash": "sha256:7d4a0179429f39f6762cde98e62c44249cf526426ab8fe30a2346b25244b83c4",
+      "files": [
+        "src/components/ui/api-layout/ApiBody.astro",
+        "src/components/ui/api-layout/ApiEndpointCard.astro",
+        "src/components/ui/api-layout/ApiHome.astro",
+        "src/components/ui/api-layout/ApiHomeChunk.astro",
+        "src/components/ui/api-layout/ApiLayout.astro",
+        "src/components/ui/api-layout/ApiOperationList.astro",
+        "src/components/ui/api-layout/auth.ts",
+        "src/components/ui/api-layout/home.ts",
+        "src/components/ui/api-layout/index.ts",
+        "src/components/ui/api-layout/request-examples.client.ts",
+        "src/components/ui/api-layout/responses.client.ts"
+      ],
+      "fileHashes": {
+        "src/components/ui/api-layout/ApiBody.astro": "sha256:e494d7e104230efbe1c9d511f4d188cd8f906c74a21ac6fc88a1eb40a2bd19c1",
+        "src/components/ui/api-layout/ApiEndpointCard.astro": "sha256:c2c9452b6437ab28b2bc0e05eef46adb7d0b8d7fa00b03a8a86a0bb1a950c33e",
+        "src/components/ui/api-layout/ApiHome.astro": "sha256:1faab0929f99a40dbdb21a6931fc3cc6f7803cbace5f8c13b570fdaabe600780",
+        "src/components/ui/api-layout/ApiHomeChunk.astro": "sha256:cef7d05de7afe020533d99caf47dd4d6af3f5d00f9221570d11bfcd649bee479",
+        "src/components/ui/api-layout/ApiLayout.astro": "sha256:b69a947c22e3e2f353c059127e8884ca193738122b929d31351189131bfa8f8b",
+        "src/components/ui/api-layout/ApiOperationList.astro": "sha256:583e40d40d7f03eaa81a276513f2ae80eeec176026277fb092f587913e7d893c",
+        "src/components/ui/api-layout/auth.ts": "sha256:11f778ac6e5836488b4984e33ed7b4267b6cb58aee6b6e7c03e5af4d892b8903",
+        "src/components/ui/api-layout/home.ts": "sha256:43f3cead23c5f82f3e0794e50568286acb8c7eec8a0a258eddf71adeff4beb4a",
+        "src/components/ui/api-layout/index.ts": "sha256:0015f42dc002939832a70dbf40b7866b6a005afda4631b0e3cbe500bae04d130",
+        "src/components/ui/api-layout/request-examples.client.ts": "sha256:d658f5fadff046fd74b4c97f9748547397fdd1d0b4028540849dbd313c4680a3",
+        "src/components/ui/api-layout/responses.client.ts": "sha256:b3de1837790b97a2ddc4e2589238a4fc64dbd4e2c1a08af0a6cfd30539940bfc"
+      }
+    }
+  ]
 }

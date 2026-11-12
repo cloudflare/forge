@@ -1,4 +1,5 @@
 @import 'tailwindcss';
+@import '../components/ui/sidebar/sidebar.css';
 
 /* ============================================================
  * Nimbus Theme — THE file you edit to customize your site.
@@ -84,11 +85,12 @@
   --nb-m-other-line: var(--nb-border);
 
   /* Layout */
+  --nb-header-height: 3.5rem;
   --nb-sidebar-width: 18.75rem;
   --nb-toc-width: 18rem;
   --nb-content-max: 43.5rem;
   /* Used only by the API reference (registry: api-layout); harmless elsewhere. */
-  --nb-code-rail-width: 34rem;
+  --nb-code-rail-width: 30rem;
 
   /* Typography — self-hosted via @fontsource-variable in BaseLayout.astro */
   --nb-font-sans: 'Inter Variable', 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
@@ -277,6 +279,10 @@ body {
 }
 
 /* ---- Scrollbar ---- */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in oklch, var(--nb-foreground) 20%, transparent) transparent;
+}
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;

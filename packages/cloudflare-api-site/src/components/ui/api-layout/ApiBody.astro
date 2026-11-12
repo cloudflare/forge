@@ -1,0 +1,461 @@
+---
+/**
+ * ApiBody — the API docs main-body content, rendered from a frozen
+ * `ApiPageProps` by kind (operation · schema · section · api). Extracted from
+ * `ApiLayout` so the body can be composed in isolation; the layout shell
+ * (nav · body · code rail) still owns width/stickiness and the page's
+ * description, which this file styles (`.nb-md-intro`). Property rows, expanders,
+ * object previews, deep-links, and the union tree are handled by
+ * `ApiFieldRow`/`ApiFieldList`/`ApiUnionExplorer`.
+ *
+ * The status helper and `.nb-md` styles are kept inline here (rather than shared
+ * lib/CSS files) so a docs-only site carries no extra API-specific files; the
+ * auth→field projection lives in the co-located `./auth`. The page header
+ * (breadcrumbs, title, endpoint, page actions) is `ApiPageHeader`.
+ */
+import TerraformDeclarations from "@/components/TerraformDeclarations.astro";
+import { ApiFieldList, ApiUnionExplorer } from "@/components/ui/api-field-row";
+import ApiHome from "./ApiHome.astro";
+import ApiOperationList from "./ApiOperationList.astro";
+import ApiHomeChunk from "./ApiHomeChunk.astro";
+import ApiScalarType from "./ApiScalarType.astro";
+import Icon from "@cloudflare/nimbus-docs/components/Icon.astro";
+import { authFields } from "./auth";
+import { cn } from "@/lib/cn";
+import { withBase } from "@cloudflare/nimbus-docs/runtime";
+import type { ApiPageProps, ApiResponseView } from "@cloudflare/nimbus-docs/api";
+import type { ApiHome as ApiHomeView } from "@cloudflare/nimbus-docs/runtime";
+
+interface Props {
+  page: ApiPageProps;
+  /** On the API home and its later parts, from `getApiRoute`: the part to
+   *  show, and every part. */
+  home?: ApiHomeView;
+}
+
+const { page, home } = Astro.props;
+// A later part: one part of the API home's list, as a page of its own, so a
+// reader without script can walk the whole list.
+const homeChunk = page.kind === "api" && home && home.part.number > 1 ? home.part : undefined;
+const homeNext = homeChunk && home?.parts[homeChunk.number];
+
+// "JSON" for a JSON body; any other names its media type as written
+// (`text/plain`, `multipart/form-data`).
+const mediaBadge = (mediaType: string): string => {
+  const type = mediaType.split(";")[0]!.trim().toLowerCase();
+  return type === "application/json" || type.endsWith("+json") ? "JSON" : mediaType;
+};
+
+const preparedCode = (example: { highlightedHtml?: string }): string => {
+  if (!example.highlightedHtml) {
+    throw new Error("Nimbus API code was not prepared during content sync.");
+  }
+  return example.highlightedHtml;
+};
+
+// HTTP status (or a range like "4XX") → semantic text colour: 2xx success, 3xx
+// info, 4xx/5xx danger, else neutral. Keyed on the leading digit so ranges and
+// exact codes both work.
+function statusToneClass(status: string): string {
+  switch (status.trim()[0]) {
+    case "2":
+      return "text-success";
+    case "3":
+      return "text-info";
+    case "4":
+    case "5":
+      return "text-danger";
+    default:
+      return "text-muted-foreground";
+  }
+}
+
+// A response with several media types renders one stacked body per media type,
+// the primary first, each labeled by its media type — the same shape as the
+// request's additional bodies. The primary's example stays in the code rail.
+const responseBodies = (r: ApiResponseView) => [
+  { mediaType: r.mediaType ?? "application/json", fields: r.fields, truncated: r.truncated, union: r.bodyUnion, scalar: r.scalar, anchor: undefined, example: undefined },
+  ...(r.additionalMedia ?? []),
+];
+
+const authFieldList = page.kind === "operation" ? authFields(page.auth) : [];
+// Named examples when the spec has them. Otherwise the request body shows
+// through the code samples; with none (e.g. `samples.generate: []`), the
+// primary example renders here so the page still shows what to send.
+const requestExamples =
+  page.kind !== "operation"
+    ? []
+    : page.requestExamples?.length
+      ? page.requestExamples
+      : page.samples.length === 0 && page.example
+        ? [{ ...page.example, id: "example", label: "Example" }]
+        : [];
+
+// The section anchors this site used before Nimbus, kept so old links land.
+// Each is an empty span before its section; in the gap-8 column it takes back
+// its own gap, so the spacing stays as it was.
+const LEGACY_ANCHORS: Record<string, string> = {
+  "parameters-path": "path-parameters",
+  "parameters-query": "query-parameters",
+  "request-body": "body-parameters",
+  responses: "returns",
+};
+const terraform = page.kind === "operation" ? page.extensions?.["x-cloudflare-terraform"] : undefined;
+// As on the old site, a page carries its Terraform declarations only when the
+// URL asks for the Terraform sample. Otherwise the section links to that URL,
+// and the client fetches it from there when the reader picks Terraform.
+const terraformChosen = Astro.url.searchParams.get("lang") === "hcl";
+const terraformUrl = new URL(Astro.url);
+terraformUrl.searchParams.set("lang", "hcl");
+const terraformHref = `${terraformUrl.pathname}${terraformUrl.search}`;
+---
+
+{/* Section headings with an id get a "#" link that copies their URL. */}
+<div class="flex flex-col gap-8" data-nb-heading-anchors>
+  {page.kind === "operation" && (
+    <>
+      {authFieldList.length > 0 && (
+        <ApiFieldList as="h2" title="Authorization" fields={authFieldList} />
+      )}
+
+      {page.parameters.map((group) => (
+        <>
+        {group.anchor && LEGACY_ANCHORS[group.anchor] && <span id={LEGACY_ANCHORS[group.anchor]} class="-mt-8 block scroll-mt-16" aria-hidden="true" />}
+        <ApiFieldList as="h2" title={group.label} fields={group.fields} anchor={group.anchor} truncated={group.truncated} examples />
+        </>
+      ))}
+
+      {(page.bodyUnion || page.bodyScalar || page.body.length > 0 || page.bodyMediaType || page.bodyRequired !== undefined || page.bodyDescriptionHtml) && (
+        <span id={LEGACY_ANCHORS["request-body"]} class="-mt-8 block scroll-mt-16" aria-hidden="true" />
+      )}
+      {page.bodyUnion || page.bodyScalar || page.body.length > 0 ? (
+        /* The body's type when it has no fields, its fields, then its union's options. */
+        <ApiFieldList as="h2" title="Request body" anchor="request-body" badge={mediaBadge(page.bodyMediaType ?? "application/json")} required={page.bodyRequired} descriptionHtml={page.bodyDescriptionHtml} fields={page.body.length > 0 ? page.body : undefined} truncated={page.bodyTruncated} collapsible={page.bodyUnion ? true : undefined}>
+          {page.bodyScalar && <ApiScalarType scalar={page.bodyScalar} />}
+          {page.bodyUnion && <ApiUnionExplorer union={page.bodyUnion} afterFields={page.body.length > 0} />}
+        </ApiFieldList>
+      ) : page.bodyMediaType || page.bodyRequired !== undefined || page.bodyDescriptionHtml ? (
+        <ApiFieldList as="h2" title="Request body" anchor="request-body" badge={page.bodyMediaType && mediaBadge(page.bodyMediaType)} required={page.bodyRequired} descriptionHtml={page.bodyDescriptionHtml}>
+          {!page.bodyDescriptionHtml && <p class="fl-desc m-0">No documented fields.</p>}
+        </ApiFieldList>
+      ) : null}
+
+      {requestExamples.length > 0 && (
+        <section
+          class="scroll-mt-24"
+          data-request-examples={requestExamples.length > 1 ? "" : undefined}
+        >
+          <div class="mb-3 flex flex-wrap items-center justify-between gap-3">
+            <h2 class="fl-title">
+              {requestExamples.length === 1 ? "Example request" : "Example requests"}
+            </h2>
+            {requestExamples.length > 1 && (
+              <div class="flex flex-wrap gap-1 rounded-lg border border-border bg-muted/40 p-1" role="tablist" aria-label="Request example">
+                {requestExamples.map((example, index) => (
+                  <button
+                    id={`request-example-trigger-${index}`}
+                    type="button"
+                    role="tab"
+                    class="rounded-md px-2.5 py-1 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground aria-[selected=true]:bg-background aria-[selected=true]:text-foreground aria-[selected=true]:shadow-sm"
+                    aria-controls={`request-example-panel-${index}`}
+                    aria-selected={index === 0 ? "true" : "false"}
+                    tabindex={index === 0 ? 0 : -1}
+                    data-request-example-trigger
+                  >
+                    {example.label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+          {requestExamples.map((example, index) => (
+            <div
+              id={`request-example-panel-${index}`}
+              role={requestExamples.length > 1 ? "tabpanel" : undefined}
+              aria-labelledby={requestExamples.length > 1 ? `request-example-trigger-${index}` : undefined}
+              data-request-example-panel={requestExamples.length > 1 ? "" : undefined}
+              hidden={index !== 0}
+            >
+              {example.description && <p class="mb-2 text-sm text-muted-foreground">{example.description}</p>}
+              <div class="[&_.nb-code-figure]:my-0">
+                <Fragment set:html={preparedCode(example)} />
+              </div>
+            </div>
+          ))}
+        </section>
+      )}
+
+      {page.additionalBodies?.map((body) => (
+        <section id={body.anchor} class="scroll-mt-24">
+          <div class="mb-2 flex items-center gap-2">
+            <h2 class="fl-title" aria-label={`Request body (${body.mediaType})`}>Request body</h2>
+            <span class="font-mono text-[0.6875rem] text-muted-foreground">{mediaBadge(body.mediaType)}</span>
+          </div>
+          {(body.union || body.scalar || body.fields.length > 0) && (
+            <ApiFieldList fields={body.fields.length > 0 ? body.fields : undefined} truncated={body.truncated} collapsible={body.union ? true : undefined}>
+              {body.scalar && <ApiScalarType scalar={body.scalar} />}
+              {body.union && <ApiUnionExplorer union={body.union} afterFields={body.fields.length > 0} />}
+            </ApiFieldList>
+          )}
+          {body.example && (
+            <div class="mt-2 [&_.nb-code-figure]:my-0">
+              <Fragment set:html={preparedCode(body.example)} />
+            </div>
+          )}
+        </section>
+      ))}
+
+      <section class="scroll-mt-24" data-api-terraform data-api-terraform-src={terraform && !terraformChosen ? terraformHref : undefined} hidden={!terraformChosen}>
+        <h2 class="fl-title mb-3">Terraform</h2>
+        <div data-api-terraform-body>
+          {!terraform ? (
+            <p>This operation is not implemented in Terraform.</p>
+          ) : terraformChosen ? (
+            <TerraformDeclarations operation={terraform} />
+          ) : (
+            <p><a href={terraformHref}>Show the Terraform declarations</a></p>
+          )}
+        </div>
+      </section>
+
+      {page.responses.length > 0 && (
+        <section class="scroll-mt-24" data-api-responses>
+          <span id={LEGACY_ANCHORS.responses} class="block scroll-mt-24" aria-hidden="true" />
+          <h2 id="responses" class="fl-title mb-3 scroll-mt-24">Returns</h2>
+          <div class="flex flex-col gap-6">
+            {page.responses.map((r) => {
+              // Error responses start closed so the success shape leads; a
+              // link into one opens it.
+              const collapsed = /^[45]/.test(r.status);
+              const Response = collapsed ? "details" : "div";
+              const Head = collapsed ? "summary" : "div";
+              // A summary holds phrasing content only: a one-paragraph
+              // description goes inline, a longer one into the body.
+              const inline = collapsed
+                ? /^\s*<p>((?:(?!<\/?p\b)[\s\S])*)<\/p>\s*$/.exec(r.descriptionHtml ?? "")?.[1]
+                : undefined;
+              const bodyDescription = collapsed && inline === undefined ? r.descriptionHtml : undefined;
+              return (
+              <Response id={r.anchor} class="group/response scroll-mt-24">
+                {/* The status is the response's heading (h3, under the Returns h2);
+                    the JSON badge on the body list marks it, so no "Body" label is
+                    needed. Description sits inline as a sibling, not inside the h3. */}
+                <Head
+                  class={cn(
+                    "mb-2 flex flex-wrap items-baseline gap-x-3 gap-y-1",
+                    collapsed && "cursor-pointer list-none group-not-open/response:mb-0 [&::-webkit-details-marker]:hidden",
+                  )}
+                >
+                  {collapsed && (
+                    <Icon name="ph:caret-right" class="size-3 self-center text-muted-foreground transition-transform group-open/response:rotate-90 rtl:rotate-180 rtl:group-open/response:rotate-90" />
+                  )}
+                  <h3 class={cn("font-mono text-sm font-medium", statusToneClass(r.status))}>{r.status}</h3>
+                  {inline !== undefined ? (
+                    <span class="nb-md text-sm text-muted-foreground" set:html={inline} />
+                  ) : !collapsed && r.descriptionHtml && (
+                    <div class="nb-md text-sm text-muted-foreground" set:html={r.descriptionHtml} />
+                  )}
+                </Head>
+                {bodyDescription && <div class="nb-md mb-3 text-sm text-muted-foreground" set:html={bodyDescription} />}
+                <div class="flex flex-col gap-4">
+                  {(r.headers?.length ?? 0) > 0 && (
+                    <ApiFieldList as="h4" title="Headers" fields={r.headers ?? []} context="response" />
+                  )}
+                  {/* One body per media type, the primary first, each labelled by its
+                      media type: its type when it has no fields, its fields, then
+                      its union's options. */}
+                  {responseBodies(r).map((b) => (
+                    <div id={b.anchor} class="scroll-mt-24">
+                      {b.union || b.scalar || b.fields.length > 0 ? (
+                        <ApiFieldList badge={mediaBadge(b.mediaType)} fields={b.fields.length > 0 ? b.fields : undefined} truncated={b.truncated} collapsible={b.union ? true : undefined} context="response">
+                          {b.scalar && <ApiScalarType scalar={b.scalar} />}
+                          {b.union && <ApiUnionExplorer union={b.union} afterFields={b.fields.length > 0} context="response" />}
+                        </ApiFieldList>
+                      ) : r.additionalMedia ? (
+                        <ApiFieldList badge={mediaBadge(b.mediaType)} />
+                      ) : null}
+                      {b.example && (
+                        <div class="mt-2 [&_.nb-code-figure]:my-0">
+                          <Fragment set:html={preparedCode(b.example)} />
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </Response>
+              );
+            })}
+          </div>
+        </section>
+      )}
+    </>
+  )}
+
+  {page.kind === "schema" && (
+    <>
+      {page.scalar && <ApiScalarType scalar={page.scalar} />}
+
+      <ApiFieldList as="h2" title="Fields" fields={page.fields} truncated={page.truncated} />
+
+      {/* A schema's own fields, then its union's options, which add to them. */}
+      {page.union && (
+        <section class="scroll-mt-24">
+          <ApiUnionExplorer union={page.union} afterFields={page.fields.length > 0} />
+        </section>
+      )}
+    </>
+  )}
+
+  {page.kind === "section" && (
+    <>
+      {page.operations.length > 0 && (
+        <section>
+          <h2 class="fl-title mb-3 flex items-baseline justify-between gap-4">
+            Endpoints
+            <span class="text-xs font-normal text-muted-foreground">{page.operations.length} {page.operations.length === 1 ? "endpoint" : "endpoints"}</span>
+          </h2>
+          <ApiOperationList operations={page.operations} />
+        </section>
+      )}
+      {page.sections && (
+        <section>
+          <h2 class="fl-title mb-3">Resources</h2>
+          <ul class="flex list-none flex-col gap-1 p-0">
+            {page.sections.map((s) => (
+              <li>
+                <a href={withBase(s.href, import.meta.env.BASE_URL)} class="font-medium underline-offset-4 hover:underline">{s.label}</a>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+    </>
+  )}
+
+  {page.kind === "api" && !homeChunk && <ApiHome page={page} home={home} />}
+
+  {page.kind === "api" && homeChunk && (
+    <>
+      <ApiHomeChunk chunk={homeChunk} grouped={page.index.groups.some((group) => group.label !== null)} />
+      <nav aria-label="Endpoint list" class="flex flex-wrap gap-x-6 gap-y-2 text-sm">
+        <a href={withBase(page.href, import.meta.env.BASE_URL)} class="font-medium text-foreground underline-offset-4 hover:underline">All endpoints</a>
+        {homeNext && (
+          <a href={withBase(homeNext.href, import.meta.env.BASE_URL)} class="font-medium text-foreground underline-offset-4 hover:underline">
+            Next: endpoints {homeNext.start}–{homeNext.end} of {home!.total}
+          </a>
+        )}
+      </nav>
+    </>
+  )}
+</div>
+
+<script>
+  import "./request-examples.client";
+  import "./responses.client";
+  import "./terraform-section.client";
+</script>
+
+<style is:global>
+  /* The "#" link beside a section heading, as on docs headings. */
+  [data-nb-heading-anchors] :where(h2[id], h3[id], h4[id]) {
+    position: relative;
+  }
+  [data-nb-heading-anchors] .heading-anchor {
+    margin-inline-start: 0.5rem;
+    color: var(--color-muted-foreground);
+    text-decoration: none;
+    opacity: 0;
+    transition: opacity 0.15s, color 0.15s;
+  }
+  [data-nb-heading-anchors] :where(h2[id], h3[id], h4[id]):hover .heading-anchor,
+  [data-nb-heading-anchors] .heading-anchor:focus-visible {
+    opacity: 1;
+  }
+  [data-nb-heading-anchors] .heading-anchor:hover {
+    color: var(--color-foreground);
+  }
+
+  /* Prose treatment for `set:html`-rendered spec descriptions (CommonMark from
+     the OpenAPI `description` fields). Injected HTML carries no Astro scope hash,
+     so these rules are global but namespaced under `.nb-md`. */
+  .nb-md > :first-child {
+    margin-top: 0;
+  }
+  .nb-md > :last-child {
+    margin-bottom: 0;
+  }
+  .nb-md p {
+    margin: 0.5rem 0 0;
+  }
+  .nb-md a {
+    color: var(--color-info);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+  .nb-md a:hover {
+    color: var(--color-foreground);
+  }
+  .nb-md ul,
+  .nb-md ol {
+    margin: 0.375rem 0 0;
+    padding-inline-start: 1.25em;
+  }
+  .nb-md ul {
+    list-style: disc;
+  }
+  .nb-md ol {
+    list-style: decimal;
+  }
+  .nb-md li {
+    margin-top: 0.125rem;
+  }
+  .nb-md li > p {
+    margin: 0;
+  }
+  .nb-md code {
+    font-family: var(--font-mono, ui-monospace, monospace);
+    font-size: 0.9em;
+  }
+  .nb-md pre {
+    margin: 0.5rem 0 0;
+    overflow-x: auto;
+  }
+
+  /* Headings in a spec description sit inside the page's own structure: spaced,
+     at body size. Inline code reads as a chip. */
+  .nb-md :is(h1, h2, h3, h4, h5, h6) {
+    margin: 1rem 0 0;
+    font-size: inherit;
+    font-weight: 550;
+  }
+  .nb-md :not(pre) > code {
+    padding: 0.0625rem 0.3125rem;
+    border: 1px solid var(--color-border);
+    border-radius: 0.25rem;
+    background: var(--color-muted);
+  }
+  /* The page's own description reads as prose, with more room than a field's.
+     Last, so it wins over the rules above at the same specificity. */
+  .nb-md-intro {
+    line-height: 1.7;
+  }
+  .nb-md-intro p {
+    margin-top: 0.75rem;
+  }
+  .nb-md-intro :is(h1, h2, h3, h4, h5, h6) {
+    margin: 1.75rem 0 0;
+    font-weight: var(--nb-h4-weight);
+  }
+  .nb-md-intro :is(h1, h2, h3, h4, h5, h6) + :is(p, ul, ol) {
+    margin-top: 0.375rem;
+  }
+  .nb-md-intro :is(ul, ol) {
+    margin-top: 0.75rem;
+  }
+  .nb-md-intro li {
+    margin-top: 0.375rem;
+  }
+  .nb-md-intro li::marker {
+    color: var(--color-muted-foreground);
+  }
+</style>

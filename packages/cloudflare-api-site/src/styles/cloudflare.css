@@ -43,8 +43,11 @@
   --cf-purple: oklch(0.82 0.1 300);
 }
 
+/* Opaque, since Safari blends a translucent selection colour with the system
+   blue; in sRGB, since the grey background's hue would pull an oklch mix pink. */
 ::selection {
-  background: color-mix(in oklch, var(--cf-primary) 15%, transparent);
+  background: color-mix(in srgb, var(--cf-primary) 30%, var(--cf-background));
+  color: var(--cf-foreground);
 }
 
 @media print {
@@ -114,4 +117,14 @@
 
 .docs-content .heading-anchor:hover {
   color: var(--cf-foreground);
+}
+
+/* A `cf` command is something to paste, not a listing: no line numbers, and
+   a box only as tall as the command instead of the code rail's minimum. */
+[data-nb-api-coderail] [data-nb-choice-kind='cf'] pre.astro-code .line::before {
+  content: none;
+}
+
+[data-nb-api-coderail] .nb-cr-content:has(> [data-nb-choice-kind='cf']:not([hidden])) {
+  min-height: 0;
 }
