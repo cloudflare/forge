@@ -1,7 +1,8 @@
 /*
  * Sidebar tree. Rows carry no classes or data attributes — the API sidebar has
  * thousands of them per page — so everything is styled structurally under the
- * `[data-nb-sidebar]` and `[data-nb-api-nav]` roots.
+ * `[data-nb-sidebar]` and `[data-nb-api-nav]` roots; the filter's results
+ * (`[data-nb-nav-results]`) take the same row styles.
  */
 :is([data-nb-sidebar], [data-nb-api-nav]) ul {
   display: flex;
@@ -22,7 +23,7 @@
   padding-inline-start: 0.5rem;
 }
 
-:is([data-nb-sidebar], [data-nb-api-nav]) li > a,
+:is([data-nb-sidebar], [data-nb-api-nav], [data-nb-nav-results]) li > a,
 :is([data-nb-sidebar], [data-nb-api-nav]) summary {
   display: flex;
   align-items: center;
@@ -38,18 +39,18 @@
   overflow-wrap: anywhere;
 }
 
-:is([data-nb-sidebar], [data-nb-api-nav]) li > a:hover,
+:is([data-nb-sidebar], [data-nb-api-nav], [data-nb-nav-results]) li > a:hover,
 :is([data-nb-sidebar], [data-nb-api-nav]) summary:hover {
   color: var(--nb-foreground);
   background: var(--nb-accent);
 }
 
-:is([data-nb-sidebar], [data-nb-api-nav]) li > a:focus-visible,
+:is([data-nb-sidebar], [data-nb-api-nav], [data-nb-nav-results]) li > a:focus-visible,
 :is([data-nb-sidebar], [data-nb-api-nav]) summary:focus-visible {
   outline-offset: -2px;
 }
 
-:is([data-nb-sidebar], [data-nb-api-nav]) li > a[aria-current='page'] {
+:is([data-nb-sidebar], [data-nb-api-nav], [data-nb-nav-results]) li > a[aria-current='page'] {
   color: var(--nb-foreground);
   background: var(--nb-accent);
   font-weight: 600;

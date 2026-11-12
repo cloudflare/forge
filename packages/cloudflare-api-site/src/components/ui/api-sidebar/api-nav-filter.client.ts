@@ -57,7 +57,24 @@ mount("[data-nb-nav-list]", (filter) => {
     return item;
   };
 
+  // What scrolls the tree: the rail, or the tree itself once the drawer has
+  // moved it, so it's found each time. The filter bar sticks to its top, so
+  // results drawn at the tree's scroll position would start under the bar: they
+  // open at the top, and clearing the filter puts the tree back where it was.
+  const scroller = () => {
+    for (let el = filter.parentElement; el; el = el.parentElement) {
+      if (/(auto|scroll)/.test(getComputedStyle(el).overflowY)) return el;
+    }
+    return null;
+  };
+  let treeScroll: { el: HTMLElement; top: number } | null = null;
+
   const show = (rows: NavListRow[]) => {
+    const el = tree.hidden ? null : scroller();
+    if (el) {
+      treeScroll = { el, top: el.scrollTop };
+      el.scrollTop = 0;
+    }
     tree.hidden = true;
     results.hidden = false;
     results.replaceChildren(...rows.slice(0, MAX_RESULTS).map(row));
@@ -75,6 +92,8 @@ mount("[data-nb-nav-list]", (filter) => {
     results.hidden = true;
     results.replaceChildren();
     say("");
+    if (treeScroll) treeScroll.el.scrollTop = treeScroll.top;
+    treeScroll = null;
   };
 
   const update = async () => {
