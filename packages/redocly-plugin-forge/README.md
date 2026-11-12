@@ -1,4 +1,4 @@
-# @cloudflare/redocly-plugin-generators
+# @cloudflare/redocly-plugin-forge
 
 A [Redocly](https://redocly.com/docs/cli/) plugin bundling lint rules relevant to OpenAPI-driven code generators (Fern, Stainless, Forge, etc.). Generator-agnostic rules apply to any OpenAPI document; vendor-specific rules validate `x-<vendor>-*` extensions for a single generator and opt in via a vendor config.
 
@@ -22,7 +22,7 @@ See [`FUTURE.md`](./FUTURE.md) for candidate rules, scope changes, and built-ins
 ```yaml
 # redocly.yaml
 plugins:
-  - '@cloudflare/redocly-plugin-generators'
+  - '@cloudflare/redocly-plugin-forge'
 
 extends:
   - generators/recommended
@@ -43,11 +43,11 @@ rules:
 ## Development
 
 ```bash
-pnpm --filter @cloudflare/redocly-plugin-generators typecheck
-pnpm --filter @cloudflare/redocly-plugin-generators test
+pnpm --filter @cloudflare/redocly-plugin-forge typecheck
+pnpm --filter @cloudflare/redocly-plugin-forge test
 
 # Update fixture snapshots after an intentional change:
-pnpm --filter @cloudflare/redocly-plugin-generators test:update
+pnpm --filter @cloudflare/redocly-plugin-forge test:update
 ```
 
 Tests use [Vitest](https://vitest.dev/). Fixtures live under `test/fixtures/<base-rule-name>/<case-name>/` with an `openapi.yaml` (or `.json` / `swagger.yaml`), an optional `redocly.yaml`, and a snapshotted `output.json`.

@@ -1,5 +1,5 @@
 {
-  "name": "@cloudflare/redocly-plugin-generators",
+  "name": "@cloudflare/redocly-plugin-forge",
   "private": true,
   "type": "module",
   "exports": {
