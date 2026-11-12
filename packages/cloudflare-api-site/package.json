@@ -15,7 +15,7 @@
   },
   "dependencies": {
     "@astrojs/cloudflare": "^15.0.0-beta.2",
-    "@cloudflare/nimbus-docs": "https://pkg.pr.new/@cloudflare/nimbus-docs@389",
+    "@cloudflare/nimbus-docs": "^0.20.0",
     "@fontsource-variable/inter": "5.3.0",
     "@fontsource-variable/jetbrains-mono": "5.3.0",
     "@iconify-json/ph": "^1.2.2",
@@ -33,7 +33,6 @@
   },
   "devDependencies": {
     "@astrojs/check": "^0.9.4",
-    "@cloudflare/create-nimbus-docs": "https://pkg.pr.new/@cloudflare/create-nimbus-docs@380",
     "@playwright/test": "1.63.0",
     "@tailwindcss/vite": "^4.3.3",
     "tailwindcss": "^4.3.3",
