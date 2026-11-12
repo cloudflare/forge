@@ -9,11 +9,9 @@
  * Checked on operations and `x-forge-aliases[*]`.
  */
 import { getOperations, rootOf } from '../utils/document.ts';
-import { forEachForgeTarget } from '../utils/extensions.ts';
+import { describeKind, FORGE_IDENTIFIER, forEachForgeTarget } from '../utils/extensions.ts';
 import { isPlainObject } from '../utils/resolve.ts';
 import type { AnyNode, Location, RuleDefinition, UserContext } from '../utils/types.ts';
-
-const IDENTIFIER = /^[A-Za-z][A-Za-z0-9]*$/;
 
 function check(ctx: UserContext, node: AnyNode, location: Location): void {
   if (!isPlainObject(node) || node['x-forge-group-name'] === undefined) {
@@ -40,11 +38,11 @@ function check(ctx: UserContext, node: AnyNode, location: Location): void {
     }
     segments = value;
   } else {
-    report(`must be a string or array of strings; got ${typeof value}`);
+    report(`must be a string or array of strings; got ${describeKind(value)}`);
     return;
   }
   for (const segment of segments) {
-    if (!IDENTIFIER.test(segment)) {
+    if (!FORGE_IDENTIFIER.test(segment)) {
       report(`segment "${segment}" is not a valid Forge identifier (starts with a letter, letters and digits only)`);
       return;
     }

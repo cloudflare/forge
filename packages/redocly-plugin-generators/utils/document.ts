@@ -124,10 +124,9 @@ function computeOperations(ctx: Ctx, root: Located, includeWebhooks: boolean): O
 
 function freezeOperations(operations: OperationInfo[]): OperationInfo[] {
   for (const operation of operations) {
+    // `parameters` is a filtered subset of `allParameters` (they share object references), so
+    // freezing allParameters' elements covers both arrays.
     for (const parameter of operation.allParameters) {
-      Object.freeze(parameter);
-    }
-    for (const parameter of operation.parameters) {
       Object.freeze(parameter);
     }
     Object.freeze(operation.parameters);

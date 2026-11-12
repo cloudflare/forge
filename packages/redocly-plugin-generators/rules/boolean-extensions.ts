@@ -7,7 +7,7 @@
  * - `x-forge-skip`, `x-forge-sensitive` on schemas (component schemas, properties, nested schemas).
  */
 import { getOperations, rootOf } from '../utils/document.ts';
-import { forEachForgeTarget } from '../utils/extensions.ts';
+import { describeKind, forEachForgeTarget } from '../utils/extensions.ts';
 import { isPlainObject } from '../utils/resolve.ts';
 import type { AnyNode, Location, RuleDefinition, UserContext } from '../utils/types.ts';
 
@@ -26,7 +26,7 @@ function reportIfNotBool(ctx: UserContext, node: AnyNode, location: Location, ke
       continue;
     }
     ctx.report({
-      message: `${key} must be boolean; got ${typeof node[key]}.`,
+      message: `${key} must be boolean; got ${describeKind(node[key])}.`,
       location: location.child(key).key(),
     });
   }

@@ -9,7 +9,7 @@
  *   its own bucket. Different group values produce different buckets.
  */
 import { getOperations, rootOf } from '../utils/document.ts';
-import { dottedGroupKey } from '../utils/extensions.ts';
+import { describeKind, dottedGroupKey } from '../utils/extensions.ts';
 import { isPlainObject } from '../utils/resolve.ts';
 import type { AnyNode, Location, RuleDefinition, UserContext } from '../utils/types.ts';
 
@@ -30,7 +30,7 @@ export const validAliases: RuleDefinition = {
           const aliasesLocation = operation.location.child('x-forge-aliases');
           if (!Array.isArray(aliases)) {
             ctx.report({
-              message: `x-forge-aliases must be an array; got ${typeof aliases}.`,
+              message: `x-forge-aliases must be an array; got ${describeKind(aliases)}.`,
               location: aliasesLocation.key(),
             });
             continue;
@@ -47,7 +47,7 @@ export const validAliases: RuleDefinition = {
             const aliasLocation = aliasesLocation.child(index);
             if (!isPlainObject(alias)) {
               ctx.report({
-                message: `x-forge-aliases[${index}] must be an object; got ${typeof alias}.`,
+                message: `x-forge-aliases[${index}] must be an object; got ${describeKind(alias)}.`,
                 location: aliasLocation.key(),
               });
               return;
@@ -60,7 +60,19 @@ export const validAliases: RuleDefinition = {
               });
               return;
             }
-            const group = dottedGroupKey(alias['x-forge-group-name']) ?? '';
+            const groupValue = alias['x-forge-group-name'];
+            let group: string;
+            if (groupValue === undefined) {
+              group = '';
+            } else {
+              const key = dottedGroupKey(groupValue);
+              if (key === undefined) {
+                // Malformed group-name; valid-group-name reports it. Skip dedup to avoid
+                // bucketing malformed groups with 'no group' (would produce false positives).
+                return;
+              }
+              group = key;
+            }
             const key = `${group}\u0000${method}`;
             if (seen.has(key)) {
               const coordinate = group === '' ? `"${method}"` : `"${group}.${method}"`;

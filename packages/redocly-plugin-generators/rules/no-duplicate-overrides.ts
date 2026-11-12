@@ -45,15 +45,16 @@ export const noDuplicateOverrides: RuleDefinition = {
           if (override === undefined) {
             continue;
           }
-          const key = `${override.group}.${override.method}`;
+          const key = `${override.group}\u0000${override.method}`;
           const existing = seen.get(key);
           if (existing === undefined) {
             seen.set(key, override);
             continue;
           }
+          const coordinate = override.group === '' ? override.method : `${override.group}.${override.method}`;
           ctx.report({
             message:
-              `SDK method "${key}" already defined by ${operationLabel(existing.operation)}. ` +
+              `SDK method "${coordinate}" already defined by ${operationLabel(existing.operation)}. ` +
               `Change x-forge-group-name or x-forge-method-name on one of the operations.`,
             location: override.location,
           });

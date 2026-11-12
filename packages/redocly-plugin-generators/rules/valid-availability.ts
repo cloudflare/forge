@@ -3,7 +3,7 @@
  * Checks operations and `x-forge-aliases[*]` elements.
  */
 import { getOperations, rootOf } from '../utils/document.ts';
-import { forEachForgeTarget } from '../utils/extensions.ts';
+import { describeKind, forEachForgeTarget } from '../utils/extensions.ts';
 import { isPlainObject } from '../utils/resolve.ts';
 import type { AnyNode, Location, RuleDefinition, UserContext } from '../utils/types.ts';
 
@@ -17,7 +17,7 @@ function check(ctx: UserContext, node: AnyNode, location: Location): void {
   if (typeof value === 'string' && (ALLOWED as readonly string[]).includes(value)) {
     return;
   }
-  const description = typeof value === 'string' ? `"${value}"` : typeof value;
+  const description = typeof value === 'string' ? `"${value}"` : describeKind(value);
   ctx.report({
     message: `x-forge-availability must be one of ${ALLOWED.join(', ')}; got ${description}.`,
     location: location.child('x-forge-availability').key(),

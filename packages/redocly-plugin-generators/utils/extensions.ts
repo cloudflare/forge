@@ -52,6 +52,20 @@ export function isNonEmptyString(value: unknown): value is string {
   return typeof value === 'string' && value.length > 0;
 }
 
+/** Forge identifier rule (`Name::new`): starts with a letter, letters and digits only. */
+export const FORGE_IDENTIFIER = /^[A-Za-z][A-Za-z0-9]*$/;
+
+/** Short classifier for JSON values suitable for error messages; distinguishes null and array. */
+export function describeKind(value: unknown): string {
+  if (value === null) {
+    return 'null';
+  }
+  if (Array.isArray(value)) {
+    return 'array';
+  }
+  return typeof value;
+}
+
 /**
  * Canonical dotted form of an `x-forge-group-name`: a dotted string is returned verbatim, an
  * array of strings is joined with `.`, anything else returns `undefined`.

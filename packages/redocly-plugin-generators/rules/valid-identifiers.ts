@@ -10,21 +10,19 @@
  * - `x-forge-parameter-name` on parameter objects.
  */
 import { getOperations, rootOf } from '../utils/document.ts';
-import { forEachForgeTarget } from '../utils/extensions.ts';
+import { describeKind, FORGE_IDENTIFIER, forEachForgeTarget } from '../utils/extensions.ts';
 import { isPlainObject } from '../utils/resolve.ts';
 import type { AnyNode, Location, RuleDefinition, UserContext } from '../utils/types.ts';
-
-const IDENTIFIER = /^[A-Za-z][A-Za-z0-9]*$/;
 
 function reportIfInvalid(ctx: UserContext, node: AnyNode, location: Location, key: string): void {
   if (!isPlainObject(node) || node[key] === undefined) {
     return;
   }
   const value = node[key];
-  if (typeof value === 'string' && IDENTIFIER.test(value)) {
+  if (typeof value === 'string' && FORGE_IDENTIFIER.test(value)) {
     return;
   }
-  const description = typeof value === 'string' ? `"${value}"` : typeof value;
+  const description = typeof value === 'string' ? `"${value}"` : describeKind(value);
   ctx.report({
     message: `${key} must be a valid Forge identifier (starts with a letter, letters and digits only); got ${description}.`,
     location: location.child(key).key(),
