@@ -4,28 +4,31 @@
  * rail's curves instead of cutting across.
  */
 
-import { mount } from '@cloudflare/nimbus-docs/client';
+import { mount } from "@cloudflare/nimbus-docs/client";
 
 const READING_BAND = 0.25;
 const BOTTOM_EPSILON = 2;
 const REVEAL_PADDING = 12;
 
 function initToc(root: HTMLElement): () => void {
-  const nav = root.querySelector<HTMLElement>('nav');
-  const activePath = root.querySelector<SVGPathElement>('[data-nb-toc-rail-active]');
-  const links = root.querySelectorAll<HTMLElement>('[data-nb-toc-link]');
+  const nav = root.querySelector<HTMLElement>("nav");
+  const activePath = root.querySelector<SVGPathElement>("[data-nb-toc-rail-active]");
+  const links = root.querySelectorAll<HTMLElement>("[data-nb-toc-link]");
   if (!nav || !activePath || links.length === 0) return () => {};
 
-  const scrollHost = root.closest<HTMLElement>('[data-nb-toc-scroll-host]') ?? root;
+  const scrollHost = root.closest<HTMLElement>("[data-nb-toc-scroll-host]") ?? root;
   const slugs = Array.from(links).map((l) => l.dataset.nbSlug!);
   // Observe only resolvable headings, each carrying its original index, so
-  // scroll-spy stays aligned with the full-length links/segments even when a
-  // heading slugs to "" (e.g. emoji-only `## 🎉`) and has no DOM target.
+  // scroll-spy stays aligned with the links/segments even when a heading's
+  // target is missing from the page. (The TOC leaves out headings that slug
+  // to "", such as an emoji-only `## 🎉`.)
   const observed = slugs
     .map((slug, index) => ({ el: document.getElementById(slug), index }))
     .filter((o): o is { el: HTMLElement; index: number } => o.el !== null);
   if (observed.length === 0) return () => {};
-  const indexOfEl = new Map<HTMLElement, number>(observed.map((o) => [o.el, o.index]));
+  const indexOfEl = new Map<HTMLElement, number>(
+    observed.map((o) => [o.el, o.index]),
+  );
 
   let segments: { start: number; length: number }[] = [];
   let totalLength = 0;
@@ -37,17 +40,19 @@ function initToc(root: HTMLElement): () => void {
   // static gray rail, capturing each link's arc-length range as we go.
   function buildRail() {
     const navRect = nav!.getBoundingClientRect();
+    // The rail is the links' inline-start border: their left edge, or right in RTL.
+    const rtl = getComputedStyle(nav!).direction === "rtl";
 
     const m = Array.from(links).map((link) => {
       const r = link.getBoundingClientRect();
       return {
-        x: r.left - navRect.left + 1,
+        x: rtl ? r.right - navRect.left - 1 : r.left - navRect.left + 1,
         yTop: r.top - navRect.top,
         yBot: r.top - navRect.top + r.height,
       };
     });
 
-    let d = '';
+    let d = "";
     const newSegments: { start: number; length: number }[] = [];
 
     // Measure each command in isolation (O(1)) and accumulate, rather than
@@ -58,7 +63,7 @@ function initToc(root: HTMLElement): () => void {
     // activePath doubles as the scratch measurer here; the full `d` is written
     // back once at the end.
     const measure = (subPath: string) => {
-      activePath!.setAttribute('d', subPath);
+      activePath!.setAttribute("d", subPath);
       return activePath!.getTotalLength();
     };
 
@@ -97,7 +102,7 @@ function initToc(root: HTMLElement): () => void {
       prevYBot = cur.yBot;
     }
 
-    activePath!.setAttribute('d', d);
+    activePath!.setAttribute("d", d);
     segments = newSegments;
     totalLength = cumulative;
   }
@@ -107,7 +112,7 @@ function initToc(root: HTMLElement): () => void {
     if (!seg) return;
 
     if (instant) {
-      activePath!.setAttribute('data-initial', 'true');
+      activePath!.setAttribute("data-initial", "true");
       // Force recalc so only opacity transitions on first paint (no dash sweep).
       void activePath!.getBoundingClientRect();
     }
@@ -117,9 +122,9 @@ function initToc(root: HTMLElement): () => void {
 
     if (instant) {
       requestAnimationFrame(() => {
-        activePath!.setAttribute('data-ready', 'true');
+        activePath!.setAttribute("data-ready", "true");
         requestAnimationFrame(() => {
-          activePath!.removeAttribute('data-initial');
+          activePath!.removeAttribute("data-initial");
         });
       });
     }
@@ -143,9 +148,9 @@ function initToc(root: HTMLElement): () => void {
     if (index === currentIndex) return;
     currentIndex = index;
 
-    currentLink?.removeAttribute('aria-current');
+    currentLink?.removeAttribute("aria-current");
     const activeLink = links[index] ?? null;
-    activeLink?.setAttribute('aria-current', 'true');
+    activeLink?.setAttribute("aria-current", "true");
     currentLink = activeLink;
     if (activeLink) revealActiveLink(activeLink);
 
@@ -164,7 +169,9 @@ function initToc(root: HTMLElement): () => void {
       setActive(pinnedIndex);
       return;
     }
-    setActive(atBottom ? links.length - 1 : observedIndex);
+    // At the bottom, the last heading on the page, not the last link: a link
+    // whose heading has no target can't be the one being read.
+    setActive(atBottom ? observed.at(-1)!.index : observedIndex);
   }
 
   // rootMargin collapses the root to the top band; deepest in-band heading wins.
@@ -186,7 +193,9 @@ function initToc(root: HTMLElement): () => void {
   function updateBottom() {
     const scrollEl = document.scrollingElement ?? document.documentElement;
     const maxScroll = scrollEl.scrollHeight - window.innerHeight;
-    const next = maxScroll > BOTTOM_EPSILON && scrollEl.scrollTop >= maxScroll - BOTTOM_EPSILON;
+    const next =
+      maxScroll > BOTTOM_EPSILON &&
+      scrollEl.scrollTop >= maxScroll - BOTTOM_EPSILON;
     if (next !== atBottom) {
       atBottom = next;
       resolve();
@@ -254,10 +263,10 @@ function initToc(root: HTMLElement): () => void {
   const controller = new AbortController();
 
   nav.addEventListener(
-    'click',
+    "click",
     (e) => {
       if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
-      const link = (e.target as Element).closest<HTMLElement>('[data-nb-toc-link]');
+      const link = (e.target as Element).closest<HTMLElement>("[data-nb-toc-link]");
       if (!link) return;
       const i = slugs.indexOf(link.dataset.nbSlug!);
       if (i === -1) return;
@@ -277,31 +286,61 @@ function initToc(root: HTMLElement): () => void {
     pinnedEnteredViewport = false;
     resolve();
   }
-  const NAV_KEYS = new Set(['ArrowUp', 'ArrowDown', 'PageUp', 'PageDown', 'Home', 'End', ' ', 'Spacebar']);
-  window.addEventListener('wheel', releasePin, {
+  const NAV_KEYS = new Set([
+    "ArrowUp",
+    "ArrowDown",
+    "PageUp",
+    "PageDown",
+    "Home",
+    "End",
+    " ",
+    "Spacebar",
+  ]);
+  window.addEventListener("wheel", releasePin, {
     passive: true,
     signal: controller.signal,
   });
-  window.addEventListener('touchmove', releasePin, {
+  window.addEventListener("touchmove", releasePin, {
     passive: true,
     signal: controller.signal,
   });
   window.addEventListener(
-    'keydown',
+    "keydown",
     (e) => {
       if (NAV_KEYS.has(e.key)) releasePin();
     },
     { signal: controller.signal },
   );
 
-  window.addEventListener('scroll', onScroll, {
+  window.addEventListener("scroll", onScroll, {
     passive: true,
     signal: controller.signal,
   });
-  window.addEventListener('resize', onLayoutChange, {
+  window.addEventListener("resize", onLayoutChange, {
     passive: true,
     signal: controller.signal,
   });
+  // Content that loads later (the API home's parts) dispatches
+  // `nb:toc-headings`: track the headings that have appeared since.
+  document.addEventListener(
+    "nb:toc-headings",
+    () => {
+      let added = false;
+      slugs.forEach((slug, index) => {
+        if (observed.some((o) => o.index === index)) return;
+        const el = document.getElementById(slug);
+        if (!el) return;
+        observed.push({ el, index });
+        indexOfEl.set(el, index);
+        spy.observe(el);
+        added = true;
+      });
+      if (!added) return;
+      observed.sort((a, b) => a.index - b.index);
+      onLayoutChange();
+    },
+    { signal: controller.signal },
+  );
 
   const ro = new ResizeObserver(onLayoutChange);
   ro.observe(nav);
@@ -318,4 +357,4 @@ function initToc(root: HTMLElement): () => void {
   };
 }
 
-mount('[data-nb-toc]', initToc);
+mount("[data-nb-toc]", initToc);

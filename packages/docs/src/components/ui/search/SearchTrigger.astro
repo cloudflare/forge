@@ -1,20 +1,28 @@
 ---
-/** Button that opens the search dialog. Cmd+K on macOS, Ctrl+K elsewhere. */
+/** Button that opens the search dialog, with its shortcut from `src/lib/shortcuts.ts`. */
 import Icon from "@cloudflare/nimbus-docs/components/Icon.astro";
+import { shortcutLabel } from "@cloudflare/nimbus-docs/client";
+import { shortcuts } from "@/lib/shortcuts";
+
+// Rendered for other platforms; the client swaps in ⌘ on macOS and names the
+// key in `aria-keyshortcuts`.
+const key = shortcuts.search;
 ---
 
 <button
+  data-slot="search-trigger"
   data-search-trigger
   type="button"
-  class="flex items-center gap-2 rounded-md border border-border bg-transparent font-mono text-[0.6875rem] uppercase tracking-[0.14em] text-muted-foreground transition-colors hover:border-border-strong hover:text-foreground p-2 sm:px-2.5 sm:py-1.5"
-  aria-label="Search documentation"
-  aria-keyshortcuts="Control+K"
+  class="flex items-center gap-2 rounded-md border border-border bg-card text-sm leading-5 text-muted-foreground transition-colors hover:border-border-strong hover:text-foreground p-2 sm:px-2.5 sm:py-1.5"
+  data-nb-shortcut-for={key || undefined}
 >
   <Icon name="ph:magnifying-glass" class="h-4 w-4" />
-  <span class="hidden md:inline">Search</span>
-  <kbd class="hidden sm:inline-flex items-center gap-0.5 rounded border border-border bg-muted px-1.5 py-0.5 font-mono text-[0.625rem] font-medium uppercase tracking-[0.08em] text-muted-foreground">
-    <span data-shortcut-key>Ctrl</span>K
-  </kbd>
+  <span class="sr-only md:not-sr-only">Search</span><span class="sr-only"> documentation</span>
+  {key && (
+    <kbd aria-hidden="true" dir="ltr" data-nb-shortcut-hint={key} class="hidden sm:inline-flex items-center gap-0.5 rounded border border-border bg-muted px-1.5 py-0.5 text-[0.625rem] leading-4 font-medium text-muted-foreground">
+      {shortcutLabel(key)}
+    </kbd>
+  )}
 </button>
 
 <script>

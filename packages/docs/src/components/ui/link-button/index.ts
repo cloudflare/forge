@@ -1,1 +1,1 @@
-export { default as LinkButton } from './LinkButton.astro';
+export { default as LinkButton } from "./LinkButton.astro";

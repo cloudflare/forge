@@ -1,24 +1,34 @@
 {
   "$schema": "https://nimbus-docs.com/schema/nimbus.json",
-  "version": "0.6.5",
-  "lastReviewedNimbusVersion": "0.18.0",
-  "templatesTag": "templates-v0.6.5",
-  "variant": "empty",
-  "registry": "https://nimbus-docs.com/registry",
-  "install": {
-    "root": "src",
-    "aliases": {
-      "@/*": "src/*"
-    }
-  },
+  "lastReviewedNimbusVersion": "0.20.0",
   "components": [
+    {
+      "slug": "cn",
+      "type": "registry:lib",
+      "version": "0.19.4",
+      "source": "https://nimbus-docs.com/registry",
+      "hash": "sha256:7c54894573a1398333b41a63838db5de40ba05ad3fdb71048414baf912bb0070",
+      "files": [
+        "src/lib/cn.ts"
+      ],
+      "fileHashes": {
+        "src/lib/cn.ts": "sha256:4575f5bcc29804b00c7cc1e3090aec2194b462bdd3c33a5620dc47d09bfe26d8"
+      }
+    },
     {
       "slug": "link-card",
       "type": "registry:ui",
-      "version": "0.8.2",
+      "version": "0.19.4",
       "source": "https://nimbus-docs.com/registry",
-      "hash": "sha256:50a1a703d1111aff309a92256dda1d8dbcb10ba92afd3ff8d4b2a92ac8aab069",
-      "files": ["src/components/ui/link-card/LinkCard.astro", "src/components/ui/link-card/index.ts"]
+      "hash": "sha256:e6a1dc40185f3676153884a6dca63b4cb49e26e5f7aa5b0b9248a9d22cb58a6e",
+      "files": [
+        "src/components/ui/link-card/LinkCard.astro",
+        "src/components/ui/link-card/index.ts"
+      ],
+      "fileHashes": {
+        "src/components/ui/link-card/LinkCard.astro": "sha256:54018f5df6e5a9f5a2f4a0fb925938a229130b64dff528335eacc8cd4da342fb",
+        "src/components/ui/link-card/index.ts": "sha256:3267e55393cb50330609feea3e7db92d122893e331400c48392851ca6545e4af"
+      }
     }
   ]
 }

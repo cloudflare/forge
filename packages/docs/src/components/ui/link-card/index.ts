@@ -1,1 +1,1 @@
-export { default as LinkCard } from './LinkCard.astro';
+export { default as LinkCard } from "./LinkCard.astro";

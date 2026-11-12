@@ -10,19 +10,18 @@ pnpm --filter forge-docs build      # static output in ./dist
 
 ## How it looks, and why
 
-- **Cloudflare's palette, quietly.** Neutral greys carry the page. Cloudflare orange, `#f6821f`
-  (`--fg-orange`), is spent on calls to action and the active state, and nothing else, so it keeps
-  meaning "here". Orange text on light backgrounds uses `--fg-orange-text`, a darker orange, because
-  the brand orange on white is too faint to read as text.
-- **Both schemes are first-class.** The site follows the system setting and the toggle. Every token
-  has a light and a dark value in `src/styles/globals.css`.
-- **The logo is Cloudflare's mark**, in its own two oranges, in `src/components/Logo.astro`, the
-  favicon, and the OG card mark in `og-assets/`.
-- **Inter and JetBrains Mono**, self-hosted through Fontsource, so there are no font requests to a
-  third party.
-- **The landing figure is the argument.** `PipelineFigure.astro` shows the three stages (document,
-  model, plugins) because that is what Forge is. It is markup, not an image, so it is searchable,
-  selectable and themed.
+The site is a Nimbus site with as few changes as possible. Every file under `src/` outside
+`src/content/` is Nimbus's starter, as `create-nimbus-docs` writes it for the version in
+`package.json`, so a Nimbus update is a copy and a diff. The changes, each for a reason:
+
+| Change | Where | Why |
+|---|---|---|
+| Cloudflare orange as the brand | `--nb-brand` in `src/styles/globals.css` | Darkened to 5:1 on white so it reads as text; Nimbus uses the brand only for where you are and what you can act on. |
+| The logo | `src/components/logo.ts`, `Logo.astro` | Cloudflare's cloud in its own two colours, beside the word "Forge". `logo.ts` adds `fills`, which `src/pages/og/_card.ts` reads, so the social cards don't recolour the mark. |
+| The "Updated" date | `ui/page-actions/PageActions.astro` | Formatted in the site's locale and UTC, so a build doesn't depend on the machine it runs on. |
+| A minute of freshness for pages | `public/_headers` | A hover-prefetched page can be reused on the click instead of fetched again. |
+
+Add a row before adding a change. A change Nimbus should make itself is better reported upstream.
 
 ## Content
 

@@ -1,15 +1,19 @@
 ---
 import BaseLayout from "../layouts/BaseLayout.astro";
 import Header from "../components/Header.astro";
+import { withBase } from "@cloudflare/nimbus-docs/runtime";
+
+// Prerender the 404 so it stays a static route under `output: "server"`.
+// Hosts serve it via their not-found handling (e.g. Cloudflare
+// `not_found_handling: "404-page"`); the adapter adds no on-demand route.
+export const prerender = true;
+const homeHref = withBase("/", import.meta.env.BASE_URL);
 ---
 
 <BaseLayout title="Page not found" description="The page you're looking for doesn't exist." noindex>
   <div class="flex flex-col min-h-screen">
     <Header />
-    {/* `id` matters: BaseLayout renders a "Skip to content" link to
-        `#main-content` on every page, and the starter's 404 was the one page
-        with no such target for it to reach. */}
-    <main id="main-content" class="flex-1 mx-auto max-w-2xl w-full px-6 py-24 text-center">
+    <main id="main-content" tabindex="-1" class="flex-1 mx-auto max-w-2xl w-full px-6 py-24 text-center">
       <p class="text-sm font-medium text-muted-foreground">404</p>
       <h1
         class="mt-2 text-foreground leading-tight"
@@ -21,7 +25,7 @@ import Header from "../components/Header.astro";
         The page you're looking for doesn't exist or has moved.
       </p>
       <a
-        href="/"
+        href={homeHref}
         class="mt-8 inline-block rounded-lg border border-border px-4 py-2 font-medium text-foreground no-underline transition-colors hover:border-border-strong"
       >
         Back home

@@ -1,1 +1,1 @@
-export { default as CardGrid } from './CardGrid.astro';
+export { default as CardGrid } from "./CardGrid.astro";

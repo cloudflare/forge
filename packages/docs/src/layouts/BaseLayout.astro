@@ -1,15 +1,23 @@
 ---
 import "@fontsource-variable/inter";
 import "@fontsource-variable/jetbrains-mono";
+// The body font starts downloading with the page instead of after the CSS.
+import interLatin from "@fontsource-variable/inter/files/inter-latin-wght-normal.woff2?url";
 import "../styles/globals.css";
 import "../styles/prose.css";
+import { ClientRouter } from "astro:transitions";
 import { config } from "virtual:nimbus/config";
-import { getCollectionLlmsUrl, getVersionStatus } from "@cloudflare/nimbus-docs";
+import {
+  getPublishedLlmsUrl,
+  getPageLanguage,
+  getVersionStatus,
+  withBase,
+} from "@cloudflare/nimbus-docs/runtime";
 import AgentDirective from "@/components/AgentDirective.astro";
 import { SearchDialog } from "@/components/ui/search";
 import NimbusHead from "@cloudflare/nimbus-docs/components/NimbusHead.astro";
+import WebMCP from "@/components/WebMCP.astro";
 import type { BasePageProps } from "@cloudflare/nimbus-docs/types";
-import { cn } from "@/lib/cn";
 
 type Props = BasePageProps;
 
@@ -19,58 +27,65 @@ const {
   noindex,
   markdownUrl,
   socialImage,
+  socialImageSize,
+  socialImageAlt,
+  locale,
   lastUpdated,
   head: pageHead = [],
   collection,
   entryId,
+  apiVersion,
+  coordinate,
 } = Astro.props;
 
-const lang = config.locale ?? "en";
-// `fg-home` marks the landing page, which is one sheet edge to edge rather
-// than a sheet over the ground. The trailing-slash strip is what makes `/`
-// match as the empty string.
-const path = Astro.url.pathname.replace(/\/+$/, "");
-const isHome = path === "";
+// The page's language, or the site's; `dir="rtl"` for a right-to-left one.
+const { lang, dir } = await getPageLanguage(locale);
 // Per-page agent-index pointer. For pages in non-primary or version
 // collections, this resolves to `/<prefix>/llms.txt` (e.g. `/v0/llms.txt`
 // for a v0 docs page, `/blog/llms.txt` for a blog post). Falls back to
 // the root `/llms.txt` when no collection is provided.
 // Hidden-version pages don't advertise an agent index (the per-version
 // llms.txt isn't emitted for them); suppress the AgentDirective entirely.
-const versionStatus = collection ? await getVersionStatus(collection) : null;
+const versionStatusKey =
+  apiVersion && collection ? `${collection}@${apiVersion}` : collection;
+const versionStatus = versionStatusKey
+  ? await getVersionStatus(versionStatusKey)
+  : null;
 const isHiddenVersion = versionStatus?.isHidden === true;
-const llmsIndexPath = collection
-  ? await getCollectionLlmsUrl(collection)
-  : "/llms.txt";
-const llmsUrl = Astro.site
-  ? new URL(llmsIndexPath, Astro.site).href
-  : llmsIndexPath;
+// `null` when no route of the site serves an index; the directive then
+// names only the page's Markdown, or nothing.
+const llmsIndexPath = await getPublishedLlmsUrl(collection ?? undefined);
+const baseUrl = import.meta.env.BASE_URL;
+const basedLlmsUrl = llmsIndexPath ? withBase(llmsIndexPath, baseUrl) : null;
+const llmsUrl = basedLlmsUrl
+  ? Astro.site
+    ? new URL(basedLlmsUrl, Astro.site).href
+    : basedLlmsUrl
+  : null;
+const basedMarkdownUrl = markdownUrl ? withBase(markdownUrl, baseUrl) : undefined;
+const resolvedMarkdownUrl =
+  basedMarkdownUrl && Astro.site
+    ? new URL(basedMarkdownUrl, Astro.site).href
+    : basedMarkdownUrl;
 ---
 
 <!doctype html>
-<html lang={lang}>
+<html lang={lang} dir={dir}>
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="preload" href={interLatin} as="font" type="font/woff2" crossorigin />
+    <WebMCP />
 
-    {/*
-      `is:inline` is load-bearing. Without a directive Astro processes this and
-      emits a module script, which is deferred: the document can paint
-      before it runs, and a reader whose stored choice is dark gets a flash of
-      the light scheme first. Measured at 20x CPU throttling, that flash lasted
-      about sixty frames. Inline makes it a classic blocking script that runs
-      during head parsing, before anything is painted. Nothing in here needs
-      processing anyway -- no imports, no TypeScript.
-    */}
     <script is:inline>
       (() => {
         const KEY = "ui-mode";
-        // Queried the other way round on purpose: the site is designed dark, so
-        // "no preference" resolves to dark rather than light. A stored choice
-        // still wins over both.
-        const media = window.matchMedia("(prefers-color-scheme: light)");
+        const media = window.matchMedia("(prefers-color-scheme: dark)");
+        // A choice storage refused, kept until the page unloads.
+        let unsaved = null;
 
         const readPref = () => {
+          if (unsaved) return unsaved;
           try {
             const v = localStorage.getItem(KEY);
             return v === "dark" || v === "light" ? v : null;
@@ -79,35 +94,22 @@ const llmsUrl = Astro.site
           }
         };
 
-        const resolveMode = () => readPref() ?? (media.matches ? "light" : "dark");
+        const resolveMode = () => readPref() ?? (media.matches ? "dark" : "light");
 
         const applyTheme = () => {
           const root = document.documentElement;
           const mode = resolveMode();
-          if (mode === "dark") {
-            root.setAttribute("data-mode", "dark");
-          } else {
-            root.removeAttribute("data-mode");
-          }
-          // data-theme is always present, unlike data-mode, so anything that
-          // needs to read the scheme positively can.
-          root.dataset.theme = mode;
+          if (mode === "dark") root.setAttribute("data-mode", "dark");
+          else root.removeAttribute("data-mode");
           root.style.colorScheme = mode;
-          // The two theme-color metas are media-scoped, which answers the OS
-          // but not a stored choice that disagrees with it. Drop the media
-          // condition on the one that won and neuter the other, so the browser
-          // chrome matches the page a reader actually gets.
-          document.querySelectorAll('meta[name="theme-color"]').forEach((m) => {
-            const wants = m.dataset.mode || (m.media.includes("light") ? "light" : "dark");
-            m.dataset.mode = wants;
-            m.media = wants === mode ? "" : "not all";
-          });
           document.querySelectorAll("[data-nb-theme-toggle]").forEach((b) => {
             b.setAttribute("data-nb-state", mode);
+            b.setAttribute("aria-pressed", String(mode === "dark"));
           });
         };
 
         applyTheme();
+        document.addEventListener("astro:after-swap", applyTheme);
         media.addEventListener("change", () => {
           if (!readPref()) applyTheme();
         });
@@ -115,7 +117,11 @@ const llmsUrl = Astro.site
           if (e.key === KEY) applyTheme();
         });
 
-        window.__nbApplyTheme = applyTheme;
+        // The toggle passes a mode only when storage refused it.
+        window.__nbApplyTheme = (mode) => {
+          if (mode === "dark" || mode === "light") unsaved = mode;
+          applyTheme();
+        };
       })();
     </script>
 
@@ -125,22 +131,28 @@ const llmsUrl = Astro.site
       noindex={noindex}
       markdownUrl={markdownUrl}
       socialImage={socialImage}
+      socialImageSize={socialImageSize}
+      socialImageAlt={socialImageAlt}
+      locale={locale}
       lastUpdated={lastUpdated}
       head={pageHead}
       collection={collection}
       entryId={entryId}
+      apiVersion={apiVersion}
+      coordinate={coordinate}
     />
+    <ClientRouter />
   </head>
-  <!-- No `bg-background` here: the body paints the ground (see globals.css) and
-       the content sheet paints itself, so the ground has somewhere to show. -->
-  <body class={cn("min-h-screen text-foreground antialiased", isHome && "fg-home")}>
+  <body class="min-h-screen bg-background text-foreground antialiased">
     <a
       href="#main-content"
-      class="sr-only focus:not-sr-only focus:absolute focus:left-2 focus:top-2 focus:z-100 focus:rounded-md focus:bg-primary focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:text-primary-foreground focus:no-underline focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2"
+      class="sr-only focus:not-sr-only focus:absolute focus:start-2 focus:top-2 focus:z-100 focus:rounded-md focus:bg-primary focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:text-primary-foreground focus:no-underline focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2"
     >
       Skip to content
     </a>
-    {markdownUrl && !isHiddenVersion && <AgentDirective markdownUrl={markdownUrl} llmsUrl={llmsUrl} />}
+    {!isHiddenVersion && (
+      <AgentDirective markdownUrl={resolvedMarkdownUrl ?? null} llmsUrl={llmsUrl} />
+    )}
     <slot />
     {config.search !== false && <SearchDialog />}
 

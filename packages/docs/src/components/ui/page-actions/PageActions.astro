@@ -1,5 +1,6 @@
 ---
 import Icon from "@cloudflare/nimbus-docs/components/Icon.astro";
+import { withBase } from "@cloudflare/nimbus-docs/runtime";
 import { config } from "virtual:nimbus/config";
 import { cn } from "@/lib/cn";
 import type { HTMLAttributes } from "astro/types";
@@ -10,39 +11,46 @@ interface Props extends HTMLAttributes<"div"> {
 }
 
 const { markdownUrl, lastUpdated, class: className, ...attrs } = Astro.props;
+const resolvedMarkdownUrl = markdownUrl
+  ? withBase(markdownUrl, import.meta.env.BASE_URL)
+  : undefined;
 
 const baseBtn =
   "inline-flex cursor-pointer items-center gap-1.5 rounded-md bg-transparent px-2 py-1 text-muted-foreground no-underline transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2";
 
-// The site is static, so this runs once at build time on whatever machine did
-// the build. An `undefined` locale would resolve to *that* machine's default,
-// which is neither the reader's locale nor a stable build output. Pin it to the
-// locale the document declares in `<html lang>`, which is this same value.
-const locale = config.locale ?? "en";
+// Extra actions (the layout passes Connect MCP) render after the built-in
+// ones. Rendered here so an action that renders nothing adds no separator.
+const extra = Astro.slots.has("default") ? (await Astro.slots.render("default")).trim() : "";
+
+// Formatted at build time, so an `undefined` locale or time zone would be the
+// build machine's. Pin both: the page's own locale, and UTC.
 const formattedDate = lastUpdated
-  ? new Intl.DateTimeFormat(locale, { year: "numeric", month: "short", day: "numeric", timeZone: "UTC" }).format(
-      lastUpdated,
-    )
+  ? new Intl.DateTimeFormat(config.locale ?? "en", { year: "numeric", month: "short", day: "numeric", timeZone: "UTC" }).format(lastUpdated)
   : null;
 ---
 
-{(markdownUrl || lastUpdated) && (
-  <div
+{/* A nav: the row is page chrome, so text readers and agents skip it as
+    they skip the sidebar, while its controls stay in the tab order. */}
+{(markdownUrl || lastUpdated || extra) && (
+  <nav
+    aria-label="Page actions"
     data-nb-page-actions
+    data-slot="page-actions"
     data-pagefind-ignore
-    data-md-url={markdownUrl}
-    class={cn("not-prose -ml-2 flex flex-wrap items-center gap-y-1 text-[0.8125rem]", className)}
+    data-md-url={resolvedMarkdownUrl}
+    class={cn("not-prose -ms-2 flex flex-wrap items-center gap-y-1 text-[0.8125rem] leading-5", className)}
     {...attrs}
   >
+    {/* Phones get the short forms ("Oct 12, 2026", "Markdown"), so the row stays on one line. */}
     {lastUpdated && (
       <span class="inline-flex items-center gap-1.5 px-2 py-1 text-muted-foreground">
         <Icon name="ph:clock" class="w-3.5 h-3.5" />
-        Updated <time datetime={lastUpdated.toISOString()}>{formattedDate}</time>
+        <span class="sr-only sm:not-sr-only">Updated</span> <time datetime={lastUpdated.toISOString()}>{formattedDate}</time>
       </span>
     )}
 
     {markdownUrl && lastUpdated && (
-      <span aria-hidden="true" class="select-none text-muted-foreground/70">|</span>
+      <span aria-hidden="true" data-slot="page-actions-separator" class="hidden select-none text-muted-foreground/40 sm:inline">|</span>
     )}
 
     {markdownUrl && (
@@ -53,20 +61,27 @@ const formattedDate = lastUpdated
           <span data-nb-page-actions-label aria-live="polite">Copy page</span>
         </button>
 
-        <span aria-hidden="true" class="select-none text-muted-foreground/70">|</span>
+        <span aria-hidden="true" data-slot="page-actions-separator" class="hidden select-none text-muted-foreground/40 sm:inline">|</span>
 
         <a
-          href={markdownUrl}
+          href={resolvedMarkdownUrl}
           target="_blank"
           rel="noopener noreferrer"
+          aria-label="View as Markdown"
           class={baseBtn}
         >
           <Icon name="ph:markdown-logo" class="w-3.5 h-3.5" />
-          View as Markdown
+          <span class="sm:hidden" aria-hidden="true">Markdown</span>
+          <span class="hidden sm:inline" aria-hidden="true">View as Markdown</span>
         </a>
       </>
     )}
-  </div>
+
+    {extra && (markdownUrl || lastUpdated) && (
+      <span aria-hidden="true" data-slot="page-actions-separator" class="hidden select-none text-muted-foreground/40 sm:inline">|</span>
+    )}
+    {extra && <Fragment set:html={extra} />}
+  </nav>
 )}
 
 <script>
