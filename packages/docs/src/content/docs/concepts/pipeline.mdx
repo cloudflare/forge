@@ -56,19 +56,13 @@ A plugin never runs on a document with errors. If linking reports anything, Forg
 
 ## 3. Run
 
-The plugin is called in two phases:
+The plugin's `generate` is called **once**, with the whole model, and returns every file. It walks
+the model as it needs to: `forge.groups` has every group, depth first, starting with the root, and
+each group has its methods, its models and its parent.
 
-1. `generate` is called **once**, with the whole model.
-2. `generate_group` is called **once for each group**, in parallel, with that group.
-
-Every group is visited, including groups that only contain other groups. Nothing is guaranteed about
-the order groups run in, and calls must not share state. A WebAssembly plugin keeps a pool of
-instances: calls running at the same time get different instances, and a finished instance is reused
-by a later call, so module state set by one call may or may not be there in the next. A plugin that needs something from the whole document reads it from the model, which every
-call can reach: `group.parent`, `forge.models` and every model's `group` are all there.
-
-The files come back in a fixed order regardless: `generate`'s first, then each group's, in the
-order of `Forge::groups`, depth first with siblings sorted by name.
+A WebAssembly plugin runs in a fresh instance, on one thread, so nothing carries over from another
+run. A native Rust plugin can generate groups in parallel itself, as the built-in targets do: the
+model can be shared across threads.
 
 ## 4. Write
 
@@ -92,10 +86,10 @@ not delete stale files; to regenerate from scratch, remove the directory first.
 - The model is complete and valid: every `$ref` is resolved, every type is built, and every group
   and method name has at least one letter or digit.
 - Groups and methods are sorted by name, and their order is stable from run to run.
-- `generate` runs before any `generate_group`, and exactly once.
+- `generate` runs exactly once, and every group, the root first, is in `forge.groups`.
 - Paths are checked for you, and an empty file is a way of saying "nothing to write here".
 
 ## Next
 
-- [The model](/concepts/the-model/): what `generate` and `generate_group` receive.
+- [The model](/concepts/the-model/): what `generate` receives.
 - [Sandboxing](/concepts/sandbox/): what a WebAssembly plugin can and cannot do while it runs.
