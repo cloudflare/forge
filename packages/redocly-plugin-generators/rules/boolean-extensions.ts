@@ -7,6 +7,7 @@
  * - `x-forge-skip`, `x-forge-sensitive` on schemas (component schemas, properties, nested schemas).
  */
 import { getOperations, rootOf } from '../utils/document.ts';
+import { forEachForgeTarget } from '../utils/extensions.ts';
 import { isPlainObject } from '../utils/resolve.ts';
 import type { AnyNode, Location, RuleDefinition, UserContext } from '../utils/types.ts';
 
@@ -41,13 +42,7 @@ export const booleanExtensions: RuleDefinition = {
     Root: {
       leave(root: AnyNode, ctx: UserContext) {
         for (const operation of getOperations(ctx, rootOf(root, ctx))) {
-          reportIfNotBool(ctx, operation.node, operation.location, OPERATION_BOOLS);
-          const aliases = operation.node['x-forge-aliases'];
-          if (Array.isArray(aliases)) {
-            aliases.forEach((alias, index) => {
-              reportIfNotBool(ctx, alias, operation.location.child(['x-forge-aliases', index]), OPERATION_BOOLS);
-            });
-          }
+          forEachForgeTarget(operation, (node, location) => reportIfNotBool(ctx, node, location, OPERATION_BOOLS));
         }
       },
     },

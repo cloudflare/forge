@@ -80,22 +80,23 @@ export const noConflictingEndpointPaths: RuleDefinition = {
     Root: {
       leave(root: AnyNode, ctx: UserContext) {
         const operations = getOperations(ctx, rootOf(root, ctx));
+        const segments = operations.map((operation) => segmentsOf(operation.path));
         const tree = new PathTree();
-        for (const operation of operations) {
-          tree.insert(segmentsOf(operation.path), operation);
-        }
-        for (const operation of operations) {
+        operations.forEach((operation, index) => {
+          tree.insert(segments[index]!, operation);
+        });
+        operations.forEach((operation, index) => {
           const conflicts = tree
-            .matching(segmentsOf(operation.path))
+            .matching(segments[index]!)
             .filter((other) => other !== operation && other.method === operation.method);
           if (conflicts.length === 0) {
-            continue;
+            return;
           }
           ctx.report({
             message: `Endpoint path ${operation.path} conflicts with other ${operation.method.toUpperCase()} operations whose paths match the same URLs (a path parameter segment matches any segment): ${conflicts.map(describe).join(', ')}.`,
             location: operation.location.key(),
           });
-        }
+        });
       },
     },
   }),

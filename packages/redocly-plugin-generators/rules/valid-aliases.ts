@@ -9,18 +9,9 @@
  *   its own bucket. Different group values produce different buckets.
  */
 import { getOperations, rootOf } from '../utils/document.ts';
+import { dottedGroupKey } from '../utils/extensions.ts';
 import { isPlainObject } from '../utils/resolve.ts';
 import type { AnyNode, Location, RuleDefinition, UserContext } from '../utils/types.ts';
-
-function groupKey(value: unknown): string | undefined {
-  if (typeof value === 'string') {
-    return value;
-  }
-  if (Array.isArray(value) && value.every((segment) => typeof segment === 'string')) {
-    return value.join('.');
-  }
-  return undefined;
-}
 
 export const validAliases: RuleDefinition = {
   name: 'valid-aliases',
@@ -69,7 +60,7 @@ export const validAliases: RuleDefinition = {
               });
               return;
             }
-            const group = groupKey(alias['x-forge-group-name']) ?? '';
+            const group = dottedGroupKey(alias['x-forge-group-name']) ?? '';
             const key = `${group}\u0000${method}`;
             if (seen.has(key)) {
               const coordinate = group === '' ? `"${method}"` : `"${group}.${method}"`;

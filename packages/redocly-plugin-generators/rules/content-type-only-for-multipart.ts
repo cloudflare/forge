@@ -2,7 +2,7 @@
  * Reports `encoding.<property>.contentType` on non-multipart request bodies. Per OAS 3.x §4.8.24.1
  * (Encoding Object), `contentType` is only meaningful for `multipart/*` request bodies.
  */
-import { getOperations, rootOf } from '../utils/document.ts';
+import { getOperations, getRequestBodyContent, rootOf } from '../utils/document.ts';
 import { isPlainObject, resolveChild } from '../utils/resolve.ts';
 import { isMultipartMediaType } from '../utils/structure.ts';
 import type { AnyNode, RuleDefinition, UserContext } from '../utils/types.ts';
@@ -17,9 +17,8 @@ export const contentTypeOnlyForMultipart: RuleDefinition = {
       leave(root: AnyNode, ctx: UserContext) {
         const reported = new Set<string>();
         for (const operation of getOperations(ctx, rootOf(root, ctx))) {
-          const requestBody = resolveChild(ctx, { node: operation.node, location: operation.location }, 'requestBody');
-          const content = requestBody === undefined ? undefined : resolveChild(ctx, requestBody, 'content');
-          if (content === undefined || !isPlainObject(content.node)) {
+          const content = getRequestBodyContent(ctx, operation);
+          if (content === undefined) {
             continue;
           }
           for (const mediaType of Object.keys(content.node)) {

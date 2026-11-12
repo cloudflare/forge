@@ -7,7 +7,7 @@
  *
  * The source Fern rule (`fern-definition/no-extensions-with-file-upload`) is adapted to Forge.
  */
-import { getOperations, rootOf, schemaOfMediaType } from '../utils/document.ts';
+import { getOperations, getRequestBodyContent, rootOf, schemaOfMediaType } from '../utils/document.ts';
 import { isPlainObject, isRefNode, resolveChild, resolveNode } from '../utils/resolve.ts';
 import { refName } from '../utils/schema.ts';
 import { isMultipartMediaType } from '../utils/structure.ts';
@@ -68,9 +68,8 @@ export const noMultipartAllofComposition: RuleDefinition = {
           if (!isPlainObject(operation.node) || operation.node['x-forge-skip'] === true) {
             continue;
           }
-          const requestBody = resolveChild(ctx, { node: operation.node, location: operation.location }, 'requestBody');
-          const content = requestBody === undefined ? undefined : resolveChild(ctx, requestBody, 'content');
-          if (content === undefined || !isPlainObject(content.node)) {
+          const content = getRequestBodyContent(ctx, operation);
+          if (content === undefined) {
             continue;
           }
           for (const mediaTypeKey of Object.keys(content.node)) {

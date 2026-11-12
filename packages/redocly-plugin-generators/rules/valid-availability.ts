@@ -3,6 +3,7 @@
  * Checks operations and `x-forge-aliases[*]` elements.
  */
 import { getOperations, rootOf } from '../utils/document.ts';
+import { forEachForgeTarget } from '../utils/extensions.ts';
 import { isPlainObject } from '../utils/resolve.ts';
 import type { AnyNode, Location, RuleDefinition, UserContext } from '../utils/types.ts';
 
@@ -33,13 +34,7 @@ export const validAvailability: RuleDefinition = {
     Root: {
       leave(root: AnyNode, ctx: UserContext) {
         for (const operation of getOperations(ctx, rootOf(root, ctx))) {
-          check(ctx, operation.node, operation.location);
-          const aliases = operation.node['x-forge-aliases'];
-          if (Array.isArray(aliases)) {
-            aliases.forEach((alias, index) => {
-              check(ctx, alias, operation.location.child(['x-forge-aliases', index]));
-            });
-          }
+          forEachForgeTarget(operation, (node, location) => check(ctx, node, location));
         }
       },
     },

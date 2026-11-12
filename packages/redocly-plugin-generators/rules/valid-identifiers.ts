@@ -10,6 +10,7 @@
  * - `x-forge-parameter-name` on parameter objects.
  */
 import { getOperations, rootOf } from '../utils/document.ts';
+import { forEachForgeTarget } from '../utils/extensions.ts';
 import { isPlainObject } from '../utils/resolve.ts';
 import type { AnyNode, Location, RuleDefinition, UserContext } from '../utils/types.ts';
 
@@ -40,13 +41,9 @@ export const validIdentifiers: RuleDefinition = {
     Root: {
       leave(root: AnyNode, ctx: UserContext) {
         for (const operation of getOperations(ctx, rootOf(root, ctx))) {
-          reportIfInvalid(ctx, operation.node, operation.location, 'x-forge-method-name');
-          const aliases = operation.node['x-forge-aliases'];
-          if (Array.isArray(aliases)) {
-            aliases.forEach((alias, index) => {
-              reportIfInvalid(ctx, alias, operation.location.child(['x-forge-aliases', index]), 'x-forge-method-name');
-            });
-          }
+          forEachForgeTarget(operation, (node, location) =>
+            reportIfInvalid(ctx, node, location, 'x-forge-method-name'),
+          );
         }
       },
     },

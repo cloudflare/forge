@@ -7,6 +7,7 @@
  * malformed are ignored (other rules report those).
  */
 import { getOperations, type OperationInfo, operationLabel, rootOf } from '../utils/document.ts';
+import { dottedGroupKey } from '../utils/extensions.ts';
 import { isPlainObject } from '../utils/resolve.ts';
 import type { AnyNode, Location, RuleDefinition, UserContext } from '../utils/types.ts';
 
@@ -17,22 +18,12 @@ interface Override {
   operation: OperationInfo;
 }
 
-function groupKey(value: unknown): string | undefined {
-  if (typeof value === 'string') {
-    return value;
-  }
-  if (Array.isArray(value) && value.every((segment) => typeof segment === 'string')) {
-    return value.join('.');
-  }
-  return undefined;
-}
-
 function extractOverride(operation: OperationInfo): Override | undefined {
   if (!isPlainObject(operation.node) || operation.node['x-forge-skip'] === true) {
     return undefined;
   }
   const method = operation.node['x-forge-method-name'];
-  const group = groupKey(operation.node['x-forge-group-name']);
+  const group = dottedGroupKey(operation.node['x-forge-group-name']);
   if (typeof method !== 'string' || group === undefined) {
     return undefined;
   }

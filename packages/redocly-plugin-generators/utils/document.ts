@@ -84,8 +84,17 @@ function operationsOfPathItem(ctx: Ctx, path: string, pathItem: Located, kind: O
   return result;
 }
 
-/** All operations under `paths` (and, optionally, OAS 3.1 `webhooks`), with `$ref`s resolved. */
-export function getOperations(ctx: Ctx, root: Located, options: { includeWebhooks?: boolean } = {}): OperationInfo[] {
+interface OperationsCache {
+  paths?: OperationInfo[];
+  withWebhooks?: OperationInfo[];
+}
+
+// Rules share this cache for the duration of a single lint pass: the root node is a stable
+// reference across rules in one pass, so a WeakMap keyed on it dedupes the paths/webhooks walk
+// (and its resolveChild / collectParameters calls) that would otherwise repeat per rule.
+const operationsCache = new WeakMap<object, OperationsCache>();
+
+function computeOperations(ctx: Ctx, root: Located, includeWebhooks: boolean): OperationInfo[] {
   const result: OperationInfo[] = [];
   const paths = resolveChild(ctx, root, 'paths');
   if (paths !== undefined && isPlainObject(paths.node)) {
@@ -99,7 +108,7 @@ export function getOperations(ctx: Ctx, root: Located, options: { includeWebhook
       }
     }
   }
-  if (options.includeWebhooks === true) {
+  if (includeWebhooks) {
     const webhooks = resolveChild(ctx, root, 'webhooks');
     if (webhooks !== undefined && isPlainObject(webhooks.node)) {
       for (const name of Object.keys(webhooks.node)) {
@@ -111,6 +120,38 @@ export function getOperations(ctx: Ctx, root: Located, options: { includeWebhook
     }
   }
   return result;
+}
+
+function freezeOperations(operations: OperationInfo[]): OperationInfo[] {
+  for (const operation of operations) {
+    for (const parameter of operation.allParameters) {
+      Object.freeze(parameter);
+    }
+    for (const parameter of operation.parameters) {
+      Object.freeze(parameter);
+    }
+    Object.freeze(operation.parameters);
+    Object.freeze(operation.allParameters);
+    Object.freeze(operation);
+  }
+  return Object.freeze(operations) as OperationInfo[];
+}
+
+/** All operations under `paths` (and, optionally, OAS 3.1 `webhooks`), with `$ref`s resolved. */
+export function getOperations(ctx: Ctx, root: Located, options: { includeWebhooks?: boolean } = {}): OperationInfo[] {
+  const includeWebhooks = options.includeWebhooks === true;
+  if (!isPlainObject(root.node)) {
+    return computeOperations(ctx, root, includeWebhooks);
+  }
+  let cached = operationsCache.get(root.node);
+  if (cached === undefined) {
+    cached = {};
+    operationsCache.set(root.node, cached);
+  }
+  if (includeWebhooks) {
+    return (cached.withWebhooks ??= freezeOperations(computeOperations(ctx, root, true)));
+  }
+  return (cached.paths ??= freezeOperations(computeOperations(ctx, root, false)));
 }
 
 /** `GET /path` style label used in messages. */
@@ -158,6 +199,16 @@ export function getMediaType(ctx: Ctx, container: Located | undefined, mediaType
 
 export function getRequestBody(ctx: Ctx, operation: OperationInfo): Located | undefined {
   return resolveChild(ctx, { node: operation.node, location: operation.location }, 'requestBody');
+}
+
+/**
+ * The resolved `requestBody.content` map of an operation, or `undefined` when there is no request
+ * body, no `content` map, or the content is not a plain object.
+ */
+export function getRequestBodyContent(ctx: Ctx, operation: OperationInfo): Located | undefined {
+  const requestBody = getRequestBody(ctx, operation);
+  const content = requestBody === undefined ? undefined : resolveChild(ctx, requestBody, 'content');
+  return content !== undefined && isPlainObject(content.node) ? content : undefined;
 }
 
 export function schemaOfMediaType(mediaType: Located): Located | undefined {

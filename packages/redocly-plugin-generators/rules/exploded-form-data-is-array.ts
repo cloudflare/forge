@@ -6,7 +6,7 @@
  * A property with `contentType: application/json` is JSON-encoded, not form-serialized, so
  * explode does not apply and is not reported.
  */
-import { getOperations, rootOf, schemaOfMediaType } from '../utils/document.ts';
+import { getOperations, getRequestBodyContent, rootOf, schemaOfMediaType } from '../utils/document.ts';
 import { isPlainObject, resolveChild } from '../utils/resolve.ts';
 import { collectProperties, nonNullType, unwrapSchema } from '../utils/schema.ts';
 import { isMultipartMediaType } from '../utils/structure.ts';
@@ -35,9 +35,8 @@ export const explodedFormDataIsArray: RuleDefinition = {
       leave(root: AnyNode, ctx: UserContext) {
         const reported = new Set<string>();
         for (const operation of getOperations(ctx, rootOf(root, ctx))) {
-          const requestBody = resolveChild(ctx, { node: operation.node, location: operation.location }, 'requestBody');
-          const content = requestBody === undefined ? undefined : resolveChild(ctx, requestBody, 'content');
-          if (content === undefined || !isPlainObject(content.node)) {
+          const content = getRequestBodyContent(ctx, operation);
+          if (content === undefined) {
             continue;
           }
           for (const mediaTypeKey of Object.keys(content.node)) {

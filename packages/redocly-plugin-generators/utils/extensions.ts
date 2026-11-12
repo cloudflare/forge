@@ -1,5 +1,6 @@
+import type { OperationInfo } from './document.ts';
 import { isPlainObject, resolveChild } from './resolve.ts';
-import type { AnyNode, Located, UserContext } from './types.ts';
+import type { AnyNode, Located, Location, UserContext } from './types.ts';
 
 type Ctx = Pick<UserContext, 'resolve'>;
 
@@ -49,4 +50,35 @@ export function describeValue(value: AnyNode): string {
 /** Whether a value is a string with at least one character. */
 export function isNonEmptyString(value: unknown): value is string {
   return typeof value === 'string' && value.length > 0;
+}
+
+/**
+ * Canonical dotted form of an `x-forge-group-name`: a dotted string is returned verbatim, an
+ * array of strings is joined with `.`, anything else returns `undefined`.
+ */
+export function dottedGroupKey(value: unknown): string | undefined {
+  if (typeof value === 'string') {
+    return value;
+  }
+  if (Array.isArray(value) && value.every((segment) => typeof segment === 'string')) {
+    return value.join('.');
+  }
+  return undefined;
+}
+
+/**
+ * Invokes `fn` for the operation itself, then once per element of its `x-forge-aliases` array
+ * (if any). Rules that validate forge extensions use this to apply the same check at both levels.
+ */
+export function forEachForgeTarget(
+  operation: Pick<OperationInfo, 'node' | 'location'>,
+  fn: (node: AnyNode, location: Location) => void,
+): void {
+  fn(operation.node, operation.location);
+  const aliases = operation.node?.['x-forge-aliases'];
+  if (Array.isArray(aliases)) {
+    aliases.forEach((alias, index) => {
+      fn(alias, operation.location.child(['x-forge-aliases', index]));
+    });
+  }
 }
