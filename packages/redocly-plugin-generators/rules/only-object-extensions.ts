@@ -23,13 +23,25 @@ function isObjectLike(ctx: Ctx, located: Located, seen: Set<string> = new Set())
   }
   seen.add(key);
   const schema = resolved.node;
-  if (schemaTypes(schema).includes('object') || isPlainObject(schema.properties)) {
+  if (
+    schemaTypes(schema).includes('object') ||
+    isPlainObject(schema.properties) ||
+    isPlainObject(schema.additionalProperties)
+  ) {
     return true;
   }
   if (Array.isArray(schema.allOf) && schema.allOf.length > 0) {
     return schema.allOf.every((member: AnyNode, index: number) =>
       isObjectLike(ctx, { node: member, location: resolved.location.child(['allOf', index]) }, seen),
     );
+  }
+  for (const keyword of ['oneOf', 'anyOf'] as const) {
+    const members = schema[keyword];
+    if (Array.isArray(members) && members.length > 0) {
+      return members.every((member: AnyNode, index: number) =>
+        isObjectLike(ctx, { node: member, location: resolved.location.child([keyword, index]) }, seen),
+      );
+    }
   }
   return false;
 }

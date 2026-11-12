@@ -1,7 +1,7 @@
 /**
  * Reports `in: query` parameters whose schema is, or transitively contains, a schema with an
- * OAS `discriminator.mapping`. Discriminated unions cannot be serialized as URL query strings,
- * since there is no standard way to express "pick one of these shapes" in `?k=v&...` form.
+ * OAS `discriminator`. Discriminated unions cannot be serialized as URL query strings, since
+ * there is no standard way to express "pick one of these shapes" in `?k=v&...` form.
  *
  * Traversal: follow `$ref`, array `items`, `additionalProperties`, object `properties`, and
  * composition keywords (`allOf`, `oneOf`, `anyOf`). Stops at cycles.
@@ -16,9 +16,8 @@ interface Found {
   path: string[];
 }
 
-function hasDiscriminatorMapping(schema: Record<string, unknown>): boolean {
-  const discriminator = schema.discriminator;
-  return isPlainObject(discriminator) && discriminator.mapping !== null && discriminator.mapping !== undefined;
+function hasDiscriminator(schema: Record<string, unknown>): boolean {
+  return isPlainObject(schema.discriminator);
 }
 
 function findDiscriminatedUnion(ctx: UserContext, start: Located): Found | undefined {
@@ -36,7 +35,7 @@ function findDiscriminatedUnion(ctx: UserContext, start: Located): Found | undef
     }
     visited.add(key);
     const schema = resolved.node;
-    if (hasDiscriminatorMapping(schema)) {
+    if (hasDiscriminator(schema)) {
       return { name: currentName, path };
     }
     const visitChild = (keys: (string | number)[], label: string): Found | undefined => {

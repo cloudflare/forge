@@ -52,7 +52,9 @@ export const explodedFormDataIsArray: RuleDefinition = {
             if (encoding === undefined || !isPlainObject(encoding.node)) {
               continue;
             }
-            const properties = collectProperties(ctx, schemaOfMediaType(mediaType));
+            const properties = new Map(
+              collectProperties(ctx, schemaOfMediaType(mediaType)).map((property) => [property.key, property]),
+            );
             for (const key of Object.keys(encoding.node)) {
               const entry = resolveChild(ctx, encoding, key);
               if (entry === undefined || !isPlainObject(entry.node) || entry.node.explode !== true) {
@@ -61,7 +63,7 @@ export const explodedFormDataIsArray: RuleDefinition = {
               if (entry.node.contentType === 'application/json') {
                 continue;
               }
-              const property = properties.find((candidate) => candidate.key === key);
+              const property = properties.get(key);
               if (property === undefined) {
                 continue;
               }

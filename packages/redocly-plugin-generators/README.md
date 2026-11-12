@@ -34,8 +34,8 @@ rules:
 
 - `generators/recommended` — rules at their default severity. Also enables the built-in Redocly rules this plugin relies on (configured to the recommended subset).
 - `generators/all` — every plugin rule at `error`, plus all the built-in Redocly rules.
-- `generators/forge` — rules targeting Forge, at their default severity, plus the generator-agnostic rules and the recommended built-in Redocly rules. Currently empty of vendor-specific rules.
-- `generators/stainless` — same shape, for Stainless. Currently empty of vendor-specific rules.
+
+Vendor-specific configs (e.g. `generators/forge`) will be added alongside the first `generators/forge-*` rule.
 
 ## Development
 
