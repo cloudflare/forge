@@ -85,6 +85,40 @@ has a key to rewrite is not a minimal edit. The order of its keys is kept.
 
 </details>
 
+## Listing methods
+
+`forge methods` prints the methods a document makes, as a JSON array, without
+generating anything. Each method has the group path and name forge gives it,
+in kebab-case, which is how forge reads `x-forge-group-name`,
+`x-forge-method-name` and `operationId`, so a tool can compare the methods of
+two versions of a document without naming them itself.
+
+```sh
+npx forge methods openapi.json
+
+# Other tools' extensions are read only once they are normalized.
+npx forge normalize openapi.json | npx forge methods -
+```
+
+```json
+[
+  {
+    "group": ["dns", "records"],
+    "name": "list",
+    "method": "GET",
+    "path": "/zones/{zone_id}/dns_records",
+    "hidden": false,
+    "deprecated": false,
+    "availability": "generally-available"
+  }
+]
+```
+
+Methods come in the order of their groups, depth first from the root, and by
+name within a group. `availability` is `null` when the operation does not say.
+A document forge cannot read, such as one with two methods of the same name in
+a group, is an error, as it is for generating an SDK.
+
 ## Plugins
 
 A plugin generates an SDK, or anything else, from the document: forge parses
