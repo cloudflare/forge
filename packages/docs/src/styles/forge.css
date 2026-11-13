@@ -1,8 +1,7 @@
 /* Forge's theme: "Furnace", on the page body only.
  *
  * The content column and its table of contents get a warm ground, a glow from
- * the top, Space Grotesk headings and, in dark mode, an orange-to-amber title
- * and orange primary buttons. The header and sidebar keep Nimbus's tokens.
+ * the top, Space Grotesk headings and, in dark mode, orange primary buttons. The header and sidebar keep Nimbus's tokens.
  * Everything is a --nb-* token scoped to those two regions, so a Nimbus
  * update to globals.css stays a clean diff. */
 @import "@fontsource-variable/space-grotesk";
@@ -77,11 +76,4 @@
 
 #main-content :where(h1, h2, h3, h4) {
 	font-family: var(--forge-font-heading);
-}
-
-[data-mode="dark"] #main-content h1 {
-	background: linear-gradient(90deg, #ff7a1a, #ffc061);
-	-webkit-background-clip: text;
-	background-clip: text;
-	color: transparent;
 }
