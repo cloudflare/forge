@@ -3,8 +3,8 @@
  *
  * Accepted shapes:
  * - A string: treated as a dotted path. Each segment (split on `.`) must be a valid Forge
- *   identifier (letters, digits, `-`, `_`; starts with a letter, optionally prefixed with `_`;
- *   must not end with `-`).
+ *   identifier (letters, digits, `-`, `_`; starts with a letter or `_`; must contain at least one
+ *   letter; must not end with `-`).
  * - A non-empty array of strings: each element is one segment, same identifier rule.
  *
  * Checked on operations and `x-forge-aliases[*]`.
@@ -45,7 +45,7 @@ function check(ctx: UserContext, node: AnyNode, location: Location): void {
   for (const segment of segments) {
     if (!FORGE_IDENTIFIER.test(segment)) {
       report(
-        `segment "${segment}" is not a valid Forge identifier (letters, digits, '-', '_'; starts with a letter, optionally prefixed with '_'; must not end with '-')`,
+        `segment "${segment}" is not a valid Forge identifier (letters, digits, '-', '_'; starts with a letter or '_'; must contain at least one letter; must not end with '-')`,
       );
       return;
     }

@@ -2,9 +2,11 @@
  * Reports `x-forge-method-name`, `x-forge-model-name`, `x-forge-property-name`, and
  * `x-forge-parameter-name` values that are not valid Forge identifiers.
  *
- * Accepts letters, digits, `-`, and `_`; must start with a letter (optionally prefixed with `_`)
- * and must not end with `-`. This covers kebab-case, camelCase, snake_case, SCREAMING_SNAKE_CASE,
- * trailing digits or underscores, and a leading underscore. Non-string values are also reported.
+ * Accepts letters, digits, `-`, and `_`; must start with a letter or `_`, must contain at least
+ * one letter, and must not end with `-`. This covers kebab-case, camelCase, snake_case,
+ * SCREAMING_SNAKE_CASE, trailing digits or underscores, a leading underscore, and the `_<digit>`
+ * form Forge emits when escaping names that would otherwise start with a digit. Non-string values
+ * are also reported.
  *
  * Narrower than what Forge's `Name::new` parser accepts (which tolerates any non-alphanumeric as a
  * word separator) because the lint's job is to catch likely typos — `list.all` is almost always a
@@ -34,7 +36,7 @@ function reportIfInvalid(ctx: UserContext, node: AnyNode, location: Location, ke
   }
   const description = typeof value === 'string' ? `"${value}"` : describeKind(value);
   ctx.report({
-    message: `${key} must be a valid Forge identifier (letters, digits, '-', '_'; starts with a letter, optionally prefixed with '_'; must not end with '-'); got ${description}.`,
+    message: `${key} must be a valid Forge identifier (letters, digits, '-', '_'; starts with a letter or '_'; must not end with '-'; must contain at least one letter); got ${description}.`,
     location: location.child(key).key(),
   });
 }

@@ -2,7 +2,7 @@
   {
     "ruleId": "generators/forge-valid-identifiers",
     "severity": "error",
-    "message": "x-forge-parameter-name must be a valid Forge identifier (letters, digits, '-', '_'; starts with a letter, optionally prefixed with '_'; must not end with '-'); got \"-thing-id\".",
+    "message": "x-forge-parameter-name must be a valid Forge identifier (letters, digits, '-', '_'; starts with a letter or '_'; must not end with '-'; must contain at least one letter); got \"-thing-id\".",
     "location": "openapi.yaml#/paths/~1thing~1{thing_id}/get/parameters/0/x-forge-parameter-name (key)"
   }
 ]

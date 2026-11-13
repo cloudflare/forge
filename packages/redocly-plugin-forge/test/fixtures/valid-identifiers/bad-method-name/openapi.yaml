@@ -33,3 +33,10 @@ paths:
       responses:
         '200':
           description: OK
+  /digits-only-after-escape:
+    get:
+      operationId: getE
+      x-forge-method-name: _2
+      responses:
+        '200':
+          description: OK

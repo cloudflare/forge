@@ -12,6 +12,7 @@ paths:
         - x-forge-method-name: get_thing
         - x-forge-method-name: GET_THING
         - x-forge-method-name: _hidden
+        - x-forge-method-name: _2fa
         - x-forge-method-name: get2
       parameters:
         - name: thingId
