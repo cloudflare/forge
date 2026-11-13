@@ -1,7 +1,7 @@
 import { existsSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { createConfig, lint, parseYaml } from '@redocly/openapi-core';
-import generatorsPlugin from '../index.ts';
+import forgePlugin from '../index.ts';
 
 export interface FixtureProblem {
   ruleId: string;
@@ -32,7 +32,7 @@ export function entryFile(caseDirectory: string): string {
 
 /**
  * Lints a fixture case. The case's `redocly.yaml` (optional) supplies rule settings; by default
- * only `generators/<ruleName>` is enabled, at `error`, and no built-in rules run.
+ * only `forge/<ruleName>` is enabled, at `error`, and no built-in rules run.
  */
 export async function lintCase(
   caseDirectory: string,
@@ -43,7 +43,7 @@ export async function lintCase(
     ? (parseYaml(readFileSync(configPath, 'utf8')) as Record<string, unknown>)
     : { rules: defaultRules };
   const config = await createConfig(
-    { extends: [], ...caseConfig, plugins: [generatorsPlugin()] } as Parameters<typeof createConfig>[0],
+    { extends: [], ...caseConfig, plugins: [forgePlugin()] } as Parameters<typeof createConfig>[0],
     { configPath },
   );
   const problems = await lint({ ref: entryFile(caseDirectory), config });

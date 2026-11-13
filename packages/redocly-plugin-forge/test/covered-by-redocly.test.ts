@@ -30,7 +30,7 @@ describe('Fern rules covered by built-in Redocly rules', () => {
     });
   }
 
-  test('every built-in rule enabled by generators/recommended has a fixture', () => {
+  test('every built-in rule enabled by forge/recommended has a fixture', () => {
     const covered = new Set(listDirectories(FIXTURES));
     const missing: string[] = [];
     for (const { sourceRules } of Object.values(builtInRules)) {

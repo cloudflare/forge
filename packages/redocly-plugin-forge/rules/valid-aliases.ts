@@ -15,7 +15,6 @@ import type { AnyNode, Location, RuleDefinition, UserContext } from '../utils/ty
 
 export const validAliases: RuleDefinition = {
   name: 'valid-aliases',
-  vendor: 'forge',
   sourceRules: [],
   severity: 'error',
   description: '`x-forge-aliases` must be a non-empty array of alias objects with unique `(group, method)` pairs.',

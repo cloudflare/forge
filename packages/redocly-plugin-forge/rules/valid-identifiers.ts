@@ -43,7 +43,6 @@ function reportIfInvalid(ctx: UserContext, node: AnyNode, location: Location, ke
 
 export const validIdentifiers: RuleDefinition = {
   name: 'valid-identifiers',
-  vendor: 'forge',
   sourceRules: ['fern-definition/valid-field-names', 'fern-definition/valid-type-name'],
   severity: 'error',
   description: '`x-forge-*-name` extensions must be valid Forge identifiers.',

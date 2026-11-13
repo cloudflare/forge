@@ -32,7 +32,6 @@ function extractOverride(operation: OperationInfo): Override | undefined {
 
 export const noDuplicateOverrides: RuleDefinition = {
   name: 'no-duplicate-overrides',
-  vendor: 'forge',
   sourceRules: ['oss/no-duplicate-overrides'],
   severity: 'error',
   description: 'Operations must not share the same `(x-forge-group-name, x-forge-method-name)`.',

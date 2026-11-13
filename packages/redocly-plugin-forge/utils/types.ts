@@ -14,20 +14,9 @@ export interface Located<T = AnyNode> {
 
 export type Severity = 'error' | 'warn';
 
-export type Vendor = 'stainless' | 'forge';
-
 export interface RuleDefinition {
-  /**
-   * Rule name inside the plugin. The full Redocly rule ID is `generators/<name>` for generator-
-   * agnostic rules, or `generators/<vendor>-<name>` when `vendor` is set.
-   */
+  /** Rule name inside the plugin. The full Redocly rule ID is `forge/<name>`. */
   name: string;
-  /**
-   * Vendor this rule targets. Omit for generator-agnostic rules. When set, the rule's full name
-   * becomes `<vendor>-<name>` so grepping `fern-`/`stainless-`/`forge-` finds everything from a
-   * single vendor.
-   */
-  vendor?: Vendor;
   /**
    * The upstream rule (or rules) this ports, as `<validator>/<rule-name>` — e.g.
    * `fern-definition/no-duplicate-field-names`. Documentation only; does not affect behavior.
@@ -35,7 +24,7 @@ export interface RuleDefinition {
   sourceRules: string[];
   /** Severity used by the plugin's `recommended` config. */
   severity: Severity;
-  /** Whether `generators/recommended` enables the rule. Defaults to `true`. */
+  /** Whether `forge/recommended` enables the rule. Defaults to `true`. */
   recommended?: boolean;
   /** One-line description for docs. */
   description: string;

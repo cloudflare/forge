@@ -54,7 +54,6 @@ function check(ctx: UserContext, node: AnyNode, location: Location): void {
 
 export const validGroupName: RuleDefinition = {
   name: 'valid-group-name',
-  vendor: 'forge',
   sourceRules: [],
   severity: 'error',
   description: '`x-forge-group-name` must be a dotted identifier path or array of identifier segments.',

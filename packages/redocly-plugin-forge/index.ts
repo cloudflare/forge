@@ -1,23 +1,14 @@
 import { ruleDefinitions } from './rules/index.ts';
-import type { Oas2Rule, Oas3Rule, RuleDefinition, Severity, Vendor } from './utils/types.ts';
+import type { Oas2Rule, Oas3Rule, RuleDefinition, Severity } from './utils/types.ts';
 
-export const PLUGIN_ID = 'generators';
-
-/**
- * Full rule name including vendor prefix when present. `fern-no-get-request-body` for a Fern-
- * targeted rule, `no-get-request-body` for a generator-agnostic one. The Redocly rule ID is
- * `${PLUGIN_ID}/${fullName(definition)}`.
- */
-export function fullName(definition: RuleDefinition): string {
-  return definition.vendor === undefined ? definition.name : `${definition.vendor}-${definition.name}`;
-}
+export const PLUGIN_ID = 'forge';
 
 export interface BuiltInRule {
   severity: Severity;
   /** Upstream rules (or parts of them) the built-in rule implements. */
   sourceRules: string[];
   /**
-   * Whether `generators/recommended` enables the rule. Rules that also enforce things no generator
+   * Whether `forge/recommended` enables the rule. Rules that also enforce things no generator
    * strictly requires are left for you to opt into.
    */
   recommended: boolean;
@@ -77,7 +68,7 @@ function rulesFor(spec: 'oas3' | 'oas2'): Record<string, Oas3Rule | Oas2Rule> {
   const result: Record<string, Oas3Rule | Oas2Rule> = {};
   for (const definition of ruleDefinitions) {
     if ((definition.spec ?? 'oas3') === spec) {
-      result[fullName(definition)] = definition.rule;
+      result[definition.name] = definition.rule;
     }
   }
   return result;
@@ -92,50 +83,28 @@ type ConfigShape = {
 };
 
 /**
- * Build a config.
- *
- * - `includeBuiltIn`: `"recommended"` emits only Redocly built-in rules marked recommended;
- *   `"all"` emits every built-in this plugin relies on.
- * - `pluginSeverity`: applied to every plugin rule included in the config (overrides the
- *   definition's own severity when set; otherwise the definition's severity is used).
- * - `vendorFilter`: `"all"` includes every plugin rule regardless of vendor; a specific `Vendor`
- *   value limits to generator-agnostic rules plus that vendor's rules; omitted limits to
- *   generator-agnostic rules only.
+ * Build the `forge/recommended` config: every built-in Redocly rule marked `recommended` plus
+ * every plugin rule whose definition does not opt out via `recommended: false`, each at its
+ * declared severity.
  */
-function buildConfig({
-  includeBuiltIn,
-  pluginSeverity,
-  vendorFilter,
-}: {
-  includeBuiltIn: 'recommended' | 'all';
-  pluginSeverity?: Severity;
-  vendorFilter?: Vendor | 'all';
-}): ConfigShape {
+function buildRecommendedConfig(): ConfigShape {
   const rules: Record<string, Severity> = {};
   const oas3Rules: Record<string, Severity> = {};
   const oas2Rules: Record<string, Severity> = {};
 
   for (const [name, { severity, recommended, spec }] of Object.entries(builtInRules)) {
-    if (includeBuiltIn === 'recommended' && !recommended) {
+    if (!recommended) {
       continue;
     }
     (spec === 'oas3' ? oas3Rules : rules)[name] = severity;
   }
 
   for (const definition of ruleDefinitions) {
-    if (includeBuiltIn === 'recommended' && definition.recommended === false) {
+    if (definition.recommended === false) {
       continue;
     }
-    if (definition.vendor !== undefined) {
-      if (vendorFilter === undefined) {
-        continue;
-      }
-      if (vendorFilter !== 'all' && definition.vendor !== vendorFilter) {
-        continue;
-      }
-    }
     const target = (definition.spec ?? 'oas3') === 'oas2' ? oas2Rules : oas3Rules;
-    target[`${PLUGIN_ID}/${fullName(definition)}`] = pluginSeverity ?? definition.severity;
+    target[`${PLUGIN_ID}/${definition.name}`] = definition.severity;
   }
 
   return {
@@ -147,7 +116,7 @@ function buildConfig({
   };
 }
 
-export default function generatorsPlugin() {
+export default function forgePlugin() {
   return {
     id: PLUGIN_ID,
     rules: {
@@ -155,12 +124,10 @@ export default function generatorsPlugin() {
       oas2: rulesFor('oas2') as Record<string, Oas2Rule>,
     },
     configs: {
-      recommended: buildConfig({ includeBuiltIn: 'recommended' }),
-      all: buildConfig({ includeBuiltIn: 'all', pluginSeverity: 'error', vendorFilter: 'all' }),
-      forge: buildConfig({ includeBuiltIn: 'recommended', vendorFilter: 'forge' }),
+      recommended: buildRecommendedConfig(),
     },
   };
 }
 
 export { ruleDefinitions };
-export type { RuleDefinition, Vendor };
+export type { RuleDefinition };

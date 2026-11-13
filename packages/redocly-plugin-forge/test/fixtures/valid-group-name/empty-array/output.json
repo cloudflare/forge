@@ -1,6 +1,6 @@
 [
   {
-    "ruleId": "generators/forge-valid-group-name",
+    "ruleId": "forge/valid-group-name",
     "severity": "error",
     "message": "x-forge-group-name array must not be empty.",
     "location": "openapi.yaml#/paths/~1thing/get/x-forge-group-name (key)"

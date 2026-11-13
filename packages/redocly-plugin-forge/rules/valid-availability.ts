@@ -33,7 +33,6 @@ function check(ctx: UserContext, node: AnyNode, location: Location): void {
 
 export const validAvailability: RuleDefinition = {
   name: 'valid-availability',
-  vendor: 'forge',
   sourceRules: [],
   severity: 'error',
   description: '`x-forge-availability` must be a recognized Forge availability stage.',

@@ -1,2 +1,2 @@
 rules:
-  generators/no-duplicate-auth-header-parameters: warn
+  forge/no-duplicate-auth-header-parameters: warn

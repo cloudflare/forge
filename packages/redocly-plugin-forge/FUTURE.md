@@ -4,7 +4,7 @@ Candidate rules we've considered but not committed to. Each item is a rough sket
 
 ## Fern rules awaiting Forge extensions
 
-These upstream Fern rules validate concepts Forge may want in the future, but the corresponding `x-forge-*` extensions don't exist yet. When Forge commits to an extension, write a new `generators/forge-*` rule for it rather than porting the Fern implementation (which embeds Fern-specific behavior).
+These upstream Fern rules validate concepts Forge may want in the future, but the corresponding `x-forge-*` extensions don't exist yet. When Forge commits to an extension, write a new `forge/*` rule for it rather than porting the Fern implementation (which embeds Fern-specific behavior).
 
 | Upstream Fern rule                            | Concept                                                               | Likely Forge extension                                                                |
 | --------------------------------------------- | --------------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
@@ -20,18 +20,18 @@ These upstream Fern rules validate concepts Forge may want in the future, but th
 
 Fern had equivalent rules. Each depends on a Forge semantic question not yet answered; porting without that answer would hard-code Fern assumptions.
 
-- **`forge-no-conflicting-parameter-names`** — Fern's `no-conflicting-endpoint-parameters` reported path parameters whose effective SDK name collided with the request body's fixed argument name. Blocked on: _does Forge reserve a single argument name for the request body, and what is it?_ In Fern it was `"request"`.
-- **`forge-no-duplicate-field-names`** — Fern's `no-duplicate-field-names` reported object schemas where two properties resolved to the same field name after `x-fern-property-name`. Blocked on: _does Forge rename inline request-body schemas and should the rule skip them?_ The Fern rule depended on that convention.
-- **`forge-valid-enum-names`** — Fern's `valid-field-names` reported enum values whose names weren't valid identifiers. Blocked on: _does Forge rename enum values (via `x-forge-property-name` on enum values, or an `x-forge-enum`-style map), or are enum values always emitted verbatim?_ The Fern rule's shape depends on which.
+- **`no-conflicting-parameter-names`** — Fern's `no-conflicting-endpoint-parameters` reported path parameters whose effective SDK name collided with the request body's fixed argument name. Blocked on: _does Forge reserve a single argument name for the request body, and what is it?_ In Fern it was `"request"`.
+- **`no-duplicate-field-names`** — Fern's `no-duplicate-field-names` reported object schemas where two properties resolved to the same field name after `x-fern-property-name`. Blocked on: _does Forge rename inline request-body schemas and should the rule skip them?_ The Fern rule depended on that convention.
+- **`valid-enum-names`** — Fern's `valid-field-names` reported enum values whose names weren't valid identifiers. Blocked on: _does Forge rename enum values (via `x-forge-property-name` on enum values, or an `x-forge-enum`-style map), or are enum values always emitted verbatim?_ The Fern rule's shape depends on which.
 
 ## `x-forge-*` duplicate-collision rules
 
 `valid-identifiers` enforces the syntactic shape of `x-forge-method-name`, `x-forge-model-name`, `x-forge-property-name`, and `x-forge-parameter-name` values, but does not check for structural collisions between two names inside the same author-visible scope. Those collisions can never generate working code in any language and belong in dedicated rules:
 
-- **`forge-no-duplicate-method-name`** — two operations resolve to the same `(group, method)` pair. (The existing `no-duplicate-overrides` rule covers this for `x-forge-group-name` + `x-forge-method-name` on operations; this entry is for extending the same check to `x-forge-aliases[*]`.)
-- **`forge-no-duplicate-model-name`** — two schemas in the same group resolve to the same `x-forge-model-name`.
-- **`forge-no-duplicate-property-name`** — two properties of the same schema resolve to the same `x-forge-property-name`.
-- **`forge-no-duplicate-parameter-name`** — two parameters on the same operation resolve to the same `x-forge-parameter-name`.
+- **`no-duplicate-method-name`** — two operations resolve to the same `(group, method)` pair. (The existing `no-duplicate-overrides` rule covers this for `x-forge-group-name` + `x-forge-method-name` on operations; this entry is for extending the same check to `x-forge-aliases[*]`.)
+- **`no-duplicate-model-name`** — two schemas in the same group resolve to the same `x-forge-model-name`.
+- **`no-duplicate-property-name`** — two properties of the same schema resolve to the same `x-forge-property-name`.
+- **`no-duplicate-parameter-name`** — two parameters on the same operation resolve to the same `x-forge-parameter-name`.
 
 Explicitly out of scope for these rules:
 
@@ -49,6 +49,6 @@ Written from scratch, not converted from Fern. Each surfaced during the audit as
 
 1. **`allOf` property conflicts** — two `allOf` members declare the same property key with different schemas.
 2. **Security requirements reference existing schemes** — operations with `security` requirements should reference schemes in `components.securitySchemes`.
-3. **Multipart `allOf` composition warning** — `allOf` `$ref` in multipart request body schemas is a common generator pitfall. (`forge-no-multipart-allof-composition` already covers this for Forge; a generator-agnostic version would broaden it.)
+3. **Multipart `allOf` composition warning** — `allOf` `$ref` in multipart request body schemas is a common generator pitfall. (`no-multipart-allof-composition` already covers this for Forge; a generator-agnostic version would broaden it.)
 4. **Enum values are valid identifiers** — string enum values should be usable as identifier names for code generation.
 5. **Component schema names start with a letter** — schema keys in `components.schemas` should be valid type names for code generation.

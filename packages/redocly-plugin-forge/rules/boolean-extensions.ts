@@ -34,7 +34,6 @@ function reportIfNotBool(ctx: UserContext, node: AnyNode, location: Location, ke
 
 export const booleanExtensions: RuleDefinition = {
   name: 'boolean-extensions',
-  vendor: 'forge',
   sourceRules: [],
   severity: 'error',
   description: '`x-forge-skip`/`-hidden`/`-internal`/`-sensitive` must be boolean.',

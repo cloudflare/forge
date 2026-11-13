@@ -57,7 +57,6 @@ function visit(ctx: UserContext, mediaType: string, schema: Located, reported: S
 
 export const noMultipartAllofComposition: RuleDefinition = {
   name: 'no-multipart-allof-composition',
-  vendor: 'forge',
   sourceRules: ['fern-definition/no-extensions-with-file-upload'],
   severity: 'error',
   description: 'Multipart request body schemas must not inherit properties through `allOf` `$ref`.',
