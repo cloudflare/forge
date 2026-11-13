@@ -11,16 +11,14 @@ same part of the model is always the same object.
 
 ## definePlugin
 
-Turns a plugin's two functions into the exports the host calls:
+Turns a plugin into the export the host calls:
 
 ```ts
 function definePlugin(plugin: Plugin): Exports;
 
 interface Plugin {
-  /** Called exactly once. */
-  generate?(forge: Forge): Iterable<File>;
-  /** Called exactly once for each group, in parallel with other groups. */
-  generateGroup?(group: Group): Iterable<File>;
+  /** Called exactly once, in a fresh instance, on one thread. */
+  generate(forge: Forge): Iterable<File>;
 }
 
 interface File {
@@ -31,34 +29,34 @@ interface File {
 }
 ```
 
-Export the result from the entry module, under these names:
+Export the result from the entry module, under this name:
 
 ```ts
-export const { generate, generateGroup } = definePlugin({ /* ... */ });
+export const { generate } = definePlugin({ /* ... */ });
 ```
 
 Throw to fail; the error's `message` is printed.
 
 ## The model
 
-What `generate` and `generateGroup` receive, and the parts reachable from it:
+What `generate` receives, and the parts reachable from it:
 
 ```ts
 interface Forge {
   readonly version: string;
   readonly description: string;
   readonly baseUrl: string;
-  /** Every group, depth first. Siblings are sorted by name. */
+  /** Every group, depth first, starting with the root. Siblings are sorted by name. */
   readonly groups: readonly Group[];
-  /** The models in no group. */
-  readonly models: readonly Model[];
 }
 
 interface Group {
+  /** Empty for the root, and only for the root. */
   readonly name: Name;
   readonly description: string;
-  /** From the top level down, ending with this group's own name. */
+  /** From the top level down, ending with this group's own name; empty for the root. */
   readonly path: readonly Name[];
+  /** The root for a top-level group; undefined for the root. */
   readonly parent: Group | undefined;
   readonly children: readonly Group[];
   readonly descendants: readonly Group[];
@@ -120,7 +118,8 @@ interface Model {
   /** Its key in `components.schemas`, or a path such as `Tree/$defs/Node`. */
   readonly schemaName: string;
   readonly name: Name;
-  readonly group: Group | undefined;
+  /** The deepest group every method using it shares, which can be the root. */
+  readonly group: Group;
   readonly description: string;
   readonly deprecated: boolean;
   readonly type: Type;
@@ -137,7 +136,7 @@ A type is a union on `kind`:
 type Type = ScalarType | EnumType | ArrayType | ObjectType | UnionType | IntersectionType | ModelType;
 
 type ScalarType =
-  | { readonly kind: 'scalar'; readonly scalar: 'unknown' | 'null' | 'boolean' | 'string' | 'date-time' | 'date' | 'bytes' | 'binary' }
+  | { readonly kind: 'scalar'; readonly scalar: 'unknown' | 'null' | 'boolean' | 'string' | 'date-time' | 'date' | 'bytes' | 'binary' | 'uuid' }
   | { readonly kind: 'scalar'; readonly scalar: 'number'; readonly number: NumberFormat };
 
 type NumberFormat =
@@ -153,6 +152,8 @@ interface EnumType {
 interface ArrayType {
   readonly kind: 'array';
   readonly elem: Type;
+  /** `minItems`, or undefined if absent. An explicit zero is kept. */
+  readonly minItems: number | undefined;
   readonly maxItems: number | undefined;
 }
 

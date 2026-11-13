@@ -33,22 +33,21 @@ let forge: forge::Forge = serde_json::from_slice(&bytes)?;
 The forge and its groups, methods and models, with the enums they use:
 
 ```rust
-pub struct Forge {
+pub struct Forge {               // Default: an empty forge, whose only group is the root
     pub version: String,
     pub description: String,
     pub base_url: String,
     /* private */
 }
 impl Forge {
-    pub fn groups(&self) -> impl Iterator<Item = Group<'_>>;          // depth first
-    pub fn models(&self) -> impl ExactSizeIterator<Item = Model<'_>>; // top level
+    pub fn groups(&self) -> impl Iterator<Item = Group<'_>>; // depth first, the root first
 }
 
 impl<'f> Group<'f> {            // Copy, Eq, Hash
-    pub fn name(self) -> &'f Name;
+    pub fn name(self) -> &'f Name;                  // empty for the root
     pub fn description(self) -> &'f str;
     pub fn path(self) -> impl ExactSizeIterator<Item = &'f Name> + DoubleEndedIterator;
-    pub fn parent(self) -> Option<Group<'f>>;
+    pub fn parent(self) -> Option<Group<'f>>;       // None for the root
     pub fn children(self) -> impl ExactSizeIterator<Item = Group<'f>>;
     pub fn descendants(self) -> impl Iterator<Item = Group<'f>>;
     pub fn methods(self) -> impl ExactSizeIterator<Item = Method<'f>>;
@@ -79,7 +78,7 @@ impl<'f> Method<'f> {           // Copy, Eq, Hash
 impl<'f> Model<'f> {            // Copy, Eq, Hash, Display (the schema name)
     pub fn schema_name(self) -> &'f str;
     pub fn name(self) -> &'f Name;
-    pub fn group(self) -> Option<Group<'f>>;
+    pub fn group(self) -> Group<'f>;
     pub fn description(self) -> &'f str;
     pub fn is_deprecated(self) -> bool;
     pub fn ty(self) -> Type<'f>;
@@ -134,7 +133,7 @@ pub enum Type<'f> {
     Model(Model<'f>),
 }
 
-pub enum Scalar { Unknown, Null, Boolean, String, Number(Number), DateTime, Date, Bytes, Binary }
+pub enum Scalar { Unknown, Null, Boolean, String, Uuid, Number(Number), DateTime, Date, Bytes, Binary }
 pub enum Number { Int, Int8, Int16, Int32, Int64, Uint8, Uint16, Uint32, Uint64, Float, Double }
 impl Number { pub fn is_integer(self) -> bool; }
 
@@ -143,6 +142,7 @@ impl<'f> Enum<'f> { pub fn values(self) -> impl ExactSizeIterator<Item = EnumVal
 
 impl<'f> Array<'f> {
     pub fn elem(self) -> Type<'f>;
+    pub fn min_items(self) -> Option<u64>;
     pub fn max_items(self) -> Option<u64>;
 }
 
@@ -201,15 +201,14 @@ impl Name {                     // Clone, Eq, Ord, Hash, Default
 
 ## Plugins
 
-The trait a plugin implements, and the functions that run it and write its files:
+The trait a plugin implements, and the function that writes its files:
 
 ```rust
 pub type Err = Box<dyn std::error::Error + Send + Sync + 'static>;
 
-pub trait Plugin: Sync {
+pub trait Plugin {
     type File: File;
-    fn generate(&self, forge: &Forge) -> Result<impl Iterator<Item = Self::File>, Err>;        // default: none
-    fn generate_group(&self, group: Group<'_>) -> Result<impl Iterator<Item = Self::File>, Err>; // default: none
+    fn generate(&self, forge: &Forge) -> Result<impl Iterator<Item = Self::File>, Err>;
 }
 
 pub trait File: Send {
@@ -217,13 +216,11 @@ pub trait File: Send {
     fn content(&self) -> Result<Cow<'_, [u8]>, Err>;
 }
 
-pub fn run<P: Plugin>(forge: &Forge, plugin: &P) -> Result<Vec<P::File>, Err>;
-pub fn write<F: File>(dir: impl AsRef<Path>, files: Vec<F>) -> Result<(), Err>;
+pub fn write<F: File>(dir: impl AsRef<Path>, files: impl IntoIterator<Item = F>) -> Result<(), Err>;
 ```
 
-`run` calls `generate`, then `generate_group` for every group in parallel, and returns
-`generate`'s files followed by each group's in the order of `Forge::groups`. `write` checks every
-path, renders every file in parallel, and only then writes; see [the pipeline](/concepts/pipeline/).
+Run a plugin with `forge::write(out, plugin.generate(&forge)?)`. `write` checks every path, renders
+every file in parallel, and only then writes; see [the pipeline](/concepts/pipeline/).
 
 ## forge::wasm
 

@@ -13,8 +13,7 @@ question for any language is only: can its toolchain build that component?
 
 - **A component, not a core module.** The file passed to `wasm://` must be a WebAssembly component
   (component model), such as what `wasm32-wasip2` toolchains produce.
-- **The `plugin` world.** It exports `generate` and `generate-group`, and imports the `forge`
-  interface. Get the WIT with `npx forge-plugin wit`, or from the `forge::wasm::WIT` constant.
+- **The `plugin` world.** It exports `generate`, and imports the `forge` interface. Get the WIT with `npx forge-plugin wit`, or from the `forge::wasm::WIT` constant.
 - **WASI preview 2, synchronously.** The host links the WASI 0.2 interfaces, so a component built by
   a standard toolchain, which imports `wasi:cli`, `wasi:io` and friends, instantiates fine. Exports
   are called without the async ABI; a component that requires it will not run.
@@ -29,13 +28,12 @@ clock and random numbers, and nothing else.
 Whatever the bindings generator calls things, a plugin does the same steps:
 
 1. Generate bindings for the `plugin` world from the WIT.
-2. Implement `generate() -> result<list<file>, string>` and
-   `generate-group(group: u32) -> result<list<file>, string>`.
+2. Implement `generate() -> result<list<file>, string>`.
 3. Walk the model with `groups()`, `get-group`, `get-method`, `get-model` and `get-type`.
 4. Return files: a path with `/` separators, and the content as bytes.
 5. Build a component.
 
-[The Rust example](/plugins/rust/#as-a-webassembly-component) shows all five in about 60 lines;
+[The Rust example](/plugins/rust/#as-a-webassembly-component) shows all five in about 50 lines;
 it is a good template to port.
 
 ## Notes by language
@@ -50,14 +48,14 @@ bindings from a WIT world. Go's standard toolchain also has WebAssembly support,
 version you use can produce a WASI 0.2 component with exports, rather than a core module.
 
 A Go plugin will be larger than a Rust one, because it carries a runtime. It cannot use goroutines to
-parallelize inside a call, since a call is single-threaded; Forge already runs groups in parallel.
+parallelize inside the call, since the call is single-threaded.
 
 ### Python
 
 `componentize-py` builds a component from Python source and a WIT world, with the interpreter
 inside. Components are large, often tens of megabytes, and the first instantiation is slower than
-for compiled languages; Forge compiles the component once per run and pools instances, so that cost
-is paid once per instance, not per group.
+for compiled languages; Forge makes one instance per run, so that cost is
+paid once.
 
 Pure-Python dependencies can be bundled; packages with native extensions generally cannot.
 
