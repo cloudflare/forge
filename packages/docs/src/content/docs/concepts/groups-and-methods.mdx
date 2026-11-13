@@ -6,14 +6,15 @@ sidebar:
 ---
 
 OpenAPI organizes an API by path. SDKs organize it by resource: `client.accounts.members.list()`.
-Forge gets from one to the other with each operation's `operationId`, and nothing else. It never
-guesses a grouping from paths or tags.
+Forge gets from one to the other with each operation's `operationId`, or the `x-forge-*` names
+that replace it, and nothing else. It never guesses a grouping from paths or tags.
 
 ## What makes a method
 
-An operation under `paths` becomes a method when its `operationId` is written as
+An operation under `paths` becomes a method when it has an `operationId`, written as
 `<group>.<method>`. It is split at the last dot: the group path before it, top level first, and the
-method's name after it.
+method's name after it. An `operationId` with no dot, such as `status`, is a method of the
+[root group](/concepts/the-model/#the-forge).
 
 ```json
 "/accounts/{account_id}/members": {
@@ -23,9 +24,10 @@ method's name after it.
 }
 ```
 
-An operation whose `operationId` has no dot, such as `listMembers`, or that has none, is not a
-method. It is not an error: Forge leaves it out, and its parameters, body and responses are never built. That
-makes it easy to adopt Forge on a large document a group at a time.
+`x-forge-method-name` and `x-forge-group-name` name a method without touching the `operationId`.
+An operation with neither an `operationId` nor `x-forge-method-name`, or with `x-forge-skip: true`,
+is not a method. It is not an error: Forge leaves it out, and its parameters, body and responses are
+never built. That makes it easy to adopt Forge on a large document a group at a time.
 
 Operations come from everywhere OpenAPI allows: the fixed methods of each path item, path items
 reached by `$ref`, and, from OpenAPI 3.2, `additionalOperations` and the `query` method. Webhooks
@@ -75,7 +77,7 @@ ignored; two entries for the same group are an error.
 Sometimes one HTTP operation deserves more than one method. `PATCH /scripts/{id}/status` might be
 `scripts.status.edit` in an SDK, and also `scripts.pause` and `scripts.resume` in a CLI.
 `x-forge-aliases` makes that explicit: an array of objects, each a method of the operation, with its
-own `operationId`.
+own `operationId` or `x-forge-method-name`.
 
 ```json
 "patch": {
@@ -87,7 +89,8 @@ own `operationId`.
 ```
 
 With aliases, the operation's own `operationId` makes no method; only the aliases do. Each alias
-says, as an operation would, its `operationId`, hidden flag, confirmation and other extensions, and inherits **none** of them from the operation. Everything about the request and
+says, as an operation would, its name, availability, hidden flag, confirmation and other extensions,
+and inherits **none** of them from the operation. Everything about the request and
 response (the HTTP method, path, parameters, body and responses) is the operation's, shared by every
 alias. An empty array makes no method at all.
 
@@ -98,19 +101,19 @@ These do not change how a method is called. They tell a target how to present it
 | Member         | From                                    | Meaning                                                                                       |
 | -------------- | --------------------------------------- | --------------------------------------------------------------------------------------------- |
 | `is_deprecated`| `deprecated`                            | OpenAPI's own flag.                                                                           |
-| `availability` | A compatibility mode                    | `alpha`, `beta`, `preview`, `generally-available` or `deprecated`, or none. Separate from the above. |
+| `availability` | `x-forge-availability`                  | `alpha`, `beta`, `preview`, `generally-available` or `deprecated`, or none. Separate from the above. |
 | `is_hidden`    | `x-forge-hidden`                        | Leave it out of listings, such as a CLI's help. It can still be called.                       |
 | `confirmation` | `x-forge-require-confirmation`          | A sentence to show before calling it, because it changes or deletes something irreversibly. An empty string means "confirm, with nothing to add". |
 
 `is_deprecated` and `availability` are deliberately apart: an operation can be `deprecated: true`
 with no availability, or have a `deprecated` availability without OpenAPI's flag, and a target can
-treat the two differently. Forge's own conventions set no availability; it comes from a document
-annotated for another generator (see Compatibility Modes in the sidebar).
+treat the two differently. [`forge normalize`](/reference/cli/) rewrites other tools' stage
+extensions into `x-forge-availability`.
 
 ## Extensions for plugins
 
-Forge passes every other `x-` key on an operation (or alias) through to plugins, unread, in the
-order it was written. This is how a plugin gets data that only it understands, without Forge having
+Forge passes every `x-` key on an operation (or alias) that it does not read itself through to
+plugins, unread, in the order it was written. This is how a plugin gets data that only it understands, without Forge having
 to know about it:
 
 ```json

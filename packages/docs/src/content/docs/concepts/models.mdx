@@ -25,7 +25,7 @@ A model's identity:
 - `schema_name` is where it is: `Account`, or `Tree/$defs/Node` for a nested definition. It is unique,
   so it is the safe key for a map of models.
 - `name` is what to call it: the schema name without `$defs`, so `Tree/$defs/Node` is "tree node",
-  unless a compatibility mode renames it.
+  unless the schema's `x-forge-model-name` names it.
 
 ## Placement
 
@@ -37,13 +37,14 @@ through other models.
 | `a.b.e` only                | `a.b.e`        |
 | `a.b.c` and `a.b.d`         | `a.b`          |
 | `a` and `a.b`               | `a`            |
-| `a` and `x`                 | the top level  |
+| `a` and `x`                 | the root       |
+| the root and `a`            | the root       |
 
-`group.models()` lists the models placed directly in a group. The top-level models, used across more
-than one top-level group, are `forge.models()`. A model is in exactly one place.
+`group.models()` lists the models placed directly in a group. The models used across more than one
+top-level group, or by a method of the root, are the root group's. A model is in exactly one place.
 
 Uses through other models count: if `Member` uses `Role`, and `Member` is used in `accounts` and
-`users`, then `Role` is at the top level too, even if no method names it directly. That way a model
+`users`, then `Role` is in the root too, even if no method names it directly. That way a model
 can always import the models it uses from its own group or one above it, never from a sibling.
 
 ## Turning placement into files
@@ -55,7 +56,7 @@ not written:
 
 ```text
 sdk/
-├── models.ts                  forge.models(): used by more than one top-level group
+├── models.ts                  the root's models: used by more than one top-level group
 ├── client.ts
 ├── index.ts
 ├── _/                         the runtime
@@ -69,8 +70,8 @@ sdk/
         └── index.ts
 ```
 
-In a plugin, that is: in `generate`, write `forge.models`; in `generate_group`, write
-`group.models`. Every model is written exactly once, and in parallel, without any coordination.
+In a plugin, that is: for each group in `forge.groups`, the root included, write `group.models`.
+Every model is written exactly once, without any coordination.
 When writing a reference to a model, `model.group` tells you which file declares it, and so what to
 import. [The TypeScript printer](/plugins/ts-printer/) does that import for you.
 
@@ -78,7 +79,7 @@ import. [The TypeScript printer](/plugins/ts-printer/) does that import for you.
 
 Forge reports two fields with equal names, and two methods, but **not** two models. Two schemas can
 have the same name, as `Account` and `account` do. In different groups
-that is usually fine, since each is in its own module. In one group, or both at the top level, they
+that is usually fine, since each is in its own module. In one group, such as both in the root, they
 would declare the same identifier. A plugin that writes models into one namespace should either
 qualify them, or report the collision itself.
 
