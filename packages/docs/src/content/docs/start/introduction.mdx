@@ -54,8 +54,8 @@ Forge is a Rust crate with a command on top:
 2. **Link.** It walks the operations under `paths`, follows `$ref`s, builds the type of every
    parameter, body and response, and turns the schemas they reach into models. Every error is
    collected and reported together.
-3. **Run.** It calls the plugin's `generate` once for the whole document, then `generate_group` for
-   every group, in parallel.
+3. **Run.** It calls the plugin's `generate` once, with the whole model, and gets back a list of
+   files.
 4. **Write.** It checks every path the plugin returned, renders every file, and only then writes
    them to `--out`.
 
@@ -69,7 +69,8 @@ expect the model and the plugin interface to grow.
 Today:
 
 - **Input:** OpenAPI 3.0, 3.1 and 3.2, as JSON.
-- **Built-in targets:** a TypeScript SDK (`ts`) and a Rust MCP server (`mcp`).
+- **Built-in targets:** a TypeScript SDK (`ts`), a Cap'n Web server over that SDK (`capnweb`), and
+  the tools of an MCP server, in TypeScript (`mcp`).
 - **Plugins:** WebAssembly components against a published WIT, with first-class libraries for
   TypeScript authors, and native plugins in Rust.
 - **Docs:** Astro packages that render API reference documentation from a Forge-annotated document.
@@ -82,5 +83,5 @@ on top of an SDK; neither exists in the code yet.
 ## Next
 
 - [Installation](/start/installation/): the npm package, or a build from source.
-- [Quickstart](/start/quickstart/): generate a TypeScript SDK and an MCP server.
+- [Quickstart](/start/quickstart/): generate a TypeScript SDK and MCP tools, then write a plugin.
 - [Writing plugins](/plugins/overview/): the part that makes Forge yours.

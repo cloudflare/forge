@@ -1,6 +1,6 @@
 ---
 title: Targets
-description: "The outputs Forge can produce today: the built-in TypeScript SDK and MCP server, and any plugin. How to pick one with --target."
+description: "The outputs Forge can produce today: the built-in TypeScript SDK, Cap'n Web server and MCP tools, and any plugin. How to pick one with --target."
 sidebar:
   order: 1
   label: Overview
@@ -11,18 +11,20 @@ A target is what Forge generates. You pick one per run with `--target`:
 | `--target`         | Generates                                              | Written in |
 | ------------------ | ------------------------------------------------------ | ---------- |
 | `ts`               | A [TypeScript SDK](/targets/typescript/): typed client, models, codecs and a small runtime. | Rust, built in |
-| `mcp`              | A [Model Context Protocol server](/targets/mcp/), as a Rust crate, with a tool per method. | Rust, built in |
+| `capnweb`          | A [Cap'n Web](https://github.com/cloudflare/capnweb) server over the TypeScript SDK, with an `RpcTarget` per group. | Rust, built in |
+| `mcp`              | The [tools of an MCP server](/targets/mcp/), in TypeScript, with a tool per method. | Rust, built in |
 | `wasm://PATH`      | Whatever the [plugin](/plugins/overview/) at `PATH` generates. | Anything |
 
 ```sh
 forge openapi.json --target ts --out sdk
-forge openapi.json --target mcp --out server
+forge openapi.json --target capnweb --out server
+forge openapi.json --target mcp --out tools
 forge openapi.json --target wasm://plugins/zod.wasm --out schemas
 ```
 
 ## Built in is not special
 
-`ts` and `mcp` are implementations of the same `Plugin` trait a library plugin implements, and read
+`ts`, `capnweb` and `mcp` are implementations of the same `Plugin` trait a library plugin implements, and read
 the same model a WebAssembly plugin reads. Forge's own test suite compiles the TypeScript target to
 WebAssembly and checks that it writes exactly the same files as the native build.
 
@@ -33,8 +35,9 @@ change to Forge.
 ## Choosing
 
 - For a **typed client** in TypeScript, use `ts`.
+- For a **Cap'n Web** API, such as one a Worker serves, use `capnweb` on top of `ts`.
 - For **agents**, use `mcp`, which turns each method into a tool with JSON Schema input and
-  behaviour hints.
+  behaviour hints, for an MCP server to register.
 - For anything else (another language, a CLI, API reference pages, validators, mocks, route tables),
   [write a plugin](/plugins/overview/). [Designing a target](/plugins/designing-a-target/) collects
   the decisions you will need to make.
