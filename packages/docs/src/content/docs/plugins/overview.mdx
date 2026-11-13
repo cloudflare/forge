@@ -10,9 +10,9 @@ Forge does two jobs: it turns an OpenAPI document into a [model](/concepts/the-m
 **plugin** on that model to produce files. The first job is the same for every output. The second is
 whatever you want it to be.
 
-The built-in targets are plugins too. The TypeScript SDK and the MCP server are implementations of
-the same `Plugin` trait you would implement, given the same model you would get. Nothing about them
-is special except that they ship in the binary.
+The built-in targets are plugins too. The TypeScript SDK, the Cap'n Web server and the MCP tools are
+implementations of the same `Plugin` trait you would implement, given the same model you would get.
+Nothing about them is special except that they ship in the binary.
 
 ## Three ways to write one
 
@@ -23,7 +23,7 @@ is special except that they ship in the binary.
 | You run                  | `forge --target wasm://plugin.wasm`         | `forge --target wasm://plugin.wasm`         | Your own binary                          |
 | API                      | Objects and arrays, like the Rust API       | Raw ids and records, from the WIT           | The full Rust API                        |
 | Sandbox                  | Yes                                         | Yes                                         | No: ordinary native code                 |
-| Typical size             | About 1.8 MB (QuickJS inside)               | Tens of KB                                  | Part of your binary                      |
+| Typical size             | About 1.7 MB (QuickJS inside)               | Tens of KB                                  | Part of your binary                      |
 | Good for                 | Most generators; text templates; JS tooling | Small, fast plugins you distribute          | Generators that need files, network, or a CLI of their own |
 
 [Other languages](/plugins/other-languages/) work through the same WebAssembly interface: anything
@@ -31,31 +31,28 @@ that can build a component of Forge's `plugin` world, such as Go, Python or C, c
 
 ## The contract
 
-Whatever the language, a plugin is two functions:
+Whatever the language, a plugin is one function:
 
 ```ts
-generate(forge)        // called once, with the whole model
-generateGroup(group)   // called once per group, in parallel
+generate(forge) // called once, with the whole model
 ```
 
-Each returns a list of files: a path relative to the output directory, and the content. Either can
-be left out, and returns no files. Either can fail, and the run stops before anything is written.
+It returns a list of files: a path relative to the output directory, and the content. It can fail,
+and the run stops before anything is written.
 
 That is all. A plugin does not parse OpenAPI, resolve `$ref`s, decide what is a method, name things,
 or write to disk, and it cannot write outside the output directory. It gets a checked model, and
-returns text.
+returns files.
 
-## Which call writes which file
+## Where each file goes
 
-The split between `generate` and `generateGroup` is about parallelism. Most plugins follow one rule:
+Most plugins write one set of files per [group](/concepts/groups-and-methods/), by walking
+`forge.groups`, and a few for the whole API, such as an entry point or a README.
 
-- `generate` writes what belongs to the whole API: an entry point, a README, a runtime library, and
-  the [models placed at the top level](/concepts/models/).
-- `generateGroup` writes what belongs to one group: its methods, and the models placed in it.
-
-Since each model is placed in exactly one group, or at the top level, following that rule writes
-every model exactly once, with no coordination between calls. A plugin that only needs one file,
-such as a list of routes, can do everything in `generate` and leave `generateGroup` out.
+Each model is [placed in exactly one group](/concepts/models/): the deepest one that every method
+using it shares. Writing each group's `models` alongside its methods writes every model exactly
+once. The root group comes first in `forge.groups`, and holds the methods without a group name and
+the models that more than one top-level group uses.
 
 ## Running a plugin
 

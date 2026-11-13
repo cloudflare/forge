@@ -47,8 +47,8 @@ strip = true
 
 ### Write it
 
-`wit_bindgen::generate!` makes a `Guest` trait from the `plugin` world. Implement `generate` and
-`generate_group`, and read the model through the `forge` interface's functions.
+`wit_bindgen::generate!` makes a `Guest` trait from the `plugin` world. Implement its one function,
+`generate`, and read the model through the `forge` interface's functions.
 
 ```rust title="src/lib.rs"
 //! Writes one `routes.txt`: every method's HTTP method, path and name.
@@ -68,16 +68,12 @@ impl wit::Guest for Plugin {
         let mut lines = Vec::new();
         for group_id in host::groups() {
             let group = host::get_group(group_id);
+            // The names of the groups down to this one; empty for the root.
             let path: Vec<String> = group.path.iter().map(|&id| host::get_group(id).name.join("_")).collect();
             for method_id in group.methods {
                 let method = host::get_method(method_id);
-                lines.push(format!(
-                    "{:<7} {:<45} {}.{}",
-                    http(&method.http_method),
-                    method.path,
-                    path.join("."),
-                    method.name.join("_"),
-                ));
+                let name = path.iter().chain([&method.name.join("_")]).cloned().collect::<Vec<_>>();
+                lines.push(format!("{:<7} {:<45} {}", http(&method.http_method), method.path, name.join(".")));
             }
         }
         if lines.is_empty() {
@@ -85,10 +81,6 @@ impl wit::Guest for Plugin {
         }
         let content = (lines.join("\n") + "\n").into_bytes();
         Ok(vec![File { path: "routes.txt".to_owned(), content }])
-    }
-
-    fn generate_group(_group: u32) -> Result<Vec<File>, String> {
-        Ok(Vec::new())
     }
 }
 
@@ -121,14 +113,16 @@ forge openapi.json --target wasm://target/wasm32-wasip2/release/forge_plugin_rou
 ```
 
 ```text title="out/routes.txt"
+GET     /status                                       status
 GET     /accounts/{account_id}                        accounts.get
 POST    /accounts/{account_id}/members                accounts.members.create
 DELETE  /accounts/{account_id}/members/{member_id}    accounts.members.delete
 GET     /accounts/{account_id}/members                accounts.members.list
-PUT     /pets/{id}                                    pets.replace_tags
+GET     /pets                                         pets.list
 ```
 
-The release build is about 58 KB.
+`status` has no group name, so it is in the root group, which `groups()` lists first. The release
+build is about 60 KB.
 
 ### Working with the WIT
 
@@ -143,7 +137,7 @@ shares.
   `object`.
 - A trap (a panic, or an id the host never gave out) fails the run.
 
-A record holds everything a part has, so fetch each part once per call and keep it. Since the WIT
+A record holds everything a part has, so fetch each part once and keep it. Since the WIT
 mirrors the Rust API, the [Rust API docs](/reference/rust-api/) give the meaning and order of every
 field; [the WIT reference](/reference/wit/) has the whole file.
 
@@ -172,13 +166,13 @@ Add `features = ["wasm"]` to run WebAssembly plugins from your binary, with
 ### Write it
 
 A `Forge` is read with Serde. Linking happens during deserialization, so a document with errors fails
-there, with every error in the message. Implement `Plugin` with a `File` type of your own, then `run`
-it and `write` the files:
+there, with every error in the message. Implement `Plugin` with a `File` type of your own, then pass
+what `generate` returns to `write`:
 
 ```rust title="src/main.rs"
 use std::borrow::Cow;
 
-use forge::{Err, Forge, Group, Plugin};
+use forge::{Err, Forge, Plugin};
 
 /// Writes a `<group>.md` for each group that has methods.
 struct Markdown;
@@ -202,19 +196,25 @@ impl forge::File for Doc {
 impl Plugin for Markdown {
     type File = Doc;
 
-    fn generate_group(&self, group: Group<'_>) -> Result<impl Iterator<Item = Doc>, Err> {
-        let path: Vec<String> = group.path().map(|name| name.kebab()).collect();
-        let mut text = format!("# {}\n\n", group.name().pascal());
-        for method in group.methods() {
-            text.push_str(&format!(
-                "- `{}` `{} {}`\n",
-                method.name().camel(),
-                method.http_method().as_str(),
-                method.path(),
-            ));
-        }
-        let doc = Doc { path: format!("{}.md", path.join("/")), text };
-        Ok((group.methods().len() > 0).then_some(doc).into_iter())
+    fn generate(&self, forge: &Forge) -> Result<impl Iterator<Item = Doc>, Err> {
+        let docs = forge.groups().filter(|group| group.methods().len() > 0).map(|group| {
+            // The root's path is empty, so its page is `index.md`.
+            let path: Vec<String> = group.path().map(|name| name.kebab()).collect();
+            let path = if path.is_empty() { "index".to_owned() } else { path.join("/") };
+            let title: Vec<String> = group.path().map(|name| name.pascal()).collect();
+            let title = if title.is_empty() { forge.description.clone() } else { title.join(" / ") };
+            let mut text = format!("# {title}\n\n");
+            for method in group.methods() {
+                text.push_str(&format!(
+                    "- `{}` `{} {}`\n",
+                    method.name().camel(),
+                    method.http_method().as_str(),
+                    method.path(),
+                ));
+            }
+            Doc { path: format!("{path}.md"), text }
+        });
+        Ok(docs)
     }
 }
 
@@ -223,15 +223,13 @@ fn main() -> Result<(), Err> {
     let spec = std::env::args().nth(1).ok_or(usage)?;
     let out = std::env::args().nth(2).ok_or(usage)?;
     let forge: Forge = serde_json::from_slice(&std::fs::read(spec)?)?;
-    forge::write(out, forge::run(&forge, &Markdown)?)
+    forge::write(out, Markdown.generate(&forge)?)
 }
 ```
 
-`Plugin` requires `Sync`, since `generate_group` runs on many threads at once; `File` requires
-`Send`. Both methods have default implementations that return no files.
-
-`File::content` is called after every plugin call has finished, in parallel, so a file type can defer
-expensive rendering until then. If any file fails to render, nothing is written.
+`write` checks every path before it writes anything, then calls `File::content` for every file in
+parallel, so a file type can leave expensive rendering until then. If any file fails to render,
+nothing is written. A file whose content is empty is skipped.
 
 ### The Rust TypeScript printer
 

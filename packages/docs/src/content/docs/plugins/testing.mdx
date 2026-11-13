@@ -14,10 +14,10 @@ Write documents that each exercise one thing: a nested group, a query array with
 a discriminated union, a nullable field, a model that refers to itself. Small documents keep
 failures readable, and a document is cheap to write inline.
 
-Forge's own tests do this: its TypeScript-as-WebAssembly test uses one document "with nested groups,
+Forge's own WebAssembly tests do this, with one document of nested groups, a method in no group,
 path and query parameters, bodies, errors, and models that are enums, unions with a discriminator,
-intersections, maps and nullable, and that refer to each other in a cycle". That covers all seven
-[kinds of type](/concepts/types/) in under a hundred lines.
+intersections, maps and nullable, and that refer to each other in a cycle. That covers all seven
+[kinds of type](/concepts/types/) in one small document.
 
 Run the plugin with the CLI, from any test runner:
 
@@ -42,8 +42,8 @@ git diff --exit-code test/out
 Remove the output directory first: Forge does not delete files it no longer generates, so a stale
 file would hide a change.
 
-Forge sorts groups and methods, but leaves the order of fields, union members and models within a
-group unspecified. If your output lists any of those, sort them (by wire name, or schema name) so
+Forge sorts groups and methods, but leaves the order of a model's fields, union members and the
+models in a group unspecified. If your output lists any of those, sort them (by wire name, or schema name) so
 snapshots are stable.
 
 ## 3. Compile the output
@@ -55,10 +55,8 @@ language's own tools:
 - Rust: `cargo check` or `cargo build` in the output.
 - Anything else: the language's compiler or linter.
 
-Forge's own CLI tests include one that generates the MCP server and builds it with Cargo. It
-downloads the server's dependencies, so it is marked `#[ignore]` and runs with
-`cargo test --test cli -- --ignored`. Gating a slow compile behind an opt-in flag like that keeps the
-everyday test run fast.
+A compile that installs dependencies is slow. Gate it behind an opt-in flag, such as `#[ignore]` in
+Rust, so the everyday test run stays fast.
 
 ## Errors are part of the interface
 
@@ -74,20 +72,20 @@ The CLI prints `forge: ` and the message, and exits with status 1, which a test 
 ## Testing a Rust library plugin
 
 With Forge as a library, there is no process to spawn. Deserialize a `Forge` from an inline document,
-`run` the plugin, and inspect the files in memory:
+call `generate`, and inspect the files in memory:
 
 ```rust
 #[test]
 fn writes_one_file_per_group() {
     let forge: forge::Forge = serde_json::from_str(SPEC).unwrap();
-    let files = forge::run(&forge, &Markdown).unwrap();
+    let files: Vec<Doc> = Markdown.generate(&forge).unwrap().collect();
     let paths: Vec<&str> = files.iter().map(|f| forge::File::path(f)).collect();
-    assert_eq!(paths, ["accounts.md", "accounts/members.md", "pets.md"]);
+    assert_eq!(paths, ["index.md", "accounts.md", "accounts/members.md", "pets.md"]);
 }
 ```
 
-`run` returns `generate`'s files first, then each group's in the order of `forge.groups()`, so
-assertions on the order are stable.
+`forge.groups()` lists the root first, then every group depth first with siblings sorted by name, so
+a plugin that walks it returns files in a stable order.
 
 A `WasmPlugin` is a `Plugin` too, so the same test can load a component with
 `forge::wasm::WasmPlugin::from_file` and check that a WebAssembly build of a plugin matches the
