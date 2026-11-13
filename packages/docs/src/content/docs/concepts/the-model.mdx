@@ -11,15 +11,18 @@ of methods, and the models those methods use.
 
 ```text
 Forge                     version, description, base URL
-├── Group  accounts
-│   ├── Method  get       GET /accounts/{account_id}
-│   ├── Model   Member    used by accounts.get and accounts.members.*
-│   └── Group  members
-│       ├── Method  create   POST   /accounts/{account_id}/members
-│       ├── Method  list     GET    /accounts/{account_id}/members
-│       └── Model   NewMember
-└── Group  pets
-    └── Method  replaceTags  PUT /pets/{id}
+└── Group  (the root)
+    ├── Method  status    GET /status
+    ├── Model   Account   used by status and accounts.get
+    ├── Group  accounts
+    │   ├── Method  get       GET /accounts/{account_id}
+    │   ├── Model   Member    used by accounts.get and accounts.members.*
+    │   └── Group  members
+    │       ├── Method  create   POST   /accounts/{account_id}/members
+    │       ├── Method  list     GET    /accounts/{account_id}/members
+    │       └── Model   NewMember
+    └── Group  pets
+        └── Method  replaceTags  PUT /pets/{id}
 ```
 
 Every method, model, field and type below has a [type](/concepts/types/), and every name is a
@@ -31,32 +34,32 @@ and `type` where Rust has `ty()`.
 
 ## The forge
 
-The root. It has three facts about the document, and two ways in:
+The whole document. It has three facts about it, and its groups:
 
 | In Rust                  | In TypeScript       | What it is                                                                |
 | ------------------------ | ------------------- | ------------------------------------------------------------------------- |
 | `forge.version`          | `forge.version`     | `info.version`.                                                           |
 | `forge.description`      | `forge.description` | `info.title`, `info.summary` and `info.description`, as paragraphs.       |
 | `forge.base_url`         | `forge.baseUrl`     | The URL of the first server, with its variables replaced by their defaults. |
-| `forge.groups()`         | `forge.groups`      | Every group, depth first, siblings sorted by name.                        |
-| `forge.models()`         | `forge.models`      | The models in no group: those used by more than one top-level group.      |
+| `forge.groups()`         | `forge.groups`      | Every group, depth first, starting with the root, siblings sorted by name. |
 
-There is no root group. The top-level groups are the ones with no parent; the root's own models are
-`forge.models()`.
+Every forge has a **root group**, which every other group is inside. It is the only group with an
+empty name and no parent, and it holds the methods without a group name, and the models that more
+than one of its subgroups use. The groups directly inside it are the top-level groups.
 
 ## Groups
 
 A group is a named collection of methods, models and subgroups. Groups come from
 each operation's `operationId`: an operation `accounts.members.list` creates the group
 `accounts` and, inside it, `members`. Groups exist only because methods are in them, but a group can
-hold nothing except other groups.
+hold nothing except other groups. The root is always there, even with nothing in it.
 
 | Member           | What it is                                                                     |
 | ---------------- | ------------------------------------------------------------------------------ |
-| `name`           | The group's own name.                                                          |
-| `path`           | The names from the top level down, ending with this group's.                   |
+| `name`           | The group's own name, empty for the root.                                      |
+| `path`           | The names from the top level down, ending with this group's; empty for the root. |
 | `description`    | From the root `x-forge-commands`, or empty.                                    |
-| `parent`         | The group this one is in, or none at the top level.                            |
+| `parent`         | The group this one is in, the root for a top-level group, or none for the root. |
 | `children`       | The groups directly inside, sorted by name.                                    |
 | `descendants`    | Every group below this one, depth first.                                       |
 | `methods`        | The methods directly inside, sorted by name.                                   |
@@ -73,7 +76,7 @@ group, and everything you need to call it:
 
 | Member               | What it is                                                                  |
 | -------------------- | --------------------------------------------------------------------------- |
-| `name`, `group`      | Where it is, from the `operationId`, as `<group>.<method>`, unless a compatibility mode names it. |
+| `name`, `group`      | Where it is, from the `operationId`, as `<group>.<method>`, or from `x-forge-method-name` and `x-forge-group-name`. |
 | `http_method`, `path`| How it is sent: `GET` and `/accounts/{account_id}`.                         |
 | `summary`, `description` | From the operation.                                                     |
 | `request`            | The type of what a caller passes: parameters and body, merged.              |
@@ -95,8 +98,8 @@ models. An SDK declares each model once, as a type, and refers to it by name eve
 | Member        | What it is                                                                 |
 | ------------- | -------------------------------------------------------------------------- |
 | `schema_name` | Its key in `components.schemas`, such as `Account`.                        |
-| `name`        | The schema name, as a `Name`, unless a compatibility mode renames it.      |
-| `group`       | The deepest group shared by every method that uses it, or none.            |
+| `name`        | The schema name, as a `Name`, or `x-forge-model-name`.                     |
+| `group`       | The deepest group shared by every method that uses it, which can be the root. |
 | `description` | `description`, or else `title`.                                            |
 | `is_deprecated` | `deprecated` on the schema.                                              |
 | `ty`          | Its type.                                                                  |
