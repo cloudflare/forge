@@ -9,7 +9,7 @@ paths:
       x-forge-group-name: zone
       x-forge-aliases:
         - x-forge-method-name: fetchThing
-          x-forge-group-name: ['zone', 'bad-segment']
+          x-forge-group-name: ['zone', 'bad.segment']
       responses:
         '200':
           description: OK

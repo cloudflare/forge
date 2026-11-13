@@ -13,7 +13,7 @@ paths:
   /array:
     get:
       operationId: arr
-      x-forge-group-name: ['zone', 'bad-segment']
+      x-forge-group-name: ['zone', 'segment-']
       responses:
         '200':
           description: OK

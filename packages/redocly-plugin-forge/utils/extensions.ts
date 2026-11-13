@@ -52,8 +52,17 @@ export function isNonEmptyString(value: unknown): value is string {
   return typeof value === 'string' && value.length > 0;
 }
 
-/** Forge identifier rule (`Name::new`): starts with a letter, letters and digits only. */
-export const FORGE_IDENTIFIER = /^[A-Za-z][A-Za-z0-9]*$/;
+/**
+ * Syntactic rule for `x-forge-*-name` values: letters, digits, `-`, and `_`, starting with a
+ * letter (optionally prefixed with `_`), not ending with `-`. Covers the common casing styles
+ * (kebab, camel, snake, SCREAMING_SNAKE) and allows a leading `_` as the conventional escape for
+ * names that would otherwise start with a digit.
+ *
+ * Narrower than what Forge's `Name::new` accepts at parse time (which only requires at least one
+ * letter or digit) but broader than a strict programming identifier, matching the lint rule's
+ * role as a typo-catcher without blocking any common idiomatic form.
+ */
+export const FORGE_IDENTIFIER = /^_?[A-Za-z](?:[A-Za-z0-9_-]*[A-Za-z0-9_])?$/;
 
 /** Short classifier for JSON values suitable for error messages; distinguishes null and array. */
 export function describeKind(value: unknown): string {

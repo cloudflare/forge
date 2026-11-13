@@ -10,7 +10,7 @@ paths:
         - name: thing_id
           in: path
           required: true
-          x-forge-parameter-name: thing-id
+          x-forge-parameter-name: -thing-id
           schema:
             type: string
       responses:

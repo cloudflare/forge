@@ -2,8 +2,18 @@
  * Reports `x-forge-method-name`, `x-forge-model-name`, `x-forge-property-name`, and
  * `x-forge-parameter-name` values that are not valid Forge identifiers.
  *
- * Forge identifier rule (`Name::new`): starts with a letter, letters and digits only
- * (`^[A-Za-z][A-Za-z0-9]*$`). Non-string values are also reported.
+ * Accepts letters, digits, `-`, and `_`; must start with a letter (optionally prefixed with `_`)
+ * and must not end with `-`. This covers kebab-case, camelCase, snake_case, SCREAMING_SNAKE_CASE,
+ * trailing digits or underscores, and a leading underscore. Non-string values are also reported.
+ *
+ * Narrower than what Forge's `Name::new` parser accepts (which tolerates any non-alphanumeric as a
+ * word separator) because the lint's job is to catch likely typos — `list.all` is almost always a
+ * mistake for `list-all` — without blocking idiomatic forms.
+ *
+ * Case conventions per kind (model vs method vs property) are intentionally not enforced: Forge
+ * normalizes casing per target language, so the author's casing is only a hint. Collisions between
+ * two `x-forge-method-name`s in the same group, or two `x-forge-property-name`s in the same
+ * schema, are a separate concern and belong in their own rules.
  *
  * - `x-forge-method-name` on operations and `x-forge-aliases[*]`.
  * - `x-forge-model-name`, `x-forge-property-name` on schemas.
@@ -24,7 +34,7 @@ function reportIfInvalid(ctx: UserContext, node: AnyNode, location: Location, ke
   }
   const description = typeof value === 'string' ? `"${value}"` : describeKind(value);
   ctx.report({
-    message: `${key} must be a valid Forge identifier (starts with a letter, letters and digits only); got ${description}.`,
+    message: `${key} must be a valid Forge identifier (letters, digits, '-', '_'; starts with a letter, optionally prefixed with '_'; must not end with '-'); got ${description}.`,
     location: location.child(key).key(),
   });
 }

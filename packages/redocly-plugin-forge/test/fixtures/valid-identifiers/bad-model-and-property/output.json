@@ -2,13 +2,19 @@
   {
     "ruleId": "generators/forge-valid-identifiers",
     "severity": "error",
-    "message": "x-forge-property-name must be a valid Forge identifier (starts with a letter, letters and digits only); got \"last_login\".",
-    "location": "openapi.yaml#/components/schemas/Thing/properties/last_login/x-forge-property-name (key)"
+    "message": "x-forge-property-name must be a valid Forge identifier (letters, digits, '-', '_'; starts with a letter, optionally prefixed with '_'; must not end with '-'); got \"last.login\".",
+    "location": "openapi.yaml#/components/schemas/Thing/properties/field_with_dot/x-forge-property-name (key)"
   },
   {
     "ruleId": "generators/forge-valid-identifiers",
     "severity": "error",
-    "message": "x-forge-model-name must be a valid Forge identifier (starts with a letter, letters and digits only); got \"2fa\".",
+    "message": "x-forge-property-name must be a valid Forge identifier (letters, digits, '-', '_'; starts with a letter, optionally prefixed with '_'; must not end with '-'); got \"name-\".",
+    "location": "openapi.yaml#/components/schemas/Thing/properties/trailing_hyphen/x-forge-property-name (key)"
+  },
+  {
+    "ruleId": "generators/forge-valid-identifiers",
+    "severity": "error",
+    "message": "x-forge-model-name must be a valid Forge identifier (letters, digits, '-', '_'; starts with a letter, optionally prefixed with '_'; must not end with '-'); got \"2fa\".",
     "location": "openapi.yaml#/components/schemas/Thing/x-forge-model-name (key)"
   }
 ]

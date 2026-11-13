@@ -7,13 +7,24 @@ paths:
     get:
       operationId: getThing
       x-forge-method-name: getThing
+      x-forge-aliases:
+        - x-forge-method-name: get-thing
+        - x-forge-method-name: get_thing
+        - x-forge-method-name: GET_THING
+        - x-forge-method-name: _hidden
+        - x-forge-method-name: get2
       parameters:
         - name: thingId
           in: path
           required: true
-          x-forge-parameter-name: thingId
+          x-forge-parameter-name: thing-id
           schema:
             type: string
+        - name: pageSize
+          in: query
+          x-forge-parameter-name: page_size
+          schema:
+            type: integer
       responses:
         '200':
           description: OK
@@ -25,8 +36,17 @@ components:
   schemas:
     Thing:
       type: object
-      x-forge-model-name: Thing
+      x-forge-model-name: ThingModel
       properties:
         name:
           type: string
           x-forge-property-name: name
+        last_login:
+          type: string
+          x-forge-property-name: last_login
+        display-name:
+          type: string
+          x-forge-property-name: display-name
+        _internal:
+          type: string
+          x-forge-property-name: _internal

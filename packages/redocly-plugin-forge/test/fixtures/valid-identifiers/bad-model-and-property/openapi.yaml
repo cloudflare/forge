@@ -19,9 +19,9 @@ components:
       type: object
       x-forge-model-name: 2fa
       properties:
-        last_login:
+        field_with_dot:
           type: string
-          x-forge-property-name: last_login
-        valid:
+          x-forge-property-name: last.login
+        trailing_hyphen:
           type: string
-          x-forge-property-name: validName
+          x-forge-property-name: name-
