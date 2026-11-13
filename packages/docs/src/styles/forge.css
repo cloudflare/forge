@@ -84,3 +84,9 @@
 		background-color: var(--nb-brand-wash);
 	}
 }
+
+/* The table of contents marks the section you are in with Cloudflare's
+   orange, in both modes. */
+[data-nb-toc-rail-active] {
+	stroke: oklch(0.687 0.208 38.8);
+}
