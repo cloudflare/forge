@@ -77,3 +77,10 @@
 #main-content :where(h1, h2, h3, h4) {
 	font-family: var(--forge-font-heading);
 }
+
+/* A sidebar row under the pointer takes the current page's wash. */
+@layer components {
+	:is([data-nb-sidebar], [data-nb-api-nav], [data-nb-nav-results]) :is(li > a, details > summary):hover {
+		background-color: var(--nb-brand-wash);
+	}
+}
