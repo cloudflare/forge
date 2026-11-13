@@ -1,0 +1,8 @@
+[
+  {
+    "ruleId": "generators/no-duplicate-auth-header-parameters",
+    "severity": "error",
+    "message": "Header parameter 'AUTHORIZATION' is redundant with the 'AUTHORIZATION' header already defined by a security scheme.",
+    "location": "paths/plants.yaml#/post/parameters/0/name"
+  }
+]

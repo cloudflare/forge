@@ -1,8 +1,0 @@
-[
-  {
-    "ruleId": "generators/fern-valid-base-path",
-    "severity": "error",
-    "message": "x-fern-base-path `paths-include-base-path` must be a boolean; Fern treats 'true' as false, so it does not strip the base path from the paths and prepends it to them again (a path that already includes it gets it twice).",
-    "location": "openapi.yaml#/x-fern-base-path/paths-include-base-path"
-  }
-]

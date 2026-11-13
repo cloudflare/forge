@@ -1,8 +1,0 @@
-[
-  {
-    "ruleId": "generators/fern-no-undefined-type-reference",
-    "severity": "error",
-    "message": "Type Owner is not defined. x-fern-type 'Owner' references it, but it is neither a Fern primitive nor a key of components.schemas, so Fern treats it as unknown.",
-    "location": "openapi.yaml#/components/schemas/Holder/properties/owner/x-fern-type"
-  }
-]

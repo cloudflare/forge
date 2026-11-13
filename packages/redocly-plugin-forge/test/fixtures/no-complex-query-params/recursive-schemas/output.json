@@ -1,0 +1,8 @@
+[
+  {
+    "ruleId": "generators/no-complex-query-params",
+    "severity": "error",
+    "message": "`in: query` parameter \"forest\" has a schema that contains the discriminated union \"Leaf\" (at properties.leaf). Discriminated unions cannot be serialized as query strings.",
+    "location": "openapi.yaml#/paths/~1forests/get/parameters/0/schema (key)"
+  }
+]

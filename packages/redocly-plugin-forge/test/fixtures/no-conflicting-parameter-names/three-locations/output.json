@@ -1,0 +1,8 @@
+[
+  {
+    "ruleId": "generators/no-conflicting-parameter-names",
+    "severity": "error",
+    "message": "Parameters path parameter 'plant_id', query parameter 'plantId', header parameter 'Plant-Id' all normalize to 'plantId' in camelCase, which collides in generated code. Rename one of the parameters.",
+    "location": "openapi.yaml#/paths/~1plants~1{plant_id}/get (key)"
+  }
+]

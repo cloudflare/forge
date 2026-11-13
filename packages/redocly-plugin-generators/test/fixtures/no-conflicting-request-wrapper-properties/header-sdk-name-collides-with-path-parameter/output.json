@@ -1,8 +1,0 @@
-[
-  {
-    "ruleId": "generators/fern-no-conflicting-request-wrapper-properties",
-    "severity": "error",
-    "message": "Multiple request properties have the name \"plantId\": path parameter \"plantId\", header parameter \"X-Plant-Id\" (SDK name \"plantId\"). This is not suitable for code generation. Use x-fern-parameter-name on a parameter to deconflict.",
-    "location": "openapi.yaml#/paths/~1plants~1{plantId}/get (key)"
-  }
-]

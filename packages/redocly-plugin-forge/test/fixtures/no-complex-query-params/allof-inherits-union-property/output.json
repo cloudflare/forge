@@ -1,0 +1,8 @@
+[
+  {
+    "ruleId": "generators/no-complex-query-params",
+    "severity": "error",
+    "message": "`in: query` parameter \"filter\" has a schema that contains the discriminated union \"Target\" (at allOf[0] > properties.target). Discriminated unions cannot be serialized as query strings.",
+    "location": "openapi.yaml#/paths/~1items/get/parameters/0/schema (key)"
+  }
+]

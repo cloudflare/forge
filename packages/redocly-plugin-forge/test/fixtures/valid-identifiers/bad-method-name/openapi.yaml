@@ -1,0 +1,42 @@
+openapi: 3.1.0
+info:
+  title: Bad method name
+  version: 1.0.0
+paths:
+  /leading-digit:
+    get:
+      operationId: getA
+      x-forge-method-name: 2fa_check
+      responses:
+        '200':
+          description: OK
+  /trailing-hyphen:
+    get:
+      operationId: getB
+      x-forge-method-name: get-other-
+      responses:
+        '200':
+          description: OK
+  /symbol:
+    get:
+      operationId: getC
+      x-forge-method-name: list.all
+      x-forge-aliases:
+        - x-forge-method-name: get$thing
+      responses:
+        '200':
+          description: OK
+  /bare-underscore:
+    get:
+      operationId: getD
+      x-forge-method-name: _
+      responses:
+        '200':
+          description: OK
+  /digits-only-after-escape:
+    get:
+      operationId: getE
+      x-forge-method-name: _2
+      responses:
+        '200':
+          description: OK

@@ -1,0 +1,13 @@
+openapi: 3.1.0
+info:
+  title: Missing method name
+  version: 1.0.0
+paths:
+  /thing:
+    get:
+      operationId: getThing
+      x-forge-aliases:
+        - x-forge-group-name: legacy
+      responses:
+        '200':
+          description: OK

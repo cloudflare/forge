@@ -301,7 +301,7 @@ importers:
         specifier: 7.0.2
         version: 7.0.2
 
-  packages/redocly-plugin-generators:
+  packages/redocly-plugin-forge:
     dependencies:
       '@redocly/ajv':
         specifier: 8.18.3

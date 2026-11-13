@@ -1,0 +1,8 @@
+[
+  {
+    "ruleId": "generators/content-type-only-for-multipart",
+    "severity": "error",
+    "message": "Property \"attachment\" sets `encoding.attachment.contentType`, but the request body is `application/json`, not multipart. Per-property `contentType` is only meaningful for multipart request bodies (OAS 3.x §4.8.24.1).",
+    "location": "request-bodies.yaml#/CreateDocument/content/application~1json/encoding/attachment/contentType (key)"
+  }
+]

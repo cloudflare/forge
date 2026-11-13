@@ -1,0 +1,26 @@
+[
+  {
+    "ruleId": "no-ambiguous-paths",
+    "severity": "error",
+    "message": "Paths should resolve unambiguously. Found two ambiguous paths: `/teams/{teamId}` and `/teams/{id}`.",
+    "location": "openapi.yaml#/paths/~1teams~1{id} (key)"
+  },
+  {
+    "ruleId": "no-identical-paths",
+    "severity": "error",
+    "message": "The path already exists which differs only by path parameter name(s): `/teams/{teamId}` and `/teams/{id}`.",
+    "location": "openapi.yaml#/paths/~1teams~1{id} (key)"
+  },
+  {
+    "ruleId": "generators/no-conflicting-endpoint-paths",
+    "severity": "warn",
+    "message": "Endpoint path /users/{id} conflicts with other GET operations whose paths match the same URLs (a path parameter segment matches any segment): GET /users/me (operationId getMe).",
+    "location": "openapi.yaml#/paths/~1users~1{id}/get (key)"
+  },
+  {
+    "ruleId": "generators/no-conflicting-endpoint-paths",
+    "severity": "warn",
+    "message": "Endpoint path /users/me conflicts with other GET operations whose paths match the same URLs (a path parameter segment matches any segment): GET /users/{id} (operationId getUser).",
+    "location": "openapi.yaml#/paths/~1users~1me/get (key)"
+  }
+]

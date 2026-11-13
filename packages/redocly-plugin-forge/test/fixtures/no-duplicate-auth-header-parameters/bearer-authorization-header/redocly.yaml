@@ -1,0 +1,2 @@
+rules:
+  generators/no-duplicate-auth-header-parameters: warn

@@ -1,0 +1,27 @@
+openapi: 3.1.0
+info:
+  title: Bad model and property
+  version: 1.0.0
+paths:
+  /thing:
+    get:
+      operationId: getThing
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Thing'
+components:
+  schemas:
+    Thing:
+      type: object
+      x-forge-model-name: 2fa
+      properties:
+        field_with_dot:
+          type: string
+          x-forge-property-name: last.login
+        trailing_hyphen:
+          type: string
+          x-forge-property-name: name-

@@ -1,0 +1,14 @@
+[
+  {
+    "ruleId": "generators/forge-valid-group-name",
+    "severity": "error",
+    "message": "x-forge-group-name array elements must all be strings.",
+    "location": "openapi.yaml#/paths/~1mixed/get/x-forge-group-name (key)"
+  },
+  {
+    "ruleId": "generators/forge-valid-group-name",
+    "severity": "error",
+    "message": "x-forge-group-name must be a string or array of strings; got number.",
+    "location": "openapi.yaml#/paths/~1thing/get/x-forge-group-name (key)"
+  }
+]

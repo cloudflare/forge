@@ -1,0 +1,38 @@
+[
+  {
+    "ruleId": "generators/forge-valid-identifiers",
+    "severity": "error",
+    "message": "x-forge-method-name must be a valid Forge identifier (letters, digits, '-', '_'; starts with a letter or '_'; must not end with '-'; must contain at least one letter); got \"_\".",
+    "location": "openapi.yaml#/paths/~1bare-underscore/get/x-forge-method-name (key)"
+  },
+  {
+    "ruleId": "generators/forge-valid-identifiers",
+    "severity": "error",
+    "message": "x-forge-method-name must be a valid Forge identifier (letters, digits, '-', '_'; starts with a letter or '_'; must not end with '-'; must contain at least one letter); got \"_2\".",
+    "location": "openapi.yaml#/paths/~1digits-only-after-escape/get/x-forge-method-name (key)"
+  },
+  {
+    "ruleId": "generators/forge-valid-identifiers",
+    "severity": "error",
+    "message": "x-forge-method-name must be a valid Forge identifier (letters, digits, '-', '_'; starts with a letter or '_'; must not end with '-'; must contain at least one letter); got \"2fa_check\".",
+    "location": "openapi.yaml#/paths/~1leading-digit/get/x-forge-method-name (key)"
+  },
+  {
+    "ruleId": "generators/forge-valid-identifiers",
+    "severity": "error",
+    "message": "x-forge-method-name must be a valid Forge identifier (letters, digits, '-', '_'; starts with a letter or '_'; must not end with '-'; must contain at least one letter); got \"get$thing\".",
+    "location": "openapi.yaml#/paths/~1symbol/get/x-forge-aliases/0/x-forge-method-name (key)"
+  },
+  {
+    "ruleId": "generators/forge-valid-identifiers",
+    "severity": "error",
+    "message": "x-forge-method-name must be a valid Forge identifier (letters, digits, '-', '_'; starts with a letter or '_'; must not end with '-'; must contain at least one letter); got \"list.all\".",
+    "location": "openapi.yaml#/paths/~1symbol/get/x-forge-method-name (key)"
+  },
+  {
+    "ruleId": "generators/forge-valid-identifiers",
+    "severity": "error",
+    "message": "x-forge-method-name must be a valid Forge identifier (letters, digits, '-', '_'; starts with a letter or '_'; must not end with '-'; must contain at least one letter); got \"get-other-\".",
+    "location": "openapi.yaml#/paths/~1trailing-hyphen/get/x-forge-method-name (key)"
+  }
+]

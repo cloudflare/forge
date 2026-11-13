@@ -1,0 +1,14 @@
+[
+  {
+    "ruleId": "generators/forge-boolean-extensions",
+    "severity": "error",
+    "message": "x-forge-hidden must be boolean; got string.",
+    "location": "openapi.yaml#/paths/~1thing/get/x-forge-aliases/0/x-forge-hidden (key)"
+  },
+  {
+    "ruleId": "generators/forge-boolean-extensions",
+    "severity": "error",
+    "message": "x-forge-internal must be boolean; got number.",
+    "location": "openapi.yaml#/paths/~1thing/get/x-forge-aliases/0/x-forge-internal (key)"
+  }
+]

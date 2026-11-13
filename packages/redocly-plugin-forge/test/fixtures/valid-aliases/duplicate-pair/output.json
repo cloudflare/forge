@@ -1,0 +1,8 @@
+[
+  {
+    "ruleId": "generators/forge-valid-aliases",
+    "severity": "error",
+    "message": "x-forge-aliases[1] has the same (group, method) \"legacy.fetchThing\" as an earlier alias.",
+    "location": "openapi.yaml#/paths/~1thing/get/x-forge-aliases/1/x-forge-method-name (key)"
+  }
+]

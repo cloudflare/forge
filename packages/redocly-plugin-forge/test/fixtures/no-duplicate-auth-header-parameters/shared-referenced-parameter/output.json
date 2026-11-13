@@ -1,0 +1,8 @@
+[
+  {
+    "ruleId": "generators/no-duplicate-auth-header-parameters",
+    "severity": "error",
+    "message": "Header parameter 'Authorization' is redundant with the 'Authorization' header already defined by a security scheme.",
+    "location": "components.yaml#/components/parameters/Authorization/name"
+  }
+]

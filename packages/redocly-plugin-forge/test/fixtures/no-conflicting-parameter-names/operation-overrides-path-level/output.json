@@ -1,0 +1,14 @@
+[
+  {
+    "ruleId": "generators/no-conflicting-parameter-names",
+    "severity": "error",
+    "message": "Parameters query parameter 'organization_id', header parameter 'Organization-Id' all normalize to 'organizationId' in camelCase, which collides in generated code. Rename one of the parameters.",
+    "location": "openapi.yaml#/paths/~1plants/get (key)"
+  },
+  {
+    "ruleId": "generators/no-conflicting-parameter-names",
+    "severity": "error",
+    "message": "Parameters query parameter 'organization_id', header parameter 'Organization-Id' all normalize to 'organizationId' in camelCase, which collides in generated code. Rename one of the parameters.",
+    "location": "openapi.yaml#/paths/~1plants/post (key)"
+  }
+]

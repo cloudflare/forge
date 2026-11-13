@@ -1,8 +1,0 @@
-[
-  {
-    "ruleId": "generators/fern-valid-global-parameters",
-    "severity": "error",
-    "message": "Endpoint 'listPets' references undeclared global parameter 'currency'. Declared parameters in x-fern-global-parameters: (none)",
-    "location": "openapi.yaml#/paths/~1pets/get/x-fern-global-parameter"
-  }
-]

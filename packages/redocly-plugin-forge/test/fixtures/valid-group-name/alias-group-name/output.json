@@ -1,0 +1,8 @@
+[
+  {
+    "ruleId": "generators/forge-valid-group-name",
+    "severity": "error",
+    "message": "x-forge-group-name segment \"bad.segment\" is not a valid Forge identifier (letters, digits, '-', '_'; starts with a letter or '_'; must contain at least one letter; must not end with '-').",
+    "location": "openapi.yaml#/paths/~1thing/get/x-forge-aliases/0/x-forge-group-name (key)"
+  }
+]

@@ -1,8 +1,0 @@
-[
-  {
-    "ruleId": "generators/fern-no-duplicate-declarations",
-    "severity": "error",
-    "message": "The request of POST /plants (name generated from operationId \"createPlant\") is named \"CreatePlantRequest\", which is already declared by the schema components.schemas.CreatePlantRequest at #/components/schemas/CreatePlantRequest. fern check fails with \"CreatePlantRequest is already declared\". Rename this request with x-fern-request-name on the operation.",
-    "location": "openapi.yaml#/paths/~1plants/post/operationId"
-  }
-]

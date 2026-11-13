@@ -1,0 +1,32 @@
+[
+  {
+    "ruleId": "generators/valid-schema-defaults",
+    "severity": "error",
+    "message": "Integer schema has non-integer 'maximum': 9.5.",
+    "location": "openapi.yaml#/components/schemas/Plant/properties/height/maximum"
+  },
+  {
+    "ruleId": "generators/valid-schema-defaults",
+    "severity": "error",
+    "message": "Integer schema has non-integer 'minimum': 0.5.",
+    "location": "openapi.yaml#/components/schemas/Plant/properties/height/minimum"
+  },
+  {
+    "ruleId": "generators/valid-schema-defaults",
+    "severity": "error",
+    "message": "Integer schema has non-integer 'multipleOf': 0.5.",
+    "location": "openapi.yaml#/components/schemas/Plant/properties/height/multipleOf"
+  },
+  {
+    "ruleId": "generators/valid-schema-defaults",
+    "severity": "error",
+    "message": "Integer schema has non-integer 'maximum': 3000000000.5.",
+    "location": "openapi.yaml#/components/schemas/Plant/properties/huge/maximum"
+  },
+  {
+    "ruleId": "generators/valid-schema-defaults",
+    "severity": "error",
+    "message": "Integer schema has non-integer 'minimum': 0.5.",
+    "location": "openapi.yaml#/components/schemas/Plant/properties/seeds/minimum"
+  }
+]

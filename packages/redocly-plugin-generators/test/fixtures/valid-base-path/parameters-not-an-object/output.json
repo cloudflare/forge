@@ -1,8 +1,0 @@
-[
-  {
-    "ruleId": "generators/fern-valid-base-path",
-    "severity": "warn",
-    "message": "x-fern-base-path `parameters` must be an object keyed by path parameter name; Fern ignores this value and declares the `{placeholders}` of `path` as plain string parameters without docs or defaults.",
-    "location": "openapi.yaml#/x-fern-base-path/parameters"
-  }
-]

@@ -1,0 +1,8 @@
+[
+  {
+    "ruleId": "generators/forge-valid-aliases",
+    "severity": "error",
+    "message": "x-forge-aliases[0] must declare x-forge-method-name.",
+    "location": "openapi.yaml#/paths/~1thing/get/x-forge-aliases/0 (key)"
+  }
+]

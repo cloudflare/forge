@@ -1,0 +1,8 @@
+[
+  {
+    "ruleId": "generators/no-duplicate-auth-header-parameters",
+    "severity": "error",
+    "message": "Header parameter 'authorization' is redundant with the 'authorization' header already defined by a security scheme.",
+    "location": "openapi.yaml#/paths/~1plants/parameters/0/name"
+  }
+]

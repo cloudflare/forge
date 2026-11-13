@@ -1,0 +1,46 @@
+openapi: 3.1.0
+info:
+  title: Availability stages
+  version: 1.0.0
+paths:
+  /alpha:
+    get:
+      operationId: alpha
+      x-forge-availability: alpha
+      responses:
+        '200':
+          description: OK
+  /beta:
+    get:
+      operationId: beta
+      x-forge-availability: beta
+      responses:
+        '200':
+          description: OK
+  /preview:
+    get:
+      operationId: preview
+      x-forge-availability: preview
+      responses:
+        '200':
+          description: OK
+  /ga:
+    get:
+      operationId: ga
+      x-forge-availability: generally-available
+      responses:
+        '200':
+          description: OK
+  /deprecated:
+    get:
+      operationId: dep
+      x-forge-availability: deprecated
+      responses:
+        '200':
+          description: OK
+  /unset:
+    get:
+      operationId: unset
+      responses:
+        '200':
+          description: OK

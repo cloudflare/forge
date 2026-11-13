@@ -1,8 +1,0 @@
-[
-  {
-    "ruleId": "generators/fern-no-component-schema-collisions",
-    "severity": "warn",
-    "message": "Component schema collision detected: Schema 'User' is defined in both 'openapi.yaml' and 'api2.yaml'. One will overwrite the other when Fern merges the specs. Rename the schema in one of the specs or use namespaces to avoid conflicts.",
-    "location": "openapi.yaml#/components/schemas/User (key)"
-  }
-]

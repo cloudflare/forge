@@ -1,0 +1,23 @@
+openapi: 3.1.0
+info:
+  title: Numeric sensitive
+  version: 1.0.0
+paths:
+  /thing:
+    get:
+      operationId: getThing
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Thing'
+components:
+  schemas:
+    Thing:
+      type: object
+      x-forge-sensitive: 1
+      properties:
+        name:
+          type: string

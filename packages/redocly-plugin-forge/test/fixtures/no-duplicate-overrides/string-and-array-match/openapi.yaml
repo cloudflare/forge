@@ -1,0 +1,21 @@
+openapi: 3.1.0
+info:
+  title: String and array match
+  version: 1.0.0
+paths:
+  /a:
+    get:
+      operationId: aGet
+      x-forge-group-name: zone.settings
+      x-forge-method-name: list
+      responses:
+        '200':
+          description: OK
+  /b:
+    get:
+      operationId: bGet
+      x-forge-group-name: ['zone', 'settings']
+      x-forge-method-name: list
+      responses:
+        '200':
+          description: OK

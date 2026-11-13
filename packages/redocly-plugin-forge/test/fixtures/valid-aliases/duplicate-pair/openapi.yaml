@@ -1,0 +1,16 @@
+openapi: 3.1.0
+info:
+  title: Duplicate pair
+  version: 1.0.0
+paths:
+  /thing:
+    get:
+      operationId: getThing
+      x-forge-aliases:
+        - x-forge-method-name: fetchThing
+          x-forge-group-name: legacy
+        - x-forge-method-name: fetchThing
+          x-forge-group-name: ['legacy']
+      responses:
+        '200':
+          description: OK

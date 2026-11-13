@@ -1,7 +1,0 @@
-CommonObject:
-  type: object
-  properties:
-    foo:
-      type: string
-CommonString:
-  type: string

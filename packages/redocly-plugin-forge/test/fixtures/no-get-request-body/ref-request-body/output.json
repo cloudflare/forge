@@ -1,0 +1,8 @@
+[
+  {
+    "ruleId": "generators/no-get-request-body",
+    "severity": "error",
+    "message": "GET operations cannot have a request body (RFC 9110 §9.3).",
+    "location": "path-item.yaml#/get/requestBody (key)"
+  }
+]

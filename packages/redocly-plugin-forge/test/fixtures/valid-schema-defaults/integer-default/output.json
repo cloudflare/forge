@@ -1,0 +1,26 @@
+[
+  {
+    "ruleId": "generators/valid-schema-defaults",
+    "severity": "error",
+    "message": "Default value '1.5' is not an integer.",
+    "location": "openapi.yaml#/components/schemas/Plant/properties/height/default"
+  },
+  {
+    "ruleId": "generators/valid-schema-defaults",
+    "severity": "error",
+    "message": "Default value '2.5' is not an integer.",
+    "location": "openapi.yaml#/components/schemas/Plant/properties/leaves/default"
+  },
+  {
+    "ruleId": "generators/valid-schema-defaults",
+    "severity": "error",
+    "message": "Default value '5' is not an integer.",
+    "location": "openapi.yaml#/components/schemas/Plant/properties/seeds/default"
+  },
+  {
+    "ruleId": "generators/valid-schema-defaults",
+    "severity": "error",
+    "message": "Default value '5' is not an integer.",
+    "location": "openapi.yaml#/components/schemas/Plant/properties/width/default"
+  }
+]

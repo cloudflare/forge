@@ -1,0 +1,14 @@
+[
+  {
+    "ruleId": "generators/valid-schema-defaults",
+    "severity": "error",
+    "message": "Default value 'fast' is not a number.",
+    "location": "openapi.yaml#/components/schemas/Plant/properties/ratio/default"
+  },
+  {
+    "ruleId": "generators/valid-schema-defaults",
+    "severity": "error",
+    "message": "Default value '1.5' is not a number.",
+    "location": "openapi.yaml#/components/schemas/Plant/properties/weight/default"
+  }
+]

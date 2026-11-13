@@ -1,0 +1,8 @@
+[
+  {
+    "ruleId": "generators/exploded-form-data-is-array",
+    "severity": "error",
+    "message": "Multipart property \"tag\" has `encoding.tag.explode: true`, so it must be an array, but its schema is a string.",
+    "location": "openapi.yaml#/paths/~1upload/post/requestBody/content/multipart~1form-data/encoding/tag/explode (key)"
+  }
+]

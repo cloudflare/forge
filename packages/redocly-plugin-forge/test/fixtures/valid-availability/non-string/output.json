@@ -1,0 +1,8 @@
+[
+  {
+    "ruleId": "generators/forge-valid-availability",
+    "severity": "error",
+    "message": "x-forge-availability must be one of alpha, beta, preview, generally-available, deprecated; got boolean.",
+    "location": "openapi.yaml#/paths/~1thing/get/x-forge-availability (key)"
+  }
+]

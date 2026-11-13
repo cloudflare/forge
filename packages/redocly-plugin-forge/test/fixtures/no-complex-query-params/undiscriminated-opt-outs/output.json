@@ -1,0 +1,26 @@
+[
+  {
+    "ruleId": "generators/no-complex-query-params",
+    "severity": "error",
+    "message": "`in: query` parameter \"undiscriminated\" has a schema that is the discriminated union \"UndiscriminatedShape\". Discriminated unions cannot be serialized as query strings.",
+    "location": "openapi.yaml#/paths/~1shapes/get/parameters/0/schema (key)"
+  },
+  {
+    "ruleId": "generators/no-complex-query-params",
+    "severity": "error",
+    "message": "`in: query` parameter \"notDiscriminated\" has a schema that is the discriminated union \"NotDiscriminatedShape\". Discriminated unions cannot be serialized as query strings.",
+    "location": "openapi.yaml#/paths/~1shapes/get/parameters/1/schema (key)"
+  },
+  {
+    "ruleId": "generators/no-complex-query-params",
+    "severity": "error",
+    "message": "`in: query` parameter \"ignored\" has a schema that is the discriminated union \"Shape\". Discriminated unions cannot be serialized as query strings.",
+    "location": "openapi.yaml#/paths/~1shapes/get/parameters/2/schema (key)"
+  },
+  {
+    "ruleId": "generators/no-complex-query-params",
+    "severity": "error",
+    "message": "`in: query` parameter \"custom\" has a schema that is an inline discriminated union. Discriminated unions cannot be serialized as query strings.",
+    "location": "openapi.yaml#/paths/~1shapes/get/parameters/4/schema (key)"
+  }
+]

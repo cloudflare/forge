@@ -1,0 +1,8 @@
+[
+  {
+    "ruleId": "generators/no-complex-query-params",
+    "severity": "error",
+    "message": "`in: query` parameter \"shapes\" has a schema that contains the discriminated union \"Shape\" (at items). Discriminated unions cannot be serialized as query strings.",
+    "location": "openapi.yaml#/paths/~1shapes/get/parameters/0/schema (key)"
+  }
+]

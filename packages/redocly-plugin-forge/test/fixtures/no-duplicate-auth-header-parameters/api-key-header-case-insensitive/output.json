@@ -1,0 +1,8 @@
+[
+  {
+    "ruleId": "generators/no-duplicate-auth-header-parameters",
+    "severity": "error",
+    "message": "Header parameter 'x-api-key' is redundant with the 'x-api-key' header already defined by a security scheme.",
+    "location": "openapi.yaml#/paths/~1plants/get/parameters/0/name"
+  }
+]

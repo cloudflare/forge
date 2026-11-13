@@ -1,8 +1,0 @@
-[
-  {
-    "ruleId": "generators/fern-valid-base-path",
-    "severity": "error",
-    "message": "x-fern-base-path must be empty or start with a slash; Fern ignores 'api/v1'.",
-    "location": "openapi.yaml#/x-fern-base-path/path"
-  }
-]

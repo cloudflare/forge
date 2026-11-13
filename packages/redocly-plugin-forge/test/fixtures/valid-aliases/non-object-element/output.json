@@ -1,0 +1,8 @@
+[
+  {
+    "ruleId": "generators/forge-valid-aliases",
+    "severity": "error",
+    "message": "x-forge-aliases[0] must be an object; got string.",
+    "location": "openapi.yaml#/paths/~1thing/get/x-forge-aliases/0 (key)"
+  }
+]

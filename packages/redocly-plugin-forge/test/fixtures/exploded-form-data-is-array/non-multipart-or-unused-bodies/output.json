@@ -1,0 +1,20 @@
+[
+  {
+    "ruleId": "generators/exploded-form-data-is-array",
+    "severity": "error",
+    "message": "Multipart property \"name\" has `encoding.name.explode: true`, so it must be an array, but its schema is a string.",
+    "location": "openapi.yaml#/paths/~1binary-preferred/put/requestBody/content/multipart~1form-data/encoding/name/explode (key)"
+  },
+  {
+    "ruleId": "generators/exploded-form-data-is-array",
+    "severity": "error",
+    "message": "Multipart property \"name\" has `encoding.name.explode: true`, so it must be an array, but its schema is a string.",
+    "location": "openapi.yaml#/paths/~1ignored/post/requestBody/content/multipart~1form-data/encoding/name/explode (key)"
+  },
+  {
+    "ruleId": "generators/exploded-form-data-is-array",
+    "severity": "error",
+    "message": "Multipart property \"name\" has `encoding.name.explode: true`, so it must be an array, but its schema is a string.",
+    "location": "openapi.yaml#/paths/~1json-preferred/post/requestBody/content/multipart~1form-data/encoding/name/explode (key)"
+  }
+]

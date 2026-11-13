@@ -1,8 +1,0 @@
-[
-  {
-    "ruleId": "generators/fern-no-duplicate-field-names",
-    "severity": "error",
-    "message": "Object has multiple properties named \"id\": \"id\" at #/components/schemas/Parent/properties/id, \"identifier\" (x-fern-property-name \"id\") at #/components/schemas/Parent/properties/identifier. Give each property a unique name with x-fern-property-name.",
-    "location": "openapi.yaml#/components/schemas/Parent/properties/identifier/x-fern-property-name"
-  }
-]

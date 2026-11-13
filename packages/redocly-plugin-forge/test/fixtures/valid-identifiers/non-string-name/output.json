@@ -1,0 +1,8 @@
+[
+  {
+    "ruleId": "generators/forge-valid-identifiers",
+    "severity": "error",
+    "message": "x-forge-method-name must be a valid Forge identifier (letters, digits, '-', '_'; starts with a letter or '_'; must not end with '-'; must contain at least one letter); got number.",
+    "location": "openapi.yaml#/paths/~1thing/get/x-forge-method-name (key)"
+  }
+]

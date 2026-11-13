@@ -1,0 +1,14 @@
+[
+  {
+    "ruleId": "generators/forge-valid-group-name",
+    "severity": "error",
+    "message": "x-forge-group-name segment \"segment-\" is not a valid Forge identifier (letters, digits, '-', '_'; starts with a letter or '_'; must contain at least one letter; must not end with '-').",
+    "location": "openapi.yaml#/paths/~1array/get/x-forge-group-name (key)"
+  },
+  {
+    "ruleId": "generators/forge-valid-group-name",
+    "severity": "error",
+    "message": "x-forge-group-name segment \"2settings\" is not a valid Forge identifier (letters, digits, '-', '_'; starts with a letter or '_'; must contain at least one letter; must not end with '-').",
+    "location": "openapi.yaml#/paths/~1dotted/get/x-forge-group-name (key)"
+  }
+]

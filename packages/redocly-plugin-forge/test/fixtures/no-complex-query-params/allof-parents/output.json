@@ -1,0 +1,20 @@
+[
+  {
+    "ruleId": "generators/no-complex-query-params",
+    "severity": "error",
+    "message": "`in: query` parameter \"inheritsUnion\" has a schema that contains the discriminated union \"Target\" (at allOf[0]). Discriminated unions cannot be serialized as query strings.",
+    "location": "openapi.yaml#/paths/~1items/get/parameters/0/schema (key)"
+  },
+  {
+    "ruleId": "generators/no-complex-query-params",
+    "severity": "error",
+    "message": "`in: query` parameter \"aliasOfUnion\" has a schema that contains the discriminated union \"Target\" (at allOf[0]). Discriminated unions cannot be serialized as query strings.",
+    "location": "openapi.yaml#/paths/~1items/get/parameters/1/schema (key)"
+  },
+  {
+    "ruleId": "generators/no-complex-query-params",
+    "severity": "error",
+    "message": "`in: query` parameter \"inheritsUndiscriminated\" has a schema that contains the discriminated union \"Target\" (at allOf[0] > oneOf[0] > properties.target). Discriminated unions cannot be serialized as query strings.",
+    "location": "openapi.yaml#/paths/~1items/get/parameters/2/schema (key)"
+  }
+]

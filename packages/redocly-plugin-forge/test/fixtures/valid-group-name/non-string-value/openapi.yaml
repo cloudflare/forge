@@ -1,0 +1,19 @@
+openapi: 3.1.0
+info:
+  title: Non-string value
+  version: 1.0.0
+paths:
+  /thing:
+    get:
+      operationId: getThing
+      x-forge-group-name: 42
+      responses:
+        '200':
+          description: OK
+  /mixed:
+    get:
+      operationId: mixed
+      x-forge-group-name: ['zone', 42]
+      responses:
+        '200':
+          description: OK

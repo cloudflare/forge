@@ -1,0 +1,12 @@
+openapi: 3.1.0
+info:
+  title: Unknown stage
+  version: 1.0.0
+paths:
+  /thing:
+    get:
+      operationId: getThing
+      x-forge-availability: stable
+      responses:
+        '200':
+          description: OK

@@ -1,0 +1,8 @@
+[
+  {
+    "ruleId": "generators/no-conflicting-parameter-names",
+    "severity": "error",
+    "message": "Parameters cookie parameter 'session_id', query parameter 'sessionId' all normalize to 'sessionId' in camelCase, which collides in generated code. Rename one of the parameters.",
+    "location": "openapi.yaml#/paths/~1session/get (key)"
+  }
+]
