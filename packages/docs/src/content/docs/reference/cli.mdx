@@ -1,6 +1,6 @@
 ---
 title: CLI
-description: "Reference for the forge and forge-plugin commands: arguments, options, environment variables and exit status."
+description: "Reference for the forge and forge-plugin commands, and forge normalize: arguments, options, environment variables and exit status."
 sidebar:
   order: 1
 ---
@@ -11,12 +11,13 @@ Generates files from an OpenAPI document with a target.
 
 ```text
 forge --target <TARGET> --out <OUT> <SPEC>
+forge normalize [OPTIONS] <INPUTS>...
 ```
 
 | Argument            | Meaning                                                                    |
 | ------------------- | -------------------------------------------------------------------------- |
 | `<SPEC>`            | The OpenAPI JSON document, or `-` to read it from standard input.          |
-| `--target <TARGET>` | `ts` for the [TypeScript SDK](/targets/typescript/), `mcp` for the [MCP server](/targets/mcp/), or `wasm://PATH` for the [plugin](/plugins/overview/) compiled to a WebAssembly component at `PATH`. |
+| `--target <TARGET>` | `ts` for the [TypeScript SDK](/targets/typescript/), `capnweb` for a Cap'n Web server of that SDK, which it imports from `#sdk`, `mcp` for the [tools of an MCP server](/targets/mcp/), or `wasm://PATH` for the [plugin](/plugins/overview/) compiled to a WebAssembly component at `PATH`. |
 | `--out <OUT>`       | The directory to write to. Created if it does not exist.                   |
 | `--help`            | Prints help.                                                               |
 | `--version`         | Prints the version.                                                        |
@@ -26,7 +27,7 @@ working directory or absolute (`wasm:///opt/plugins/docs.wasm`).
 
 ```sh
 forge openapi.json --target ts --out sdk
-forge - --target mcp --out server < openapi.json
+forge - --target mcp --out tools < openapi.json
 forge openapi.json --target wasm://plugin.wasm --out out
 ```
 
@@ -63,6 +64,42 @@ error: invalid value 'wasm://plugin.wasm' for '--target <TARGET>': this forge wa
 
 The npm package's binaries are built with it.
 
+## forge normalize
+
+Rewrites other tools' extensions into the native `x-forge-*` ones, such as `x-fern-sdk-group-name`
+into `x-forge-group-name`. A native key is never replaced: when a document says the same thing
+twice, the native key is kept.
+
+```text
+forge normalize [OPTIONS] <INPUTS>...
+```
+
+| Argument                 | Meaning                                                                       |
+| ------------------------ | ----------------------------------------------------------------------------- |
+| `<INPUTS>...`            | The OpenAPI JSON documents, as paths, or `-` to read one from standard input. |
+| `-w`, `--write`          | Rewrite the files in place, each only if there is something to rewrite in it. |
+| `--check`                | Say what would be rewritten, and write nothing. Fails if there is anything to rewrite. |
+| `--from <SOURCE>`        | Rewrite only keys from `cloudflare`, `fern` or `stainless`. May be repeated.  |
+| `--leave-old-extensions` | Keep each rewritten key beside the native one, for tools that still read it.  |
+| `-v`, `--verbose`        | Say how many times each key was rewritten.                                    |
+
+Without `--write`, nothing is changed, and one document is printed to standard output, with the
+same indentation as the input:
+
+```sh
+forge normalize openapi.json > normalized.json
+forge normalize --write specs/*.json
+forge normalize --check specs/*.json
+```
+
+`--check` exits with status 1 when a document has keys to rewrite, so CI can keep documents
+normalized:
+
+```text
+openapi.json: would rewrite 2 keys
+forge: 1 of 1 file would be rewritten
+```
+
 ## forge-plugin
 
 Builds JavaScript and TypeScript plugins, and prints the WIT for plugins in other languages. Ships in
@@ -76,12 +113,12 @@ forge-plugin wit
 ### build
 
 Bundles the entry module and its imports, and compiles them with QuickJS into a WebAssembly
-component of the `plugin` world. The entry is a `.ts` or `.js` file that exports `generate` and
-`generateGroup`, from [`definePlugin`](/plugins/typescript/).
+component of the `plugin` world. The entry is a `.ts` or `.js` file that exports `generate`, from
+[`definePlugin`](/plugins/typescript/).
 
 | Option  | Meaning                                                    |
 | ------- | ---------------------------------------------------------- |
-| `--out` | The component to write. Defaults to `plugin.wasm`.         |
+| `-o`, `--out` | The component to write. Defaults to `plugin.wasm`.   |
 
 It needs `@bytecodealliance/jco`, found in the entry's project or next to `@cloudflare/forge`:
 
