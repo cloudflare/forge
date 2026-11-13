@@ -44,7 +44,9 @@ function check(ctx: UserContext, node: AnyNode, location: Location): void {
   }
   for (const segment of segments) {
     if (!FORGE_IDENTIFIER.test(segment)) {
-      report(`segment "${segment}" is not a valid Forge identifier (letters, digits, '-', '_'; starts with a letter, optionally prefixed with '_'; must not end with '-')`);
+      report(
+        `segment "${segment}" is not a valid Forge identifier (letters, digits, '-', '_'; starts with a letter, optionally prefixed with '_'; must not end with '-')`,
+      );
       return;
     }
   }
