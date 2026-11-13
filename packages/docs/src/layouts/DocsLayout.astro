@@ -191,8 +191,13 @@ const showToc = headings !== false && (hasToc || headings.length > 0);
                 {hasSidebar ? (
                   <slot name="sidebar" />
                 ) : (
-                  <nav class="px-4 pb-12 pt-5">
-                    {showFilter && <SidebarFilter />}
+                  <nav class:list={["px-4 pb-12", !showFilter && "pt-5"]}>
+                    {/* The filter stays at the top while the tree scrolls under it. */}
+                    {showFilter && (
+                      <div class="sticky top-0 z-10 -mx-4 bg-background px-4 pt-5 pb-3 in-[[data-nb-sidebar-drawer-slot]]:bg-card">
+                        <SidebarFilter class="mb-0" />
+                      </div>
+                    )}
                     <Sidebar items={sidebar ?? []} persist />
                   </nav>
                 )}
