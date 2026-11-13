@@ -1,96 +1,31 @@
 ---
 title: Forge
 description: One OpenAPI document in; an SDK, MCP tools, a server or your own output out.
-mode: custom
 ---
 
-<section class="mx-auto grid max-w-6xl items-center gap-12 px-4 pt-16 pb-20 md:px-6 lg:grid-cols-[1fr_1.1fr] lg:pt-24">
-  <div class="min-w-0">
-    <Badge text="Open source · Apache 2.0" variant="outline" />
+Forge reads an OpenAPI document into one typed model, then hands it to plugins that write SDKs, MCP
+tools, servers and docs. The targets that ship with Forge are plugins too, so yours gets the same
+model they do.
 
-    <h1 class="mt-5 text-4xl font-semibold leading-[1.05] tracking-[-0.035em] text-balance md:text-6xl">One OpenAPI document. Every surface.</h1>
+<PackageManagers pkg="https://pkg.pr.new/cloudflare/forge/@cloudflare/forge@main" dev />
 
-    <p class="mt-5 max-w-xl text-lg leading-relaxed text-muted-foreground">Forge reads an OpenAPI document into one typed model, then hands it to plugins that write SDKs, MCP tools, servers and docs. The targets that ship with Forge are plugins too, so yours gets the same model they do.</p>
+## Start here
 
-    <div class="mt-8 flex flex-wrap gap-3">
-      <LinkButton href="/start/quickstart/" variant="primary" size="lg" icon>Get started</LinkButton>
-      <LinkButton href="/plugins/overview/" variant="secondary" size="lg">Write a plugin</LinkButton>
-    </div>
+<CardGrid>
+  <LinkCard title="Introduction" description="What Forge is, and how it is put together." href="/start/introduction/" />
+  <LinkCard title="Quickstart" description="One small document through every kind of target." href="/start/quickstart/" />
+</CardGrid>
 
-    <div class="mt-8 max-w-xl">
-      <PackageManagers pkg="https://pkg.pr.new/cloudflare/forge/@cloudflare/forge@main" dev />
-    </div>
-  </div>
+## Generate
 
-  <div class="docs-content min-w-0">
-    <CodeGroup titles={["openapi.json", "TypeScript SDK", "MCP tool"]}>
+<CardGrid>
+  <LinkCard title="A TypeScript SDK" description="A typed client per group, and models that decode dates and big numbers." href="/targets/typescript/" />
+  <LinkCard title="MCP tools" description="One tool per method for the MCP TypeScript SDK." href="/targets/mcp/" />
+</CardGrid>
 
-```json
-"/pets": {
-  "get": {
-    "operationId": "pets.list",
-    "summary": "List pets",
-    "parameters": [
-      { "name": "limit", "in": "query",
-        "schema": { "type": "integer" } }
-    ],
-    "responses": {
-      "200": {
-        "description": "The pets.",
-        "content": {
-          "application/json": {
-            "schema": {
-              "type": "array",
-              "items": { "$ref": "#/components/schemas/Pet" }
-            }
-          }
-        }
-      }
-    }
-  }
-}
-```
+## Write your own
 
-```ts
-import { createClient } from './sdk/index.js';
-
-const client = createClient({ baseUrl: 'https://api.example.com/v1', token: process.env.API_TOKEN! });
-
-const pets = await client.pets.list({ limit: 10 });
-console.log(pets[0]?.name, pets[0]?.bornAt?.toString());
-```
-
-```ts
-{
-  name: "pets_list",
-  title: "List pets",
-  description: "List pets\n\nGET /pets",
-  inputSchema: {
-    type: "object",
-    properties: {
-      "query": { "type": "object", "properties": { "limit": { "type": "integer" } } }
-    },
-  },
-  annotations: { "readOnlyHint": true, "idempotentHint": true, "openWorldHint": true },
-}
-```
-
-    </CodeGroup>
-  </div>
-</section>
-
-<section class="border-t border-border">
-  <div class="mx-auto max-w-6xl px-4 py-20 md:px-6">
-    <h2 class="text-3xl font-semibold tracking-[-0.025em]">What you can generate</h2>
-    <p class="mt-3 max-w-2xl text-muted-foreground">Each target is a plugin that reads the same model, so they agree on every name and type.</p>
-
-    <div class="mt-10">
-      <CardGrid>
-        <Card title="A TypeScript SDK" icon="ph:brackets-curly" href="/targets/typescript/">A typed client per group, models that decode dates and big numbers, and a small runtime.</Card>
-        <Card title="MCP tools" icon="ph:robot" href="/targets/mcp/">One tool per method for the MCP TypeScript SDK, with schemas, hints and requests built for you.</Card>
-        <Card title="Your own target" icon="ph:puzzle-piece" href="/plugins/overview/">In TypeScript, in Rust, or in any language that compiles to a WebAssembly component.</Card>
-        <Card title="A better document" icon="ph:file-magnifying-glass" href="/openapi/extensions/">The extensions Forge reads, and how to name methods and groups.</Card>
-      </CardGrid>
-    </div>
-  </div>
-</section>
+<CardGrid>
+  <LinkCard title="Plugins" description="Every target is a plugin. Write one in TypeScript, Rust or anything that builds a WebAssembly component." href="/plugins/overview/" />
+  <LinkCard title="The model" description="The groups, methods, models and types a plugin reads." href="/concepts/the-model/" />
+</CardGrid>
