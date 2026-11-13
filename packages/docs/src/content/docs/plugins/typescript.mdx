@@ -5,8 +5,7 @@ sidebar:
   order: 2
 ---
 
-A TypeScript plugin is one module that exports `generate` and `generateGroup`, made by
-`definePlugin`. `forge-plugin build` bundles it with its dependencies and compiles it, with QuickJS
+A TypeScript plugin is one module that exports `generate`, made by `definePlugin`. `forge-plugin build` bundles it with its dependencies and compiles it, with QuickJS
 inside, into a WebAssembly component that `forge` runs.
 
 ## Set up
@@ -22,31 +21,28 @@ rather than a dependency:
 
 ## A first plugin
 
-This one writes a Markdown page per group, with a table of its methods:
+This one writes a README, and a Markdown page per group with a table of its methods:
 
 ```ts title="plugin.ts"
-import { definePlugin, type Method } from '@cloudflare/forge/plugin';
+import { definePlugin, type Group, type Method } from '@cloudflare/forge/plugin';
 
 function row(m: Method): string {
   return `| \`${m.name.camel()}\` | \`${m.httpMethod} ${m.path}\` | ${m.summary} |`;
 }
 
-export const { generate, generateGroup } = definePlugin({
-  generate(forge) {
-    return [{ path: 'README.md', content: `${forge.description}\n\nVersion ${forge.version}.\n` }];
-  },
+function page(group: Group) {
+  const title = group.path.map((n) => n.pascal()).join(' / ') || 'Index';
+  const lines = [`# ${title}`, '', '| Method | HTTP | Summary |', '| --- | --- | --- |', ...group.methods.map(row)];
+  // The root group's path is empty, so its page is index.md.
+  const path = group.path.map((n) => n.kebab()).join('/') || 'index';
+  return { path: `${path}.md`, content: lines.join('\n') + '\n' };
+}
 
-  generateGroup(group) {
-    if (group.methods.length === 0) return [];
-    const lines = [
-      `# ${group.path.map((n) => n.pascal()).join(' / ')}`,
-      '',
-      '| Method | HTTP | Summary |',
-      '| --- | --- | --- |',
-      ...group.methods.map(row),
-    ];
-    const path = group.path.map((n) => n.kebab()).join('/');
-    return [{ path: `${path}.md`, content: lines.join('\n') + '\n' }];
+export const { generate } = definePlugin({
+  generate(forge) {
+    const readme = { path: 'README.md', content: `${forge.description}\n\nVersion ${forge.version}.\n` };
+    const pages = forge.groups.filter((group) => group.methods.length > 0).map(page);
+    return [readme, ...pages];
   },
 });
 ```
@@ -57,11 +53,11 @@ Build and run it:
 
 <PackageManagers type="exec" pkg="forge" args="openapi.json --target wasm://plugin.wasm --out docs" />
 
-Building takes about half a second, and the component is about 1.8 MB, most of it the JavaScript
+Building takes about a second, and the component is about 1.7 MB, most of it the JavaScript
 engine. `--out` defaults to `plugin.wasm`.
 
-The exports must be called `generate` and `generateGroup`, which is why the example destructures
-them. Either function in the object passed to `definePlugin` can be left out.
+The export must be called `generate`, which is why the example destructures it. `generate` is
+called once per run, with the whole model.
 
 ## The API
 
@@ -70,8 +66,7 @@ and arrays:
 
 ```ts
 forge.version; forge.description; forge.baseUrl;
-forge.groups;           // every group, depth first
-forge.models;           // the top-level models
+forge.groups;           // every group, depth first, starting with the root
 
 group.name; group.path; group.description; group.parent; group.children;
 group.descendants; group.methods; group.models;
@@ -116,7 +111,7 @@ function ts(type: Type): string {
 ```
 
 A scalar's `scalar` is one of `unknown`, `null`, `boolean`, `string`, `number`, `date-time`, `date`,
-`bytes` or `binary`; a number also has `number`, its [format](/concepts/types/#numbers), such as
+`bytes`, `binary` or `uuid`; a number also has `number`, its [format](/concepts/types/#numbers), such as
 `int64`. Names have `camel()`, `pascal()`, `snake()`, `kebab()`, `words` and `equals()`; see
 [names](/concepts/names/).
 
@@ -137,9 +132,12 @@ plugin can return a file unconditionally and let it disappear when there is noth
 Return any iterable: an array, or a generator function.
 
 ```ts
-generateGroup: function* (group) {
-  for (const method of group.methods) {
-    yield { path: `${method.name.kebab()}.md`, content: method.description };
+*generate(forge) {
+  for (const group of forge.groups) {
+    for (const method of group.methods) {
+      const path = [...group.path, method.name].map((n) => n.kebab()).join('/');
+      yield { path: `${path}.md`, content: method.summary };
+    }
   }
 },
 ```
@@ -166,24 +164,24 @@ There is no `console` in the sandbox, so throwing is also the way to see a value
 ## Things to know
 
 <Aside type="caution" title="generate must be synchronous">
-`generate` and `generateGroup` must return their files, not a promise. An `async` function returns a
+`generate` must return its files, not a promise. An `async` function returns a
 `Promise`, which is not iterable as files: it currently yields no files, with no error. There is no
 I/O to await in the sandbox anyway.
 </Aside>
 
-- **No module state between calls.** Groups run in parallel in a pool of instances, and an instance
-  can be reused by a later call. Keep state in local variables, and read anything shared from the
-  model. See [sandboxing](/concepts/sandbox/#instances).
+- **One call, one instance.** `generate` runs once per run, in a fresh instance, so module state
+  starts empty every time. See [sandboxing](/concepts/sandbox/#instances).
 - **QuickJS, not Node.** The engine is QuickJS: modern JavaScript, but no Node or web APIs beyond
   the language's own. `Date`, `Math`, `JSON`, `Map` and regular expressions are there; `fs`, `fetch`,
   `process`, `TextEncoder` and `console` are not.
 - **Dependencies are bundled.** Import npm packages that are plain JavaScript, such as a template
   engine or a casing library, and the build bundles them in. Packages that use Node APIs will not
   work.
-- **Do not mention `process`.** jco treats a reference to `process`, even `typeof process`, as a
-  request for Node shims. The build fails, and it also adds an import to the `forge.wit` inside
-  `node_modules/@cloudflare/forge/plugin/`, after which every build fails. Reinstall the package to
-  repair it.
+- **Do not mention `process` or `console`.** jco treats a reference to either, even
+  `typeof console`, as a request for a Node API. The build still succeeds, but it adds an import to
+  the `forge.wit` inside `node_modules/@cloudflare/forge/plugin/`, and `forge` refuses to run the
+  component: `component imports instance jco:node/console@0.1.0, but a matching implementation was
+  not found`. Every later build carries the same import. Reinstall the package to repair it.
 - **TypeScript is stripped, not checked.** Run `tsc --noEmit` yourself to type-check.
 
 ## Next
