@@ -2,8 +2,6 @@
 title: Forge
 description: One OpenAPI document in; an SDK, MCP tools, a server or your own output out.
 mode: custom
-sidebar:
-  order: 0
 ---
 
 <section class="mx-auto grid max-w-6xl items-center gap-12 px-4 pt-16 pb-20 md:px-6 lg:grid-cols-[1fr_1.1fr] lg:pt-24">
@@ -94,71 +92,5 @@ console.log(pets[0]?.name, pets[0]?.bornAt?.toString());
         <Card title="A better document" icon="ph:file-magnifying-glass" href="/openapi/extensions/">The extensions Forge reads, and how to name methods and groups.</Card>
       </CardGrid>
     </div>
-  </div>
-</section>
-
-<section class="border-t border-border">
-  <div class="mx-auto max-w-6xl px-4 py-20 md:px-6">
-    <h2 class="text-3xl font-semibold tracking-[-0.025em]">How it works</h2>
-    <p class="mt-3 max-w-2xl text-muted-foreground">Forge does the shared part once. A plugin does the part that belongs to one language.</p>
-
-    <div class="mt-10">
-      <CardGrid class="lg:grid-cols-3">
-        <Card title="1. Read" icon="ph:file-code">Forge parses the document and follows every `$ref` to a parameter, body, response or schema.</Card>
-        <Card title="2. Model" icon="ph:tree-structure">It decides what is a group, a method and a model, and names each one, once for every target.</Card>
-        <Card title="3. Generate" icon="ph:lightning">A plugin takes the model and returns files. Forge writes them, and a plugin cannot write outside `--out`.</Card>
-      </CardGrid>
-    </div>
-
-    <div class="mt-8">
-      <LinkButton href="/concepts/pipeline/" variant="minimal" icon>The pipeline, step by step</LinkButton>
-    </div>
-  </div>
-</section>
-
-<section class="border-t border-border">
-  <div class="mx-auto grid max-w-6xl items-center gap-12 px-4 py-20 md:px-6 lg:grid-cols-[1fr_1.2fr]">
-    <div>
-      <h2 class="text-3xl font-semibold tracking-[-0.025em]">Your target is one function</h2>
-      <p class="mt-3 text-muted-foreground">A plugin is `generate`: it takes the model and returns files. Compile it to a WebAssembly component and run it like a built-in target.</p>
-
-      <div class="mt-8 flex flex-wrap gap-3">
-        <LinkButton href="/plugins/typescript/" variant="secondary" icon>TypeScript plugins</LinkButton>
-        <LinkButton href="/plugins/rust/" variant="minimal" icon>Rust plugins</LinkButton>
-      </div>
-    </div>
-
-    <div class="docs-content min-w-0">
-
-```ts title="plugin.ts"
-import { definePlugin } from '@cloudflare/forge/plugin';
-
-export const { generate } = definePlugin({
-  generate(forge) {
-    return forge.groups
-      .filter((group) => group.methods.length > 0)
-      .map((group) => ({
-        path: [...group.path.map((name) => name.kebab()), 'methods.txt'].join('/'),
-        content: group.methods.map((m) => m.name.camel()).join('\n'),
-      }));
-  },
-});
-```
-
-<PackageManagers type="exec" pkg="forge-plugin" args="build plugin.ts --out plugin.wasm" />
-
-<PackageManagers type="exec" pkg="forge" args="openapi.json --target wasm://plugin.wasm --out out" />
-
-    </div>
-  </div>
-</section>
-
-<section class="border-t border-border">
-  <div class="mx-auto flex max-w-6xl flex-col items-start gap-6 px-4 py-20 md:flex-row md:items-center md:justify-between md:px-6">
-    <div>
-      <h2 class="text-3xl font-semibold tracking-[-0.025em]">From a document to a client in four steps</h2>
-      <p class="mt-3 text-muted-foreground">The quickstart takes one small document through every kind of target.</p>
-    </div>
-    <LinkButton href="/start/quickstart/" variant="primary" size="lg" icon>Start the quickstart</LinkButton>
   </div>
 </section>

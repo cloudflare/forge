@@ -21,7 +21,6 @@ const nimbusConfig = defineNimbusConfig({
   // `sidebar.order` in each page's frontmatter decides its place in a group.
   sidebar: {
     items: [
-      'index',
       { label: 'Start Here', autogenerate: { directory: 'start' } },
       { label: 'Core Concepts', autogenerate: { directory: 'concepts' } },
       { label: 'Writing Plugins', autogenerate: { directory: 'plugins' } },
