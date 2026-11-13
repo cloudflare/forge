@@ -31,7 +31,7 @@ Forge splits the work in two:
 ## Pluggable by design
 
 The generators that ship with Forge are plugins. The TypeScript SDK and the MCP server implement
-the same two-method interface that you will, and read the same model through the same API. There is
+the same `Plugin` interface that you will, and read the same model through the same API. There is
 no privileged internal representation that only built-in targets can reach.
 
 You can write a plugin three ways:
