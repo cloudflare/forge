@@ -1,0 +1,209 @@
+# Records new API version snapshots in packages/cloudflare-api-site/api-versions.json.
+#
+# A snapshot is a GitHub Release of cloudflare/api-schemas named YYYY-MM-DD.<train>; release
+# candidates (-rcN) and rolling are never published there. The record is append-only: sync adds new
+# releases, fails if a recorded release now points at another commit, and keeps one that disappeared
+# upstream. Changing or removing an entry is a reviewed edit.
+#
+# Runs on repository_dispatch `api-schemas-released`, sent by the doorbell workflow in api-schemas
+# when a release is published, hourly as a fallback, and by hand. The hourly run only reads the
+# GitHub API; a build starts only when it opens a pull request.
+#
+# Security model:
+# - `generate` downloads third-party specs. It has read-only permissions and no secrets beyond the
+#   read-only GITHUB_TOKEN, and only the manifest leaves the job, as an artifact.
+# - `pull-request` never sees the specs. It commits only the manifest to a bot branch, opens or
+#   updates a pull request and merges it once every check on it has passed. It uses
+#   DOCS_SYNC_TOKEN, the docs bot's token: work done with GITHUB_TOKEN starts no workflows, so CI
+#   would not run on the pull request and the merge would not deploy. The main ruleset's
+#   required review is bypassed for the bot's team, for pull request merges only.
+# - Unlike sync-terraform-docs.yml, there is no fallback to GITHUB_TOKEN, and a pull request on which
+#   no checks appear fails the job instead of waiting for review: snapshot pull requests exist to
+#   merge on their own, so one that cannot is a failure someone has to see.
+# - Third-party actions are pinned to commit SHAs. Inputs reach scripts only through `env`.
+name: Sync API versions
+
+on:
+  repository_dispatch:
+    types: [api-schemas-released]
+  schedule:
+    - cron: '23 * * * *' # hourly, at minute 23
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: Record new releases without opening a pull request.
+        required: false
+        type: boolean
+        default: false
+
+permissions: {}
+
+concurrency:
+  group: sync-api-versions
+  cancel-in-progress: false
+
+env:
+  MANIFEST: packages/cloudflare-api-site/api-versions.json
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    outputs:
+      added: ${{ steps.sync.outputs.added }}
+      base: ${{ steps.base.outputs.sha256 }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: ./.github/actions/setup-workspace
+
+      # The manifest this run started from, so the pull-request job can refuse to overwrite a change
+      # that reached main in the meantime.
+      - name: Record the base manifest
+        id: base
+        run: echo "sha256=$(sha256sum "$MANIFEST" | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
+
+      - name: Sync
+        id: sync
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: pnpm --filter cloudflare-api-site api-versions sync
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: steps.sync.outputs.added != ''
+        with:
+          name: api-versions
+          path: ${{ env.MANIFEST }}
+          if-no-files-found: error
+          retention-days: 7
+
+  pull-request:
+    needs: generate
+    if: needs.generate.outputs.added != '' && !inputs.dry_run
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      contents: read
+    steps:
+      - name: Require the bot token
+        env:
+          DOCS_SYNC_TOKEN: ${{ secrets.DOCS_SYNC_TOKEN }}
+        run: |
+          if [ -z "$DOCS_SYNC_TOKEN" ]; then
+            echo "::error::DOCS_SYNC_TOKEN is not set. Without it the pull request would run no checks and could not merge."
+            exit 1
+          fi
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: api-versions
+          path: ${{ runner.temp }}/api-versions
+
+      - uses: ./.github/actions/setup-workspace
+
+      # The artifact replaces the committed manifest only if main still has the manifest sync started
+      # from, and only if the result is valid. A manifest edited on main meanwhile is never undone; the
+      # next run starts from it.
+      - name: Apply artifact
+        env:
+          BASE_SHA256: ${{ needs.generate.outputs.base }}
+        run: |
+          set -euo pipefail
+          if [ "$(sha256sum "$MANIFEST" | cut -d' ' -f1)" != "$BASE_SHA256" ]; then
+            echo "::error::$MANIFEST changed on main during this run; the next run will start from it"
+            exit 1
+          fi
+          cp "$RUNNER_TEMP/api-versions/api-versions.json" "$MANIFEST"
+          pnpm --filter cloudflare-api-site api-versions check
+
+      - name: Open or update pull request
+        id: pr
+        env:
+          GH_TOKEN: ${{ secrets.DOCS_SYNC_TOKEN }}
+          BASE: ${{ github.event.repository.default_branch }}
+          BRANCH: bot/sync-api-versions
+          ADDED: ${{ needs.generate.outputs.added }}
+        run: |
+          set -euo pipefail
+          if git diff --quiet -- "$MANIFEST"; then
+            echo "::notice::$MANIFEST is already up to date"
+            exit 0
+          fi
+
+          # An open pull request that already proposes this manifest is left alone, so the hourly run
+          # does not push the same change again and restart its checks. A failing one stays open
+          # until someone looks at it, or until upstream publishes another release.
+          number="$(gh pr list --head "$BRANCH" --base "$BASE" --state open --json number --jq '.[0].number // empty')"
+          if [ -n "$number" ]; then
+            git fetch --quiet origin "$BRANCH"
+            if git diff --quiet FETCH_HEAD -- "$MANIFEST"; then
+              echo "::notice::#$number already proposes this manifest"
+              exit 0
+            fi
+          fi
+
+          # Only the manifest is committed; the branch is rebuilt from the base every run.
+          gh auth setup-git
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git switch --create "$BRANCH"
+          git add -- "$MANIFEST"
+          versions="${ADDED//,/, }"
+          git commit --quiet --message "chore(docs): record API versions $versions"
+          git push --force --quiet origin "$BRANCH"
+
+          title="chore(docs): record API versions $versions"
+          body="$(cat <<EOF
+          Automated by \`.github/workflows/sync-api-versions.yml\`.
+
+          Records the cloudflare/api-schemas releases $versions as API version snapshots of the docs site, each pinned to the commit its release points at and the SHA-256 of its spec. CI builds every recorded version before this merges.
+          EOF
+          )"
+          if [ -n "$number" ]; then
+            gh pr edit "$number" --title "$title" --body "$body"
+            echo "::notice::Updated pull request #$number"
+          else
+            url="$(gh pr create --head "$BRANCH" --base "$BASE" --title "$title" --body "$body")"
+            number="${url##*/}"
+            echo "::notice::Opened pull request #$number"
+          fi
+          echo "number=$number" >> "$GITHUB_OUTPUT"
+          echo "head=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      # Merges only when every check on the pull request's head commit has passed. Nothing is merged
+      # if any check fails, if no checks ever appear, or if the branch moved after the checks ran.
+      - name: Merge when all checks pass
+        if: steps.pr.outputs.number != ''
+        timeout-minutes: 50
+        env:
+          GH_TOKEN: ${{ secrets.DOCS_SYNC_TOKEN }}
+          NUMBER: ${{ steps.pr.outputs.number }}
+          HEAD_SHA: ${{ steps.pr.outputs.head }}
+        run: |
+          set -euo pipefail
+          checks() { gh pr view "$NUMBER" --json statusCheckRollup --jq '.statusCheckRollup | length'; }
+          count=0
+          for _ in $(seq 1 20); do
+            count="$(checks)"
+            [ "$count" -gt 0 ] && break
+            sleep 15
+          done
+          if [ "$count" -eq 0 ]; then
+            echo "::error::No checks reported on #$NUMBER; leaving it open"
+            exit 1
+          fi
+          sleep 30 # let workflows that register later attach their checks too
+
+          # Exits non-zero on the first failing check, which fails this job and leaves the PR open.
+          gh pr checks "$NUMBER" --watch --fail-fast --interval 30
+          # Every check has passed; --admin uses the bot's ruleset bypass for the required review,
+          # which a plain merge reports as blocked.
+          gh pr merge "$NUMBER" --squash --admin --match-head-commit "$HEAD_SHA"

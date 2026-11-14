@@ -9,3 +9,6 @@ public/_astro-fern/
 !src/content/docs/
 !src/content/docs/**
 .nimbus/
+
+# Specs written by `pnpm api-versions materialize`.
+.forge/
