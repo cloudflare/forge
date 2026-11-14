@@ -106,7 +106,7 @@ fn capnweb() {
 }
 
 #[test]
-fn methods() {
+fn inspect_methods() {
     let spec = r#"{
       "openapi": "3.0.3",
       "info": {"title": "t", "version": "1"},
@@ -138,7 +138,7 @@ fn methods() {
         }
       }
     }"#;
-    let out = forge(&["methods", "-"], spec);
+    let out = forge(&["inspect", "methods", "-"], spec);
     assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr));
     let methods: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
     assert_eq!(
@@ -176,7 +176,7 @@ fn methods() {
 }
 
 #[test]
-fn methods_of_an_invalid_document() {
+fn inspect_methods_of_an_invalid_document() {
     let spec = r#"{
       "openapi": "3.0.3",
       "info": {"title": "t", "version": "1"},
@@ -187,6 +187,6 @@ fn methods_of_an_invalid_document() {
         }
       }
     }"#;
-    let err = failure(forge(&["methods", "-"], spec));
+    let err = failure(forge(&["inspect", "methods", "-"], spec));
     assert!(err.contains("in the same group"), "{err}");
 }

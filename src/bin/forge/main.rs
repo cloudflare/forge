@@ -6,7 +6,7 @@
 //! forge openapi.json --target mcp --out tools
 //! forge openapi.json --target wasm://plugin.wasm --out sdk
 //! forge normalize specs/*.json
-//! forge methods openapi.json
+//! forge inspect methods openapi.json
 //! ```
 
 use std::fs;
@@ -19,8 +19,8 @@ use forge::{Err, Forge, Plugin};
 use strum::{EnumString, VariantNames};
 
 mod capnweb;
+mod inspect;
 mod mcp;
-mod methods;
 mod normalize;
 mod ts;
 
@@ -54,13 +54,8 @@ enum Command {
     /// that has none is left as it is. A native key is never replaced: when a
     /// document says the same thing twice, the native key is kept.
     Normalize(normalize::Args),
-    /// Print the methods a document makes, as JSON.
-    ///
-    /// Each method has its group path and name, in kebab-case, as forge
-    /// resolves them from x-forge-group-name, x-forge-method-name and the
-    /// operationId, with its HTTP method and path. Other tools' extensions
-    /// are not read: run `forge normalize` on the document first.
-    Methods(methods::Args),
+    /// Print what forge reads in a document, as JSON.
+    Inspect(inspect::Args),
 }
 
 /// What forge generates an SDK with.
@@ -118,7 +113,7 @@ fn main() -> ExitCode {
 fn run(args: Args) -> Result<(), Err> {
     match args.command {
         Some(Command::Normalize(args)) => return normalize::run(args),
-        Some(Command::Methods(args)) => return methods::run(args),
+        Some(Command::Inspect(args)) => return inspect::run(args),
         None => {}
     }
     // They are required, which a command is the only way around.
@@ -185,8 +180,9 @@ mod tests {
         let command = parse(&["normalize", "--check", "a.json"]).unwrap();
         assert!(matches!(command.command, Some(Command::Normalize(_))) && command.spec.is_none());
 
-        let command = parse(&["methods", "a.json"]).unwrap();
-        assert!(matches!(command.command, Some(Command::Methods(_))) && command.spec.is_none());
+        let command = parse(&["inspect", "methods", "a.json"]).unwrap();
+        assert!(matches!(command.command, Some(Command::Inspect(_))) && command.spec.is_none());
+        assert!(parse(&["inspect", "a.json"]).is_err());
 
         let document = parse(&["./normalize", "--target", "ts", "--out", "sdk"]).unwrap();
         assert!(document.command.is_none() && document.spec.as_deref() == Some(Path::new("./normalize")));

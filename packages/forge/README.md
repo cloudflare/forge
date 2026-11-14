@@ -85,19 +85,20 @@ has a key to rewrite is not a minimal edit. The order of its keys is kept.
 
 </details>
 
-## Listing methods
+## Inspecting a document
 
-`forge methods` prints the methods a document makes, as a JSON array, without
-generating anything. Each method has the group path and name forge gives it,
-in kebab-case, which is how forge reads `x-forge-group-name`,
+`forge inspect` prints what forge reads in a document, as JSON, without
+generating anything. `forge inspect methods` prints the methods a document
+makes, as an array. Each method has the group path and name forge gives it, in
+kebab-case, which is how forge reads `x-forge-group-name`,
 `x-forge-method-name` and `operationId`, so a tool can compare the methods of
 two versions of a document without naming them itself.
 
 ```sh
-npx forge methods openapi.json
+npx forge inspect methods openapi.json
 
 # Other tools' extensions are read only once they are normalized.
-npx forge normalize openapi.json | npx forge methods -
+npx forge normalize openapi.json | npx forge inspect methods -
 ```
 
 ```json
