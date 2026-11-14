@@ -35,7 +35,7 @@ function extractTarget(
   operation: OperationInfo,
   fallbackGroup: unknown,
 ): Target | undefined {
-  if (!isPlainObject(node) || node['x-forge-skip'] === true) {
+  if (!isPlainObject(node)) {
     return undefined;
   }
   const method = node['x-forge-method-name'];
@@ -55,8 +55,12 @@ function extractTarget(
   return { key, coordinate, location: location.child('x-forge-method-name').key(), operation };
 }
 
+function isSkipped(node: AnyNode): boolean {
+  return isPlainObject(node) && node['x-forge-skip'] === true;
+}
+
 function* targetsOfOperation(operation: OperationInfo): Iterable<Target> {
-  if (!isPlainObject(operation.node) || operation.node['x-forge-skip'] === true) {
+  if (!isPlainObject(operation.node) || isSkipped(operation.node)) {
     return;
   }
   const operationGroup = operation.node['x-forge-group-name'];
@@ -69,6 +73,9 @@ function* targetsOfOperation(operation: OperationInfo): Iterable<Target> {
     return;
   }
   for (const [index, alias] of aliases.entries()) {
+    if (isSkipped(alias)) {
+      continue;
+    }
     const aliasLocation = operation.location.child(['x-forge-aliases', index]);
     const target = extractTarget(alias, aliasLocation, operation, operationGroup);
     if (target !== undefined) {

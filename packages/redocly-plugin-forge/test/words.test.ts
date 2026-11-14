@@ -22,6 +22,14 @@ describe('toForgeWords', () => {
     { input: 'account-id', words: ['account', 'id'] },
     { input: 'leading_underscore', words: ['leading', 'underscore'] },
     { input: '__double__', words: ['double'] },
+    { input: 'list__zones', words: ['list', 'zones'] },
+    { input: 'a---b', words: ['a', 'b'] },
+    // Acronym followed by digit then uppercase: the heuristic splits before the single uppercase.
+    { input: 'getIPv4', words: ['get', 'i', 'pv4'] },
+    // The L→s transition triggers an acronym break before the preceding uppercase (`UR` + `Ls`).
+    { input: 'URLs', words: ['ur', 'ls'] },
+    // Non-ASCII alphabetic character participates like an ASCII letter.
+    { input: 'cafétable', words: ['cafétable'] },
     { input: '', words: [] },
     { input: '*', words: [] },
     { input: '---', words: [] },

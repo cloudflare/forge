@@ -3,6 +3,6 @@
     "ruleId": "forge/no-conflicting-parameter-names",
     "severity": "error",
     "message": "Parameters header parameter 'organization-id', header parameter 'organizationId' all normalize to 'organization id' in generated SDK code, which collides. Rename one of them or set a distinct x-forge-parameter-name.",
-    "location": "openapi.yaml#/paths/~1plants/get (key)"
+    "location": "openapi.yaml#/paths/~1plants/get/parameters/1/name (key)"
   }
 ]

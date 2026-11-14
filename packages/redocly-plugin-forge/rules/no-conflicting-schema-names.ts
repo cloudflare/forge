@@ -6,9 +6,10 @@
  * `components.schemas` key. Schemas marked `x-forge-skip: true` are ignored.
  */
 import { rootOf } from '../utils/document.ts';
+import { groupAndReport } from '../utils/collision.ts';
 import { isPlainObject, resolveChild } from '../utils/resolve.ts';
 import type { AnyNode, Location, RuleDefinition, UserContext } from '../utils/types.ts';
-import { toForgeWords } from '../utils/words.ts';
+import { forgeWordsKey, toForgeWords } from '../utils/words.ts';
 
 interface EffectiveSchema {
   key: string;
@@ -42,7 +43,7 @@ export const noConflictingSchemaNames: RuleDefinition = {
         if (schemas === undefined || !isPlainObject(schemas.node)) {
           return;
         }
-        const groups = new Map<string, EffectiveSchema[]>();
+        const effective: EffectiveSchema[] = [];
         for (const key of Object.keys(schemas.node)) {
           const schemaLocation = schemas.location.child(key);
           const schema = schemas.node[key];
@@ -64,29 +65,26 @@ export const noConflictingSchemaNames: RuleDefinition = {
             });
             continue;
           }
-          const effective: EffectiveSchema = {
+          effective.push({
             key,
             effectiveName,
             words,
             usingExtension,
             location: usingExtension ? schemaLocation.child('x-forge-model-name').key() : schemaLocation.key(),
-          };
-          const groupKey = words.join('\u0000');
-          const group = groups.get(groupKey) ?? [];
-          group.push(effective);
-          groups.set(groupKey, group);
-        }
-        for (const [groupKey, group] of groups) {
-          if (group.length < 2) {
-            continue;
-          }
-          const normalized = groupKey.replaceAll('\u0000', ' ');
-          const labels = group.map(schemaLabel).join(', ');
-          ctx.report({
-            message: `Schemas ${labels} all normalize to '${normalized}' in generated SDK code, which collides. Rename one of them, set a distinct x-forge-model-name, or mark one \`x-forge-skip: true\`.`,
-            location: group[group.length - 1]!.location,
           });
         }
+        groupAndReport(
+          effective,
+          (schema) => forgeWordsKey(schema.effectiveName),
+          (group) => {
+            const normalized = group[0]!.words.join(' ');
+            const labels = group.map(schemaLabel).join(', ');
+            ctx.report({
+              message: `Schemas ${labels} all normalize to '${normalized}' in generated SDK code, which collides. Rename one of them, set a distinct x-forge-model-name, or mark one \`x-forge-skip: true\`.`,
+              location: group[group.length - 1]!.location,
+            });
+          },
+        );
       },
     },
   }),

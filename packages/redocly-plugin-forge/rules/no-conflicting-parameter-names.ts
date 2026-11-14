@@ -13,11 +13,12 @@
  * grouping. A parameter's effective name is `x-forge-parameter-name` when set (and non-empty),
  * otherwise `name`.
  */
+import { groupAndReport } from '../utils/collision.ts';
 import { getOperations, type OperationInfo, rootOf } from '../utils/document.ts';
 import { duplicatePlaceholders, pathPlaceholders } from '../utils/extensions.ts';
 import { isPlainObject } from '../utils/resolve.ts';
-import type { AnyNode, RuleDefinition, UserContext } from '../utils/types.ts';
-import { toForgeWords } from '../utils/words.ts';
+import type { AnyNode, Location, RuleDefinition, UserContext } from '../utils/types.ts';
+import { forgeWordsKey, toForgeWords } from '../utils/words.ts';
 
 type Namespace = 'value' | 'header';
 
@@ -40,26 +41,25 @@ interface EffectiveParameter {
   in: string;
   rawName: string;
   node: AnyNode;
-  location: import('../utils/types.ts').Location;
+  /** Location of the parameter's `name` (or `x-forge-parameter-name`) key, for anchored reports. */
+  reportLocation: Location;
   usingExtension: boolean;
 }
 
 function effectiveParameterOf(
   parameter: OperationInfo['parameters'][number],
-):
-  | { kind: 'ok'; parameter: EffectiveParameter }
-  | { kind: 'invalid'; message: string; location: import('../utils/types.ts').Location }
-  | undefined {
+): { kind: 'ok'; parameter: EffectiveParameter } | { kind: 'invalid'; message: string; location: Location } {
   const extensionValue = parameter.node['x-forge-parameter-name'];
   const usingExtension = typeof extensionValue === 'string' && extensionValue.length > 0;
   const effectiveName = usingExtension ? (extensionValue as string) : parameter.name;
+  const field = usingExtension ? 'x-forge-parameter-name' : 'name';
+  const reportLocation = parameter.location.child(field).key();
   const words = toForgeWords(effectiveName);
   if (words.length === 0) {
-    const field = usingExtension ? 'x-forge-parameter-name' : 'name';
     return {
       kind: 'invalid',
       message: `${parameter.in} parameter '${parameter.name}' has ${usingExtension ? `an x-forge-parameter-name '${effectiveName}'` : 'a name'} with no letters or digits.`,
-      location: parameter.location.child(field).key(),
+      location: reportLocation,
     };
   }
   return {
@@ -70,7 +70,7 @@ function effectiveParameterOf(
       in: parameter.in,
       rawName: parameter.name,
       node: parameter.node,
-      location: parameter.location,
+      reportLocation,
       usingExtension,
     },
   };
@@ -83,8 +83,7 @@ function parameterLabel(parameter: EffectiveParameter): string {
   return `${parameter.in} parameter '${parameter.rawName}'`;
 }
 
-function reportPlaceholderProblems(ctx: UserContext, paths: Record<string, AnyNode>, pathsLocation: unknown): void {
-  const location = pathsLocation as { child(segments: (string | number)[]): import('../utils/types.ts').Location };
+function reportPlaceholderProblems(ctx: UserContext, paths: Record<string, AnyNode>, pathsLocation: Location): void {
   for (const path of Object.keys(paths)) {
     if (path.startsWith('x-')) {
       continue;
@@ -93,42 +92,32 @@ function reportPlaceholderProblems(ctx: UserContext, paths: Record<string, AnyNo
       if (toForgeWords(placeholder).length === 0) {
         ctx.report({
           message: `Path '${path}' has placeholder '{${placeholder}}' with no letters or digits.`,
-          location: location.child([path]).key(),
+          location: pathsLocation.child([path]).key(),
         });
       }
     }
     for (const placeholder of duplicatePlaceholders(path)) {
       ctx.report({
         message: `Path '${path}' uses the same placeholder '{${placeholder}}' more than once. Rename one of the segments (e.g. '/pets/{petId}/toys/{toyId}').`,
-        location: location.child([path]).key(),
+        location: pathsLocation.child([path]).key(),
       });
     }
   }
 }
 
-function reportNamespace(
-  ctx: UserContext,
-  operationLocation: import('../utils/types.ts').Location,
-  parameters: EffectiveParameter[],
-): void {
-  const groups = new Map<string, EffectiveParameter[]>();
-  for (const parameter of parameters) {
-    const key = parameter.words.join('\u0000');
-    const group = groups.get(key) ?? [];
-    group.push(parameter);
-    groups.set(key, group);
-  }
-  for (const [key, group] of groups) {
-    if (group.length < 2) {
-      continue;
-    }
-    const normalized = key.replaceAll('\u0000', ' ');
-    const labels = group.map(parameterLabel).join(', ');
-    ctx.report({
-      message: `Parameters ${labels} all normalize to '${normalized}' in generated SDK code, which collides. Rename one of them or set a distinct x-forge-parameter-name.`,
-      location: operationLocation.key(),
-    });
-  }
+function reportNamespace(ctx: UserContext, parameters: EffectiveParameter[]): void {
+  groupAndReport(
+    parameters,
+    (parameter) => forgeWordsKey(parameter.effectiveName),
+    (group) => {
+      const normalized = group[0]!.words.join(' ');
+      const labels = group.map(parameterLabel).join(', ');
+      ctx.report({
+        message: `Parameters ${labels} all normalize to '${normalized}' in generated SDK code, which collides. Rename one of them or set a distinct x-forge-parameter-name.`,
+        location: group[group.length - 1]!.reportLocation,
+      });
+    },
+  );
 }
 
 export const noConflictingParameterNames: RuleDefinition = {
@@ -157,17 +146,14 @@ export const noConflictingParameterNames: RuleDefinition = {
               continue;
             }
             const result = effectiveParameterOf(parameter);
-            if (result === undefined) {
-              continue;
-            }
             if (result.kind === 'invalid') {
               ctx.report({ message: result.message, location: result.location });
               continue;
             }
             byNamespace[namespace].push(result.parameter);
           }
-          reportNamespace(ctx, operation.location, byNamespace.value);
-          reportNamespace(ctx, operation.location, byNamespace.header);
+          reportNamespace(ctx, byNamespace.value);
+          reportNamespace(ctx, byNamespace.header);
         }
       },
     },

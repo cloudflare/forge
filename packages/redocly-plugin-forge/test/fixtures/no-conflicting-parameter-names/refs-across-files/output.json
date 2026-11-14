@@ -3,6 +3,6 @@
     "ruleId": "forge/no-conflicting-parameter-names",
     "severity": "error",
     "message": "Parameters path parameter 'plantId', query parameter 'plant_id' all normalize to 'plant id' in generated SDK code, which collides. Rename one of them or set a distinct x-forge-parameter-name.",
-    "location": "paths/plant.yaml#/get (key)"
+    "location": "parameters.yaml#/PlantIdQuery/name (key)"
   }
 ]

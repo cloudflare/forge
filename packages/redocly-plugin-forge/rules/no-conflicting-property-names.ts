@@ -3,16 +3,18 @@
  * SDK field identifier on the same schema, and property keys that have no letters or digits.
  *
  * A property's effective name is `x-forge-property-name` when set (and non-empty), otherwise the
- * property key. Properties marked `x-forge-skip: true` or `readOnly: true` are ignored (the field
- * is not emitted on the SDK request/response type anyway).
+ * property key. Properties marked `x-forge-skip: true` are ignored. `readOnly` / `writeOnly` are
+ * NOT skipped: both still appear on at least one of the generated request / response types, so a
+ * collision between them is still real on that side.
  *
  * Checks `properties` on every Schema node — top-level component schemas and inline/nested ones.
  * Does not look into `allOf` composition: collisions across composed schemas are a separate
  * concern.
  */
+import { groupAndReport } from '../utils/collision.ts';
 import { isPlainObject } from '../utils/resolve.ts';
 import type { AnyNode, Location, RuleDefinition, UserContext } from '../utils/types.ts';
-import { toForgeWords } from '../utils/words.ts';
+import { forgeWordsKey, toForgeWords } from '../utils/words.ts';
 
 interface EffectiveProperty {
   key: string;
@@ -33,7 +35,7 @@ function effectivePropertyOf(
   node: AnyNode,
   propertyLocation: Location,
 ): { kind: 'ok'; property: EffectiveProperty } | { kind: 'invalid'; message: string; location: Location } | undefined {
-  if (!isPlainObject(node) || node['x-forge-skip'] === true || node.readOnly === true) {
+  if (!isPlainObject(node) || node['x-forge-skip'] === true) {
     return undefined;
   }
   const extensionValue = node['x-forge-property-name'];
@@ -75,7 +77,7 @@ export const noConflictingPropertyNames: RuleDefinition = {
         return;
       }
       const propertiesLocation = ctx.location.child('properties');
-      const groups = new Map<string, EffectiveProperty[]>();
+      const effective: EffectiveProperty[] = [];
       for (const [key, propertyNode] of Object.entries(schema.properties)) {
         const result = effectivePropertyOf(key, propertyNode, propertiesLocation.child(key));
         if (result === undefined) {
@@ -85,22 +87,20 @@ export const noConflictingPropertyNames: RuleDefinition = {
           ctx.report({ message: result.message, location: result.location });
           continue;
         }
-        const groupKey = result.property.words.join('\u0000');
-        const group = groups.get(groupKey) ?? [];
-        group.push(result.property);
-        groups.set(groupKey, group);
+        effective.push(result.property);
       }
-      for (const [groupKey, group] of groups) {
-        if (group.length < 2) {
-          continue;
-        }
-        const normalized = groupKey.replaceAll('\u0000', ' ');
-        const labels = group.map(propertyLabel).join(', ');
-        ctx.report({
-          message: `Properties ${labels} all normalize to '${normalized}' in generated SDK code, which collides. Rename one of them, set a distinct x-forge-property-name, or mark one \`x-forge-skip: true\`.`,
-          location: group[group.length - 1]!.location,
-        });
-      }
+      groupAndReport(
+        effective,
+        (property) => forgeWordsKey(property.effectiveName),
+        (group) => {
+          const normalized = group[0]!.words.join(' ');
+          const labels = group.map(propertyLabel).join(', ');
+          ctx.report({
+            message: `Properties ${labels} all normalize to '${normalized}' in generated SDK code, which collides. Rename one of them, set a distinct x-forge-property-name, or mark one \`x-forge-skip: true\`.`,
+            location: group[group.length - 1]!.location,
+          });
+        },
+      );
     },
   }),
 };
