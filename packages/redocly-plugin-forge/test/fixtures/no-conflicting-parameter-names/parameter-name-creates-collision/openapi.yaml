@@ -9,7 +9,7 @@ paths:
       parameters:
         - name: X-Org
           in: header
-          x-fern-parameter-name: org_id
+          x-forge-parameter-name: org_id
           schema:
             type: string
         - name: orgId

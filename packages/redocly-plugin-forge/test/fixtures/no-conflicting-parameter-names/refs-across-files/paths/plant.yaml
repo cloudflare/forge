@@ -3,7 +3,7 @@ parameters:
 get:
   operationId: getPlant
   parameters:
-    - $ref: ../parameters.yaml#/PlantIdHeader
+    - $ref: ../parameters.yaml#/PlantIdQuery
   responses:
     '200':
       description: OK

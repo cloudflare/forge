@@ -4,8 +4,8 @@ PlantIdPath:
   required: true
   schema:
     type: string
-PlantIdHeader:
-  name: Plant-Id
-  in: header
+PlantIdQuery:
+  name: plant_id
+  in: query
   schema:
     type: string

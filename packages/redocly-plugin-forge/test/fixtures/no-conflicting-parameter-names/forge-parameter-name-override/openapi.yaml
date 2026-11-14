@@ -20,7 +20,7 @@ paths:
             items:
               type: string
               format: uuid
-          x-fern-parameter-name: key_id
+          x-forge-parameter-name: key_id
       responses:
         '200':
           description: OK

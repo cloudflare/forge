@@ -5,7 +5,7 @@ info:
 paths:
   /plants/{plantId}:
     parameters:
-      - name: X-Request-Id
+      - name: Organization-Id
         in: header
         required: true
         schema:
@@ -13,11 +13,11 @@ paths:
     get:
       operationId: getPlant
       parameters:
-        - name: organization_id
+        - name: page_size
           in: query
           required: true
           schema:
-            type: string
+            type: integer
         - name: plantId
           in: path
           required: true

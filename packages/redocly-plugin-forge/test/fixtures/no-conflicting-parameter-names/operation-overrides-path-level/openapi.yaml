@@ -9,8 +9,8 @@ paths:
         in: query
         schema:
           type: string
-      - name: Organization-Id
-        in: header
+      - name: organizationId
+        in: query
         schema:
           type: string
     get:
@@ -18,7 +18,7 @@ paths:
       parameters:
         - name: organization_id
           in: query
-          x-fern-parameter-name: org
+          x-forge-parameter-name: org
           schema:
             type: string
       responses:

@@ -1,11 +1,11 @@
 openapi: 3.1.0
 info:
-  title: Test API
+  title: Duplicate path placeholder
   version: 1.0.0
 paths:
-  /a/{id}/b/{id}/c/{id}:
+  /pets/{id}/toys/{id}:
     get:
-      operationId: getC
+      operationId: getPetToy
       parameters:
         - name: id
           in: path
