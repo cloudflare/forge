@@ -5,6 +5,7 @@ import { explodedFormDataIsArray } from './exploded-form-data-is-array.ts';
 import { noComplexQueryParams } from './no-complex-query-params.ts';
 import { noConflictingEndpointPaths } from './no-conflicting-endpoint-paths.ts';
 import { noConflictingParameterNames } from './no-conflicting-parameter-names.ts';
+import { noConflictingPropertyNames } from './no-conflicting-property-names.ts';
 import { noDuplicateAuthHeaderParameters } from './no-duplicate-auth-header-parameters.ts';
 import { noDuplicateMethodName } from './no-duplicate-method-name.ts';
 import { noGetRequestBody } from './no-get-request-body.ts';
@@ -25,6 +26,7 @@ export const ruleDefinitions: RuleDefinition[] = [
   noComplexQueryParams,
   noConflictingEndpointPaths,
   noConflictingParameterNames,
+  noConflictingPropertyNames,
   noDuplicateAuthHeaderParameters,
   noDuplicateMethodName,
   noGetRequestBody,

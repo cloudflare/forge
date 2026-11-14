@@ -1,0 +1,8 @@
+[
+  {
+    "ruleId": "forge/no-conflicting-property-names",
+    "severity": "error",
+    "message": "Property '*' has no letters or digits. Use `additionalProperties` for map schemas or set x-forge-property-name to a valid SDK identifier.",
+    "location": "openapi.yaml#/components/schemas/Thing/properties/* (key)"
+  }
+]
