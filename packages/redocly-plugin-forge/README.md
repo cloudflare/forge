@@ -33,6 +33,17 @@ rules:
 
 - `forge/recommended` — every plugin rule at its declared severity, plus the built-in Redocly rules this plugin relies on (configured to the recommended subset).
 
+### Identifier collisions
+
+Four rules catch names that are distinct on the wire but normalize to the same SDK identifier after Forge's `Name::new` word-splitting (so `notification_url` collides with `notificationUrl`, `getBy` with `get_by`, and so on):
+
+- `forge/no-conflicting-parameter-names` — within one operation, path+query+cookie share one namespace and headers share another (ignoring `Accept`, `Content-Type`, and `Authorization`). Also reports repeated path placeholders (`/pets/{id}/toys/{id}`) and placeholders with no letters or digits.
+- `forge/no-conflicting-property-names` — properties on the same object schema. Skips `x-forge-skip: true` and `readOnly: true`.
+- `forge/no-conflicting-schema-names` — keys under `components.schemas`. Skips `x-forge-skip: true`.
+- `forge/no-duplicate-method-name` — `(x-forge-group-name, x-forge-method-name)` pairs across operations and `x-forge-aliases`. An alias inherits its operation's group when it does not declare its own.
+
+Each rule honors the matching `x-forge-*-name` override (`x-forge-parameter-name`, `x-forge-property-name`, `x-forge-model-name`, `x-forge-method-name`) and uses the overridden value for collision detection.
+
 ## Development
 
 ```bash

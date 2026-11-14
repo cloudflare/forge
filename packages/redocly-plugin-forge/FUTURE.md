@@ -20,20 +20,15 @@ These upstream Fern rules validate concepts Forge may want in the future, but th
 
 Fern had equivalent rules. Each depends on a Forge semantic question not yet answered; porting without that answer would hard-code Fern assumptions.
 
-- **`no-conflicting-parameter-names`** — Fern's `no-conflicting-endpoint-parameters` reported path parameters whose effective SDK name collided with the request body's fixed argument name. Blocked on: _does Forge reserve a single argument name for the request body, and what is it?_ In Fern it was `"request"`.
-- **`no-duplicate-field-names`** — Fern's `no-duplicate-field-names` reported object schemas where two properties resolved to the same field name after `x-fern-property-name`. Blocked on: _does Forge rename inline request-body schemas and should the rule skip them?_ The Fern rule depended on that convention.
 - **`valid-enum-names`** — Fern's `valid-field-names` reported enum values whose names weren't valid identifiers. Blocked on: _does Forge rename enum values (via `x-forge-property-name` on enum values, or an `x-forge-enum`-style map), or are enum values always emitted verbatim?_ The Fern rule's shape depends on which.
 
 ## `x-forge-*` duplicate-collision rules
 
-`valid-identifiers` enforces the syntactic shape of `x-forge-method-name`, `x-forge-model-name`, `x-forge-property-name`, and `x-forge-parameter-name` values, but does not check for structural collisions between two names inside the same author-visible scope. Those collisions can never generate working code in any language and belong in dedicated rules:
+`valid-identifiers` enforces the syntactic shape of `x-forge-method-name`, `x-forge-model-name`, `x-forge-property-name`, and `x-forge-parameter-name` values. `no-duplicate-method-name`, `no-conflicting-schema-names`, `no-conflicting-property-names`, and `no-conflicting-parameter-names` additionally reject structural collisions between author-visible names after Forge-identifier normalization. One collision class remains out of scope:
 
-- **`no-duplicate-method-name`** — two operations resolve to the same `(group, method)` pair. (The existing `no-duplicate-overrides` rule covers this for `x-forge-group-name` + `x-forge-method-name` on operations; this entry is for extending the same check to `x-forge-aliases[*]`.)
-- **`no-duplicate-model-name`** — two schemas in the same group resolve to the same `x-forge-model-name`.
-- **`no-duplicate-property-name`** — two properties of the same schema resolve to the same `x-forge-property-name`.
-- **`no-duplicate-parameter-name`** — two parameters on the same operation resolve to the same `x-forge-parameter-name`.
+- **Cross-schema property collisions in `allOf` composition** — two `allOf` members declare the same property key with different schemas (or two normalized-equivalent keys). The existing property-names rule walks each schema in isolation; a composition-aware check would merge members first. Worth building when the plugin matures.
 
-Explicitly out of scope for these rules:
+Explicitly out of scope for the above rules:
 
 - **Reserved-word collisions** (`class`, `type`, `yield`, …) — handled by each generator's language-specific mangling (Rust raw identifiers, Python trailing underscore, TS bracket access). Lint-rejecting these would force API authors to rename concepts their public API legitimately uses.
 - **Built-in-type shadowing** (`String`, `List`, …) — same reason.
@@ -47,7 +42,7 @@ Explicitly out of scope for these rules:
 
 Written from scratch, not converted from Fern. Each surfaced during the audit as worth considering for any OAS-driven generator.
 
-1. **`allOf` property conflicts** — two `allOf` members declare the same property key with different schemas.
+1. **`allOf` property conflicts** — two `allOf` members declare the same property key with different schemas. (The existing `no-conflicting-property-names` only sees one schema at a time.)
 2. **Security requirements reference existing schemes** — operations with `security` requirements should reference schemes in `components.securitySchemes`.
 3. **Multipart `allOf` composition warning** — `allOf` `$ref` in multipart request body schemas is a common generator pitfall. (`no-multipart-allof-composition` already covers this for Forge; a generator-agnostic version would broaden it.)
 4. **Enum values are valid identifiers** — string enum values should be usable as identifier names for code generation.
