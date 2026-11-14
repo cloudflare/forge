@@ -6,7 +6,7 @@ import { noComplexQueryParams } from './no-complex-query-params.ts';
 import { noConflictingEndpointPaths } from './no-conflicting-endpoint-paths.ts';
 import { noConflictingParameterNames } from './no-conflicting-parameter-names.ts';
 import { noDuplicateAuthHeaderParameters } from './no-duplicate-auth-header-parameters.ts';
-import { noDuplicateOverrides } from './no-duplicate-overrides.ts';
+import { noDuplicateMethodName } from './no-duplicate-method-name.ts';
 import { noGetRequestBody } from './no-get-request-body.ts';
 import { noInvalidTagNamesOrFrontmatter } from './no-invalid-tag-names-or-frontmatter.ts';
 import { noMultipartAllofComposition } from './no-multipart-allof-composition.ts';
@@ -26,7 +26,7 @@ export const ruleDefinitions: RuleDefinition[] = [
   noConflictingEndpointPaths,
   noConflictingParameterNames,
   noDuplicateAuthHeaderParameters,
-  noDuplicateOverrides,
+  noDuplicateMethodName,
   noGetRequestBody,
   noInvalidTagNamesOrFrontmatter,
   noMultipartAllofComposition,

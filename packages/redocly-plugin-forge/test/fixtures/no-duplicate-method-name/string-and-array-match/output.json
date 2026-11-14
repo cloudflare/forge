@@ -1,0 +1,8 @@
+[
+  {
+    "ruleId": "forge/no-duplicate-method-name",
+    "severity": "error",
+    "message": "SDK method \"zone.settings.list\" already defined by GET /a (as \"zone.settings.list\"). Change x-forge-group-name or x-forge-method-name on one of them.",
+    "location": "openapi.yaml#/paths/~1b/get/x-forge-method-name (key)"
+  }
+]
