@@ -2,5 +2,6 @@ dist/
 .astro/
 .cloudflare/
 .wrangler/
+public/_astro-fern/
 .nimbus/
 .forge/
