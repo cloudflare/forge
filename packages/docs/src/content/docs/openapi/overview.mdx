@@ -30,8 +30,8 @@ TypeScript, and the tool `dns_records_list` in MCP. [Naming methods](/openapi/na
 
 ## Adopting it on a large API
 
-Operations whose `operationId` has no dot, or that have none, are left out, without error, and so
-are the schemas only they use. So you can rename a large document's operationIds one group at a
+Operations with `x-forge-skip: true`, or with no `operationId`, are left out, without error, and so
+are the schemas only they use. So you can skip a large document's operations, name one group at a
 time, generate after each, and grow the SDK as you go.
 
 Every method is checked in full. Operations that are not methods are not built, so a dangling `$ref`
@@ -39,8 +39,9 @@ or an unsupported parameter style in a part you have not converted yet does not 
 exception is a value of the wrong JSON type, such as `"deprecated": "no"`, or a negative `maxItems`:
 those are caught while reading, anywhere in the document.
 
-If your document is already annotated for another generator, check **Compatibility Modes** in the
-sidebar: Forge may read those annotations as they are.
+If your document is already annotated for another tool, Forge doesn't read those annotations
+directly: run [`forge normalize`](/reference/cli/#forge-normalize) first, which rewrites the ones
+it has an equivalent of into its own. **Compatibility Modes** in the sidebar lists them.
 
 ## Shaping the output
 

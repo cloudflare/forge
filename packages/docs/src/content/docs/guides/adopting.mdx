@@ -6,8 +6,9 @@ sidebar:
 ---
 
 Large documents are rarely ready for a generator. They have operations nobody uses, schemas that
-collide, styles no SDK supports. Forge is built to be adopted gradually: operations without
-a dotted `operationId` are left out, and only the methods you name are checked.
+collide, styles no SDK supports. Forge is built to be adopted gradually: an operation with
+`x-forge-skip: true` is left out, with the schemas only it uses, so only the methods you keep are
+checked.
 
 ## 1. Convert and bundle
 
@@ -31,11 +32,13 @@ Pick a small resource and rename its operations' `operationId`s to
 }
 ```
 
-The rest of the document can keep operationIds like `listZones` for now: without a dot, they make
-no method, and no error.
+Mark the rest of the document's operations `x-forge-skip: true` for now: they make no method, and no
+error. Without it, an operationId like `listZones` is a method of the root group, and is checked.
 
-If the document is already annotated for another generator, check Compatibility Modes in the
-sidebar first. Forge may name everything from those annotations, and you can skip this step.
+If the document is already annotated for another tool, run
+[`forge normalize`](/reference/cli/#forge-normalize) first, which rewrites those annotations into
+Forge's own; Compatibility Modes in the sidebar lists them. Then only the operations they don't
+name need this step.
 
 Generate. Forge reports problems only in these operations and the schemas they use, so the list is
 short, and every item is yours.
@@ -60,9 +63,9 @@ Most first errors are one of these:
 
 ## 4. Grow, and leave things out deliberately
 
-Rename the next group, generate, repeat. Operations that should never be in an SDK (internal,
-deprecated long ago, or broken) keep an `operationId` without a dot. Once every other operation is
-dotted, an undotted one stands out as deliberate.
+Name the next group, remove its `x-forge-skip`, generate, repeat. Operations that should never be
+in an SDK (internal, deprecated long ago, or broken) keep `x-forge-skip: true`, which says so where
+anyone reading the document can see it.
 
 For operations that should be callable but not advertised, use
 [`x-forge-hidden`](/openapi/extensions/#x-forge-hidden) instead.
