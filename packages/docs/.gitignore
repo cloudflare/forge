@@ -1,11 +1,12 @@
-# build output
+# build output: cf's Build Output, and Astro's own scratch
+.cloudflare/
 dist/
 # generated types
 .astro/
 # nimbus build scratch: materialized lint config and the route manifest.
 # `nimbus.json` next to it is the opposite -- hand-owned, and committed.
 .nimbus/
-# wrangler local state
+# local state of the Cloudflare Vite plugin under `astro dev` and `astro preview`
 .wrangler/
 # dependencies
 node_modules/

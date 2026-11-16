@@ -1,4 +1,5 @@
 import { defineConfig } from 'astro/config';
+import cloudflare from '@astrojs/cloudflare';
 import tailwindcss from '@tailwindcss/vite';
 import nimbus, { defineConfig as defineNimbusConfig } from '@cloudflare/nimbus-docs';
 import { tableScroll } from '@cloudflare/nimbus-docs/markdown';
@@ -38,6 +39,12 @@ const nimbusConfig = defineNimbusConfig({
 
 export default defineConfig({
   output: 'static',
+  // Every page is prerendered. The adapter is here because `cf` builds an Astro site through
+  // it: it writes the Build Output that `cf deploy` uploads, with the pages as assets. Images are
+  // optimized at build time and the site keeps no sessions, so the Worker has no bindings beyond
+  // its assets.
+  adapter: cloudflare({ prerenderEnvironment: 'node', imageService: 'compile' }),
+  session: false,
   vite: {
     plugins: [tailwindcss()],
   },

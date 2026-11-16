@@ -5,7 +5,7 @@ The documentation site for Forge, built with Astro and [Nimbus](https://nimbus-d
 ```sh
 pnpm install                        # at the repository root
 pnpm --filter forge-docs dev        # http://localhost:4321
-pnpm --filter forge-docs build      # static output in ./dist
+pnpm --filter forge-docs build      # cf build, into ./.cloudflare/output
 ```
 
 ## How it looks, and why
@@ -33,5 +33,10 @@ is that every statement about Forge is checked against its source or its output.
 
 ## Deployment
 
-`wrangler.jsonc` serves `dist/` as static assets. It has no account or route yet; add both when the
-site has a home, and build with `DOCS_SITE_URL` set to its origin.
+`pnpm --filter forge-docs deploy` runs `cf deploy`, which builds the site and uploads it as a Worker
+with no script, serving the pages as static assets. `cloudflare.config.ts` has no account or domain
+yet; add both when the site has a home, and build with `DOCS_SITE_URL` set to its origin.
+
+`cf` builds an Astro site through the Cloudflare adapter, so `astro.config.ts` has it, although every
+page is prerendered. Images are optimized at build time and sessions are off, so the Worker has no
+binding but its assets.
