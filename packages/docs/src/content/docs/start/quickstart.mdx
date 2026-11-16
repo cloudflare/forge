@@ -13,8 +13,9 @@ tools. To write a target of your own, see the [plugin quickstart](/plugins/quick
 
 Forge reads OpenAPI 3.0, 3.1 and 3.2, as JSON. It needs two things from each operation you want in
 an SDK: the **group** it belongs to, and its **method name** within that group. Both come from the
-operation's `operationId`, written as `<group>.<method>`, such as `pets.list`; an operation whose
-`operationId` has no dot is left out.
+operation's `operationId`, written as `<group>.<method>`: `pets.list` is the method `list` of the
+group `pets`, `client.pets.list()` in the SDK. An `operationId` with no dot, such as `listPets`, is a
+method of the root group, `client.listPets()`.
 
 Save this as `openapi.json`:
 

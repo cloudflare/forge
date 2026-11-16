@@ -31,13 +31,13 @@ Forge never guesses a grouping from the path or from `tags`. The `operationId` s
 
 ## Operations that are not methods
 
-An operation whose `operationId` has no dot, such as `listPets`, is **not a method**, and is not an
-error: Forge leaves it out, with the schemas only it uses. The same goes for an operation with no
-`operationId` at all.
+An `operationId` with no dot, such as `listPets`, names a method of the **root group**:
+`client.listPets()` in the TypeScript SDK. Rename it to `pets.list` to put it in a group.
 
-Forge expects every operation you want in an SDK to have a dotted `operationId`, so rename `listPets`
-to `pets.list`. Leaving the rest undotted is how you adopt Forge on a large document a group at a
-time: see [adopting Forge](/guides/adopting/).
+An operation is **not a method** when it has [`x-forge-skip: true`](/openapi/extensions/#x-forge-skip),
+or has neither an `operationId` nor `x-forge-method-name`. That is not an error: Forge leaves it
+out, with the schemas only it uses. Skipping what you haven't named yet is how you adopt Forge on a
+large document a group at a time: see [adopting Forge](/guides/adopting/).
 
 ## Names, not strings
 

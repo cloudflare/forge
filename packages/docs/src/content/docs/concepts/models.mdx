@@ -18,7 +18,7 @@ use there does not count.
 
 Schemas that no method reaches are not models, and are never seen by a plugin. That includes schemas
 used only by operations that are not methods, which is what lets you leave part of a document out
-by leaving its operations without a dotted `operationId`.
+by marking its operations `x-forge-skip: true`.
 
 A model's identity:
 
