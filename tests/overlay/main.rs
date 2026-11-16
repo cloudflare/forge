@@ -7,9 +7,9 @@
 #![cfg(feature = "cli")]
 
 #[cfg(feature = "cli")]
-mod common;
-#[cfg(feature = "cli")]
 mod cli;
+#[cfg(feature = "cli")]
+mod common;
 #[cfg(feature = "cli")]
 mod compliant_sets;
 #[cfg(feature = "cli")]

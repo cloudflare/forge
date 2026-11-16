@@ -23,8 +23,26 @@ pub const SPEC: &str = r#"{
 
 /// The same document on one line with no final newline, for byte-fidelity
 /// checks.
-pub const SPEC_MINIFIED: &str =
-    r#"{"openapi":"3.0.3","info":{"title":"t","version":"1"},"paths":{"/a":{"get":{"operationId":"aGet","responses":{"200":{"description":"ok"}}}}}}"#;
+pub const SPEC_MINIFIED: &str = r#"{"openapi":"3.0.3","info":{"title":"t","version":"1"},"paths":{"/a":{"get":{"operationId":"aGet","responses":{"200":{"description":"ok"}}}}}}"#;
+
+/// Strings that only appear in the Clap error forge emits today, before the
+/// `overlay` subcommand exists. If a test asserts "the command failed with
+/// an overlay-specific error" and the error actually contains one of these
+/// markers, the assertion is almost certainly a false positive from the
+/// pre-implementation binary. `failed()` panics on these so no test can
+/// pass accidentally before `forge overlay` is implemented.
+const PRE_IMPL_MARKERS: &[&str] = &[
+    // Current forge CLI treats `overlay` as a positional SPEC and complains
+    // that the next arg cannot also be a `<SPEC>`.
+    "cannot be used with '<SPEC>'",
+    // Once `overlay` is a registered subcommand this message disappears; it
+    // only exists while the top-level CLI still requires `--target`.
+    "the following required arguments were not provided",
+    // Clap's "no such subcommand" variants.
+    "unrecognized subcommand",
+    "unexpected argument 'overlay'",
+    "unexpected argument \"overlay\"",
+];
 
 /// A folder of its own to write files in for one test, which is empty when
 /// returned.
@@ -84,7 +102,10 @@ pub fn files_ext(name: &str, spec: (&str, &str), overlay: (&str, &str)) -> (Path
 /// stdout JSON. Panics if the command fails.
 pub fn apply(name: &str, overlay_doc: &str) -> serde_json::Value {
     let (spec_path, overlay_path) = files(name, SPEC, overlay_doc);
-    let out = overlay(&[spec_path.to_str().unwrap(), "--overlay", overlay_path.to_str().unwrap()], "");
+    let out = overlay(
+        &[spec_path.to_str().unwrap(), "--overlay", overlay_path.to_str().unwrap()],
+        "",
+    );
     succeeded(&out);
     serde_json::from_slice(&out.stdout).expect("stdout is JSON")
 }
@@ -98,8 +119,35 @@ pub fn succeeded(out: &Output) {
     assert!(out.status.success(), "forge failed: {}", text(&out.stderr));
 }
 
+/// Asserts the command failed AND that its stderr looks like an
+/// overlay-specific error — not one of the Clap pre-implementation
+/// diagnostics forge currently emits for anything starting with `overlay`.
+/// Returns the stderr so the caller can look for its own, tighter markers.
 #[track_caller]
 pub fn failed(out: Output) -> String {
     assert!(!out.status.success(), "forge succeeded, stdout: {}", text(&out.stdout));
-    String::from_utf8(out.stderr).unwrap()
+    let err = String::from_utf8(out.stderr).unwrap();
+    for marker in PRE_IMPL_MARKERS {
+        assert!(
+            !err.contains(marker),
+            "forge exited with a generic CLI error, not the overlay-specific error under test. \
+             The `overlay` subcommand is almost certainly unimplemented. Stderr:\n{err}"
+        );
+    }
+    err
+}
+
+/// Like `failed`, but also asserts the error message contains at least one
+/// of the given overlay-specific markers. Use for negative tests where the
+/// error text is part of the contract: the user needs to be told what went
+/// wrong in terms of the overlay, not just that _something_ failed.
+#[track_caller]
+pub fn failed_with(out: Output, overlay_markers: &[&str]) -> String {
+    let err = failed(out);
+    let lower = err.to_lowercase();
+    assert!(
+        overlay_markers.iter().any(|m| lower.contains(&m.to_lowercase())),
+        "error message is missing an overlay-specific marker ({overlay_markers:?}):\n{err}"
+    );
+    err
 }

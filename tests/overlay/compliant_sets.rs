@@ -46,7 +46,10 @@ fn run_expects_goessner_rejection(name: &str) {
     let spec = dir.join("openapi.yaml");
     let ov = dir.join("overlay.yaml");
 
-    let err = failed(overlay(&[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap()], ""));
+    let err = failed(overlay(
+        &[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap()],
+        "",
+    ));
     assert!(
         err.to_lowercase().contains("rfc") || err.to_lowercase().contains("goessner") || err.contains("[?("),
         "scenario {name}: expected RFC 9535 vs. Goessner error, got: {err}"

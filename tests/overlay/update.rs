@@ -54,7 +54,10 @@ fn update_is_recursive_for_nested_objects() {
 
     let responses = &doc["paths"]["/a"]["get"]["responses"];
     assert_eq!(responses["200"]["description"], "ok", "the 200 response is still there");
-    assert_eq!(responses["404"]["description"], "not found", "the 404 response was added");
+    assert_eq!(
+        responses["404"]["description"], "not found",
+        "the 404 response was added"
+    );
 }
 
 /// B4. Sibling keys on the target that were not named in `update` are

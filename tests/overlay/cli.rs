@@ -1,11 +1,12 @@
 //! Tests for the `forge overlay` CLI surface:
 //! Mode A (overlay drives the spec via `extends`), Mode B (spec given on the
 //! CLI with one or more `--overlay`), `--write`, multiple overlays applied in
-//! order, `extends` resolution and HTTP rejection, and output byte-fidelity.
+//! order, `extends` resolution and HTTP rejection, output byte-fidelity, and
+//! IO failure modes (missing files, malformed documents).
 
 use std::fs;
 
-use crate::common::{SPEC, SPEC_MINIFIED, dir, failed, files, files_ext, forge, overlay, succeeded, text};
+use crate::common::{SPEC, SPEC_MINIFIED, dir, failed, failed_with, files, files_ext, forge, overlay, succeeded, text};
 
 // --- Mode A: overlay drives the spec via `extends` -----------------------
 
@@ -59,6 +60,38 @@ fn mode_a_extends_file_uri() {
     assert_eq!(doc["info"]["description"], "d");
 }
 
+/// Mode A. `file://` URIs with percent-encoded path segments round-trip to
+/// the same local file (RFC 3986 §2.1 — path characters may be
+/// percent-encoded).
+#[test]
+fn mode_a_extends_file_uri_percent_encoded() {
+    let dir = dir("mode-a-file-uri-encoded");
+    // A real path with a space in it, written as `%20` in the URI.
+    let subdir = dir.join("a b");
+    fs::create_dir_all(&subdir).unwrap();
+    let spec_path = subdir.join("spec.json");
+    fs::write(&spec_path, SPEC).unwrap();
+    let encoded = spec_path.display().to_string().replace(' ', "%20");
+    let file_uri = format!("file://{encoded}");
+    fs::write(
+        dir.join("overlay.json"),
+        format!(
+            r#"{{
+  "overlay": "1.0.0",
+  "info": {{"title": "fix", "version": "1"}},
+  "extends": "{file_uri}",
+  "actions": [{{"target": "$.info", "update": {{"description": "d"}}}}]
+}}"#
+        ),
+    )
+    .unwrap();
+
+    let out = overlay(&[dir.join("overlay.json").to_str().unwrap()], "");
+    succeeded(&out);
+    let doc: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    assert_eq!(doc["info"]["description"], "d");
+}
+
 /// Mode A. Mode A with no `extends` in the overlay is an error: there is no
 /// spec to apply to.
 #[test]
@@ -74,8 +107,10 @@ fn mode_a_without_extends_is_rejected() {
     )
     .unwrap();
 
-    let err = failed(overlay(&[dir.join("overlay.json").to_str().unwrap()], ""));
-    assert!(err.to_lowercase().contains("extends"), "{err}");
+    failed_with(
+        overlay(&[dir.join("overlay.json").to_str().unwrap()], ""),
+        &["extends", "spec"],
+    );
 }
 
 /// Mode A. `extends` with an `http://` or `https://` URL is a hard error for
@@ -97,8 +132,11 @@ fn mode_a_extends_http_is_rejected() {
         )
         .unwrap();
 
-        let err = failed(overlay(&[dir.join("overlay.json").to_str().unwrap()], ""));
-        assert!(err.to_lowercase().contains("http"), "{scheme}: {err}");
+        let err = failed_with(
+            overlay(&[dir.join("overlay.json").to_str().unwrap()], ""),
+            &["http", "extends", "network", "remote"],
+        );
+        assert!(err.to_lowercase().contains("http"), "{scheme}: names the scheme: {err}");
     }
 }
 
@@ -119,7 +157,7 @@ fn mode_a_extends_missing_file_names_the_path() {
     .unwrap();
 
     let err = failed(overlay(&[dir.join("overlay.json").to_str().unwrap()], ""));
-    assert!(err.contains("does-not-exist.json"), "{err}");
+    assert!(err.contains("does-not-exist.json"), "names the missing path: {err}");
 }
 
 /// Mode A. `extends` without a leading `./` — a bare filename — is also a
@@ -166,10 +204,9 @@ fn mode_a_with_write_is_rejected() {
     )
     .unwrap();
 
-    let err = failed(overlay(&[dir.join("overlay.json").to_str().unwrap(), "--write"], ""));
-    assert!(
-        err.to_lowercase().contains("write") || err.to_lowercase().contains("--overlay"),
-        "{err}"
+    failed_with(
+        overlay(&[dir.join("overlay.json").to_str().unwrap(), "--write"], ""),
+        &["--write", "--overlay", "mode a"],
     );
 }
 
@@ -195,7 +232,11 @@ fn mode_b_applies_and_prints() {
 
     let doc: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
     assert_eq!(doc["info"]["description"], "d");
-    assert_eq!(fs::read_to_string(&spec).unwrap(), before, "the spec file was not touched");
+    assert_eq!(
+        fs::read_to_string(&spec).unwrap(),
+        before,
+        "the spec file was not touched"
+    );
 }
 
 /// Mode B. The spec may be `-` to read from standard input.
@@ -219,6 +260,165 @@ fn mode_b_spec_from_stdin() {
     assert_eq!(doc["info"]["description"], "d");
 }
 
+/// Mode B. A missing spec file is an error that names the missing path.
+#[test]
+fn mode_b_missing_spec_file_names_the_path() {
+    let dir = dir("mode-b-missing-spec");
+    let ov = dir.join("overlay.json");
+    fs::write(
+        &ov,
+        r#"{
+  "overlay": "1.0.0",
+  "info": {"title": "fix", "version": "1"},
+  "actions": [{"target": "$.info", "update": {"description": "d"}}]
+}"#,
+    )
+    .unwrap();
+
+    let missing = dir.join("absent-spec.json");
+    let err = failed(overlay(
+        &[missing.to_str().unwrap(), "--overlay", ov.to_str().unwrap()],
+        "",
+    ));
+    assert!(err.contains("absent-spec.json"), "names the missing path: {err}");
+}
+
+/// Mode B. A missing overlay file is an error that names the missing path.
+#[test]
+fn mode_b_missing_overlay_file_names_the_path() {
+    let (spec, _ov) = files(
+        "mode-b-missing-overlay",
+        SPEC,
+        r#"{
+  "overlay": "1.0.0",
+  "info": {"title": "fix", "version": "1"},
+  "actions": [{"target": "$.info", "update": {"description": "d"}}]
+}"#,
+    );
+    let missing_overlay = spec.with_file_name("absent-overlay.json");
+
+    let err = failed(overlay(
+        &[spec.to_str().unwrap(), "--overlay", missing_overlay.to_str().unwrap()],
+        "",
+    ));
+    assert!(err.contains("absent-overlay.json"), "names the missing path: {err}");
+}
+
+/// Mode B. A malformed JSON spec is a parse error that names the file and
+/// something about JSON.
+#[test]
+fn mode_b_malformed_json_spec_is_rejected() {
+    let dir = dir("mode-b-bad-json-spec");
+    let spec = dir.join("spec.json");
+    fs::write(&spec, "{this is not json").unwrap();
+    let ov = dir.join("overlay.json");
+    fs::write(
+        &ov,
+        r#"{
+  "overlay": "1.0.0",
+  "info": {"title": "fix", "version": "1"},
+  "actions": [{"target": "$.info", "update": {"description": "d"}}]
+}"#,
+    )
+    .unwrap();
+
+    let err = failed(overlay(
+        &[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap()],
+        "",
+    ));
+    assert!(err.contains("spec.json"), "names the file: {err}");
+    assert!(
+        err.to_lowercase().contains("json") || err.to_lowercase().contains("parse"),
+        "names the problem: {err}"
+    );
+}
+
+/// Mode B. A malformed YAML spec is a parse error that names the file and
+/// something about YAML.
+#[test]
+fn mode_b_malformed_yaml_spec_is_rejected() {
+    let (spec, ov) = files_ext(
+        "mode-b-bad-yaml-spec",
+        ("key: [unclosed\n  - broken: : :\n", "yaml"),
+        (
+            "overlay: '1.0.0'\ninfo:\n  title: fix\n  version: '1'\nactions:\n  - target: $.info\n    update:\n      description: d\n",
+            "yaml",
+        ),
+    );
+
+    let err = failed(overlay(
+        &[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap()],
+        "",
+    ));
+    assert!(err.contains("spec.yaml"), "names the file: {err}");
+    assert!(
+        err.to_lowercase().contains("yaml") || err.to_lowercase().contains("parse"),
+        "names the problem: {err}"
+    );
+}
+
+/// Mode B. A malformed JSON overlay is a parse error.
+#[test]
+fn mode_b_malformed_json_overlay_is_rejected() {
+    let dir = dir("mode-b-bad-json-overlay");
+    let spec = dir.join("spec.json");
+    fs::write(&spec, SPEC).unwrap();
+    let ov = dir.join("overlay.json");
+    fs::write(&ov, "{not valid").unwrap();
+
+    let err = failed(overlay(
+        &[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap()],
+        "",
+    ));
+    assert!(err.contains("overlay.json"), "names the overlay file: {err}");
+    assert!(
+        err.to_lowercase().contains("json") || err.to_lowercase().contains("parse"),
+        "names the problem: {err}"
+    );
+}
+
+/// Mode B. A malformed YAML overlay is a parse error.
+#[test]
+fn mode_b_malformed_yaml_overlay_is_rejected() {
+    let (spec, ov) = files_ext(
+        "mode-b-bad-yaml-overlay",
+        (SPEC, "json"),
+        ("overlay: [\n  bad: :\n", "yaml"),
+    );
+
+    let err = failed(overlay(
+        &[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap()],
+        "",
+    ));
+    assert!(err.contains("overlay.yaml"), "names the overlay file: {err}");
+    assert!(
+        err.to_lowercase().contains("yaml") || err.to_lowercase().contains("parse"),
+        "names the problem: {err}"
+    );
+}
+
+/// Mode B. A file with no extension is read by content sniffing: if the
+/// first non-whitespace byte is `{` or `[` it is JSON, otherwise YAML. This
+/// test locks down content-based detection over extension-based.
+#[test]
+fn mode_b_extensionless_file_uses_content_detection() {
+    let dir = dir("mode-b-no-extension");
+    let spec = dir.join("openapi");
+    fs::write(&spec, SPEC).unwrap();
+    let ov = dir.join("fix");
+    fs::write(
+        &ov,
+        "overlay: '1.0.0'\ninfo:\n  title: fix\n  version: '1'\nactions:\n  - target: $.info\n    update:\n      description: d\n",
+    )
+    .unwrap();
+
+    let out = overlay(&[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap()], "");
+    succeeded(&out);
+    // Spec started with `{`, so output is JSON regardless of the file name.
+    let doc: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    assert_eq!(doc["info"]["description"], "d");
+}
+
 /// Mode B. `--write` rewrites the spec file in place.
 #[test]
 fn mode_b_write_rewrites_spec_in_place() {
@@ -232,12 +432,41 @@ fn mode_b_write_rewrites_spec_in_place() {
 }"#,
     );
 
-    let out = overlay(&[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap(), "--write"], "");
+    let out = overlay(
+        &[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap(), "--write"],
+        "",
+    );
     succeeded(&out);
 
     let doc: serde_json::Value = serde_json::from_str(&fs::read_to_string(&spec).unwrap()).unwrap();
     assert_eq!(doc["info"]["description"], "d");
     assert!(out.stdout.is_empty(), "nothing is printed when --write is given");
+}
+
+/// Mode B. `--write` on a YAML spec keeps the spec in YAML.
+#[test]
+fn mode_b_write_preserves_yaml_format() {
+    let (spec, ov) = files_ext(
+        "mode-b-write-yaml",
+        ("openapi: 3.0.3\ninfo:\n  title: t\n  version: '1'\npaths: {}\n", "yaml"),
+        (
+            "overlay: '1.0.0'\ninfo:\n  title: fix\n  version: '1'\nactions:\n  - target: $.info\n    update:\n      description: d\n",
+            "yaml",
+        ),
+    );
+
+    let out = overlay(
+        &[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap(), "--write"],
+        "",
+    );
+    succeeded(&out);
+
+    let rewritten = fs::read_to_string(&spec).unwrap();
+    assert!(
+        !rewritten.trim_start().starts_with('{'),
+        "spec stayed YAML: {rewritten}"
+    );
+    assert!(rewritten.contains("description: d"), "overlay was applied: {rewritten}");
 }
 
 /// Mode B. `--write` with `-` for the spec is an error: standard input is
@@ -256,21 +485,109 @@ fn mode_b_write_with_stdin_is_rejected() {
     )
     .unwrap();
 
-    let err = failed(overlay(&["-", "--overlay", ov.to_str().unwrap(), "--write"], SPEC));
-    assert!(err.to_lowercase().contains("write") || err.contains('-'), "{err}");
+    failed_with(
+        overlay(&["-", "--overlay", ov.to_str().unwrap(), "--write"], SPEC),
+        &["--write", "stdin", "standard input"],
+    );
+}
+
+/// Mode B. `--write` is transactional: if any overlay fails to apply, the
+/// spec file is left byte-identical and nothing is written to stdout. The
+/// first overlay is valid and _would_ change the spec on its own; the
+/// second has an invalid `target` that is rejected at apply time.
+#[test]
+fn mode_b_write_is_transactional_on_failure() {
+    let dir = dir("mode-b-write-transactional");
+    let spec = dir.join("spec.json");
+    fs::write(&spec, SPEC).unwrap();
+    let before = fs::read(&spec).unwrap();
+
+    let good = dir.join("1.json");
+    fs::write(
+        &good,
+        r#"{
+  "overlay": "1.0.0",
+  "info": {"title": "a", "version": "1"},
+  "actions": [{"target": "$.info", "update": {"description": "would-be-applied"}}]
+}"#,
+    )
+    .unwrap();
+    let bad = dir.join("2.json");
+    fs::write(
+        &bad,
+        r#"{
+  "overlay": "1.0.0",
+  "info": {"title": "b", "version": "1"},
+  "actions": [{"target": "$.info.title", "update": {"nope": "primitive-target"}}]
+}"#,
+    )
+    .unwrap();
+
+    let out = overlay(
+        &[
+            spec.to_str().unwrap(),
+            "--overlay",
+            good.to_str().unwrap(),
+            "--overlay",
+            bad.to_str().unwrap(),
+            "--write",
+        ],
+        "",
+    );
+    let _ = failed(out.clone());
+    assert_eq!(
+        fs::read(&spec).unwrap(),
+        before,
+        "spec file is byte-identical on failure"
+    );
+    assert!(
+        out.stdout.is_empty(),
+        "no partial result on stdout: {}",
+        text(&out.stdout)
+    );
+}
+
+/// Mode B. `--write` no-op (overlay changes nothing) leaves the spec file
+/// byte-identical. Complements the stdout no-op test below.
+#[test]
+fn mode_b_write_noop_preserves_bytes() {
+    let dir = dir("mode-b-write-noop");
+    let spec = dir.join("spec.json");
+    fs::write(&spec, SPEC_MINIFIED).unwrap();
+    let before = fs::read(&spec).unwrap();
+
+    let ov = dir.join("overlay.json");
+    fs::write(
+        &ov,
+        r#"{
+  "overlay": "1.0.0",
+  "info": {"title": "fix", "version": "1"},
+  "actions": [{"target": "$.paths[\"/missing\"].get", "update": {"summary": "s"}}]
+}"#,
+    )
+    .unwrap();
+
+    let out = overlay(
+        &[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap(), "--write"],
+        "",
+    );
+    succeeded(&out);
+    assert_eq!(fs::read(&spec).unwrap(), before, "bytes preserved on no-op");
 }
 
 /// Mode B. `extends` in the overlay is ignored when a spec is on the CLI,
-/// and an info-level message says so.
+/// and the referenced file is NOT read — not even for validation. We prove
+/// it by pointing `extends` at a path that does not exist and seeing the
+/// command still succeed with an info-level log that mentions `extends`.
 #[test]
-fn mode_b_extends_is_ignored_with_info_log() {
+fn mode_b_extends_is_ignored_without_resolving() {
     let (spec, ov) = files(
         "mode-b-extends-ignored",
         SPEC,
         r#"{
   "overlay": "1.0.0",
   "info": {"title": "fix", "version": "1"},
-  "extends": "./other-spec.json",
+  "extends": "./does-not-exist-anywhere.json",
   "actions": [{"target": "$.info", "update": {"description": "d"}}]
 }"#,
     );
@@ -329,6 +646,54 @@ fn j1_multiple_overlays_apply_in_order() {
     assert_eq!(doc["info"]["description"], "from-second");
 }
 
+/// J1 (continued). The second overlay observes the mutations from the
+/// first — including a prior removal followed by recreation. This rules
+/// out any "apply each overlay independently and merge" strategy.
+#[test]
+fn j1_second_overlay_observes_first_removal_and_recreation() {
+    let dir = dir("j1-remove-recreate-across-overlays");
+    let spec = dir.join("spec.json");
+    fs::write(&spec, SPEC).unwrap();
+
+    let first = dir.join("1.json");
+    fs::write(
+        &first,
+        r#"{
+  "overlay": "1.0.0",
+  "info": {"title": "a", "version": "1"},
+  "actions": [{"target": "$.paths[\"/a\"].get", "remove": true}]
+}"#,
+    )
+    .unwrap();
+    let second = dir.join("2.json");
+    // This overlay would be a no-op by itself (nothing to update). It only
+    // matches because the first overlay removed `get`, so updating `/a`
+    // adds a fresh `get`.
+    fs::write(
+        &second,
+        r#"{
+  "overlay": "1.0.0",
+  "info": {"title": "b", "version": "1"},
+  "actions": [{"target": "$.paths[\"/a\"]", "update": {"get": {"operationId": "reborn", "responses": {"200": {"description": "ok"}}}}}]
+}"#,
+    )
+    .unwrap();
+
+    let out = overlay(
+        &[
+            spec.to_str().unwrap(),
+            "--overlay",
+            first.to_str().unwrap(),
+            "--overlay",
+            second.to_str().unwrap(),
+        ],
+        "",
+    );
+    succeeded(&out);
+    let doc: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    assert_eq!(doc["paths"]["/a"]["get"]["operationId"], "reborn");
+}
+
 // --- K. Output fidelity -------------------------------------------------
 
 /// K1. A no-op overlay leaves the document byte-identical.
@@ -383,14 +748,21 @@ fn k2_key_order_is_preserved_and_additions_append() {
 fn subcommand_is_recognized() {
     let out = forge(&["overlay", "--help"], "");
     assert!(out.status.success(), "help failed: {}", text(&out.stderr));
-    assert!(text(&out.stdout).to_lowercase().contains("overlay"), "{}", text(&out.stdout));
+    assert!(
+        text(&out.stdout).to_lowercase().contains("overlay"),
+        "{}",
+        text(&out.stdout)
+    );
 }
 
 /// At least one input must be given.
 #[test]
 fn no_input_is_rejected() {
     let err = failed(overlay(&[], ""));
-    assert!(err.to_lowercase().contains("required") || err.contains('<'), "{err}");
+    assert!(
+        err.to_lowercase().contains("required") || err.to_lowercase().contains("usage: forge overlay"),
+        "names the missing argument: {err}"
+    );
 }
 
 /// `forge overlay` without `--overlay` treats the positional as an overlay
@@ -403,10 +775,9 @@ fn positional_that_is_not_an_overlay_is_rejected() {
     let spec_file = dir.join("spec.json");
     fs::write(&spec_file, SPEC).unwrap();
 
-    let err = failed(overlay(&[spec_file.to_str().unwrap()], ""));
-    assert!(
-        err.to_lowercase().contains("overlay") || err.to_lowercase().contains("not an overlay"),
-        "{err}"
+    failed_with(
+        overlay(&[spec_file.to_str().unwrap()], ""),
+        &["not an overlay", "--overlay", "overlay: \"1.0.0\""],
     );
 }
 
@@ -419,10 +790,10 @@ fn positional_that_is_neither_spec_nor_overlay_is_rejected() {
     let other = dir.join("other.json");
     fs::write(&other, r#"{"some": "unrelated", "document": true}"#).unwrap();
 
-    let err = failed(overlay(&[other.to_str().unwrap()], ""));
+    let err = failed_with(overlay(&[other.to_str().unwrap()], ""), &["overlay", "openapi"]);
     assert!(
-        err.to_lowercase().contains("overlay") || err.to_lowercase().contains("openapi"),
-        "message names what was expected: {err}"
+        err.to_lowercase().contains("overlay") && err.to_lowercase().contains("openapi"),
+        "message names both possibilities: {err}"
     );
 }
 
@@ -450,12 +821,9 @@ fn mode_a_rejects_two_positionals() {
         .unwrap();
     }
 
-    let err = failed(overlay(&[first.to_str().unwrap(), second.to_str().unwrap()], ""));
-    assert!(
-        err.to_lowercase().contains("unexpected")
-            || err.to_lowercase().contains("one")
-            || err.to_lowercase().contains("--overlay"),
-        "{err}"
+    failed_with(
+        overlay(&[first.to_str().unwrap(), second.to_str().unwrap()], ""),
+        &["--overlay", "positional", "one"],
     );
 }
 
@@ -468,10 +836,7 @@ fn mode_a_rejects_two_positionals() {
 fn yaml_spec_with_yaml_overlay_prints_yaml() {
     let (spec, ov) = files_ext(
         "yaml-yaml",
-        (
-            "openapi: 3.0.3\ninfo:\n  title: t\n  version: '1'\npaths: {}\n",
-            "yaml",
-        ),
+        ("openapi: 3.0.3\ninfo:\n  title: t\n  version: '1'\npaths: {}\n", "yaml"),
         (
             "overlay: '1.0.0'\ninfo:\n  title: fix\n  version: '1'\nactions:\n  - target: $.info\n    update:\n      description: d\n",
             "yaml",
@@ -481,7 +846,10 @@ fn yaml_spec_with_yaml_overlay_prints_yaml() {
     let out = overlay(&[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap()], "");
     succeeded(&out);
     let body = text(&out.stdout);
-    assert!(body.contains("description: d"), "YAML output includes the added key: {body}");
+    assert!(
+        body.contains("description: d"),
+        "YAML output includes the added key: {body}"
+    );
     assert!(!body.trim_start().starts_with('{'), "output is not JSON: {body}");
 }
 
@@ -510,10 +878,7 @@ fn json_spec_with_yaml_overlay_prints_json() {
 fn yaml_spec_with_json_overlay_prints_yaml() {
     let (spec, ov) = files_ext(
         "yaml-json",
-        (
-            "openapi: 3.0.3\ninfo:\n  title: t\n  version: '1'\npaths: {}\n",
-            "yaml",
-        ),
+        ("openapi: 3.0.3\ninfo:\n  title: t\n  version: '1'\npaths: {}\n", "yaml"),
         (
             r#"{"overlay": "1.0.0", "info": {"title": "fix", "version": "1"}, "actions": [{"target": "$.info", "update": {"description": "d"}}]}"#,
             "json",
@@ -532,7 +897,11 @@ fn yaml_spec_with_json_overlay_prints_yaml() {
 #[test]
 fn mode_a_with_yaml_overlay_and_yaml_extends() {
     let dir = dir("mode-a-yaml");
-    fs::write(dir.join("spec.yaml"), "openapi: 3.0.3\ninfo:\n  title: t\n  version: '1'\npaths: {}\n").unwrap();
+    fs::write(
+        dir.join("spec.yaml"),
+        "openapi: 3.0.3\ninfo:\n  title: t\n  version: '1'\npaths: {}\n",
+    )
+    .unwrap();
     fs::write(
         dir.join("overlay.yaml"),
         "overlay: '1.0.0'\ninfo:\n  title: fix\n  version: '1'\nextends: ./spec.yaml\nactions:\n  - target: $.info\n    update:\n      description: d\n",

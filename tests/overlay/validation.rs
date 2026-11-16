@@ -1,8 +1,31 @@
 //! Tests for overlay document validation (rules A1-A7 and H1):
-//! required fields, invalid fields, and the "target must select objects or
-//! arrays" constraint from section 5 of the Overlay specification.
+//! required fields, invalid fields, the "target must select objects or
+//! arrays" constraint from section 5, and the Overlay 1.1 policy.
+//!
+//! Every negative assertion goes through `failed_with(...)` so it cannot
+//! pass against the current pre-implementation binary just because its
+//! generic CLI error happens to contain a common word.
 
-use crate::common::{SPEC, failed, files, overlay};
+use crate::common::{SPEC, failed, failed_with, files, overlay};
+
+// Markers that identify an overlay-document-level validation error. The
+// implementation is free to pick exact wording; tests only require it to
+// name one of these terms.
+const DOC_MARKERS: &[&str] = &["overlay document", "overlay version", "overlay schema", "overlay:"];
+const INFO_MARKERS: &[&str] = &["info.title", "info.version", "`info`", "info object", "\"info\""];
+const ACTION_MARKERS: &[&str] = &["actions", "action", "\"actions\""];
+const TARGET_MARKERS: &[&str] = &["target", "`target`", "\"target\""];
+const UPDATE_MARKERS: &[&str] = &["update", "`update`", "\"update\""];
+const REMOVE_MARKERS: &[&str] = &["remove", "`remove`", "\"remove\""];
+const EXTENDS_MARKERS: &[&str] = &["extends", "`extends`", "\"extends\""];
+const JSONPATH_MARKERS: &[&str] = &["jsonpath", "json path", "rfc 9535", "selector"];
+
+/// Flattens several marker slices into a single `Vec<&str>` so it can be
+/// handed to `failed_with`. Keeps call sites readable where the valid
+/// markers span multiple categories.
+fn markers<const N: usize>(groups: [&'static [&'static str]; N]) -> Vec<&'static str> {
+    groups.iter().flat_map(|g| g.iter().copied()).collect()
+}
 
 /// A1. The overlay document MUST include an `overlay` version string.
 #[test]
@@ -16,12 +39,14 @@ fn overlay_version_is_required() {
 }"#,
     );
 
-    let err = failed(overlay(&[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap()], ""));
-    assert!(err.contains("overlay"), "{err}");
-    assert!(err.to_lowercase().contains("missing") || err.to_lowercase().contains("required"), "{err}");
+    failed_with(
+        overlay(&[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap()], ""),
+        &markers([DOC_MARKERS, &["missing", "required"]]),
+    );
 }
 
-/// A1. `overlay` must be the 1.x version family. 2.0.0 is rejected.
+/// A1. `overlay` must be the 1.x version family. 2.0.0 is rejected with a
+/// message that names the unsupported version.
 #[test]
 fn overlay_version_two_is_rejected() {
     let (spec, ov) = files(
@@ -34,9 +59,11 @@ fn overlay_version_two_is_rejected() {
 }"#,
     );
 
-    let err = failed(overlay(&[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap()], ""));
-    assert!(err.contains("2.0.0") || err.contains("overlay"), "{err}");
-    assert!(err.to_lowercase().contains("unsupported") || err.to_lowercase().contains("version"), "{err}");
+    let err = failed_with(
+        overlay(&[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap()], ""),
+        &["unsupported", "version", "2.0"],
+    );
+    assert!(err.contains("2.0"), "names the unsupported major: {err}");
 }
 
 /// A1. `1.0.x` is accepted silently; patch differences are ignored per
@@ -57,9 +84,16 @@ fn overlay_version_one_dot_zero_dot_x_is_accepted_silently() {
         );
 
         let out = overlay(&[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap()], "");
-        assert!(out.status.success(), "forge failed for {version}: {}", std::str::from_utf8(&out.stderr).unwrap());
+        assert!(
+            out.status.success(),
+            "forge failed for {version}: {}",
+            std::str::from_utf8(&out.stderr).unwrap()
+        );
         let err = std::str::from_utf8(&out.stderr).unwrap();
-        assert!(!err.to_lowercase().contains("warning"), "{version} should not warn: {err}");
+        assert!(
+            !err.to_lowercase().contains("warning"),
+            "{version} should not warn: {err}"
+        );
     }
 }
 
@@ -79,12 +113,98 @@ fn overlay_version_one_dot_one_is_accepted_with_a_warning() {
     );
 
     let out = overlay(&[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap()], "");
-    assert!(out.status.success(), "forge failed: {}", std::str::from_utf8(&out.stderr).unwrap());
+    assert!(
+        out.status.success(),
+        "forge failed: {}",
+        std::str::from_utf8(&out.stderr).unwrap()
+    );
     let err = std::str::from_utf8(&out.stderr).unwrap();
-    assert!(err.to_lowercase().contains("1.1"), "warning mentions the version: {err}");
-    assert!(err.to_lowercase().contains("warn") || err.to_lowercase().contains("unsupported"), "{err}");
+    assert!(
+        err.to_lowercase().contains("1.1"),
+        "warning mentions the version: {err}"
+    );
+    assert!(
+        err.to_lowercase().contains("warn") || err.to_lowercase().contains("unsupported"),
+        "{err}"
+    );
     let doc: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
     assert_eq!(doc["info"]["description"], "d", "the action was still applied");
+}
+
+/// A1. A 1.1 overlay that uses the `copy` action (a 1.1-only feature not in
+/// 1.0) is rejected with a message that names the unsupported feature. We
+/// do not silently skip it and produce a plausible but incomplete document:
+/// the test locks down that choice.
+#[test]
+fn overlay_version_one_dot_one_with_copy_action_is_rejected() {
+    let (spec, ov) = files(
+        "overlay-1-1-copy",
+        SPEC,
+        r#"{
+  "overlay": "1.1.0",
+  "info": {"title": "fix", "version": "1"},
+  "actions": [
+    {"target": "$.paths[\"/a\"].get", "copy": {"to": "$.paths[\"/b\"].get"}}
+  ]
+}"#,
+    );
+
+    let err = failed_with(
+        overlay(&[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap()], ""),
+        &["copy", "1.1", "unsupported"],
+    );
+    assert!(
+        err.to_lowercase().contains("copy"),
+        "names the unsupported action: {err}"
+    );
+}
+
+/// A1. A malformed version string is rejected. The spec requires a
+/// three-component semver-like string; `1`, `1.0`, and `1.0.0-beta` are
+/// all malformed.
+#[test]
+fn malformed_overlay_version_is_rejected() {
+    for bad in ["1", "1.0", "1.0.0-beta", "", "one"] {
+        let (spec, ov) = files(
+            &format!("bad-version-{}", bad.replace(['.', '-'], "_")),
+            SPEC,
+            &format!(
+                r#"{{
+  "overlay": "{bad}",
+  "info": {{"title": "fix", "version": "1"}},
+  "actions": [{{"target": "$.info", "update": {{"description": "d"}}}}]
+}}"#
+            ),
+        );
+
+        failed_with(
+            overlay(&[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap()], ""),
+            &markers([DOC_MARKERS, &["version"]]),
+        );
+    }
+}
+
+/// A1. `overlay` must be a string. A number, boolean, or null is rejected.
+#[test]
+fn non_string_overlay_version_is_rejected() {
+    for bad in ["1.0", "true", "null"] {
+        let (spec, ov) = files(
+            &format!("non-string-version-{}", bad.replace('.', "_")),
+            SPEC,
+            &format!(
+                r#"{{
+  "overlay": {bad},
+  "info": {{"title": "fix", "version": "1"}},
+  "actions": [{{"target": "$.info", "update": {{"description": "d"}}}}]
+}}"#
+            ),
+        );
+
+        failed_with(
+            overlay(&[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap()], ""),
+            &["overlay", "string", "type"],
+        );
+    }
 }
 
 /// A2. `info.title` and `info.version` are both required.
@@ -107,8 +227,37 @@ fn info_title_and_version_are_required() {
             ),
         );
 
-        let err = failed(overlay(&[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap()], ""));
-        assert!(err.to_lowercase().contains("info"), "{name}: {err}");
+        failed_with(
+            overlay(&[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap()], ""),
+            INFO_MARKERS,
+        );
+    }
+}
+
+/// A2. `info.title` and `info.version` must be strings.
+#[test]
+fn info_fields_must_be_strings() {
+    for (name, info) in [
+        ("info-title-number", r#"{"title": 1, "version": "1"}"#),
+        ("info-version-number", r#"{"title": "t", "version": 1}"#),
+        ("info-title-null", r#"{"title": null, "version": "1"}"#),
+    ] {
+        let (spec, ov) = files(
+            name,
+            SPEC,
+            &format!(
+                r#"{{
+  "overlay": "1.0.0",
+  "info": {info},
+  "actions": [{{"target": "$.info", "update": {{"description": "d"}}}}]
+}}"#
+            ),
+        );
+
+        failed_with(
+            overlay(&[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap()], ""),
+            &markers([INFO_MARKERS, &["string", "type"]]),
+        );
     }
 }
 
@@ -128,9 +277,60 @@ fn actions_must_be_present_and_non_empty() {
             ),
         );
 
-        let err = failed(overlay(&[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap()], ""));
-        assert!(err.to_lowercase().contains("action"), "{name}: {err}");
+        failed_with(
+            overlay(&[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap()], ""),
+            ACTION_MARKERS,
+        );
     }
+}
+
+/// A3. `actions` must be an array, not an object or a scalar.
+#[test]
+fn actions_must_be_an_array() {
+    for (name, actions) in [
+        (
+            "actions-object",
+            r#"{"target": "$.info", "update": {"description": "d"}}"#,
+        ),
+        ("actions-null", "null"),
+        ("actions-string", r#""fix""#),
+    ] {
+        let (spec, ov) = files(
+            name,
+            SPEC,
+            &format!(
+                r#"{{
+  "overlay": "1.0.0",
+  "info": {{"title": "fix", "version": "1"}},
+  "actions": {actions}
+}}"#
+            ),
+        );
+
+        failed_with(
+            overlay(&[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap()], ""),
+            &markers([ACTION_MARKERS, &["array", "type"]]),
+        );
+    }
+}
+
+/// A3. Each entry of `actions` must be an object.
+#[test]
+fn action_entries_must_be_objects() {
+    let (spec, ov) = files(
+        "action-entry-string",
+        SPEC,
+        r#"{
+  "overlay": "1.0.0",
+  "info": {"title": "fix", "version": "1"},
+  "actions": ["not an object"]
+}"#,
+    );
+
+    failed_with(
+        overlay(&[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap()], ""),
+        &markers([ACTION_MARKERS, &["object", "type"]]),
+    );
 }
 
 /// A4. Each action requires a `target`.
@@ -146,8 +346,126 @@ fn action_target_is_required() {
 }"#,
     );
 
-    let err = failed(overlay(&[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap()], ""));
-    assert!(err.to_lowercase().contains("target"), "{err}");
+    failed_with(
+        overlay(&[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap()], ""),
+        TARGET_MARKERS,
+    );
+}
+
+/// A4. `target` must be a string.
+#[test]
+fn target_must_be_a_string() {
+    for (name, target) in [
+        ("target-number", "1"),
+        ("target-null", "null"),
+        ("target-object", r#"{"path": "$.info"}"#),
+    ] {
+        let (spec, ov) = files(
+            name,
+            SPEC,
+            &format!(
+                r#"{{
+  "overlay": "1.0.0",
+  "info": {{"title": "fix", "version": "1"}},
+  "actions": [{{"target": {target}, "update": {{"description": "d"}}}}]
+}}"#
+            ),
+        );
+
+        failed_with(
+            overlay(&[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap()], ""),
+            &markers([TARGET_MARKERS, &["string", "type"]]),
+        );
+    }
+}
+
+/// A5. `remove` must be boolean.
+#[test]
+fn remove_must_be_boolean() {
+    for (name, rm) in [
+        ("remove-string", r#""true""#),
+        ("remove-number", "1"),
+        ("remove-null", "null"),
+    ] {
+        let (spec, ov) = files(
+            name,
+            SPEC,
+            &format!(
+                r#"{{
+  "overlay": "1.0.0",
+  "info": {{"title": "fix", "version": "1"}},
+  "actions": [{{"target": "$.info", "remove": {rm}}}]
+}}"#
+            ),
+        );
+
+        failed_with(
+            overlay(&[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap()], ""),
+            &markers([REMOVE_MARKERS, &["bool", "type"]]),
+        );
+    }
+}
+
+/// A5. `remove: false` paired with an `update` means "do the update": the
+/// action still runs. This locks down that `remove: false` is a no-op flag.
+#[test]
+fn remove_false_with_update_still_updates() {
+    let doc = crate::common::apply(
+        "remove-false-with-update",
+        r#"{
+  "overlay": "1.0.0",
+  "info": {"title": "fix", "version": "1"},
+  "actions": [{"target": "$.info", "remove": false, "update": {"description": "d"}}]
+}"#,
+    );
+    assert_eq!(doc["info"]["description"], "d");
+}
+
+/// A5. An action with neither `update` nor `remove: true` has no effect to
+/// apply and is rejected. The spec is not explicit, so we lock down a
+/// specific choice here: reject, since silent no-op hides mistakes.
+#[test]
+fn action_with_neither_update_nor_remove_is_rejected() {
+    let (spec, ov) = files(
+        "action-with-no-effect",
+        SPEC,
+        r#"{
+  "overlay": "1.0.0",
+  "info": {"title": "fix", "version": "1"},
+  "actions": [{"target": "$.info"}]
+}"#,
+    );
+
+    failed_with(
+        overlay(&[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap()], ""),
+        &markers([UPDATE_MARKERS, REMOVE_MARKERS, &["either", "neither"]]),
+    );
+}
+
+/// A6. `extends` must be a string.
+#[test]
+fn extends_must_be_a_string() {
+    for (name, ext) in [("extends-number", "1"), ("extends-object", r#"{"url": "./spec.json"}"#)] {
+        let (spec, ov) = files(
+            name,
+            SPEC,
+            &format!(
+                r#"{{
+  "overlay": "1.0.0",
+  "info": {{"title": "fix", "version": "1"}},
+  "extends": {ext},
+  "actions": [{{"target": "$.info", "update": {{"description": "d"}}}}]
+}}"#
+            ),
+        );
+
+        // Mode B ignores extends but still parses it; the type error should
+        // surface either way.
+        failed_with(
+            overlay(&[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap()], ""),
+            &markers([EXTENDS_MARKERS, &["string", "type"]]),
+        );
+    }
 }
 
 /// A6. Unknown top-level keys outside the `x-*` extension pattern are an
@@ -160,16 +478,57 @@ fn unknown_top_level_key_is_rejected() {
         r#"{
   "overlay": "1.0.0",
   "info": {"title": "fix", "version": "1"},
-  "action": [{"target": "$.info", "update": {"description": "d"}}]
+  "typoed_actions": [{"target": "$.info", "update": {"description": "d"}}],
+  "actions": [{"target": "$.info", "update": {"description": "d"}}]
 }"#,
     );
 
-    let err = failed(overlay(&[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap()], ""));
-    assert!(err.contains("action"), "{err}");
+    failed_with(
+        overlay(&[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap()], ""),
+        &["unknown", "unrecognized", "typoed_actions"],
+    );
+}
+
+/// A6. Unknown keys inside `info` are also rejected.
+#[test]
+fn unknown_info_key_is_rejected() {
+    let (spec, ov) = files(
+        "unknown-info-key",
+        SPEC,
+        r#"{
+  "overlay": "1.0.0",
+  "info": {"title": "fix", "version": "1", "licence": "MIT"},
+  "actions": [{"target": "$.info", "update": {"description": "d"}}]
+}"#,
+    );
+
+    failed_with(
+        overlay(&[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap()], ""),
+        &["licence", "unknown", "unrecognized"],
+    );
+}
+
+/// A6. Unknown keys inside an action are also rejected.
+#[test]
+fn unknown_action_key_is_rejected() {
+    let (spec, ov) = files(
+        "unknown-action-key",
+        SPEC,
+        r#"{
+  "overlay": "1.0.0",
+  "info": {"title": "fix", "version": "1"},
+  "actions": [{"target": "$.info", "update": {"description": "d"}, "cond": true}]
+}"#,
+    );
+
+    failed_with(
+        overlay(&[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap()], ""),
+        &["cond", "unknown", "unrecognized"],
+    );
 }
 
 /// A7. `x-*` extensions are allowed on the overlay object, info object, and
-/// each action object, and are ignored.
+/// each action object, with arbitrary JSON values, and are ignored.
 #[test]
 fn x_extensions_are_accepted_everywhere_allowed() {
     let (spec, ov) = files(
@@ -178,8 +537,15 @@ fn x_extensions_are_accepted_everywhere_allowed() {
         r#"{
   "overlay": "1.0.0",
   "x-author": "cf",
-  "info": {"title": "fix", "version": "1", "x-tag": "a"},
-  "actions": [{"target": "$.info", "update": {"description": "d"}, "x-reason": "docs"}]
+  "x-numbers": [1, 2, 3],
+  "x-nested": {"a": {"b": true}},
+  "info": {"title": "fix", "version": "1", "x-tag": "a", "x-list": [1, 2]},
+  "actions": [{
+    "target": "$.info",
+    "update": {"description": "d"},
+    "x-reason": "docs",
+    "x-object": {"k": "v"}
+  }]
 }"#,
     );
 
@@ -187,11 +553,10 @@ fn x_extensions_are_accepted_everywhere_allowed() {
     assert!(out.status.success(), "{}", std::str::from_utf8(&out.stderr).unwrap());
 }
 
-/// H1. `update` targeting a primitive or null is rejected: the spec says
-/// "update... MUST be an object with the properties and values to merge
-/// with the selected node" — merging into a primitive is meaningless.
-/// `remove` on a primitive is handled separately in `remove.rs` (and is
-/// allowed, per the official `remove-example` compliant set).
+// --- H1: target/update type matrix (Overlay 1.0 section 5) --------------
+
+/// H1. `update` targeting a primitive is rejected: "update... MUST be an
+/// object with the properties and values to merge with the selected node".
 #[test]
 fn update_targeting_a_primitive_is_rejected() {
     let (spec, ov) = files(
@@ -204,8 +569,38 @@ fn update_targeting_a_primitive_is_rejected() {
 }"#,
     );
 
-    let err = failed(overlay(&[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap()], ""));
-    assert!(err.to_lowercase().contains("object") || err.to_lowercase().contains("primitive"), "{err}");
+    failed_with(
+        overlay(&[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap()], ""),
+        &["primitive", "scalar", "object", "update", "target"],
+    );
+}
+
+/// H1. `update` on an object target MUST be an object. A scalar, array, or
+/// null update is rejected.
+#[test]
+fn update_on_object_target_must_be_object() {
+    for (name, update) in [
+        ("object-update-scalar", r#""s""#),
+        ("object-update-array", "[1, 2]"),
+        ("object-update-null", "null"),
+    ] {
+        let (spec, ov) = files(
+            name,
+            SPEC,
+            &format!(
+                r#"{{
+  "overlay": "1.0.0",
+  "info": {{"title": "fix", "version": "1"}},
+  "actions": [{{"target": "$.info", "update": {update}}}]
+}}"#
+            ),
+        );
+
+        failed_with(
+            overlay(&[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap()], ""),
+            &["update", "object", "target"],
+        );
+    }
 }
 
 /// H1 (continued). Invalid JSONPath syntax in `target` is a hard error with
@@ -222,8 +617,10 @@ fn invalid_jsonpath_is_rejected() {
 }"#,
     );
 
-    let err = failed(overlay(&[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap()], ""));
-    assert!(err.to_lowercase().contains("jsonpath") || err.to_lowercase().contains("target"), "{err}");
+    failed_with(
+        overlay(&[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap()], ""),
+        &markers([JSONPATH_MARKERS, TARGET_MARKERS]),
+    );
 }
 
 /// H1 (continued). We implement RFC 9535 JSONPath. The older Goessner
@@ -242,9 +639,10 @@ fn goessner_filter_syntax_is_rejected() {
 }"#,
     );
 
-    let err = failed(overlay(&[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap()], ""));
+    let out = overlay(&[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap()], "");
+    let err = failed(out);
     assert!(
-        err.to_lowercase().contains("rfc") || err.to_lowercase().contains("goessner") || err.contains("[?("),
+        err.to_lowercase().contains("rfc 9535") || err.to_lowercase().contains("goessner") || err.contains("[?("),
         "message points at RFC 9535 vs. Goessner: {err}"
     );
 }

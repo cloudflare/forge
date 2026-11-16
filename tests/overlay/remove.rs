@@ -101,7 +101,10 @@ fn remove_wins_over_update() {
 }"#,
     );
 
-    assert!(doc["paths"]["/a"].get("get").is_none(), "get was removed; update was ignored");
+    assert!(
+        doc["paths"]["/a"].get("get").is_none(),
+        "get was removed; update was ignored"
+    );
 }
 
 /// D1. `remove: true` on a property whose value is a primitive drops the
@@ -120,6 +123,12 @@ fn remove_drops_primitive_valued_property() {
 }"#,
     );
 
-    assert!(doc["paths"]["/a"]["get"].get("operationId").is_none(), "operationId was dropped");
-    assert!(doc["paths"]["/a"]["get"].get("responses").is_some(), "siblings untouched");
+    assert!(
+        doc["paths"]["/a"]["get"].get("operationId").is_none(),
+        "operationId was dropped"
+    );
+    assert!(
+        doc["paths"]["/a"]["get"].get("responses").is_some(),
+        "siblings untouched"
+    );
 }
