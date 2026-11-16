@@ -28,7 +28,7 @@ Add a row before adding a change. A change Nimbus should make itself is better r
 ## Content
 
 Pages are in `src/content/docs/`, one directory per sidebar group: start, concepts, plugins,
-targets, openapi, guides, reference. `AGENTS.md` has the rules for writing them; the most important
+targets, openapi, compatibility, guides, reference. `AGENTS.md` has the rules for writing them; the most important
 is that every statement about Forge is checked against its source or its output.
 
 ## Deployment
