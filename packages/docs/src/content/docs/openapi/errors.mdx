@@ -74,7 +74,7 @@ These are only reported for the parts Forge builds: methods, and the schemas the
 
 | Message | Cause and fix |
 | --- | --- |
-| `fields "user_id" and "userId" have equal names` | Two properties that would be one identifier in every language. Skip one with `x-stainless-skip`, or rename it with a compatibility mode's extension. |
+| `fields "user_id" and "userId" have equal names` | Two properties that would be one identifier in every language. Skip one with `x-forge-skip`, or rename it with `x-forge-property-name`. |
 | `invalid value: integer -1, expected a non-negative integer` | `maxItems` must be a non-negative integer. |
 
 ## Errors from plugins

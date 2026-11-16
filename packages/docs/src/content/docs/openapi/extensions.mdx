@@ -7,11 +7,12 @@ sidebar:
 
 Forge needs no extensions: methods are named by `operationId`, as
 [naming methods](/openapi/naming/) explains. The extensions below add what OpenAPI has no field for,
-such as group descriptions and confirmation prompts. Any other `x-` key on an operation is passed to
+such as names that differ from the document's, group descriptions and confirmation prompts. Any other `x-` key on an operation is passed to
 plugins, unread; any other `x-` key elsewhere is ignored.
 
-Forge also reads the extensions of other generators, so documents annotated for them work as they
-are. Those are described under **Compatibility Modes** in the sidebar.
+Forge reads only these. A document annotated for another tool can have that tool's extensions
+rewritten into these with [`forge normalize`](/reference/cli/#forge-normalize); see **Compatibility
+Modes** in the sidebar.
 
 A value of the wrong JSON type, such as a string where a boolean goes, is an error, wherever it is.
 
@@ -19,10 +20,31 @@ A value of the wrong JSON type, such as a string where a boolean goes, is an err
 
 These go on an Operation Object, or on an alias in `x-forge-aliases`.
 
+### x-forge-method-name and x-forge-group-name
+
+The method's name, and its group, instead of the `operationId`'s. Strings: the group as names
+separated by dots, top level first, or as an array of names. A method name with no group name is a
+method of the root group. See [groups and methods](/concepts/groups-and-methods/).
+
+```json
+"x-forge-group-name": "accounts.members",
+"x-forge-method-name": "list"
+```
+
+### x-forge-skip
+
+`true` to leave the operation out: it is not a method, and its parameters, body and responses are
+never built. A boolean.
+
+### x-forge-availability
+
+The method's stage: `alpha`, `beta`, `preview`, `generally-available` or `deprecated`. Separate from
+OpenAPI's `deprecated`; see [groups and methods](/concepts/groups-and-methods/).
+
 ### x-forge-hidden
 
 `true` to leave the method out of listings, such as a CLI's help, while keeping it callable. A
-boolean. A hidden operation is still a method. The MCP target makes no tool for it.
+boolean. A hidden operation is still a method, and the MCP target still makes a tool for it.
 
 ### x-forge-require-confirmation
 
@@ -84,15 +106,35 @@ const cli = method.extension('x-my-cli');
 A key written twice keeps the last value, in the place of the first. Extensions on path items,
 parameters, bodies, responses and schemas are not kept.
 
+## On parameters
+
+### x-forge-parameter-name
+
+The parameter's field name, instead of its `name`, which stays what is sent. A string.
+
+```json
+{ "name": "page_size", "in": "query", "x-forge-parameter-name": "limit", "schema": { "type": "integer" } }
+```
+
 ## On schemas
 
-### x-sensitive
+### x-forge-model-name
+
+The model's name, instead of the schema's name in `components.schemas`. A string, on the schema.
+See [models](/concepts/models/).
+
+### x-forge-property-name
+
+The field's name, instead of the property's wire name, which stays what is sent. A string, on the
+property's schema.
+
+### x-forge-sensitive
 
 `true` on a property's schema to mark its value a secret, such as a password or token, that a client
 should mask. A boolean. It counts next to a `$ref`, in any version, and along a chain of `$ref`s.
 On a parameter, it goes on the parameter's schema, not the Parameter Object.
 
-### x-stainless-skip
+### x-forge-skip
 
 `true` on a property's schema to leave the property out of its object. A boolean.
 
@@ -121,6 +163,6 @@ the same group are an error; entries for groups that do not exist are ignored.
 
 ## Not read
 
-Extensions common in other tools that are not listed here or under Compatibility Modes, such as
-`x-codeSamples`, `x-stainless-*` other than `x-stainless-skip`, and `x-speakeasy-*`, have no effect.
-On an operation they are passed to plugins like any other extension.
+Other tools' extensions have no effect, such as `x-codeSamples`, `x-fern-*`, `x-stainless-*` and
+`x-speakeasy-*`. `forge normalize` rewrites the ones with an equivalent here: Fern's naming
+extensions, `x-stainless-skip` and `x-sensitive`.

@@ -95,16 +95,16 @@ Each field has:
 | Member         | What it is                                                                    |
 | -------------- | ----------------------------------------------------------------------------- |
 | `wire_name`    | The property's name as sent.                                                  |
-| `name`         | The wire name, as a `Name`, unless a compatibility mode renames it.           |
+| `name`         | The wire name, as a `Name`, unless `x-forge-property-name` renames it.        |
 | `is_required`  | Whether it is in `required`.                                                  |
 | `ty`           | Its type.                                                                     |
 | `description`  | The property's, following `$ref`s, never its `title`.                         |
 | `is_deprecated`| `deprecated`.                                                                 |
 | `is_read_only` | `readOnly`: the server sets it, so a client does not send it.                 |
-| `is_sensitive` | `x-sensitive`: a password or token, to keep out of logs.                      |
+| `is_sensitive` | `x-forge-sensitive`: a password or token, to keep out of logs.                |
 | `default`      | The schema's `default`, as written, unchecked.                                |
 
-A property whose schema is `false`, or that has `x-stainless-skip: true`, is not a field. Fields are
+A property whose schema is `false`, or that has `x-forge-skip: true`, is not a field. Fields are
 in an unspecified order, except in a method's request and headers; sort them if your output needs
 an order.
 

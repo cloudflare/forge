@@ -50,7 +50,7 @@ Most first errors are one of these:
 
 - **Collisions.** Two methods with one name: rename one's `operationId`. Properties like `user_id`
   and `userId` that become one identifier: drop one with
-  [`x-stainless-skip`](/openapi/extensions/#x-stainless-skip), or rename the property.
+  [`x-forge-skip`](/openapi/extensions/#on-schemas), or rename the property.
 - **Unsupported parameter styles.** `deepObject` and friends are not covered. Change the parameter
   if you can; otherwise leave that operation out for now.
 - **References.** A `$ref` into `paths`, or to another file. Move the schema into
