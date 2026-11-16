@@ -122,7 +122,7 @@ test('operation links its agent Markdown, which carries the cURL sample', async 
 
 test('the Terraform view shows the declarations in place of the HTTP reference', async ({ page, request }) => {
   await page.goto('/api/dns/records/methods/create/');
-  await expect(page.locator('[data-api-terraform]')).toHaveCount(0);
+  await expect(page.locator('[data-api-terraform]')).toBeHidden();
   await expect(page.getByRole('heading', { name: 'Returns' })).toBeVisible();
   await page.locator('[data-nb-choice-select]').selectOption('terraform');
   await expect(page).toHaveURL(/\/create\/\?lang=terraform$/);
@@ -144,10 +144,10 @@ test('the Terraform view follows links, and another sample leaves it', async ({ 
   await page.locator('[data-nb-choice-select]').selectOption('curl');
   await expect(page).toHaveURL(/\/get\/\?lang=curl$/);
   await expect(page.getByRole('heading', { name: 'Returns' })).toBeVisible();
-  await expect(page.locator('[data-api-terraform]')).toHaveCount(0);
+  await expect(page.locator('[data-api-terraform]')).toBeHidden();
   // Terraform is never the saved sample: a plain URL opens the HTTP reference.
   await page.goto('/api/dns/records/methods/create/');
-  await expect(page.locator('[data-api-terraform]')).toHaveCount(0);
+  await expect(page.locator('[data-api-terraform]')).toBeHidden();
 });
 
 test('a link to a Terraform heading lands on it', async ({ page }) => {

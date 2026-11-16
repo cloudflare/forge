@@ -106,10 +106,6 @@ const LEGACY_ANCHORS: Record<string, string> = {
   responses: "returns",
 };
 const terraform = page.kind === "operation" ? page.extensions?.["x-cloudflare-terraform"] : undefined;
-// `?lang=terraform` is the page's Terraform view, as on `main`: the Terraform
-// declarations take the place of the HTTP reference, whose headers, parameters
-// and responses a Terraform reader never sees.
-const terraformView = page.kind === "operation" && Astro.url.searchParams.get("lang") === "terraform";
 ---
 
 <ApiPageHeader page={page} home={home} />
@@ -126,15 +122,20 @@ const terraformView = page.kind === "operation" && Astro.url.searchParams.get("l
 
 {/* Section headings with an id get a "#" link that copies their URL. */}
 <div class="mt-8 flex flex-col gap-8" data-nb-heading-anchors>
-  {terraformView && (
+  {/* The Terraform view, as on `main`: while the code rail shows the Terraform
+      sample, the Terraform section takes the place of the HTTP reference, whose
+      headers, parameters and responses a Terraform reader never sees. Both are
+      in the page, so switching swaps them in place; the CSS below follows the
+      rail's visible panel, so the view is right from the first paint. */}
+  {page.kind === "operation" && (
     <section class="scroll-mt-24" data-api-terraform>
       <h2 class="fl-title mb-3">Terraform</h2>
       {terraform ? <TerraformDeclarations operation={terraform} /> : <p>This operation is not implemented in Terraform.</p>}
     </section>
   )}
 
-  {page.kind === "operation" && !terraformView && (
-    <>
+  {page.kind === "operation" && (
+    <div class="flex flex-col gap-8" data-api-http-ref>
       {authFieldList.length > 0 && (
         <ApiFieldList as="h2" title="Authorization" fields={authFieldList} />
       )}
@@ -296,7 +297,7 @@ const terraformView = page.kind === "operation" && Astro.url.searchParams.get("l
           </div>
         </section>
       )}
-    </>
+    </div>
   )}
 
   {page.kind === "schema" && (
@@ -364,6 +365,11 @@ const terraformView = page.kind === "operation" && Astro.url.searchParams.get("l
 </script>
 
 <style is:global>
+  /* The Terraform view follows the code rail's visible panel. */
+  [data-api-layout]:not(:has([data-nb-choice-panel][data-nb-choice-kind="terraform"]:not([hidden]))) [data-api-terraform],
+  [data-api-layout]:has([data-nb-choice-panel][data-nb-choice-kind="terraform"]:not([hidden])) :is([data-api-http-ref], [data-nb-resp-toggle]) {
+    display: none;
+  }
   /* The "#" link beside a section heading, as on docs headings. */
   [data-nb-heading-anchors] :where(h2[id], h3[id], h4[id]) {
     position: relative;

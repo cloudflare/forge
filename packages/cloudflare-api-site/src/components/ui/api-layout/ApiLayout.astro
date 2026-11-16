@@ -48,9 +48,6 @@ const currentSiblingHref = withBase(currentSiblingUrl ?? "/", import.meta.env.BA
 // The rail column is reserved ONLY when it has content — a request sample, a
 // response example or Try it (mirrors ApiCodeRail's own gate). A bodyless GET with no
 // samples otherwise pins an empty sticky column at the page's right edge.
-// The Terraform view (`?lang=terraform`) shows the samples only: no response
-// examples, as the page shows no HTTP responses.
-const terraformView = page.kind === "operation" && Astro.url.searchParams.get("lang") === "terraform";
 // Try it, when the route passes the panel in and the page's API has it on.
 const hasTryIt = page.kind === "operation" && page.tryIt !== undefined && Astro.slots.has("try-it");
 const hasRail =
@@ -141,7 +138,7 @@ if (versionStatus?.isHidden || homePart) {
           {hasRail && (
             <div slot="sample" data-api-place="rail" data-pagefind-ignore class="mt-8 min-[90rem]:col-start-2 min-[90rem]:row-span-12 min-[90rem]:row-start-1 min-[90rem]:-mt-8 min-[90rem]:self-start min-[90rem]:sticky min-[90rem]:top-14 min-[90rem]:h-[calc(100vh-3.5rem)] min-[90rem]:w-(--nb-code-rail-width) min-[90rem]:flex min-[90rem]:flex-col min-[90rem]:overflow-y-auto min-[90rem]:pt-8 min-[90rem]:pe-6 min-[90rem]:pb-8 min-[90rem]:ps-1">
               <ApiCodeRail
-                responses={terraformView ? [] : page.responses}
+                responses={page.responses}
                 samples={page.samples}
                 title={page.title}
                 method={page.method}
