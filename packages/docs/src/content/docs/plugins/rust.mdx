@@ -23,9 +23,13 @@ You need the `wasm32-wasip2` target, and Forge's WIT, which `forge-plugin` print
 rustup target add wasm32-wasip2
 cargo new --lib forge-plugin-routes
 cd forge-plugin-routes
-mkdir wit && npx forge-plugin wit > wit/forge.wit
+mkdir wit
 cargo add wit-bindgen
 ```
+
+Then write the WIT into `wit/`:
+
+<PackageManagers type="exec" pkg="forge-plugin" args="wit > wit/forge.wit" />
 
 ```toml title="Cargo.toml"
 [package]

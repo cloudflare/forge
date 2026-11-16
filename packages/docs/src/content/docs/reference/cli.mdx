@@ -66,8 +66,8 @@ The npm package's binaries are built with it.
 
 ## forge normalize
 
-Rewrites other tools' extensions into the native `x-forge-*` ones, such as `x-fern-sdk-group-name`
-into `x-forge-group-name`. A native key is never replaced: when a document says the same thing
+Rewrites other tools' extensions into the native `x-forge-*` ones; **Compatibility Modes** in the
+sidebar lists them. A native key is never replaced: when a document says the same thing
 twice, the native key is kept.
 
 ```text
@@ -79,7 +79,7 @@ forge normalize [OPTIONS] <INPUTS>...
 | `<INPUTS>...`            | The OpenAPI JSON documents, as paths, or `-` to read one from standard input. |
 | `-w`, `--write`          | Rewrite the files in place, each only if there is something to rewrite in it. |
 | `--check`                | Say what would be rewritten, and write nothing. Fails if there is anything to rewrite. |
-| `--from <SOURCE>`        | Rewrite only keys from `cloudflare`, `fern` or `stainless`. May be repeated.  |
+| `--from <SOURCE>`        | Rewrite only keys from one source; `forge normalize --help` lists them. May be repeated. |
 | `--leave-old-extensions` | Keep each rewritten key beside the native one, for tools that still read it.  |
 | `-v`, `--verbose`        | Say how many times each key was rewritten.                                    |
 
