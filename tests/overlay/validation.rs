@@ -834,3 +834,59 @@ fn patch_versions_share_minor_feature_set() {
     );
     assert_eq!(doc_12["info"]["description"], "from-ref");
 }
+
+/// Security. `extends` with an `http://` or `https://` scheme is rejected
+/// in EVERY supported version AND both modes. Forge never opens a network
+/// socket. (Mode A 1.0 is covered separately in `cli.rs`; this test
+/// extends that guarantee to 1.1, 1.2, and Mode B.)
+#[test]
+fn extends_with_http_scheme_is_rejected_in_every_version_and_mode() {
+    for version in ["1.0.0", "1.1.0", "1.2.0"] {
+        for scheme in ["http", "https"] {
+            // Mode B: `forge overlay <spec> --overlay <ov>`.
+            let (spec, ov) = files(
+                &format!("mode-b-extends-{scheme}-{version}"),
+                SPEC,
+                &format!(
+                    r#"{{
+  "overlay": "{version}",
+  "info": {{"title": "fix", "version": "1"}},
+  "extends": "{scheme}://example.com/openapi.json",
+  "actions": [{{"target": "$.info", "update": {{"description": "d"}}}}]
+}}"#
+                ),
+            );
+            let err = failed_with(
+                overlay(&[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap()], ""),
+                &["extends", "http", "network", "remote"],
+            );
+            assert!(
+                err.to_lowercase().contains("http"),
+                "{scheme}/{version} Mode B names the scheme: {err}"
+            );
+
+            // Mode A: `forge overlay <ov>`.
+            let d = crate::common::dir(&format!("mode-a-extends-{scheme}-{version}"));
+            std::fs::write(
+                d.join("overlay.json"),
+                format!(
+                    r#"{{
+  "overlay": "{version}",
+  "info": {{"title": "fix", "version": "1"}},
+  "extends": "{scheme}://example.com/openapi.json",
+  "actions": [{{"target": "$.info", "update": {{"description": "d"}}}}]
+}}"#
+                ),
+            )
+            .unwrap();
+            let err = failed_with(
+                overlay(&[d.join("overlay.json").to_str().unwrap()], ""),
+                &["extends", "http", "network", "remote"],
+            );
+            assert!(
+                err.to_lowercase().contains("http"),
+                "{scheme}/{version} Mode A names the scheme: {err}"
+            );
+        }
+    }
+}

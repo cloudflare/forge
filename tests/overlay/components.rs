@@ -485,16 +485,16 @@ fn v12_relative_self_identifier_is_accepted() {
 
 /// 1.2 §Base URI. Neither `$self` nor `extends` may contain a URI
 /// fragment. Rejected for every `$self` form (absolute, relative,
-/// fragment-only).
+/// fragment-only) in Mode B.
 #[test]
-fn v12_self_with_fragment_is_rejected() {
+fn v12_self_with_fragment_is_rejected_mode_b() {
     for bad in [
         "https://example.com/overlays/fix.json#/section",
         "./fix.json#/section",
         "#frag-only",
     ] {
         let (spec, ov) = files(
-            &format!("v12-self-fragment-{}", bad.replace(['/', '.', '#', ':'], "_")),
+            &format!("v12-self-fragment-mode-b-{}", bad.replace(['/', '.', '#', ':'], "_")),
             SPEC,
             &format!(
                 r##"{{
@@ -508,6 +508,41 @@ fn v12_self_with_fragment_is_rejected() {
 
         failed_with(
             overlay(&[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap()], ""),
+            &["$self", "fragment", "#"],
+        );
+    }
+}
+
+/// 1.2 §Base URI. Same `$self` fragment rule, verified in Mode A (no
+/// explicit target on the command line). Document validation does not
+/// depend on how forge was invoked.
+#[test]
+fn v12_self_with_fragment_is_rejected_mode_a() {
+    for bad in [
+        "https://example.com/overlays/fix.json#/section",
+        "./fix.json#/section",
+        "#frag-only",
+    ] {
+        let d = dir(&format!(
+            "v12-self-fragment-mode-a-{}",
+            bad.replace(['/', '.', '#', ':'], "_")
+        ));
+        fs::write(d.join("spec.json"), SPEC).unwrap();
+        fs::write(
+            d.join("overlay.json"),
+            format!(
+                r##"{{
+  "overlay": "1.2.0",
+  "$self": "{bad}",
+  "info": {{"title": "fix", "version": "1"}},
+  "extends": "./spec.json",
+  "actions": [{{"target": "$.info", "update": {{"description": "d"}}}}]
+}}"##
+            ),
+        )
+        .unwrap();
+        failed_with(
+            overlay(&[d.join("overlay.json").to_str().unwrap()], ""),
             &["$self", "fragment", "#"],
         );
     }
@@ -614,9 +649,10 @@ fn v12_mode_a_no_self_resolves_extends_against_overlay_retrieval_uri() {
 /// 1.2 §Base URI. Absolute `$self` paired with a relative `extends`
 /// resolves `extends` against `$self`, not against the overlay file's
 /// directory on disk. Forge supports only local target loading, so an
-/// `https:` `$self` combined with a relative `extends` has no on-disk
-/// target to load and MUST fail with an unresolvable-target error — NOT
-/// silently fall back to opening a sibling file next to the overlay.
+/// `https:` `$self` combined with a relative `extends` produces a
+/// resolved identifier (`https://example.com/overlays/openapi.yaml`)
+/// that does not name a local file — the overlay MUST be rejected
+/// rather than silently reinterpreted as a sibling file.
 #[test]
 fn v12_mode_a_absolute_self_resolves_extends_against_self_not_disk() {
     let d = dir("v12-self-absolute-with-relative-extends");
@@ -636,34 +672,114 @@ fn v12_mode_a_absolute_self_resolves_extends_against_self_not_disk() {
     )
     .unwrap();
 
-    // The resolved target URI is `https://example.com/overlays/openapi.yaml`.
-    // Forge doesn't fetch remote targets; it rejects this rather than
-    // reinterpreting the reference as a sibling file.
-    failed_with(
-        overlay(&[d.join("overlay.json").to_str().unwrap()], ""),
-        &["extends", "https://example.com", "resolve", "unsupported", "remote"],
+    // The resolved identifier is `https://example.com/overlays/openapi.yaml`;
+    // the error mentions the resolved URI rather than the overlay-local
+    // path, proving no silent coercion to ./openapi.yaml happened.
+    let err = crate::common::failed(overlay(&[d.join("overlay.json").to_str().unwrap()], ""));
+    assert!(
+        err.to_lowercase().contains("extends"),
+        "error names the offending field: {err}"
+    );
+    assert!(
+        err.contains("https://example.com/overlays/openapi.yaml") || err.contains("https://example.com"),
+        "error names the resolved identifier (not the overlay-local path): {err}"
     );
 }
 
-/// 1.2 §Base URI. Both `$self` and `extends` as plain absolute URIs (no
-/// fragment) are accepted at the schema layer. Forge may still refuse to
-/// fetch remote targets in Mode A — this test uses Mode B so no fetch is
-/// attempted. The point is that absolute URIs on `$self` and `extends` are
-/// schema-valid.
+/// 1.2 §Base URI, rule 5. Absolute `$self` + relative `extends` resolves
+/// via RFC 3986. When Mode B is invoked with a target file whose own
+/// `$self` matches the resolved identifier, the overlay applies against
+/// that target without any fetch.
 #[test]
-fn v12_mode_b_absolute_self_and_extends_are_schema_valid() {
-    let doc = apply(
-        "v12-abs-self-and-extends-mode-b",
+fn v12_mode_b_extends_identifier_matches_target_self() {
+    let d = dir("v12-extends-matches-target-self");
+    // The target spec is a local file that declares its own $self.
+    let target_spec = r##"{
+  "openapi": "3.0.3",
+  "$self": "https://example.com/openapi.yaml",
+  "info": {"title": "t", "version": "1"},
+  "paths": {
+    "/a": {
+      "get": {
+        "operationId": "aGet",
+        "responses": {"200": {"description": "ok"}}
+      }
+    }
+  }
+}"##;
+    fs::write(d.join("spec.json"), target_spec).unwrap();
+    fs::write(
+        d.join("overlay.json"),
+        // $self is `.../overlays/fix.overlay.json`, extends is the relative
+        // `../openapi.yaml`. RFC 3986 resolves that to
+        // `https://example.com/openapi.yaml`, which matches target_spec's $self.
         r##"{
   "overlay": "1.2.0",
   "$self": "https://example.com/overlays/fix.overlay.json",
   "info": {"title": "fix", "version": "1"},
-  "extends": "https://example.com/openapi.yaml",
+  "extends": "../openapi.yaml",
   "actions": [{"target": "$.info", "update": {"description": "d"}}]
 }"##,
-    );
+    )
+    .unwrap();
 
+    let out = overlay(
+        &[
+            d.join("spec.json").to_str().unwrap(),
+            "--overlay",
+            d.join("overlay.json").to_str().unwrap(),
+        ],
+        "",
+    );
+    succeeded(&out);
+    let doc: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
     assert_eq!(doc["info"]["description"], "d");
+}
+
+/// 1.2 §Base URI, rule 5 (negative). Mode B with a target file whose
+/// `$self` does NOT match the overlay's resolved `extends` identifier is
+/// rejected: the target the user gave is not the one the overlay was
+/// written against.
+#[test]
+fn v12_mode_b_extends_identifier_mismatched_against_target_self_is_rejected() {
+    let d = dir("v12-extends-mismatches-target-self");
+    let target_spec = r##"{
+  "openapi": "3.0.3",
+  "$self": "https://other.example.com/openapi.yaml",
+  "info": {"title": "t", "version": "1"},
+  "paths": {
+    "/a": {
+      "get": {
+        "operationId": "aGet",
+        "responses": {"200": {"description": "ok"}}
+      }
+    }
+  }
+}"##;
+    fs::write(d.join("spec.json"), target_spec).unwrap();
+    fs::write(
+        d.join("overlay.json"),
+        r##"{
+  "overlay": "1.2.0",
+  "$self": "https://example.com/overlays/fix.overlay.json",
+  "info": {"title": "fix", "version": "1"},
+  "extends": "../openapi.yaml",
+  "actions": [{"target": "$.info", "update": {"description": "d"}}]
+}"##,
+    )
+    .unwrap();
+
+    failed_with(
+        overlay(
+            &[
+                d.join("spec.json").to_str().unwrap(),
+                "--overlay",
+                d.join("overlay.json").to_str().unwrap(),
+            ],
+            "",
+        ),
+        &["extends", "$self", "match", "mismatch", "identifier"],
+    );
 }
 
 /// 1.2 §Base URI. In Mode A with no `$self`, a relative `extends` MUST
@@ -694,14 +810,13 @@ fn v12_mode_a_missing_relative_extends_reports_resolved_path() {
 
 // --- Mode B is still permissive about extends it does not resolve -------
 
-/// 1.2 Mode B. `extends` with no fragment is accepted and ignored in Mode
-/// B regardless of its scheme: the target comes from the command line, so
-/// `extends` is only parsed to validate it, not fetched. An absolute
-/// `https:` or a relative file path MUST both be accepted here; Mode A is
-/// where those differ.
+/// 1.2 Mode B. A fragment-free, non-http(s) `extends` is accepted and
+/// ignored in Mode B: the target comes from the command line, so `extends`
+/// is parsed to validate its shape but not fetched. (http(s) `extends` is
+/// a separate rejection, covered cross-version in `validation.rs`.)
 #[test]
-fn v12_mode_b_accepts_extends_without_fetching() {
-    for extends in ["./spec.yaml", "https://example.com/openapi.yaml", "openapi.json"] {
+fn v12_mode_b_accepts_local_extends_without_fetching() {
+    for extends in ["./spec.yaml", "openapi.json", "../sibling/spec.yaml"] {
         let (spec, ov) = files(
             &format!("v12-mode-b-extends-{}", extends.replace(['/', ':', '.'], "_")),
             SPEC,
