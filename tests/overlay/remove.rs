@@ -107,15 +107,25 @@ fn remove_wins_over_update() {
     );
 }
 
-/// D1. `remove: true` on a property whose value is a primitive drops the
-/// key from its parent object. The Overlay v1.0.0 spec text says targets
-/// MUST be objects or arrays, but the OAI's own `remove-example`
-/// compliant set applies `remove: true` to a string-valued `example`
-/// property. We follow the official fixtures over the stricter spec text.
+/// D1. **1.0 primitive-removal compatibility policy.** The Overlay v1.0.0
+/// normative text (§5) says a `target` selects objects or arrays, not
+/// primitives, so under a strict reading `remove: true` cannot drop a
+/// primitive-valued property. However, OAI's own `compliant-sets/remove-example`
+/// corpus applies `remove: true` to a string-valued `example` property and
+/// expects the property to be dropped.
+///
+/// **Policy:** forge follows the OAI fixtures over the stricter spec text.
+/// `remove: true` on a target that selects a primitive-valued property is
+/// treated as "drop the property from its parent object." This is an
+/// explicit compatibility exception to 1.0's primitive-target prohibition
+/// and applies in all supported versions (1.0, 1.1, 1.2).
+///
+/// 1.1 and 1.2 also permit this behavior directly via their relaxed
+/// primitive-target rules, so the exception only materially affects 1.0.
 #[test]
-fn remove_drops_primitive_valued_property() {
+fn v10_remove_primitive_valued_property_follows_oai_fixtures_not_strict_spec() {
     let doc = apply(
-        "d1-remove-primitive",
+        "v10-remove-primitive-oai-exception",
         r#"{
   "overlay": "1.0.0",
   "info": {"title": "fix", "version": "1"},

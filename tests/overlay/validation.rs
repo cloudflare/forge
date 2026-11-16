@@ -15,7 +15,6 @@ const DOC_MARKERS: &[&str] = &["overlay document", "overlay version", "overlay s
 const INFO_MARKERS: &[&str] = &["info.title", "info.version", "`info`", "info object", "\"info\""];
 const ACTION_MARKERS: &[&str] = &["actions", "action", "\"actions\""];
 const TARGET_MARKERS: &[&str] = &["target", "`target`", "\"target\""];
-const UPDATE_MARKERS: &[&str] = &["update", "`update`", "\"update\""];
 const REMOVE_MARKERS: &[&str] = &["remove", "`remove`", "\"remove\""];
 const EXTENDS_MARKERS: &[&str] = &["extends", "`extends`", "\"extends\""];
 const JSONPATH_MARKERS: &[&str] = &["jsonpath", "json path", "rfc 9535", "selector"];
@@ -131,7 +130,6 @@ fn future_overlay_minor_is_accepted_with_a_warning() {
     assert_eq!(doc["info"]["description"], "d", "the action was still applied");
 }
 
-/// A1. A 1.1 overlay that uses the `copy` action (a 1.1-only feature not in
 /// A1. A malformed version string is rejected. The spec requires a
 /// three-component semver-like string; `1`, `1.0`, and `1.0.0-beta` are
 /// all malformed.
@@ -394,25 +392,32 @@ fn remove_false_with_update_still_updates() {
     assert_eq!(doc["info"]["description"], "d");
 }
 
-/// A5. An action with neither `update` nor `remove: true` has no effect to
-/// apply and is rejected. The spec is not explicit, so we lock down a
-/// specific choice here: reject, since silent no-op hides mistakes.
+/// A5. Only `target` is required on an Action Object; `update`, `copy`, and
+/// `remove` are all optional. A target-only action is therefore a valid
+/// no-op that MUST be accepted without modifying the input document. This
+/// mirrors the official `oai_tests/v{1.0,1.1,1.2-dev}/pass/minimal.yaml`
+/// fixtures.
 #[test]
-fn action_with_neither_update_nor_remove_is_rejected() {
-    let (spec, ov) = files(
-        "action-with-no-effect",
-        SPEC,
-        r#"{
-  "overlay": "1.0.0",
-  "info": {"title": "fix", "version": "1"},
-  "actions": [{"target": "$.info"}]
-}"#,
-    );
+fn target_only_action_is_a_valid_noop() {
+    for version in ["1.0.0", "1.1.0", "1.2.0"] {
+        let doc = crate::common::apply(
+            &format!("target-only-noop-{version}"),
+            &format!(
+                r#"{{
+  "overlay": "{version}",
+  "info": {{"title": "fix", "version": "1"}},
+  "actions": [{{"target": "$.info"}}]
+}}"#
+            ),
+        );
 
-    failed_with(
-        overlay(&[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap()], ""),
-        &markers([UPDATE_MARKERS, REMOVE_MARKERS, &["either", "neither"]]),
-    );
+        assert_eq!(doc["info"]["title"], "t", "input document is unchanged ({version})");
+        assert_eq!(doc["info"]["version"], "1", "input document is unchanged ({version})");
+        assert!(
+            doc["info"].get("description").is_none(),
+            "no description was added ({version})"
+        );
+    }
 }
 
 /// A6. `extends` must be a string.
@@ -657,4 +662,175 @@ fn goessner_filter_syntax_is_rejected() {
         err.to_lowercase().contains("rfc 9535") || err.to_lowercase().contains("goessner") || err.contains("[?("),
         "message points at RFC 9535 vs. Goessner: {err}"
     );
+}
+
+// --- Version-boundary tests ---------------------------------------------
+//
+// These lock down which features are visible in which minor version. The
+// existing `v10_*` / `v11_*` / `v12_*` tests in `copy.rs`, `components.rs`,
+// and `update.rs` cover the semantic forks; these tests cover the lighter
+// weight schema-level dispatch.
+
+/// §Info. `info.description` is a new optional field introduced in Overlay
+/// 1.1. A 1.0 overlay carrying it is rejected as an unknown `info` key.
+#[test]
+fn v10_info_description_is_rejected() {
+    let (spec, ov) = files(
+        "v10-info-description",
+        SPEC,
+        r#"{
+  "overlay": "1.0.0",
+  "info": {"title": "fix", "version": "1", "description": "d"},
+  "actions": [{"target": "$.info", "update": {"description": "x"}}]
+}"#,
+    );
+
+    failed_with(
+        overlay(&[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap()], ""),
+        &["description", "info", "1.0", "unknown", "unrecognized"],
+    );
+}
+
+/// §Info. `info.description` is accepted silently in 1.1 and 1.2.
+#[test]
+fn v11_and_v12_info_description_is_accepted() {
+    for version in ["1.1.0", "1.2.0"] {
+        let doc = crate::common::apply(
+            &format!("info-description-{version}"),
+            &format!(
+                r#"{{
+  "overlay": "{version}",
+  "info": {{"title": "fix", "version": "1", "description": "a *CommonMark* string"}},
+  "actions": [{{"target": "$.info", "update": {{"description": "d"}}}}]
+}}"#
+            ),
+        );
+        assert_eq!(doc["info"]["description"], "d", "action still applies ({version})");
+    }
+}
+
+/// §Components. `$self`, `components`, and reusable `$ref` references are
+/// 1.2-only. Each is rejected by 1.0 and 1.1.
+#[test]
+fn v10_and_v11_reject_self_identifier() {
+    for version in ["1.0.0", "1.1.0"] {
+        let (spec, ov) = files(
+            &format!("self-in-{version}"),
+            SPEC,
+            &format!(
+                r#"{{
+  "overlay": "{version}",
+  "$self": "https://example.com/overlays/fix.json",
+  "info": {{"title": "fix", "version": "1"}},
+  "actions": [{{"target": "$.info", "update": {{"description": "d"}}}}]
+}}"#
+            ),
+        );
+
+        failed_with(
+            overlay(&[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap()], ""),
+            &["$self", "unknown", "unrecognized", version],
+        );
+    }
+}
+
+/// §Components. `components` is 1.2-only; 1.0 and 1.1 reject it.
+#[test]
+fn v10_and_v11_reject_components_top_level_key() {
+    for version in ["1.0.0", "1.1.0"] {
+        let (spec, ov) = files(
+            &format!("components-in-{version}"),
+            SPEC,
+            &format!(
+                r#"{{
+  "overlay": "{version}",
+  "info": {{"title": "fix", "version": "1"}},
+  "components": {{"actions": {{"foo": {{"fields": {{"update": {{"x": 1}}}}}}}}}},
+  "actions": [{{"target": "$.info", "update": {{"description": "d"}}}}]
+}}"#
+            ),
+        );
+
+        failed_with(
+            overlay(&[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap()], ""),
+            &["components", "unknown", "unrecognized", version],
+        );
+    }
+}
+
+/// §Components. The `$ref`-style reusable-action reference syntax is
+/// 1.2-only; 1.0 and 1.1 reject it (both because `components` is unknown and
+/// because `$ref` is an unknown action key).
+#[test]
+fn v10_and_v11_reject_dollar_ref_action_entry() {
+    for version in ["1.0.0", "1.1.0"] {
+        let (spec, ov) = files(
+            &format!("ref-action-in-{version}"),
+            SPEC,
+            &format!(
+                r##"{{
+  "overlay": "{version}",
+  "info": {{"title": "fix", "version": "1"}},
+  "actions": [{{"$ref": "#/components/actions/foo", "target": "$.info"}}]
+}}"##
+            ),
+        );
+
+        failed_with(
+            overlay(&[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap()], ""),
+            &["$ref", "unknown", "unrecognized"],
+        );
+    }
+}
+
+/// §Section 3 of each spec. Patch releases within a supported minor expose
+/// exactly the same feature set as `<minor>.0`. In particular, `1.1.9` MUST
+/// accept `copy` and MUST reject `components`; `1.2.9` MUST accept both.
+#[test]
+fn patch_versions_share_minor_feature_set() {
+    // 1.1.9 accepts copy (added in 1.1)...
+    let doc_11 = crate::common::apply(
+        "patch-v119-copy",
+        r#"{
+  "overlay": "1.1.9",
+  "info": {"title": "fix", "version": "1"},
+  "actions": [
+    {"target": "$.info", "update": {"description": "src"}},
+    {"target": "$.info.title", "copy": "$.info.description"}
+  ]
+}"#,
+    );
+    assert_eq!(doc_11["info"]["title"], "src", "1.1.9 behaves like 1.1.0 for copy");
+
+    // ...but 1.1.9 rejects components, which is 1.2-only.
+    let (spec, ov) = files(
+        "patch-v119-components",
+        SPEC,
+        r#"{
+  "overlay": "1.1.9",
+  "info": {"title": "fix", "version": "1"},
+  "components": {"actions": {"foo": {"fields": {"update": {"x": 1}}}}},
+  "actions": [{"target": "$.info", "update": {"description": "d"}}]
+}"#,
+    );
+    failed_with(
+        overlay(&[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap()], ""),
+        &["components", "unknown", "unrecognized", "1.1"],
+    );
+
+    // 1.2.9 accepts both.
+    let doc_12 = crate::common::apply(
+        "patch-v129-components-and-copy",
+        r##"{
+  "overlay": "1.2.9",
+  "info": {"title": "fix", "version": "1"},
+  "components": {
+    "actions": {"setDesc": {"fields": {"update": {"description": "from-ref"}}}}
+  },
+  "actions": [
+    {"$ref": "#/components/actions/setDesc", "target": "$.info"}
+  ]
+}"##,
+    );
+    assert_eq!(doc_12["info"]["description"], "from-ref");
 }

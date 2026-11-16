@@ -222,3 +222,123 @@ fn v10_copy_action_is_rejected() {
         &["copy", "1.0", "unknown", "unsupported"],
     );
 }
+
+// --- Source cardinality -------------------------------------------------
+//
+// 1.1 §5: `copy` is "A JSONPath expression selecting a single node to copy
+// into the `target` nodes." The source MUST match exactly one node. Zero
+// or more than one is an error.
+
+/// 1.1+ Copy. Source JSONPath selects zero nodes → rejected.
+#[test]
+fn v11_copy_source_with_zero_matches_is_rejected() {
+    let (spec, ov) = files(
+        "v11-copy-zero-source",
+        crate::common::SPEC,
+        r#"{
+  "overlay": "1.1.0",
+  "info": {"title": "fix", "version": "1"},
+  "actions": [{"target": "$.info", "copy": "$.nothing.here"}]
+}"#,
+    );
+
+    failed_with(
+        overlay(&[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap()], ""),
+        &["copy", "source", "single", "zero", "no match"],
+    );
+}
+
+/// 1.1+ Copy. Source JSONPath selects more than one node → rejected.
+#[test]
+fn v11_copy_source_with_multiple_matches_is_rejected() {
+    let (spec, ov) = files(
+        "v11-copy-many-source",
+        crate::common::SPEC,
+        // `$.paths.*` matches at least `/a` (the trivial spec has one path,
+        // but we add two more so the source nodelist is three nodes long).
+        r#"{
+  "overlay": "1.1.0",
+  "info": {"title": "fix", "version": "1"},
+  "actions": [
+    {"target": "$.paths", "update": {"/b": {"get": {"responses": {}}}, "/c": {"get": {"responses": {}}}}},
+    {"target": "$.info", "copy": "$.paths.*"}
+  ]
+}"#,
+    );
+
+    failed_with(
+        overlay(&[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap()], ""),
+        &["copy", "source", "single", "multiple", "more than one"],
+    );
+}
+
+// --- Target homogeneity -------------------------------------------------
+//
+// 1.1 §5 / 1.2 §5. When `target` selects multiple nodes they must all be
+// the same category (object, array, or primitive). Mixed selections are
+// rejected because the applicable rule depends on the category.
+
+/// 1.1+ Copy. Mixed target selection (object + array) → rejected.
+#[test]
+fn v11_copy_target_mixed_object_and_array_is_rejected() {
+    let (spec, ov) = files(
+        "v11-copy-mixed-obj-arr",
+        crate::common::SPEC,
+        // `$.paths["/a"].get` is an object; adding a parameters array next
+        // to it and targeting the union gives a mixed nodelist.
+        r#"{
+  "overlay": "1.1.0",
+  "info": {"title": "fix", "version": "1"},
+  "actions": [
+    {"target": "$.paths[\"/a\"].get", "update": {"tags": ["x"]}},
+    {"target": "$.paths[\"/a\"].get[?@]", "copy": "$.info.title"}
+  ]
+}"#,
+    );
+
+    failed_with(
+        overlay(&[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap()], ""),
+        &["target", "nodes", "same category", "mixed", "homogeneous"],
+    );
+}
+
+/// 1.1+ Copy. Mixed target selection (object + primitive) → rejected.
+#[test]
+fn v11_copy_target_mixed_object_and_primitive_is_rejected() {
+    let (spec, ov) = files(
+        "v11-copy-mixed-obj-prim",
+        crate::common::SPEC,
+        r#"{
+  "overlay": "1.1.0",
+  "info": {"title": "fix", "version": "1"},
+  "actions": [{"target": "$.info[?@]", "copy": "$.openapi"}]
+}"#,
+    );
+
+    failed_with(
+        overlay(&[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap()], ""),
+        &["target", "nodes", "same category", "mixed", "homogeneous"],
+    );
+}
+
+/// 1.1+ Copy. Mixed target selection (array + primitive) → rejected.
+#[test]
+fn v11_copy_target_mixed_array_and_primitive_is_rejected() {
+    let (spec, ov) = files(
+        "v11-copy-mixed-arr-prim",
+        crate::common::SPEC,
+        r#"{
+  "overlay": "1.1.0",
+  "info": {"title": "fix", "version": "1"},
+  "actions": [
+    {"target": "$.paths[\"/a\"].get", "update": {"tags": ["x"], "summary": "s"}},
+    {"target": "$.paths[\"/a\"].get[?@.tags || @.summary]", "copy": "$.openapi"}
+  ]
+}"#,
+    );
+
+    failed_with(
+        overlay(&[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap()], ""),
+        &["target", "nodes", "same category", "mixed", "homogeneous"],
+    );
+}

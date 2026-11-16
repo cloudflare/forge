@@ -218,3 +218,145 @@ fn update_on_non_empty_array_keeps_order() {
 
     assert_eq!(doc["paths"]["/a"]["get"]["tags"], serde_json::json!(["a", "b", "c"]));
 }
+
+// --- Target homogeneity for `update` ------------------------------------
+//
+// 1.1 §5 / 1.2 §5. When `update`'s target selects multiple nodes they must
+// all be the same category (object, array, or primitive). Mixed selections
+// are rejected because the applicable rule depends on the category.
+
+/// 1.1+ Update. Mixed target (object + array) → rejected.
+#[test]
+fn v11_update_target_mixed_object_and_array_is_rejected() {
+    let (spec, ov) = crate::common::files(
+        "v11-update-mixed-obj-arr",
+        crate::common::SPEC,
+        r#"{
+  "overlay": "1.1.0",
+  "info": {"title": "fix", "version": "1"},
+  "actions": [
+    {"target": "$.paths[\"/a\"].get", "update": {"tags": ["x"]}},
+    {"target": "$.paths[\"/a\"].get[?@]", "update": {"summary": "s"}}
+  ]
+}"#,
+    );
+
+    crate::common::failed_with(
+        crate::common::overlay(&[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap()], ""),
+        &["target", "nodes", "same category", "mixed", "homogeneous"],
+    );
+}
+
+/// 1.1+ Update. Mixed target (object + primitive) → rejected.
+#[test]
+fn v11_update_target_mixed_object_and_primitive_is_rejected() {
+    let (spec, ov) = crate::common::files(
+        "v11-update-mixed-obj-prim",
+        crate::common::SPEC,
+        r#"{
+  "overlay": "1.1.0",
+  "info": {"title": "fix", "version": "1"},
+  "actions": [{"target": "$.info[?@]", "update": "new-value"}]
+}"#,
+    );
+
+    crate::common::failed_with(
+        crate::common::overlay(&[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap()], ""),
+        &["target", "nodes", "same category", "mixed", "homogeneous"],
+    );
+}
+
+/// 1.1+ Update. Mixed target (array + primitive) → rejected.
+#[test]
+fn v11_update_target_mixed_array_and_primitive_is_rejected() {
+    let (spec, ov) = crate::common::files(
+        "v11-update-mixed-arr-prim",
+        crate::common::SPEC,
+        r#"{
+  "overlay": "1.1.0",
+  "info": {"title": "fix", "version": "1"},
+  "actions": [
+    {"target": "$.paths[\"/a\"].get", "update": {"tags": ["a"], "summary": "s"}},
+    {"target": "$.paths[\"/a\"].get[?@.tags || @.summary]", "update": "x"}
+  ]
+}"#,
+    );
+
+    crate::common::failed_with(
+        crate::common::overlay(&[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap()], ""),
+        &["target", "nodes", "same category", "mixed", "homogeneous"],
+    );
+}
+
+// --- Value-type matrix: primitive targets in 1.1+ -----------------------
+
+/// 1.1+ Update. A primitive target with an array update value is rejected
+/// — primitives must be replaced by primitives.
+#[test]
+fn v11_update_primitive_target_with_array_is_rejected() {
+    let (spec, ov) = crate::common::files(
+        "v11-primitive-target-with-array",
+        crate::common::SPEC,
+        r#"{
+  "overlay": "1.1.0",
+  "info": {"title": "fix", "version": "1"},
+  "actions": [{"target": "$.info.title", "update": [1, 2]}]
+}"#,
+    );
+
+    crate::common::failed_with(
+        crate::common::overlay(&[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap()], ""),
+        &["primitive", "scalar", "update", "target"],
+    );
+}
+
+// --- Value-type matrix: incompatible nested property types --------------
+
+/// 1.1+ Update. When update and target disagree on a nested property's
+/// category (one is a primitive, the other an object), the update is
+/// rejected — there is no sensible merge rule.
+#[test]
+fn v11_update_incompatible_nested_property_type_is_rejected() {
+    // info.title is a string in SPEC; the overlay tries to merge an object
+    // onto it under the shared `title` key of the parent object update.
+    let (spec, ov) = crate::common::files(
+        "v11-incompatible-nested-type",
+        crate::common::SPEC,
+        r#"{
+  "overlay": "1.1.0",
+  "info": {"title": "fix", "version": "1"},
+  "actions": [{
+    "target": "$.info",
+    "update": {"title": {"nested": "object"}}
+  }]
+}"#,
+    );
+
+    crate::common::failed_with(
+        crate::common::overlay(&[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap()], ""),
+        &["type", "incompatible", "primitive", "object", "merge"],
+    );
+}
+
+/// 1.1+ Update. The complementary case: the target property is an object
+/// but the update tries to replace it with a primitive.
+#[test]
+fn v11_update_object_property_with_primitive_is_rejected() {
+    let (spec, ov) = crate::common::files(
+        "v11-object-property-with-primitive",
+        crate::common::SPEC,
+        r#"{
+  "overlay": "1.1.0",
+  "info": {"title": "fix", "version": "1"},
+  "actions": [{
+    "target": "$.paths[\"/a\"]",
+    "update": {"get": "not-an-object"}
+  }]
+}"#,
+    );
+
+    crate::common::failed_with(
+        crate::common::overlay(&[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap()], ""),
+        &["type", "incompatible", "primitive", "object", "merge"],
+    );
+}
