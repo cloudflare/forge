@@ -112,25 +112,7 @@ fn remove_wins_over_update() {
 #[test]
 fn remove_drops_primitive_valued_property() {
     let doc = apply(
-        "d1-remove-primitive-string",
-        r#"{
-  "overlay": "1.0.0",
-  "info": {"title": "fix", "version": "1"},
-  "actions": [{"target": "$.info.title", "remove": true}]
-}"#,
-    );
-
-    assert!(doc["info"].get("title").is_none(), "title key was dropped");
-    assert_eq!(doc["info"]["version"], "1", "siblings untouched");
-}
-
-/// D1 (continued). `remove: true` works on any primitive type, matching the
-/// OAI `remove-example` fixture which removes a string. A more realistic
-/// case: dropping the `operationId` of an operation.
-#[test]
-fn remove_drops_operation_id() {
-    let doc = apply(
-        "d1-remove-operation-id",
+        "d1-remove-primitive",
         r#"{
   "overlay": "1.0.0",
   "info": {"title": "fix", "version": "1"},
@@ -138,6 +120,6 @@ fn remove_drops_operation_id() {
 }"#,
     );
 
-    assert!(doc["paths"]["/a"]["get"].get("operationId").is_none());
-    assert!(doc["paths"]["/a"]["get"].get("responses").is_some(), "the rest of the op is intact");
+    assert!(doc["paths"]["/a"]["get"].get("operationId").is_none(), "operationId was dropped");
+    assert!(doc["paths"]["/a"]["get"].get("responses").is_some(), "siblings untouched");
 }

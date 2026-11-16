@@ -122,6 +122,57 @@ fn mode_a_extends_missing_file_names_the_path() {
     assert!(err.contains("does-not-exist.json"), "{err}");
 }
 
+/// Mode A. `extends` without a leading `./` — a bare filename — is also a
+/// valid relative URI reference per RFC 3986 and is resolved against the
+/// overlay file's directory. Matches the OAI `remove-server` fixture
+/// convention.
+#[test]
+fn mode_a_extends_bare_filename() {
+    let dir = dir("mode-a-bare-filename");
+    fs::write(dir.join("spec.json"), SPEC).unwrap();
+    fs::write(
+        dir.join("overlay.json"),
+        r#"{
+  "overlay": "1.0.0",
+  "info": {"title": "fix", "version": "1"},
+  "extends": "spec.json",
+  "actions": [{"target": "$.info", "update": {"description": "d"}}]
+}"#,
+    )
+    .unwrap();
+
+    let out = overlay(&[dir.join("overlay.json").to_str().unwrap()], "");
+    succeeded(&out);
+    let doc: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    assert_eq!(doc["info"]["description"], "d");
+}
+
+/// Mode A. `--write` is not meaningful: we are not told which file to
+/// rewrite (the overlay is input, the spec is pulled from `extends` and is
+/// just read). Reject with a message that names `--overlay` as the way to
+/// get the spec-on-CLI semantics that `--write` expects.
+#[test]
+fn mode_a_with_write_is_rejected() {
+    let dir = dir("mode-a-write");
+    fs::write(dir.join("spec.json"), SPEC).unwrap();
+    fs::write(
+        dir.join("overlay.json"),
+        r#"{
+  "overlay": "1.0.0",
+  "info": {"title": "fix", "version": "1"},
+  "extends": "./spec.json",
+  "actions": [{"target": "$.info", "update": {"description": "d"}}]
+}"#,
+    )
+    .unwrap();
+
+    let err = failed(overlay(&[dir.join("overlay.json").to_str().unwrap(), "--write"], ""));
+    assert!(
+        err.to_lowercase().contains("write") || err.to_lowercase().contains("--overlay"),
+        "{err}"
+    );
+}
+
 // --- Mode B: spec on the CLI, one or more `--overlay` files --------------
 
 /// Mode B. `forge overlay <spec> --overlay <overlay>` applies the overlay
@@ -342,25 +393,36 @@ fn no_input_is_rejected() {
     assert!(err.to_lowercase().contains("required") || err.contains('<'), "{err}");
 }
 
-/// Mode B requires at least one `--overlay`; a lone spec is ambiguous and
-/// rejected (in Mode A the lone positional is the overlay, so this test
-/// reaches the rejection via a positional that is not an overlay).
+/// `forge overlay` without `--overlay` treats the positional as an overlay
+/// document. A positional that is not an overlay (e.g. an OpenAPI spec) is
+/// rejected with a message pointing authors at `--overlay` or at adding
+/// `overlay: "1.0.0"` to their file.
 #[test]
-fn mode_b_without_overlay_flag_errors_if_positional_is_a_spec() {
-    let (spec, _ov) = files(
-        "b-no-overlay",
-        SPEC,
-        r#"{
-  "overlay": "1.0.0",
-  "info": {"title": "fix", "version": "1"},
-  "actions": [{"target": "$.info", "update": {"description": "d"}}]
-}"#,
-    );
+fn positional_that_is_not_an_overlay_is_rejected() {
+    let dir = dir("positional-is-spec");
+    let spec_file = dir.join("spec.json");
+    fs::write(&spec_file, SPEC).unwrap();
 
-    let err = failed(overlay(&[spec.to_str().unwrap()], ""));
+    let err = failed(overlay(&[spec_file.to_str().unwrap()], ""));
     assert!(
         err.to_lowercase().contains("overlay") || err.to_lowercase().contains("not an overlay"),
         "{err}"
+    );
+}
+
+/// A positional that is neither an OpenAPI spec nor an Overlay document
+/// (e.g. unrelated JSON) is rejected with a message that names both
+/// possibilities, so authors know what the subcommand expected.
+#[test]
+fn positional_that_is_neither_spec_nor_overlay_is_rejected() {
+    let dir = dir("positional-neither");
+    let other = dir.join("other.json");
+    fs::write(&other, r#"{"some": "unrelated", "document": true}"#).unwrap();
+
+    let err = failed(overlay(&[other.to_str().unwrap()], ""));
+    assert!(
+        err.to_lowercase().contains("overlay") || err.to_lowercase().contains("openapi"),
+        "message names what was expected: {err}"
     );
 }
 
