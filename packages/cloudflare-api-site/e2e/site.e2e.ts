@@ -120,32 +120,38 @@ test('operation links its agent Markdown, which carries the cURL sample', async 
   expect(markdown).toContain('/accounts/{account_id}/devices/ip-profiles');
 });
 
-test('a Terraform-backed operation shows its declarations only with the Terraform sample', async ({
-  page,
-  request,
-}) => {
+test('the Terraform view shows the declarations in place of the HTTP reference', async ({ page, request }) => {
   await page.goto('/api/dns/records/methods/create/');
-  await expect(page.locator('[data-api-terraform]')).toBeHidden();
-  // Like the old site, the page carries the declarations only for ?lang=terraform;
-  // picking Terraform fetches them.
-  await expect(page.locator('[data-api-terraform] .forge-terraform-declaration')).toHaveCount(0);
+  await expect(page.locator('[data-api-terraform]')).toHaveCount(0);
+  await expect(page.getByRole('heading', { name: 'Returns' })).toBeVisible();
   await page.locator('[data-nb-choice-select]').selectOption('terraform');
-  await expect(
-    page.locator('[data-api-terraform]').getByRole('heading', { name: 'Terraform', exact: true }),
-  ).toBeVisible();
+  await expect(page).toHaveURL(/\/create\/\?lang=terraform$/);
   await expect(page.locator('[data-api-terraform] h3').first()).toContainText('cloudflare_dns_record');
-  await page.goto('/api/dns/records/methods/create/?lang=terraform');
-  await expect(page.locator('[data-api-terraform]')).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Authorization' })).toHaveCount(0);
+  await expect(page.getByRole('heading', { name: 'Returns' })).toHaveCount(0);
   const markdown = await (await request.get('/api/dns/records/methods/create/index.md')).text();
   expect(markdown).toContain('```terraform');
 });
 
-test('a link to a Terraform heading lands once the declarations load', async ({ page }) => {
+test('the Terraform view follows links, and another sample leaves it', async ({ page }) => {
+  await page.goto('/api/dns/records/methods/create/?lang=terraform');
+  await page
+    .locator('[data-nb-api-nav]:visible')
+    .getByRole('link', { name: 'DNS Record Details', exact: true })
+    .click();
+  await expect(page).toHaveURL(/\/get\/\?lang=terraform$/);
+  await expect(page.locator('[data-api-terraform] .forge-terraform-declaration')).toHaveCount(2);
+  await page.locator('[data-nb-choice-select]').selectOption('curl');
+  await expect(page).toHaveURL(/\/get\/\?lang=curl$/);
+  await expect(page.getByRole('heading', { name: 'Returns' })).toBeVisible();
+  await expect(page.locator('[data-api-terraform]')).toHaveCount(0);
+  // Terraform is never the saved sample: a plain URL opens the HTTP reference.
   await page.goto('/api/dns/records/methods/create/');
-  await page.locator('[data-nb-choice-select]').selectOption('terraform');
-  await expect(page.locator('#terraform-1 a.heading-anchor')).toHaveAttribute('href', /\?lang=terraform#terraform-1$/);
-  // The saved choice brings Terraform back on a URL without ?lang, which fetches the declarations.
-  await page.goto('/api/dns/records/methods/create/#terraform-1');
+  await expect(page.locator('[data-api-terraform]')).toHaveCount(0);
+});
+
+test('a link to a Terraform heading lands on it', async ({ page }) => {
+  await page.goto('/api/dns/records/methods/create/?lang=terraform#terraform-1');
   await expect(page.locator('#terraform-1')).toBeInViewport();
 });
 
