@@ -1,0 +1,68 @@
+---
+title: Plugin quickstart
+description: Write a plugin in TypeScript, build it into a WebAssembly component, and run it on a document.
+sidebar:
+  order: 2
+  label: Quickstart
+---
+
+Forge's built-in targets are plugins, and writing your own takes one file. This page writes one in
+TypeScript, runs it on the pet store document from the [quickstart](/start/quickstart/#1-write-a-document),
+and shows what it writes. Save that document as `openapi.json` first.
+
+## Write the plugin
+
+This plugin writes a README, and a table of the methods of every group that has any:
+
+```ts title="plugin.ts"
+import { definePlugin } from '@cloudflare/forge/plugin';
+
+export const { generate } = definePlugin({
+  generate(forge) {
+    const readme = { path: 'README.md', content: `# ${forge.description}\n\nVersion ${forge.version}.\n` };
+    const pages = forge.groups.filter((group) => group.methods.length > 0).map((group) => {
+      const rows = group.methods.map((m) => `| \`${m.name.camel()}\` | \`${m.httpMethod} ${m.path}\` |`);
+      const table = ['| Method | Route |', '| --- | --- |', ...rows].join('\n');
+      return { path: `${group.path.map((n) => n.kebab()).join('/')}.md`, content: `${table}\n` };
+    });
+    return [readme, ...pages];
+  },
+});
+```
+
+`forge.groups` has every group, including the root, whose path is empty; the filter leaves out
+groups with no methods.
+
+## Build and run it
+
+Install the plugin tooling:
+
+<PackageManagers pkg="@bytecodealliance/jco" dev />
+
+Build the plugin into a WebAssembly component, and run it:
+
+<PackageManagers type="exec" pkg="forge-plugin" args="build plugin.ts --out plugin.wasm" />
+
+```sh
+forge openapi.json --target wasm://plugin.wasm --out docs
+```
+
+`docs/pets.md` now has a table of the three methods:
+
+```md title="docs/pets.md"
+| Method | Route |
+| --- | --- |
+| `create` | `POST /pets` |
+| `delete` | `DELETE /pets/{pet_id}` |
+| `list` | `GET /pets` |
+```
+
+The plugin ran sandboxed: it could read the document's model and nothing else, and the only thing
+it could do was return files.
+
+## Next
+
+- [The model](/concepts/the-model/): what `group`, `method` and `type` give you.
+- [TypeScript plugins](/plugins/typescript/): the full guide, including the printer that writes
+  imports for you.
+- [Rust plugins](/plugins/rust/): native or compiled to WebAssembly.

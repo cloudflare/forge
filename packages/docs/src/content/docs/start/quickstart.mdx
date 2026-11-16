@@ -1,12 +1,12 @@
 ---
 title: Quickstart
-description: Write a small OpenAPI document, generate a TypeScript SDK and MCP tools from it, and run a plugin of your own.
+description: Write a small OpenAPI document, and generate a TypeScript SDK and MCP tools from it.
 sidebar:
   order: 3
 ---
 
-This page takes one small document through every kind of target Forge has: the built-in
-TypeScript SDK, the built-in MCP tools, and a plugin you write yourself. It assumes Forge is
+This page takes one small document through Forge's built-in targets: the TypeScript SDK and the MCP
+tools. To write a target of your own, see the [plugin quickstart](/plugins/quickstart/). It assumes Forge is
 [installed](/start/installation/) and on your path as `forge`, through `npx forge` or a local build.
 
 ## 1. Write a document
@@ -205,58 +205,9 @@ Its tools are `pets_list`, `pets_create` and `pets_delete`. `pets_list` is marke
 `pets_delete` is marked destructive, with "This deletes the pet." in its description. See the
 [MCP target](/targets/mcp/).
 
-## 4. Write a plugin
-
-The targets above are plugins. Writing your own takes one file. This one writes a README, and a
-table of the methods of every group that has any:
-
-```ts title="plugin.ts"
-import { definePlugin } from '@cloudflare/forge/plugin';
-
-export const { generate } = definePlugin({
-  generate(forge) {
-    const readme = { path: 'README.md', content: `# ${forge.description}\n\nVersion ${forge.version}.\n` };
-    const pages = forge.groups.filter((group) => group.methods.length > 0).map((group) => {
-      const rows = group.methods.map((m) => `| \`${m.name.camel()}\` | \`${m.httpMethod} ${m.path}\` |`);
-      const table = ['| Method | Route |', '| --- | --- |', ...rows].join('\n');
-      return { path: `${group.path.map((n) => n.kebab()).join('/')}.md`, content: `${table}\n` };
-    });
-    return [readme, ...pages];
-  },
-});
-```
-
-`forge.groups` has every group, including the root, whose path is empty; the filter leaves out
-groups with no methods. Install the plugin tooling:
-
-<PackageManagers pkg="@bytecodealliance/jco" dev />
-
-Build the plugin into a WebAssembly component, and run it:
-
-<PackageManagers type="exec" pkg="forge-plugin" args="build plugin.ts --out plugin.wasm" />
-
-```sh
-forge openapi.json --target wasm://plugin.wasm --out docs
-```
-
-`docs/pets.md` now has a table of the three methods:
-
-```md title="docs/pets.md"
-| Method | Route |
-| --- | --- |
-| `create` | `POST /pets` |
-| `delete` | `DELETE /pets/{pet_id}` |
-| `list` | `GET /pets` |
-```
-
-The plugin ran sandboxed: it could read the document's model and nothing else, and the only thing
-it could do was return files.
-
 ## Next
 
-- [The model](/concepts/the-model/): what `group`, `method` and `type` give you.
-- [TypeScript plugins](/plugins/typescript/): the full guide, including the printer that writes
-  imports for you.
-- [Rust plugins](/plugins/rust/): native or compiled to WebAssembly.
+- [The TypeScript SDK](/targets/typescript/) and [MCP tools](/targets/mcp/): everything each target writes.
 - [Naming methods](/openapi/naming/): how operationIds become groups and methods.
 - [Extensions](/openapi/extensions/): the optional extensions Forge reads.
+- [Plugin quickstart](/plugins/quickstart/): write a target of your own.
