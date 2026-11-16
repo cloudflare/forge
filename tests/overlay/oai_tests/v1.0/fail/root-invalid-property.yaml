@@ -1,0 +1,7 @@
+overlay: 1.0.0
+info:
+  title: Root invalid property
+  version: 1.0.0
+actions:
+  - target: '$'
+invalidProperty: true

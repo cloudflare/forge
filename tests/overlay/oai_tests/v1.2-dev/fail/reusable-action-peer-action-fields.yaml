@@ -1,0 +1,12 @@
+overlay: 1.2.0
+info:
+  title: Reusable action must not have action fields as peer properties
+  version: 1.0.0
+components:
+  actions:
+    setDescription:
+      target: '$.info'
+      update:
+        description: Updated
+actions:
+  - target: '$'

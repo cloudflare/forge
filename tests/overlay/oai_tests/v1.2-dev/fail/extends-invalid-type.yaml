@@ -1,0 +1,7 @@
+overlay: 1.2.0
+info:
+  title: Invalid `extends` type
+  version: 1.0.0
+extends: {}
+actions:
+  - target: '$' # Root of document

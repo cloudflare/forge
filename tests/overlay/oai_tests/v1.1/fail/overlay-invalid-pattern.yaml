@@ -1,0 +1,6 @@
+overlay: '1.1'
+info:
+  title: Overlay version must match 1.1.x
+  version: 1.0.0
+actions:
+  - target: '$'

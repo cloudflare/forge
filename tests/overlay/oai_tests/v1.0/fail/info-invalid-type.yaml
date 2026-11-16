@@ -1,0 +1,4 @@
+overlay: 1.0.0
+info: invalid
+actions:
+  - target: '$'

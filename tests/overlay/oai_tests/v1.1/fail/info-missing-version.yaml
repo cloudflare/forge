@@ -1,0 +1,5 @@
+overlay: 1.1.0
+info:
+  title: Missing Info version
+actions:
+  - target: '$' # Root of document

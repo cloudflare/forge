@@ -1,0 +1,6 @@
+overlay: 1.2.0
+info:
+  title: Invalid info version type
+  version: false
+actions:
+  - target: '$'

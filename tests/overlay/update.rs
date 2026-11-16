@@ -1,6 +1,11 @@
 //! Tests for the `update` action (rules B1-B5 and C1-C2):
-//! deep merge on object targets, append on array targets, scalar overwrite,
-//! and preservation of untouched siblings.
+//! deep merge on object targets, append/concat on array targets, scalar
+//! overwrite, and preservation of untouched siblings.
+//!
+//! Array-under-object-property semantics are version-dispatched: 1.0 is
+//! silent and we replace; 1.1+ (§5) says concatenate. Array-target update
+//! is also richer in 1.1+ (an array value is concatenated, an object or
+//! primitive is appended); 1.0 always appends the value as a single entry.
 
 use crate::common::apply;
 
@@ -82,14 +87,13 @@ fn update_preserves_sibling_keys() {
     assert!(op.get("responses").is_some(), "responses stayed");
 }
 
-/// B5. When `update` names a key whose current value is an array, the value
-/// REPLACES the array (per spec: arrays are merged only when the TARGET is
-/// an array; properties of objects follow the recursive-merge rule, which
-/// does not define element-wise array merge, so a whole value replaces).
+/// B5 (1.0). When `update` names a key whose current value is an array, 1.0
+/// spec is silent on the merge rule; we **replace** the whole array. This
+/// locks in that choice for the 1.0 dispatch path.
 #[test]
-fn update_on_object_property_replaces_array_whole() {
+fn v10_update_on_object_property_replaces_array_whole() {
     let doc = apply(
-        "b5-replace-array-property",
+        "v10-b5-replace-array-property",
         r#"{
   "overlay": "1.0.0",
   "info": {"title": "fix", "version": "1"},
@@ -103,21 +107,42 @@ fn update_on_object_property_replaces_array_whole() {
     assert_eq!(doc["paths"]["/a"]["get"]["tags"], serde_json::json!(["new"]));
 }
 
-/// C1. When the target selects an array, `update` appends its value as a new
-/// entry (per section 5: "the value of this field MUST be an entry to
-/// append to the array").
+/// B5 (1.1+). The 1.1 spec explicitly defines array-under-property merge:
+/// "An array value of the `update` property is concatenated with an array
+/// value of the target property." (§5 of 1.1 and 1.2.)
 #[test]
-fn update_on_array_appends_entry() {
+fn v11_update_on_object_property_concatenates_array() {
     let doc = apply(
-        "c1-append-parameter",
+        "v11-b5-concat-array-property",
+        r#"{
+  "overlay": "1.1.0",
+  "info": {"title": "fix", "version": "1"},
+  "actions": [
+    {"target": "$.paths[\"/a\"].get", "update": {"tags": ["a", "b"]}},
+    {"target": "$.paths[\"/a\"].get", "update": {"tags": ["c"]}}
+  ]
+}"#,
+    );
+
+    assert_eq!(
+        doc["paths"]["/a"]["get"]["tags"],
+        serde_json::json!(["a", "b", "c"]),
+        "second action's array concatenated with first"
+    );
+}
+
+/// C1 (1.0). When the target selects an array, `update` appends its value as
+/// a new entry (1.0 §5: "the value of this field MUST be an entry to append
+/// to the array"). Under 1.0 an array value is appended whole, as one entry.
+#[test]
+fn v10_update_on_array_appends_entry() {
+    let doc = apply(
+        "v10-c1-append-parameter",
         r#"{
   "overlay": "1.0.0",
   "info": {"title": "fix", "version": "1"},
   "actions": [
-    {
-      "target": "$.paths[\"/a\"].get",
-      "update": {"parameters": []}
-    },
+    {"target": "$.paths[\"/a\"].get", "update": {"parameters": []}},
     {
       "target": "$.paths[\"/a\"].get.parameters",
       "update": {"name": "x", "in": "query", "schema": {"type": "string"}}
@@ -132,8 +157,51 @@ fn update_on_array_appends_entry() {
     assert_eq!(params[0]["in"], "query");
 }
 
+/// C1 (1.1+). The 1.1 spec says an array `update` value against an array
+/// target is **concatenated** (not appended whole). An object or primitive
+/// value is still appended as a single entry.
+#[test]
+fn v11_update_on_array_concatenates_array_values() {
+    let doc = apply(
+        "v11-c1-concat-array",
+        r#"{
+  "overlay": "1.1.0",
+  "info": {"title": "fix", "version": "1"},
+  "actions": [
+    {"target": "$.paths[\"/a\"].get", "update": {"tags": ["a"]}},
+    {"target": "$.paths[\"/a\"].get.tags", "update": ["b", "c"]}
+  ]
+}"#,
+    );
+
+    assert_eq!(
+        doc["paths"]["/a"]["get"]["tags"],
+        serde_json::json!(["a", "b", "c"]),
+        "array update was concatenated element-wise, not appended as a nested array"
+    );
+}
+
+/// C1 (1.1+). A non-array primitive update against an array target is
+/// still appended as a single entry.
+#[test]
+fn v11_update_on_array_appends_primitive() {
+    let doc = apply(
+        "v11-c1-append-primitive",
+        r#"{
+  "overlay": "1.1.0",
+  "info": {"title": "fix", "version": "1"},
+  "actions": [
+    {"target": "$.paths[\"/a\"].get", "update": {"tags": ["a"]}},
+    {"target": "$.paths[\"/a\"].get.tags", "update": "b"}
+  ]
+}"#,
+    );
+
+    assert_eq!(doc["paths"]["/a"]["get"]["tags"], serde_json::json!(["a", "b"]));
+}
+
 /// C2. Appending to an existing non-empty array keeps existing elements in
-/// order and adds the new entry at the end.
+/// order and adds the new entry at the end (unchanged across versions).
 #[test]
 fn update_on_non_empty_array_keeps_order() {
     let doc = apply(
@@ -142,14 +210,8 @@ fn update_on_non_empty_array_keeps_order() {
   "overlay": "1.0.0",
   "info": {"title": "fix", "version": "1"},
   "actions": [
-    {
-      "target": "$.paths[\"/a\"].get",
-      "update": {"tags": ["a", "b"]}
-    },
-    {
-      "target": "$.paths[\"/a\"].get.tags",
-      "update": "c"
-    }
+    {"target": "$.paths[\"/a\"].get", "update": {"tags": ["a", "b"]}},
+    {"target": "$.paths[\"/a\"].get.tags", "update": "c"}
   ]
 }"#,
     );

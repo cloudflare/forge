@@ -1,0 +1,7 @@
+overlay: 1.2.0
+info:
+  title: Reusable action reference must point to components actions
+  version: 1.0.0
+actions:
+  - $ref: '#/components/notActions/errorResponse'
+    target: '$.info'

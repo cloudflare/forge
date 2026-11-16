@@ -1,0 +1,7 @@
+overlay: 1.0.0
+info:
+  title: Info Extensions
+  version: 1.0.0
+  x-myInfoExtension: {}
+actions:
+  - target: '$' # Root of document

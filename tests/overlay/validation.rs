@@ -66,11 +66,11 @@ fn overlay_version_two_is_rejected() {
     assert!(err.contains("2.0"), "names the unsupported major: {err}");
 }
 
-/// A1. `1.0.x` is accepted silently; patch differences are ignored per
-/// section 3 of the specification.
+/// A1. `1.0.x`, `1.1.x`, and `1.2.x` are all fully supported and accepted
+/// silently. Patch differences are ignored per section 3 of each spec.
 #[test]
-fn overlay_version_one_dot_zero_dot_x_is_accepted_silently() {
-    for version in ["1.0.0", "1.0.1"] {
+fn supported_overlay_versions_are_accepted_silently() {
+    for version in ["1.0.0", "1.0.1", "1.1.0", "1.1.3", "1.2.0"] {
         let (spec, ov) = files(
             &format!("overlay-version-{version}"),
             SPEC,
@@ -91,22 +91,22 @@ fn overlay_version_one_dot_zero_dot_x_is_accepted_silently() {
         );
         let err = std::str::from_utf8(&out.stderr).unwrap();
         assert!(
-            !err.to_lowercase().contains("warning"),
+            !err.to_lowercase().contains("warning") && !err.to_lowercase().contains("unsupported"),
             "{version} should not warn: {err}"
         );
     }
 }
 
-/// A1. `1.1.x` is a newer minor feature set we don't implement; we still
-/// parse the document and apply the actions we understand, but log a
-/// warning on stderr so authors know we may skip features.
+/// A1. A future `1.x` minor we don't know about yet is accepted with a
+/// stderr warning: we still parse the document and apply the actions we
+/// understand, but log that we may skip unknown features.
 #[test]
-fn overlay_version_one_dot_one_is_accepted_with_a_warning() {
+fn future_overlay_minor_is_accepted_with_a_warning() {
     let (spec, ov) = files(
-        "overlay-version-1-1",
+        "overlay-version-1-9",
         SPEC,
         r#"{
-  "overlay": "1.1.0",
+  "overlay": "1.9.0",
   "info": {"title": "fix", "version": "1"},
   "actions": [{"target": "$.info", "update": {"description": "d"}}]
 }"#,
@@ -120,7 +120,7 @@ fn overlay_version_one_dot_one_is_accepted_with_a_warning() {
     );
     let err = std::str::from_utf8(&out.stderr).unwrap();
     assert!(
-        err.to_lowercase().contains("1.1"),
+        err.to_lowercase().contains("1.9"),
         "warning mentions the version: {err}"
     );
     assert!(
@@ -132,33 +132,6 @@ fn overlay_version_one_dot_one_is_accepted_with_a_warning() {
 }
 
 /// A1. A 1.1 overlay that uses the `copy` action (a 1.1-only feature not in
-/// 1.0) is rejected with a message that names the unsupported feature. We
-/// do not silently skip it and produce a plausible but incomplete document:
-/// the test locks down that choice.
-#[test]
-fn overlay_version_one_dot_one_with_copy_action_is_rejected() {
-    let (spec, ov) = files(
-        "overlay-1-1-copy",
-        SPEC,
-        r#"{
-  "overlay": "1.1.0",
-  "info": {"title": "fix", "version": "1"},
-  "actions": [
-    {"target": "$.paths[\"/a\"].get", "copy": {"to": "$.paths[\"/b\"].get"}}
-  ]
-}"#,
-    );
-
-    let err = failed_with(
-        overlay(&[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap()], ""),
-        &["copy", "1.1", "unsupported"],
-    );
-    assert!(
-        err.to_lowercase().contains("copy"),
-        "names the unsupported action: {err}"
-    );
-}
-
 /// A1. A malformed version string is rejected. The spec requires a
 /// three-component semver-like string; `1`, `1.0`, and `1.0.0-beta` are
 /// all malformed.
@@ -553,17 +526,56 @@ fn x_extensions_are_accepted_everywhere_allowed() {
     assert!(out.status.success(), "{}", std::str::from_utf8(&out.stderr).unwrap());
 }
 
-// --- H1: target/update type matrix (Overlay 1.0 section 5) --------------
+// --- H1: target/update type matrix (version-dispatched) ---------------
 
-/// H1. `update` targeting a primitive is rejected: "update... MUST be an
-/// object with the properties and values to merge with the selected node".
+/// H1 (1.0). `update` targeting a primitive is rejected under 1.0: "the
+/// result of the `target` JSONPath expression MUST be zero or more objects
+/// or arrays (not primitive types or `null` values)" (1.0 §5).
 #[test]
-fn update_targeting_a_primitive_is_rejected() {
+fn v10_update_targeting_a_primitive_is_rejected() {
     let (spec, ov) = files(
-        "primitive-target-update",
+        "v10-primitive-target-update",
         SPEC,
         r#"{
   "overlay": "1.0.0",
+  "info": {"title": "fix", "version": "1"},
+  "actions": [{"target": "$.info.title", "update": "new title"}]
+}"#,
+    );
+
+    failed_with(
+        overlay(&[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap()], ""),
+        &["primitive", "scalar", "object", "update", "target"],
+    );
+}
+
+/// H1 (1.1+). `update` on a primitive target replaces the node. Added in
+/// 1.1 §5: "If the `target` selects primitive nodes, the value of this
+/// field MUST be a primitive value to replace each selected node."
+#[test]
+fn v11_update_targeting_a_primitive_replaces_it() {
+    let doc = crate::common::apply(
+        "v11-primitive-target-update",
+        r#"{
+  "overlay": "1.1.0",
+  "info": {"title": "fix", "version": "1"},
+  "actions": [{"target": "$.info.title", "update": "new title"}]
+}"#,
+    );
+
+    assert_eq!(doc["info"]["title"], "new title");
+    assert_eq!(doc["info"]["version"], "1", "siblings preserved");
+}
+
+/// H1 (1.1+). Updating a primitive target with a non-primitive value is a
+/// type error — the 1.1 rule requires a primitive on the right-hand side.
+#[test]
+fn v11_update_targeting_a_primitive_with_object_is_rejected() {
+    let (spec, ov) = files(
+        "v11-primitive-target-with-object",
+        SPEC,
+        r#"{
+  "overlay": "1.1.0",
   "info": {"title": "fix", "version": "1"},
   "actions": [{"target": "$.info.title", "update": {"x": "y"}}]
 }"#,
@@ -571,7 +583,7 @@ fn update_targeting_a_primitive_is_rejected() {
 
     failed_with(
         overlay(&[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap()], ""),
-        &["primitive", "scalar", "object", "update", "target"],
+        &["primitive", "scalar", "update", "target"],
     );
 }
 
