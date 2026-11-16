@@ -14,13 +14,16 @@ This package is part of the repo pnpm workspace. Install once at the repo root:
 ```sh
 pnpm install
 pnpm --filter forge-docs dev      # http://localhost:4321
-pnpm --filter forge-docs build    # static output in ./dist
+pnpm --filter forge-docs build    # cf build: the Build Output in ./.cloudflare/output
 pnpm --filter forge-docs check    # astro check: types, content collections
 pnpm --filter forge-docs lint:docs
+pnpm --filter forge-docs deploy   # cf deploy
 ```
 
-`wrangler.jsonc` serves `dist/` as static assets on a Worker, with no script. It has no account or
-route yet.
+The site deploys with the [`cf` CLI](https://developers.cloudflare.com/cf/), from
+`cloudflare.config.ts`: a Worker with no script, serving the prerendered pages as static assets.
+`cf` builds Astro through the Cloudflare adapter, so `astro.config.ts` has the adapter even though
+every page is prerendered. The config has no account or domain yet.
 
 ## File layout
 
@@ -40,7 +43,7 @@ src/
 ├── pages/                   # [...slug].astro, 404, llms.txt, robots.txt, og/ (_card.ts is the card's look)
 └── styles/                  # globals.css (tokens and shell), prose.css
 public/                      # favicon, _headers
-wrangler.jsonc
+cloudflare.config.ts         # the Worker cf deploys: assets only
 ```
 
 ## Writing docs
