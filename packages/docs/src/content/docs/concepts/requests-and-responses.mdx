@@ -84,7 +84,7 @@ parameters in the order they are declared, the path item's before the operation'
 
 ### Parameter rules
 
-- A field is named after the parameter's name, unless a compatibility mode renames it. Its description is
+- A field is named after the parameter's name, unless `x-forge-parameter-name` renames it. Its description is
   the parameter's, or else its schema's.
 - An operation's parameter replaces the path item's parameter with the same name and location.
 - A placeholder in the path template that no parameter declares is a required string; a declared path

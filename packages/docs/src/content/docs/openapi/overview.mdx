@@ -53,8 +53,11 @@ has the exact rules.
 | Expose one operation as several methods | `x-forge-aliases`              | Operation       |
 | Keep a method out of listings           | `x-forge-hidden`               | Operation       |
 | Ask before calling a method             | `x-forge-require-confirmation` | Operation       |
-| Mark a field as a secret                | `x-sensitive`                  | Property schema |
-| Leave a property out                    | `x-stainless-skip`             | Property schema |
+| Name a method or group                  | `x-forge-method-name`, `x-forge-group-name` | Operation |
+| Leave an operation out                  | `x-forge-skip`                 | Operation       |
+| Rename a model, field or parameter      | `x-forge-model-name`, `x-forge-property-name`, `x-forge-parameter-name` | Schema, property schema, parameter |
+| Mark a field as a secret                | `x-forge-sensitive`            | Property schema |
+| Leave a property out                    | `x-forge-skip`                 | Property schema |
 | Pass data to your own plugin            | Any other `x-` key             | Operation       |
 
 ## Standard fields that matter
