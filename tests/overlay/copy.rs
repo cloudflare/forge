@@ -342,3 +342,273 @@ fn v11_copy_target_mixed_array_and_primitive_is_rejected() {
         &["target", "nodes", "same category", "mixed", "homogeneous"],
     );
 }
+
+// --- Value-type matrix: positives --------------------------------------
+
+/// 1.1+ Copy. Array source into array target → concatenates (same rule
+/// as array-value `update` on an array target).
+#[test]
+fn v11_copy_array_into_array_target_concatenates() {
+    let doc = apply(
+        "v11-copy-array-into-array",
+        r#"{
+  "overlay": "1.1.0",
+  "info": {"title": "fix", "version": "1"},
+  "actions": [
+    {"target": "$.paths[\"/a\"].get", "update": {"tags": ["a", "b"], "parameters": []}},
+    {"target": "$.paths[\"/a\"].get.parameters", "copy": "$.paths[\"/a\"].get.tags"}
+  ]
+}"#,
+    );
+
+    assert_eq!(
+        doc["paths"]["/a"]["get"]["parameters"],
+        serde_json::json!(["a", "b"]),
+        "array source concatenated into the (initially empty) array target"
+    );
+}
+
+/// 1.1+ Copy. Object source into array target → appended as one entry.
+#[test]
+fn v11_copy_object_into_array_target_appends_one_entry() {
+    let doc = apply(
+        "v11-copy-object-into-array",
+        r#"{
+  "overlay": "1.1.0",
+  "info": {"title": "fix", "version": "1"},
+  "actions": [
+    {"target": "$.paths[\"/a\"].get", "update": {"parameters": []}},
+    {"target": "$.components", "update": {"schemas": {"X": {"type": "string"}}}},
+    {"target": "$.paths[\"/a\"].get.parameters", "copy": "$.components.schemas.X"}
+  ]
+}"#,
+    );
+
+    let params = doc["paths"]["/a"]["get"]["parameters"].as_array().unwrap();
+    assert_eq!(params.len(), 1, "object source was appended as a single entry");
+    assert_eq!(params[0], serde_json::json!({"type": "string"}));
+}
+
+/// 1.1+ Copy. Primitive source into array target → appended as one entry.
+#[test]
+fn v11_copy_primitive_into_array_target_appends_one_entry() {
+    let doc = apply(
+        "v11-copy-primitive-into-array",
+        r#"{
+  "overlay": "1.1.0",
+  "info": {"title": "fix", "version": "1"},
+  "actions": [
+    {"target": "$.paths[\"/a\"].get", "update": {"tags": ["existing"]}},
+    {"target": "$.paths[\"/a\"].get.tags", "copy": "$.info.title"}
+  ]
+}"#,
+    );
+
+    assert_eq!(
+        doc["paths"]["/a"]["get"]["tags"],
+        serde_json::json!(["existing", "t"]),
+        "primitive source appended as a single array entry"
+    );
+}
+
+/// 1.1+ Copy. Object source into object target → recursive merge (same
+/// semantics as object `update`). Siblings of the merged keys survive.
+#[test]
+fn v11_copy_object_into_object_target_recursively_merges() {
+    let doc = apply(
+        "v11-copy-object-merges",
+        r#"{
+  "overlay": "1.1.0",
+  "info": {"title": "fix", "version": "1"},
+  "actions": [
+    {
+      "target": "$",
+      "update": {
+        "components": {
+          "schemas": {
+            "Source": {"type": "object", "properties": {"id": {"type": "string"}}},
+            "Target": {"type": "object", "properties": {"name": {"type": "string"}}}
+          }
+        }
+      }
+    },
+    {"target": "$.components.schemas.Target", "copy": "$.components.schemas.Source"}
+  ]
+}"#,
+    );
+
+    let merged = &doc["components"]["schemas"]["Target"];
+    assert_eq!(merged["type"], "object");
+    assert_eq!(
+        merged["properties"]["id"]["type"], "string",
+        "source property merged in"
+    );
+    assert_eq!(
+        merged["properties"]["name"]["type"], "string",
+        "pre-existing property preserved"
+    );
+}
+
+/// 1.2 Copy. The same object-into-object merge works under 1.2. Smoke
+/// coverage that version dispatch wires 1.2 through the same semantic
+/// path as 1.1.
+#[test]
+fn v12_copy_object_into_object_target_recursively_merges() {
+    let doc = apply(
+        "v12-copy-object-merges",
+        r#"{
+  "overlay": "1.2.0",
+  "info": {"title": "fix", "version": "1"},
+  "actions": [
+    {
+      "target": "$",
+      "update": {
+        "components": {
+          "schemas": {
+            "Source": {"type": "object", "properties": {"id": {"type": "string"}}},
+            "Target": {"type": "object", "properties": {"name": {"type": "string"}}}
+          }
+        }
+      }
+    },
+    {"target": "$.components.schemas.Target", "copy": "$.components.schemas.Source"}
+  ]
+}"#,
+    );
+
+    let merged = &doc["components"]["schemas"]["Target"];
+    assert_eq!(merged["properties"]["id"]["type"], "string");
+    assert_eq!(merged["properties"]["name"]["type"], "string");
+}
+
+/// 1.1+ Copy. Zero target matches is a successful no-op.
+#[test]
+fn v11_copy_with_zero_target_matches_is_a_successful_noop() {
+    let doc = apply(
+        "v11-copy-zero-targets",
+        r#"{
+  "overlay": "1.1.0",
+  "info": {"title": "fix", "version": "1"},
+  "actions": [
+    {"target": "$.paths[\"/missing-path\"]", "copy": "$.info.title"}
+  ]
+}"#,
+    );
+
+    assert!(
+        doc["paths"].get("/missing-path").is_none(),
+        "no target was materialized"
+    );
+    assert_eq!(doc["info"]["title"], "t", "source untouched");
+}
+
+// --- Value-type matrix: cross-category negatives -----------------------
+
+/// 1.1+ Copy. Object source into primitive target → rejected.
+#[test]
+fn v11_copy_object_source_into_primitive_target_is_rejected() {
+    let (spec, ov) = files(
+        "v11-copy-obj-src-prim-tgt",
+        crate::common::SPEC,
+        r#"{
+  "overlay": "1.1.0",
+  "info": {"title": "fix", "version": "1"},
+  "actions": [
+    {"target": "$.components", "update": {"schemas": {"X": {"type": "string"}}}},
+    {"target": "$.info.title", "copy": "$.components.schemas.X"}
+  ]
+}"#,
+    );
+
+    failed_with(
+        overlay(&[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap()], ""),
+        &["copy", "primitive", "scalar", "object", "incompatible"],
+    );
+}
+
+/// 1.1+ Copy. Array source into object target → rejected.
+#[test]
+fn v11_copy_array_source_into_object_target_is_rejected() {
+    let (spec, ov) = files(
+        "v11-copy-arr-src-obj-tgt",
+        crate::common::SPEC,
+        r#"{
+  "overlay": "1.1.0",
+  "info": {"title": "fix", "version": "1"},
+  "actions": [
+    {"target": "$.paths[\"/a\"].get", "update": {"tags": ["a", "b"]}},
+    {"target": "$.info", "copy": "$.paths[\"/a\"].get.tags"}
+  ]
+}"#,
+    );
+
+    failed_with(
+        overlay(&[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap()], ""),
+        &["copy", "array", "object", "incompatible"],
+    );
+}
+
+/// 1.1+ Copy. Array source into primitive target → rejected.
+#[test]
+fn v11_copy_array_source_into_primitive_target_is_rejected() {
+    let (spec, ov) = files(
+        "v11-copy-arr-src-prim-tgt",
+        crate::common::SPEC,
+        r#"{
+  "overlay": "1.1.0",
+  "info": {"title": "fix", "version": "1"},
+  "actions": [
+    {"target": "$.paths[\"/a\"].get", "update": {"tags": ["a", "b"]}},
+    {"target": "$.info.title", "copy": "$.paths[\"/a\"].get.tags"}
+  ]
+}"#,
+    );
+
+    failed_with(
+        overlay(&[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap()], ""),
+        &["copy", "array", "primitive", "scalar", "incompatible"],
+    );
+}
+
+/// 1.1+ Copy. Primitive source into object target → rejected.
+#[test]
+fn v11_copy_primitive_source_into_object_target_is_rejected() {
+    let (spec, ov) = files(
+        "v11-copy-prim-src-obj-tgt",
+        crate::common::SPEC,
+        r#"{
+  "overlay": "1.1.0",
+  "info": {"title": "fix", "version": "1"},
+  "actions": [{"target": "$.info", "copy": "$.info.title"}]
+}"#,
+    );
+
+    failed_with(
+        overlay(&[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap()], ""),
+        &["copy", "primitive", "scalar", "object", "incompatible"],
+    );
+}
+
+/// 1.1+ Copy. Nested property-type incompatibility: the source object
+/// has a property whose value disagrees in category with the same-named
+/// target property. The merge has no sensible rule and must be rejected.
+#[test]
+fn v11_copy_nested_property_type_incompatibility_is_rejected() {
+    let (spec, ov) = files(
+        "v11-copy-nested-incompat",
+        crate::common::SPEC,
+        r#"{
+  "overlay": "1.1.0",
+  "info": {"title": "fix", "version": "1"},
+  "actions": [
+    {"target": "$.components", "update": {"schemas": {"Bad": {"responses": "oops"}}}},
+    {"target": "$.paths[\"/a\"].get", "copy": "$.components.schemas.Bad"}
+  ]
+}"#,
+    );
+
+    failed_with(
+        overlay(&[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap()], ""),
+        &["copy", "type", "incompatible", "primitive", "object"],
+    );
+}

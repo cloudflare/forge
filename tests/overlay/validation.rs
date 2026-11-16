@@ -710,7 +710,10 @@ fn v11_and_v12_info_description_is_accepted() {
 }
 
 /// §Components. `$self`, `components`, and reusable `$ref` references are
-/// 1.2-only. Each is rejected by 1.0 and 1.1.
+/// 1.2-only. Each is rejected by 1.0 and 1.1. Uses a `file:` URI so the
+/// rejection is unambiguously about `$self` being an unknown top-level
+/// key, not about an http scheme (which would be rejected for a separate
+/// reason — see `extends_with_http_scheme_is_rejected_in_every_version_and_mode`).
 #[test]
 fn v10_and_v11_reject_self_identifier() {
     for version in ["1.0.0", "1.1.0"] {
@@ -720,7 +723,7 @@ fn v10_and_v11_reject_self_identifier() {
             &format!(
                 r#"{{
   "overlay": "{version}",
-  "$self": "https://example.com/overlays/fix.json",
+  "$self": "file:///identifiers/overlays/fix.json",
   "info": {{"title": "fix", "version": "1"}},
   "actions": [{{"target": "$.info", "update": {{"description": "d"}}}}]
 }}"#
@@ -888,5 +891,106 @@ fn extends_with_http_scheme_is_rejected_in_every_version_and_mode() {
                 "{scheme}/{version} Mode A names the scheme: {err}"
             );
         }
+    }
+}
+
+/// Security. `$self` with `http://` or `https://` is rejected (1.2 only
+/// — `$self` is 1.2-only; 1.0/1.1 reject it as an unknown top-level key
+/// regardless of scheme). Rejection is independent of invocation mode.
+#[test]
+fn self_with_http_scheme_is_rejected_in_every_mode() {
+    for scheme in ["http", "https"] {
+        // Mode B
+        let (spec, ov) = files(
+            &format!("mode-b-self-{scheme}"),
+            SPEC,
+            &format!(
+                r##"{{
+  "overlay": "1.2.0",
+  "$self": "{scheme}://example.com/overlays/fix.json",
+  "info": {{"title": "fix", "version": "1"}},
+  "actions": [{{"target": "$.info", "update": {{"description": "d"}}}}]
+}}"##
+            ),
+        );
+        let err = failed_with(
+            overlay(&[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap()], ""),
+            &["$self", "http", "scheme", "security", "policy"],
+        );
+        assert!(
+            err.to_lowercase().contains("http"),
+            "{scheme} Mode B names scheme: {err}"
+        );
+
+        // Mode A
+        let d = crate::common::dir(&format!("mode-a-self-{scheme}"));
+        std::fs::write(d.join("spec.json"), SPEC).unwrap();
+        std::fs::write(
+            d.join("overlay.json"),
+            format!(
+                r##"{{
+  "overlay": "1.2.0",
+  "$self": "{scheme}://example.com/overlays/fix.json",
+  "info": {{"title": "fix", "version": "1"}},
+  "extends": "./spec.json",
+  "actions": [{{"target": "$.info", "update": {{"description": "d"}}}}]
+}}"##
+            ),
+        )
+        .unwrap();
+        let err = failed_with(
+            overlay(&[d.join("overlay.json").to_str().unwrap()], ""),
+            &["$self", "http", "scheme", "security", "policy"],
+        );
+        assert!(
+            err.to_lowercase().contains("http"),
+            "{scheme} Mode A names scheme: {err}"
+        );
+    }
+}
+
+/// Security. Proves that forge issues ZERO network connections even
+/// when offered an http(s) `extends`. We bind a TCP listener on a
+/// loopback port and put its URL in `extends`. If forge attempts to
+/// fetch, the listener's accept queue will show it. Forge must reject
+/// before touching the network, so accept() returns `WouldBlock`.
+#[test]
+fn extends_http_is_rejected_before_any_network_connection() {
+    use std::net::TcpListener;
+
+    // Bind on 127.0.0.1:0 and extract the port the OS gave us.
+    let listener = TcpListener::bind("127.0.0.1:0").expect("bind loopback listener");
+    let port = listener.local_addr().unwrap().port();
+    listener.set_nonblocking(true).unwrap();
+
+    let (spec, ov) = files(
+        "no-network-connection",
+        SPEC,
+        &format!(
+            r#"{{
+  "overlay": "1.2.0",
+  "info": {{"title": "fix", "version": "1"}},
+  "extends": "http://127.0.0.1:{port}/openapi.json",
+  "actions": [{{"target": "$.info", "update": {{"description": "d"}}}}]
+}}"#
+        ),
+    );
+
+    let err = failed_with(
+        overlay(&[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap()], ""),
+        &["extends", "http", "scheme", "security", "policy", "network"],
+    );
+    assert!(err.to_lowercase().contains("http"), "error names the scheme: {err}");
+
+    // Verify the listener's accept queue is empty — forge never connected.
+    match listener.accept() {
+        Err(ref e) if e.kind() == std::io::ErrorKind::WouldBlock => {
+            // Correct: no connection was attempted.
+        }
+        Ok((_stream, peer)) => panic!(
+            "forge connected to the loopback listener from {peer} — the security policy \
+             did not reject BEFORE issuing the network connection"
+        ),
+        Err(e) => panic!("unexpected accept error: {e}"),
     }
 }

@@ -162,17 +162,20 @@ fn v12_reference_site_extension_is_accepted() {
     assert_eq!(doc["info"]["description"], "updated");
 }
 
-/// 1.2 §Components. A reference site's optional `description` overrides the
-/// reusable action's own `description` (the reference-site metadata wins).
+/// 1.2 §Components. A reference site MAY carry an optional `description`
+/// alongside a reusable action that itself carries a `description`. The
+/// overlay is accepted and the reusable action still applies.
+///
+/// **Honesty note:** the spec's override rule (reference-site description
+/// wins over the reusable action's description) governs overlay metadata
+/// that does not appear in the applied spec, so a CLI-only black-box test
+/// cannot observe the override. We retain this as an acceptance test only;
+/// the override semantics are intentionally untested at this layer and
+/// belong in an internal parser/resolver unit test when one exists.
 #[test]
-fn v12_reference_site_description_overrides_reusable_description() {
-    // We can't observe `description` in the applied spec (it's overlay
-    // metadata), so we assert the overlay is accepted and the action still
-    // applies correctly. The semantic point under test — override not merge
-    // — is verified by the fact that both `description` fields are string
-    // values and the overlay is accepted without rejecting the duplication.
+fn v12_reference_site_description_coexists_with_reusable_description() {
     let doc = apply(
-        "v12-ref-description-override",
+        "v12-ref-description-coexists",
         r##"{
   "overlay": "1.2.0",
   "info": {"title": "fix", "version": "1"},
@@ -188,7 +191,7 @@ fn v12_reference_site_description_overrides_reusable_description() {
     {
       "$ref": "#/components/actions/setDescription",
       "target": "$.info",
-      "description": "reference-site description wins"
+      "description": "reference-site description"
     }
   ]
 }"##,
@@ -449,15 +452,36 @@ fn v12_reference_without_target_is_rejected() {
 // the overlay's retrieval URI is the base. Neither `$self` nor `extends`
 // may contain a URI fragment.
 
-/// 1.2 §Base URI. `$self` MAY be absolute. An absolute `$self` is accepted
-/// and the overlay applies normally in Mode B (explicit target).
+/// 1.2 §Base URI. `$self` MAY be absolute. Under Forge's restricted
+/// security profile the only safe absolute scheme is `file:` (http/https
+/// are rejected cross-version — see
+/// `validation::self_with_http_scheme_is_rejected_in_every_mode`). An
+/// absolute `file:` `$self` is accepted and the overlay applies normally
+/// in Mode B.
 #[test]
-fn v12_absolute_self_identifier_is_accepted() {
+fn v12_absolute_file_self_identifier_is_accepted() {
     let doc = apply(
-        "v12-self-absolute",
+        "v12-self-absolute-file",
         r##"{
   "overlay": "1.2.0",
-  "$self": "https://example.com/overlays/fix.overlay.json",
+  "$self": "file:///identifiers/fix.overlay.json",
+  "info": {"title": "fix", "version": "1"},
+  "actions": [{"target": "$.info", "update": {"description": "d"}}]
+}"##,
+    );
+
+    assert_eq!(doc["info"]["description"], "d");
+}
+
+/// 1.2 §Base URI. `$self` with a `urn:` scheme is also accepted — it's an
+/// identity label, never fetched.
+#[test]
+fn v12_absolute_urn_self_identifier_is_accepted() {
+    let doc = apply(
+        "v12-self-urn",
+        r##"{
+  "overlay": "1.2.0",
+  "$self": "urn:example:overlays:fix",
   "info": {"title": "fix", "version": "1"},
   "actions": [{"target": "$.info", "update": {"description": "d"}}]
 }"##,
@@ -484,12 +508,14 @@ fn v12_relative_self_identifier_is_accepted() {
 }
 
 /// 1.2 §Base URI. Neither `$self` nor `extends` may contain a URI
-/// fragment. Rejected for every `$self` form (absolute, relative,
-/// fragment-only) in Mode B.
+/// fragment. Rejected for every `$self` form (absolute `file:`, relative,
+/// fragment-only) in Mode B. Fragment validation is kept separate from
+/// scheme validation: these tests use `file:` and relative forms so a
+/// scheme-policy rejection cannot masquerade as a fragment rejection.
 #[test]
 fn v12_self_with_fragment_is_rejected_mode_b() {
     for bad in [
-        "https://example.com/overlays/fix.json#/section",
+        "file:///identifiers/fix.json#/section",
         "./fix.json#/section",
         "#frag-only",
     ] {
@@ -515,11 +541,12 @@ fn v12_self_with_fragment_is_rejected_mode_b() {
 
 /// 1.2 §Base URI. Same `$self` fragment rule, verified in Mode A (no
 /// explicit target on the command line). Document validation does not
-/// depend on how forge was invoked.
+/// depend on how forge was invoked. Uses `file:` / relative bases so the
+/// rejection is unambiguously about the fragment, not the scheme.
 #[test]
 fn v12_self_with_fragment_is_rejected_mode_a() {
     for bad in [
-        "https://example.com/overlays/fix.json#/section",
+        "file:///identifiers/fix.json#/section",
         "./fix.json#/section",
         "#frag-only",
     ] {
@@ -572,14 +599,14 @@ fn v12_extends_with_fragment_is_rejected_in_every_mode() {
         &["extends", "fragment", "#"],
     );
 
-    // Mode A: `forge overlay <overlay-path>`. Absolute.
+    // Mode A: `forge overlay <overlay-path>`. Absolute `file:` base.
     let d = dir("v12-extends-fragment-mode-a-absolute");
     fs::write(
         d.join("overlay.json"),
         r##"{
   "overlay": "1.2.0",
   "info": {"title": "fix", "version": "1"},
-  "extends": "https://example.com/openapi.yaml#/paths/~1a",
+  "extends": "file:///openapi.yaml#/paths/~1a",
   "actions": [{"target": "$.info", "update": {"description": "d"}}]
 }"##,
     )
@@ -605,14 +632,15 @@ fn v12_extends_with_fragment_is_rejected_in_every_mode() {
         &["extends", "fragment", "#"],
     );
 
-    // Mode B: `forge overlay <spec> --overlay <overlay>`. Absolute.
+    // Mode B: `forge overlay <spec> --overlay <overlay>`. Absolute `file:`
+    // base.
     let (spec, ov) = files(
         "v12-extends-fragment-mode-b-absolute",
         SPEC,
         r##"{
   "overlay": "1.2.0",
   "info": {"title": "fix", "version": "1"},
-  "extends": "https://example.com/openapi.yaml#/paths/~1a",
+  "extends": "file:///openapi.yaml#/paths/~1a",
   "actions": [{"target": "$.info", "update": {"description": "d"}}]
 }"##,
     );
@@ -648,23 +676,23 @@ fn v12_mode_a_no_self_resolves_extends_against_overlay_retrieval_uri() {
 
 /// 1.2 §Base URI. Absolute `$self` paired with a relative `extends`
 /// resolves `extends` against `$self`, not against the overlay file's
-/// directory on disk. Forge supports only local target loading, so an
-/// `https:` `$self` combined with a relative `extends` produces a
-/// resolved identifier (`https://example.com/overlays/openapi.yaml`)
-/// that does not name a local file — the overlay MUST be rejected
-/// rather than silently reinterpreted as a sibling file.
+/// directory on disk. With a `file:` `$self`, the resolved identifier is
+/// a `file:` URI pointing at a path that does not exist on this
+/// machine — forge MUST error naming the resolved identifier, not
+/// silently reinterpret the reference as a sibling file.
 #[test]
 fn v12_mode_a_absolute_self_resolves_extends_against_self_not_disk() {
     let d = dir("v12-self-absolute-with-relative-extends");
-    // Put a file right next to the overlay named like the relative extends.
-    // If forge wrongly used the on-disk directory as the base it would
-    // succeed by loading this file.
+    // DECOY: a file right next to the overlay with the same relative
+    // name. If forge wrongly uses the on-disk directory as the base it
+    // succeeds by loading this file; the test will then fail because we
+    // require rejection.
     fs::write(d.join("openapi.yaml"), SPEC).unwrap();
     fs::write(
         d.join("overlay.json"),
         r##"{
   "overlay": "1.2.0",
-  "$self": "https://example.com/overlays/fix.overlay.json",
+  "$self": "file:///identifiers/overlays/fix.overlay.json",
   "info": {"title": "fix", "version": "1"},
   "extends": "openapi.yaml",
   "actions": [{"target": "$.info", "update": {"description": "d"}}]
@@ -672,17 +700,21 @@ fn v12_mode_a_absolute_self_resolves_extends_against_self_not_disk() {
     )
     .unwrap();
 
-    // The resolved identifier is `https://example.com/overlays/openapi.yaml`;
-    // the error mentions the resolved URI rather than the overlay-local
-    // path, proving no silent coercion to ./openapi.yaml happened.
+    // The resolved identifier is `file:///identifiers/overlays/openapi.yaml`;
+    // the error names the resolved path (`/identifiers/overlays/openapi.yaml`
+    // or the full `file:` URI), not the overlay-local path.
     let err = crate::common::failed(overlay(&[d.join("overlay.json").to_str().unwrap()], ""));
     assert!(
         err.to_lowercase().contains("extends"),
         "error names the offending field: {err}"
     );
     assert!(
-        err.contains("https://example.com/overlays/openapi.yaml") || err.contains("https://example.com"),
+        err.contains("/identifiers/overlays/openapi.yaml") || err.contains("file:///identifiers"),
         "error names the resolved identifier (not the overlay-local path): {err}"
+    );
+    assert!(
+        !err.contains(d.join("openapi.yaml").to_str().unwrap()),
+        "error does NOT name the decoy sibling path: {err}"
     );
 }
 
@@ -693,10 +725,10 @@ fn v12_mode_a_absolute_self_resolves_extends_against_self_not_disk() {
 #[test]
 fn v12_mode_b_extends_identifier_matches_target_self() {
     let d = dir("v12-extends-matches-target-self");
-    // The target spec is a local file that declares its own $self.
+    // Target spec declares its own `$self` as a plain identity label.
     let target_spec = r##"{
   "openapi": "3.0.3",
-  "$self": "https://example.com/openapi.yaml",
+  "$self": "file:///identifiers/openapi.yaml",
   "info": {"title": "t", "version": "1"},
   "paths": {
     "/a": {
@@ -710,12 +742,12 @@ fn v12_mode_b_extends_identifier_matches_target_self() {
     fs::write(d.join("spec.json"), target_spec).unwrap();
     fs::write(
         d.join("overlay.json"),
-        // $self is `.../overlays/fix.overlay.json`, extends is the relative
-        // `../openapi.yaml`. RFC 3986 resolves that to
-        // `https://example.com/openapi.yaml`, which matches target_spec's $self.
+        // $self is `file:///identifiers/overlays/fix.overlay.json`, extends
+        // is `../openapi.yaml`. RFC 3986 resolves that to
+        // `file:///identifiers/openapi.yaml`, which matches target_spec's $self.
         r##"{
   "overlay": "1.2.0",
-  "$self": "https://example.com/overlays/fix.overlay.json",
+  "$self": "file:///identifiers/overlays/fix.overlay.json",
   "info": {"title": "fix", "version": "1"},
   "extends": "../openapi.yaml",
   "actions": [{"target": "$.info", "update": {"description": "d"}}]
@@ -745,7 +777,7 @@ fn v12_mode_b_extends_identifier_mismatched_against_target_self_is_rejected() {
     let d = dir("v12-extends-mismatches-target-self");
     let target_spec = r##"{
   "openapi": "3.0.3",
-  "$self": "https://other.example.com/openapi.yaml",
+  "$self": "file:///identifiers/other/openapi.yaml",
   "info": {"title": "t", "version": "1"},
   "paths": {
     "/a": {
@@ -761,7 +793,7 @@ fn v12_mode_b_extends_identifier_mismatched_against_target_self_is_rejected() {
         d.join("overlay.json"),
         r##"{
   "overlay": "1.2.0",
-  "$self": "https://example.com/overlays/fix.overlay.json",
+  "$self": "file:///identifiers/overlays/fix.overlay.json",
   "info": {"title": "fix", "version": "1"},
   "extends": "../openapi.yaml",
   "actions": [{"target": "$.info", "update": {"description": "d"}}]
@@ -779,6 +811,139 @@ fn v12_mode_b_extends_identifier_mismatched_against_target_self_is_rejected() {
             "",
         ),
         &["extends", "$self", "match", "mismatch", "identifier"],
+    );
+}
+
+// --- RFC 3986 two-step resolution with local files only ----------------
+
+/// 1.2 §Base URI, two-step resolution. Overlay with a RELATIVE `$self`
+/// plus a RELATIVE `extends`: forge first resolves `$self` against the
+/// overlay's retrieval URI (= the overlay's path on disk), then resolves
+/// `extends` against the resulting `$self`.
+///
+/// Layout:
+///   tmp/
+///     canonical/openapi.yaml        <- the real target (what extends should land on)
+///     canonical/overlays/fix.json   <- NOT the overlay we invoke
+///     actual/fix.json               <- the overlay we invoke, with a decoy ./openapi.yaml next door
+///     actual/openapi.yaml           <- DECOY: present but must not be loaded
+///
+/// Overlay body:
+///   $self: "../canonical/overlays/fix.overlay.json"
+///   extends: "../openapi.yaml"
+///
+/// Step 1: resolve $self against overlay retrieval URI
+///         (`<tmp>/actual/fix.json`) → `<tmp>/canonical/overlays/fix.overlay.json`
+/// Step 2: resolve extends against resulting $self
+///         → `<tmp>/canonical/openapi.yaml`
+///
+/// If forge skips step 1 and resolves extends directly against the
+/// overlay's directory (`<tmp>/actual/`), it would load the decoy.
+#[test]
+fn v12_mode_a_relative_self_plus_relative_extends_two_step_resolution() {
+    let d = dir("v12-two-step-resolution");
+    let canonical = d.join("canonical");
+    let canonical_overlays = canonical.join("overlays");
+    let actual = d.join("actual");
+    fs::create_dir_all(&canonical_overlays).unwrap();
+    fs::create_dir_all(&actual).unwrap();
+
+    // The correct target, named differently from the decoy's contents so
+    // we can tell which file was loaded.
+    let mut canonical_spec: serde_json::Value = serde_json::from_str(SPEC).unwrap();
+    canonical_spec["info"]["title"] = serde_json::json!("canonical-target");
+    fs::write(
+        canonical.join("openapi.yaml"),
+        serde_json::to_string_pretty(&canonical_spec).unwrap(),
+    )
+    .unwrap();
+
+    // Decoy next to the overlay we invoke.
+    let mut decoy_spec: serde_json::Value = serde_json::from_str(SPEC).unwrap();
+    decoy_spec["info"]["title"] = serde_json::json!("decoy-target");
+    fs::write(
+        actual.join("openapi.yaml"),
+        serde_json::to_string_pretty(&decoy_spec).unwrap(),
+    )
+    .unwrap();
+
+    let overlay_path = actual.join("fix.json");
+    fs::write(
+        &overlay_path,
+        r##"{
+  "overlay": "1.2.0",
+  "$self": "../canonical/overlays/fix.overlay.json",
+  "info": {"title": "fix", "version": "1"},
+  "extends": "../openapi.yaml",
+  "actions": [{"target": "$.info", "update": {"description": "d"}}]
+}"##,
+    )
+    .unwrap();
+
+    let out = overlay(&[overlay_path.to_str().unwrap()], "");
+    succeeded(&out);
+    let doc: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    assert_eq!(doc["info"]["description"], "d");
+    assert_eq!(
+        doc["info"]["title"], "canonical-target",
+        "forge loaded the canonical target (two-step resolution), NOT the decoy sibling"
+    );
+}
+
+/// 1.2 §Base URI. Mode A with no `$self`: `extends` resolves against the
+/// overlay's retrieval URI directly (one-step). A relative `extends`
+/// therefore loads a sibling file.
+#[test]
+fn v12_mode_a_no_self_loads_sibling_extends() {
+    let d = dir("v12-no-self-loads-sibling");
+    let mut target: serde_json::Value = serde_json::from_str(SPEC).unwrap();
+    target["info"]["title"] = serde_json::json!("sibling-target");
+    fs::write(d.join("openapi.yaml"), serde_json::to_string_pretty(&target).unwrap()).unwrap();
+    fs::write(
+        d.join("overlay.json"),
+        r##"{
+  "overlay": "1.2.0",
+  "info": {"title": "fix", "version": "1"},
+  "extends": "./openapi.yaml",
+  "actions": [{"target": "$.info", "update": {"description": "d"}}]
+}"##,
+    )
+    .unwrap();
+
+    let out = overlay(&[d.join("overlay.json").to_str().unwrap()], "");
+    succeeded(&out);
+    let doc: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    assert_eq!(doc["info"]["title"], "sibling-target");
+    assert_eq!(doc["info"]["description"], "d");
+}
+
+/// 1.2 §Base URI. `file:` `$self` is treated as an identity label only
+/// — forge never silently reinterprets a non-local resolved URI as a
+/// sibling filesystem path. Here the resolved `file:` path exists on
+/// disk (in the decoy directory next to the overlay) but DOES NOT match
+/// where the resolved identifier points; the error names the resolved
+/// identifier.
+#[test]
+fn v12_file_self_resolved_extends_must_name_resolved_identifier() {
+    let d = dir("v12-file-self-missing-target");
+    // Decoy present next to overlay.
+    fs::write(d.join("openapi.yaml"), SPEC).unwrap();
+    fs::write(
+        d.join("overlay.json"),
+        r##"{
+  "overlay": "1.2.0",
+  "$self": "file:///nonexistent/identifiers/overlays/fix.json",
+  "info": {"title": "fix", "version": "1"},
+  "extends": "./openapi.yaml",
+  "actions": [{"target": "$.info", "update": {"description": "d"}}]
+}"##,
+    )
+    .unwrap();
+
+    let err = crate::common::failed(overlay(&[d.join("overlay.json").to_str().unwrap()], ""));
+    assert!(
+        err.contains("/nonexistent/identifiers/overlays/openapi.yaml") || err.contains("file:///nonexistent"),
+        "error names the resolved identifier under file:///nonexistent, NOT the decoy sibling path: {err}"
     );
 }
 
