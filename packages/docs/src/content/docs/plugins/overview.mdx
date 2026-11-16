@@ -14,9 +14,12 @@ The built-in targets are plugins too. The TypeScript SDK, the Cap'n Web server a
 implementations of the same `Plugin` trait you would implement, given the same model you would get.
 Nothing about them is special except that they ship in the binary.
 
-## Three ways to write one
+## Two ways to write one
 
-| | [TypeScript or JavaScript](/plugins/typescript/) | [Rust, as WebAssembly](/plugins/rust/) | [Rust, as a library](/plugins/rust/#use-forge-as-a-library) |
+A plugin is a WebAssembly component, in TypeScript, Rust or another language, or a Rust binary that
+uses Forge as a library. `forge-plugin build` makes the component for TypeScript and JavaScript.
+
+| | [WebAssembly, from TypeScript](/plugins/typescript/) | [WebAssembly, from Rust](/plugins/rust/) | [A Rust library](/plugins/rust/#use-forge-as-a-library) |
 | --- | --- | --- | --- |
 | You write                | A module that calls `definePlugin`          | A `cdylib` that implements the WIT          | A binary that implements `forge::Plugin` |
 | You build                | `forge-plugin build plugin.ts`              | `cargo build --target wasm32-wasip2`        | `cargo build`                            |
