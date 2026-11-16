@@ -87,12 +87,11 @@ has a key to rewrite is not a minimal edit. The order of its keys is kept.
 
 ## Inspecting a document
 
-`forge inspect` prints what forge reads in a document, as JSON, without
-generating anything. `forge inspect methods` prints the methods a document
-makes, as an array. Each method has the group path and name forge gives it, in
-kebab-case, which is how forge reads `x-forge-group-name`,
-`x-forge-method-name` and `operationId`, so a tool can compare the methods of
-two versions of a document without naming them itself.
+`forge inspect` prints what forge reads in a document, as JSON.
+`forge inspect methods` prints its methods, as an array. Each method has the
+group path and name forge gives it from `x-forge-group-name`,
+`x-forge-method-name` and `operationId`, in kebab-case, so a tool can compare
+the methods of two versions of a document without naming them itself.
 
 ```sh
 npx forge inspect methods openapi.json

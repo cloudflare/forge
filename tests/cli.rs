@@ -182,8 +182,14 @@ fn inspect_methods_of_an_invalid_document() {
       "info": {"title": "t", "version": "1"},
       "paths": {
         "/a": {
-          "get": {"operationId": "a.get", "responses": {"200": {"description": "ok"}}},
-          "post": {"operationId": "a.get", "responses": {"200": {"description": "ok"}}}
+          "get": {
+            "operationId": "a.get",
+            "responses": {"200": {"description": "ok"}}
+          },
+          "post": {
+            "operationId": "a.get",
+            "responses": {"200": {"description": "ok"}}
+          }
         }
       }
     }"#;
