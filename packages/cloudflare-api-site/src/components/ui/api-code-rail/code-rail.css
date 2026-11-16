@@ -195,8 +195,9 @@
   min-width: 100%;
 }
 /* A line's full-width highlight bleeds by the pre's own padding (0.75rem
-   here, not the 1rem elsewhere), so code that fits never scrolls sideways. */
-[data-nb-api-coderail] .nb-cr-respbody pre.astro-code .line {
+   here, not the 1rem elsewhere), so code that fits never scrolls sideways:
+   the request sample as well as the response, at every width. */
+[data-nb-api-coderail] pre.astro-code .line {
   margin-inline: -0.75rem;
   padding-inline: 0.75rem;
 }
@@ -305,11 +306,5 @@
     overflow: visible;
     width: max-content;
     min-width: 100%;
-  }
-  /* A line's full-width highlight bleeds by the pre's own padding (0.75rem
-     here, not the 1rem elsewhere), so code that fits never scrolls sideways. */
-  [data-nb-api-coderail] pre.astro-code .line {
-    margin-inline: -0.75rem;
-    padding-inline: 0.75rem;
   }
 }
