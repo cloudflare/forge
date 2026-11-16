@@ -226,7 +226,7 @@ export function prepareForgeApi(
       if (terraform) op[TERRAFORM_EXTENSION] = terraform;
       const snippets = new Map(entry.snippets.map((snippet) => [snippet.targetId, snippet.code]));
       op['x-codeSamples'] = CLOUDFLARE_TARGETS.flatMap((target) => {
-        const lang = target.id === 'terraform' ? 'hcl' : target.id;
+        const lang = target.id;
         const code = snippets.get(target.id);
         if (code) return [{ lang, label: target.label, source: code }];
         if (target.id === 'terraform') {

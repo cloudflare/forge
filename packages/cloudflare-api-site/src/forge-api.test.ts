@@ -350,7 +350,7 @@ test('samples cover every target, with placeholders, one Terraform sample joinin
     [
       ['cf', 'cf CLI'],
       ['curl', 'curl'],
-      ['hcl', 'Terraform'],
+      ['terraform', 'Terraform'],
     ],
   );
   assert.match(samples[1]!.source, /curl .*\/beta\/zones/s);
@@ -370,7 +370,7 @@ test('samples cover every target, with placeholders, one Terraform sample joinin
   const listSamples = list['x-codeSamples'] as { lang: string; source: string }[];
   assert.deepEqual(
     listSamples.map((sample) => sample.lang),
-    ['cf', 'curl', 'hcl'],
+    ['cf', 'curl', 'terraform'],
   );
   assert.equal(listSamples.at(-1)!.source, '# This operation is not implemented in Terraform.');
   assert.equal(list[TERRAFORM_EXTENSION], undefined);

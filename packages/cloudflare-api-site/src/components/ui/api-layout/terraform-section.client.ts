@@ -1,6 +1,6 @@
-/** Shows the Terraform section only while the code rail's HCL sample is
+/** Shows the Terraform section only while the code rail's Terraform sample is
  *  selected, following the rail's own panel switching. A page rendered without
- *  `?lang=hcl` carries only a link to that URL; the first time Terraform is
+ *  `?lang=terraform` carries only a link to that URL; the first time Terraform is
  *  picked, the declarations are fetched from it and put in place of the link. */
 
 import { headingAnchors, mount } from "@cloudflare/nimbus-docs/client";
@@ -37,7 +37,7 @@ mount("[data-api-terraform]", (section) => {
     }
   };
   const sync = () => {
-    const chosen = panels.some((panel) => !panel.hidden && panel.dataset.nbChoiceKind === "hcl");
+    const chosen = panels.some((panel) => !panel.hidden && panel.dataset.nbChoiceKind === "terraform");
     section.hidden = !chosen;
     if (chosen) void load();
   };

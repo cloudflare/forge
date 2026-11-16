@@ -11,9 +11,8 @@ test.describe('routes', () => {
     ['/api/tags/zero-trust/', 404, 'text/html'],
     ['/api/tagging/', 200, 'text/html'],
     [operation, 200, 'text/html'],
-    [`${operation}?lang=hcl`, 200, 'text/html'],
+    [`${operation}?lang=terraform`, 200, 'text/html'],
     [`${operation}?lang=nope`, 200, 'text/html'],
-    [`${operation}?lang=terraform`, 301, '', `${operation}?lang=hcl`],
     [`${operation}?version=2026-11-30.air`, 200, 'text/html'],
     [`${operation}?version=nope`, 404, 'text/html'],
     [
@@ -121,27 +120,30 @@ test('operation links its agent Markdown, which carries the cURL sample', async 
   expect(markdown).toContain('/accounts/{account_id}/devices/ip-profiles');
 });
 
-test('a Terraform-backed operation shows its declarations only with the HCL sample', async ({ page, request }) => {
+test('a Terraform-backed operation shows its declarations only with the Terraform sample', async ({
+  page,
+  request,
+}) => {
   await page.goto('/api/dns/records/methods/create/');
   await expect(page.locator('[data-api-terraform]')).toBeHidden();
-  // Like the old site, the page carries the declarations only for ?lang=hcl;
+  // Like the old site, the page carries the declarations only for ?lang=terraform;
   // picking Terraform fetches them.
   await expect(page.locator('[data-api-terraform] .forge-terraform-declaration')).toHaveCount(0);
-  await page.locator('[data-nb-choice-select]').selectOption('hcl');
+  await page.locator('[data-nb-choice-select]').selectOption('terraform');
   await expect(
     page.locator('[data-api-terraform]').getByRole('heading', { name: 'Terraform', exact: true }),
   ).toBeVisible();
   await expect(page.locator('[data-api-terraform] h3').first()).toContainText('cloudflare_dns_record');
-  await page.goto('/api/dns/records/methods/create/?lang=hcl');
+  await page.goto('/api/dns/records/methods/create/?lang=terraform');
   await expect(page.locator('[data-api-terraform]')).toBeVisible();
   const markdown = await (await request.get('/api/dns/records/methods/create/index.md')).text();
-  expect(markdown).toContain('```hcl');
+  expect(markdown).toContain('```terraform');
 });
 
 test('a link to a Terraform heading lands once the declarations load', async ({ page }) => {
   await page.goto('/api/dns/records/methods/create/');
-  await page.locator('[data-nb-choice-select]').selectOption('hcl');
-  await expect(page.locator('#terraform-1 a.heading-anchor')).toHaveAttribute('href', /\?lang=hcl#terraform-1$/);
+  await page.locator('[data-nb-choice-select]').selectOption('terraform');
+  await expect(page.locator('#terraform-1 a.heading-anchor')).toHaveAttribute('href', /\?lang=terraform#terraform-1$/);
   // The saved choice brings Terraform back on a URL without ?lang, which fetches the declarations.
   await page.goto('/api/dns/records/methods/create/#terraform-1');
   await expect(page.locator('#terraform-1')).toBeInViewport();
