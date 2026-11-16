@@ -1,6 +1,6 @@
 ---
 title: Introduction
-description: What Forge is, the problem it solves, how it is put together, and how much of it exists today.
+description: What Forge is, the problem it solves, the OpenAPI it reads, and what it generates today.
 sidebar:
   order: 1
 ---
@@ -34,32 +34,29 @@ The generators that ship with Forge are plugins. The TypeScript SDK and the MCP 
 the same `Plugin` interface that you will, and read the same model through the same API. There is
 no privileged internal representation that only built-in targets can reach.
 
-You can write a plugin three ways:
+You can write a plugin two ways:
 
-| How                      | Language                     | Runs as                                                                |
-| ------------------------ | ---------------------------- | ---------------------------------------------------------------------- |
-| A WebAssembly component  | TypeScript or JavaScript     | `--target wasm://plugin.wasm`, built with `forge-plugin build`         |
-| A WebAssembly component  | Rust, or any component language | `--target wasm://plugin.wasm`, built for `wasm32-wasip2`            |
-| Native, in Rust          | Rust                         | A built-in `--target`, or your own binary that uses Forge as a library |
+- **As a WebAssembly component**, in any language that builds one. For TypeScript and JavaScript,
+  `forge-plugin build` does it for you. You run it with `--target wasm://plugin.wasm`.
+- **In Rust, against Forge as a library**, in a binary of your own.
 
-A WebAssembly plugin is a single file. It runs sandboxed, with no access to files, the network or
-the environment, so you can run one you did not write. See [writing plugins](/plugins/overview/).
+A WebAssembly plugin can't read files, reach the network or see the environment. It gets the model
+and returns files, and Forge writes them, only under `--out`. See
+[writing plugins](/plugins/overview/).
 
-## How it fits together
+## OpenAPI 3.0, 3.1 and 3.2
 
-Forge is a Rust crate with a command on top:
+Forge reads all three versions into the same model, so a plugin never needs to know which one a
+document was written in. Where the versions differ, Forge follows each one's rules:
 
-1. **Read.** `forge openapi.json` parses the document into arenas of its objects, keeping only what
-   it needs.
-2. **Link.** It walks the operations under `paths`, follows `$ref`s, builds the type of every
-   parameter, body and response, and turns the schemas they reach into models. Every error is
-   collected and reported together.
-3. **Run.** It calls the plugin's `generate` once, with the whole model, and gets back a list of
-   files.
-4. **Write.** It checks every path the plugin returned, renders every file, and only then writes
-   them to `--out`.
+- **Next to a `$ref`**, 3.0 ignores every other keyword. From 3.1, Forge reads them: a
+  `description`, `default`, `readOnly` or `nullable` beside a `$ref` applies to that use of it.
+- **Nullable values** are written `nullable: true` in 3.0 and as a list of types with `null` in 3.1.
+  Forge reads both, in every version, as the same nullable type.
+- **3.2** adds the `QUERY` method, `additionalOperations`, `in: querystring` parameters and a
+  discriminator's `defaultMapping`, and Forge reads each of them.
 
-[The pipeline](/concepts/pipeline/) has the detail.
+[What Forge reads](/openapi/support/) lists every keyword.
 
 ## What exists today
 
@@ -69,19 +66,14 @@ expect the model and the plugin interface to grow.
 Today:
 
 - **Input:** OpenAPI 3.0, 3.1 and 3.2, as JSON.
-- **Built-in targets:** a TypeScript SDK (`ts`), a Cap'n Web server over that SDK (`capnweb`), and
-  the tools of an MCP server, in TypeScript (`mcp`).
+- **Built-in targets:** a TypeScript SDK (`ts`), which is experimental, a Cap'n Web server over that
+  SDK (`capnweb`), and the tools of an MCP server, in TypeScript (`mcp`).
 - **Plugins:** WebAssembly components against a published WIT, with first-class libraries for
   TypeScript authors, and native plugins in Rust.
-- **Docs:** Astro packages that render API reference documentation from a Forge-annotated document.
-
-On the way, as Cloudflare ships them for its own API: more language targets (Go, Python, Rust and
-others), Terraform, and generated documentation for each. The design also leaves room for other
-input formats and for chaining one target's output into another, which is how a CLI can be built
-on top of an SDK; neither exists in the code yet.
 
 ## Next
 
 - [Installation](/start/installation/): the npm package, or a build from source.
-- [Quickstart](/start/quickstart/): generate a TypeScript SDK and MCP tools, then write a plugin.
+- [Quickstart](/start/quickstart/): generate a TypeScript SDK and MCP tools.
+- [The pipeline](/concepts/pipeline/): how a document becomes files.
 - [Writing plugins](/plugins/overview/): the part that makes Forge yours.
