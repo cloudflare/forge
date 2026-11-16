@@ -64,7 +64,7 @@ beside the new ones with `--leave-old-extensions`.
 
 | Fern extension           | On               | Becomes                                                       |
 | ------------------------ | ---------------- | ------------------------------------------------------------- |
-| `x-fern-sdk-group-name`  | Operation, alias | [`x-forge-group-name`](/openapi/extensions/#x-forge-method-name-and-x-forge-group-name); a list of names becomes a dotted string |
+| `x-fern-sdk-group-name`  | Operation, alias | [`x-forge-group-name`](/openapi/extensions/#x-forge-method-name-and-x-forge-group-name); a list of names becomes a dotted string, unless a name is empty or has a dot in it, when the list is kept |
 | `x-fern-sdk-method-name` | Operation, alias | [`x-forge-method-name`](/openapi/extensions/#x-forge-method-name-and-x-forge-group-name) |
 | `x-fern-ignore`          | Operation, alias | [`x-forge-skip`](/openapi/extensions/#x-forge-skip)           |
 | `x-fern-availability`    | Operation, alias | [`x-forge-availability`](/openapi/extensions/#x-forge-availability) |

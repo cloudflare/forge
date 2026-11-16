@@ -22,9 +22,11 @@ These go on an Operation Object, or on an alias in `x-forge-aliases`.
 
 ### x-forge-method-name and x-forge-group-name
 
-The method's name, and its group, instead of the `operationId`'s. Strings: the group as names
-separated by dots, top level first, or as an array of names. A method name with no group name is a
-method of the root group. See [groups and methods](/concepts/groups-and-methods/).
+The method's name, and its group, instead of the `operationId`'s. The method name is a string; the
+group is names separated by dots, top level first, or an array of names. They take effect together
+with `x-forge-method-name`: with it, the method is named by these two, and a method name with no group
+name is a method of the root group. Without it, `x-forge-group-name` is ignored, and both names come
+from the `operationId`. See [groups and methods](/concepts/groups-and-methods/).
 
 ```json
 "x-forge-group-name": "accounts.members",
@@ -163,6 +165,5 @@ the same group are an error; entries for groups that do not exist are ignored.
 
 ## Not read
 
-Other tools' extensions have no effect, such as `x-codeSamples`, `x-fern-*`, `x-stainless-*` and
-`x-speakeasy-*`. `forge normalize` rewrites the ones with an equivalent here: Fern's naming
-extensions, `x-stainless-skip` and `x-sensitive`.
+Other tools' extensions have no effect, such as `x-codeSamples`. `forge normalize` rewrites the ones
+with an equivalent here into it; **Compatibility Modes** in the sidebar lists them.

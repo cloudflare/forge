@@ -43,9 +43,12 @@ C++ Redistributable.
 | Windows, x64   | `x86_64-pc-windows-msvc`     |
 
 <Aside type="note" title="Installing a tarball">
-`just pack` in the repository builds the same package as a tarball in `packages/forge/dist/`. Install
-it with `npm install --save-dev /path/to/cloudflare-forge-0.1.0.tgz`, or reference it as
-`"file:../cloudflare-forge-0.1.0.tgz"` in `devDependencies`.
+In the repository, `just build <target>` (or `just build-all`, or `just fetch <run>` for a CI run's)
+puts release binaries in `target/binaries/`, and `just pack` packs them into the same package as a
+tarball in `packages/forge/dist/`. Install it by path, or reference it as
+`"file:../cloudflare-forge-0.1.0.tgz"` in `devDependencies`:
+
+<PackageManagers pkg="/path/to/cloudflare-forge-0.1.0.tgz" dev />
 </Aside>
 
 ## From source

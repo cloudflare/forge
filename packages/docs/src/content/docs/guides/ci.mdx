@@ -48,7 +48,7 @@ jobs:
           node-version: 26
       - run: npm ci
       - run: npm run generate
-      - run: git diff --exit-code -- sdk
+      - run: git add --intent-to-add sdk && git diff --exit-code -- sdk
       - run: npx tsc --noEmit
 ```
 
@@ -56,8 +56,8 @@ The last step type-checks the SDK with your project's `tsconfig.json`; the SDK w
 own.
 
 `git diff --exit-code` fails with the diff in the log when the document changed and the SDK was not
-regenerated. Untracked new files are not in `git diff`; add `git status --porcelain -- sdk` and fail
-on output if new groups matter to you.
+regenerated. `git add --intent-to-add` comes first so that new files, such as a new group's, are in
+the diff too.
 
 The `timeout-minutes` matters for plugins: Forge does not time out a WebAssembly plugin, so one that
 loops would hold the job.

@@ -81,7 +81,7 @@ parameters.
 | Keyword | |
 | --- | --- |
 | `type`, including a list of types | Read. |
-| `format` | Read for `date-time`, `date`, `byte`, `binary`, and the [number formats](/concepts/types/#numbers); others are strings. |
+| `format` | Read for `date-time`, `date`, `uuid`, `byte`, `binary`, and the [number formats](/concepts/types/#numbers); others are strings. |
 | `contentEncoding: base64` | Read, as bytes. |
 | `nullable` | Read, in every version. |
 | `enum`, `const` | Read. An `enum` with an object or array value is unknown. |
@@ -90,7 +90,7 @@ parameters.
 | `unevaluatedProperties` | Read on an `allOf`. |
 | `patternProperties` | Ignored. |
 | `items` | Read. |
-| `maxItems` | Read. |
+| `minItems`, `maxItems` | Read. |
 | `prefixItems` | Not covered yet: the type is unknown. |
 | `allOf`, `anyOf`, `oneOf` | Read, and [normalized](/concepts/types/#intersections). |
 | `not` | Ignored, as a constraint. |
@@ -101,11 +101,12 @@ parameters.
 | `default` | Read, as written. |
 | `deprecated`, `readOnly` | Read. |
 | `writeOnly` | Ignored. |
-| `minimum`, `maximum`, `minLength`, `maxLength`, `pattern`, `minItems`, `uniqueItems` | Ignored. |
+| `minimum`, `maximum`, `minLength`, `maxLength`, `pattern`, `uniqueItems` | Ignored. |
 | `example`, `examples`, `xml`, `externalDocs` | Ignored. |
 | `if`, `then`, `else`, `dependentSchemas` | Ignored. |
 
-In 3.0, keywords next to a `$ref` are ignored, as the specification says. From 3.1, they are read:
+In 3.0, keywords next to a `$ref` are ignored, as the specification says, except
+`x-forge-sensitive`, which counts in every version. From 3.1, they are read:
 see [types](/concepts/types/#models).
 
 ## Extensions

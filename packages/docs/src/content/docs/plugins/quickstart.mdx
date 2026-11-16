@@ -23,21 +23,23 @@ export const { generate } = definePlugin({
     const pages = forge.groups.filter((group) => group.methods.length > 0).map((group) => {
       const rows = group.methods.map((m) => `| \`${m.name.camel()}\` | \`${m.httpMethod} ${m.path}\` |`);
       const table = ['| Method | Route |', '| --- | --- |', ...rows].join('\n');
-      return { path: `${group.path.map((n) => n.kebab()).join('/')}.md`, content: `${table}\n` };
+      const path = group.path.length > 0 ? group.path.map((n) => n.kebab()).join('/') : 'index';
+      return { path: `${path}.md`, content: `${table}\n` };
     });
     return [readme, ...pages];
   },
 });
 ```
 
-`forge.groups` has every group, including the root, whose path is empty; the filter leaves out
-groups with no methods.
+`forge.groups` has every group, including the root, whose path is empty, so its table goes in
+`index.md`; the filter leaves out groups with no methods.
 
 ## Build and run it
 
-Install the plugin tooling:
+Install Forge's npm package, which has `forge-plugin` and the `@cloudflare/forge/plugin` library,
+and jco, which `forge-plugin build` uses:
 
-<PackageManagers pkg="@bytecodealliance/jco" dev />
+<PackageManagers pkg="https://pkg.pr.new/cloudflare/forge/@cloudflare/forge@main @bytecodealliance/jco" dev />
 
 Build the plugin into a WebAssembly component, and run it:
 
@@ -57,8 +59,9 @@ forge openapi.json --target wasm://plugin.wasm --out docs
 | `list` | `GET /pets` |
 ```
 
-The plugin ran sandboxed: it could read the document's model and nothing else, and the only thing
-it could do was return files.
+The plugin ran sandboxed: it read the document's model, and returned files for Forge to write. It
+could not read files, reach the network or see the environment; see
+[the sandbox](/concepts/sandbox/) for exactly what it has.
 
 ## Next
 

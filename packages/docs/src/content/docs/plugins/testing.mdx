@@ -29,14 +29,14 @@ forge test/fixtures/unions.json --target wasm://plugin.wasm --out test/out/union
 
 ## 2. Snapshots
 
-Commit the generated output, and fail the test when it changes. A plain `git diff --exit-code` after
-regenerating is enough:
+Commit the generated output, and fail the test when it changes. `git diff --exit-code` after
+regenerating does it; `git add --intent-to-add` first puts new files in the diff too:
 
 ```sh
 rm -rf test/out && for spec in test/fixtures/*.json; do
   forge "$spec" --target wasm://plugin.wasm --out "test/out/$(basename "$spec" .json)"
 done
-git diff --exit-code test/out
+git add --intent-to-add test/out && git diff --exit-code test/out
 ```
 
 Remove the output directory first: Forge does not delete files it no longer generates, so a stale

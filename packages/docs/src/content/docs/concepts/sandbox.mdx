@@ -56,6 +56,9 @@ write outside `--out`, on any platform:
 forge: "../evil.txt" is not a relative path with `/` separators
 ```
 
+The check is on the path, not the disk: Forge writes through any symbolic link already in `--out`.
+Point `--out` at a directory Forge owns, such as a fresh one, not one with links you didn't make.
+
 A plugin that returns an error, or traps, stops the run before anything is written. See
 [the pipeline](/concepts/pipeline/#4-write).
 

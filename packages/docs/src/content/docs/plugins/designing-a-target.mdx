@@ -46,8 +46,8 @@ not as a Rust function.
 passes, and `location()` routes each field. Most targets take it as one argument. Decide:
 
 - **Flat or nested body?** Forge already merges an object body into the request when it can, and
-  falls back to a `body` field. The TypeScript target follows that exactly; so does the MCP target,
-  for tool arguments.
+  falls back to a `body` field. The TypeScript target follows that exactly. The MCP target doesn't:
+  its tools take separate `path`, `query`, `headers` and `body` arguments.
 - **Headers.** They are apart from the request. The TypeScript client sets `Authorization` from a
   token and lets a caller pass other headers per call. The MCP target makes header parameters an
   argument of their own, `headers`, beside `path`, `query` and `body`.
