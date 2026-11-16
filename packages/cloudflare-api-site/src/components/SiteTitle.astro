@@ -1,15 +1,7 @@
 ---
 import logo from '../assets/cloudflare-logo.svg';
-import { base } from 'astro:config/server';
+import { homeHref, siteLinks as links } from '../site-links.ts';
 import CloudflareWordmark from './CloudflareWordmark.astro';
-
-const homeHref = base === '/' ? '/' : `${base.replace(/\/+$/, '')}/`;
-const links = [
-  { label: 'Directory', href: 'https://developers.cloudflare.com/directory/' },
-  { label: 'API', href: homeHref, active: true },
-  { label: 'SDKs', href: 'https://developers.cloudflare.com/fundamentals/api/reference/sdks/' },
-  { label: 'Changelog', href: 'https://developers.cloudflare.com/changelog/' },
-];
 ---
 
 <div class="cloudflare-site-title">
@@ -39,7 +31,6 @@ const links = [
 
   .cloudflare-site-title {
     min-width: 0;
-    gap: 1rem;
   }
 
   .cloudflare-brand {
@@ -116,9 +107,22 @@ const links = [
     }
   }
 
-  @media (min-width: 64rem) {
+  /* From tablet width the links fit beside the brand; below it, the phone
+     menu lists them (SiteLinks). */
+  @media (min-width: 48rem) {
     nav {
       display: flex;
+    }
+  }
+
+  @media (min-width: 64rem) {
+    .cloudflare-site-title {
+      display: grid;
+      grid-template-columns: calc(var(--nb-sidebar-width) - var(--site-header-inset)) auto;
+    }
+
+    .cloudflare-brand {
+      justify-self: start;
     }
   }
 </style>

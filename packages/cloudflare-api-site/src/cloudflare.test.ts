@@ -219,6 +219,51 @@ test('curl: POST adds verb, content-type and a body built from required leaves',
   assert.deepEqual(JSON.parse(payload), { name: '<name>', type: 'A' });
 });
 
+test("curl: a body with no required fields shows its first option's fields, not {}", () => {
+  const input: SnippetInput = {
+    ...createInput,
+    op: op({
+      method: 'post',
+      requestBody: {
+        required: true,
+        representations: [
+          {
+            mediaType: 'application/json',
+            schema: {
+              name: '',
+              required: true,
+              type: 'object',
+              variants: [
+                {
+                  name: 'A Record',
+                  required: false,
+                  type: 'object',
+                  children: [
+                    { name: 'name', required: false, type: 'string', apiFieldPath: ['name'] },
+                    { name: 'type', required: false, type: 'string', apiFieldPath: ['type'], enumValues: ['A'] },
+                    { name: 'ttl', required: false, type: 'number', apiFieldPath: ['ttl'] },
+                    {
+                      name: 'flatten_cname',
+                      required: false,
+                      type: 'boolean',
+                      apiFieldPath: ['settings', 'flatten_cname'],
+                    },
+                  ],
+                },
+              ],
+            },
+          },
+        ],
+      },
+    }),
+  };
+  const payload = cloudflareSnippetsByTarget(input)
+    .get('curl')
+    ?.match(/-d '(.+)'/)?.[1];
+  assert.ok(payload);
+  assert.deepEqual(JSON.parse(payload), { name: '<name>', type: 'A', ttl: 0 });
+});
+
 test('optional request bodies remain present in examples when the endpoint declares one', () => {
   const optionalInput: SnippetInput = {
     ...createInput,

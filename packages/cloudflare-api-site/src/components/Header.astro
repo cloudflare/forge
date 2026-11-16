@@ -2,7 +2,7 @@
 import Icon from '@cloudflare/nimbus-docs/components/Icon.astro';
 import { ThemeToggle } from './ui/theme-toggle';
 import SiteTitle from './SiteTitle.astro';
-import VersionSelect from './VersionSelect.astro';
+import { VersionSwitcher } from './ui/version-switcher';
 
 interface Props {
   /** Whether the page has a sidebar the mobile menu button can open. */
@@ -19,7 +19,7 @@ const { showSidebar = true } = Astro.props;
     </div>
 
     <div class="site-header-actions">
-      <VersionSelect />
+      <VersionSwitcher apiCollection="api" />
       <ThemeToggle />
       {
         showSidebar && (
@@ -44,12 +44,13 @@ const { showSidebar = true } = Astro.props;
   }
 
   .site-header-bar {
+    --site-header-inset: 1rem;
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 0.75rem;
-    height: 3.5rem;
-    padding-inline: 1rem;
+    height: var(--nb-header-height);
+    padding-inline: var(--site-header-inset);
   }
 
   .site-header-brand {
@@ -99,7 +100,7 @@ const { showSidebar = true } = Astro.props;
 
   @media (min-width: 64rem) {
     .site-header-bar {
-      padding-inline: 1.5rem;
+      --site-header-inset: 1.5rem;
     }
   }
 </style>

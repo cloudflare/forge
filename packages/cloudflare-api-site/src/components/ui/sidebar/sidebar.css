@@ -1,9 +1,10 @@
 /*
  * Sidebar tree. Rows carry no classes or data attributes — the API sidebar has
  * thousands of them per page — so everything is styled structurally under the
- * `[data-nb-sidebar]` root.
+ * `[data-nb-sidebar]` and `[data-nb-api-nav]` roots; the filter's results
+ * (`[data-nb-nav-results]`) take the same row styles.
  */
-[data-nb-sidebar] ul {
+:is([data-nb-sidebar], [data-nb-api-nav]) ul {
   display: flex;
   flex-direction: column;
   gap: 1px;
@@ -12,18 +13,18 @@
   list-style: none;
 }
 
-[data-nb-sidebar] .top-level {
+:is([data-nb-sidebar], [data-nb-api-nav]) .top-level {
   gap: 0.125rem;
 }
 
-[data-nb-sidebar] details > ul {
+:is([data-nb-sidebar], [data-nb-api-nav]) details > ul {
   margin: 0.125rem 0 0 0.75rem;
   border-inline-start: 1px solid var(--nb-border);
   padding-inline-start: 0.5rem;
 }
 
-[data-nb-sidebar] li > a,
-[data-nb-sidebar] summary {
+:is([data-nb-sidebar], [data-nb-api-nav], [data-nb-nav-results]) li > a,
+:is([data-nb-sidebar], [data-nb-api-nav]) summary {
   display: flex;
   align-items: center;
   gap: 0.5rem;
@@ -38,34 +39,34 @@
   overflow-wrap: anywhere;
 }
 
-[data-nb-sidebar] li > a:hover,
-[data-nb-sidebar] summary:hover {
+:is([data-nb-sidebar], [data-nb-api-nav], [data-nb-nav-results]) li > a:hover,
+:is([data-nb-sidebar], [data-nb-api-nav]) summary:hover {
   color: var(--nb-foreground);
   background: var(--nb-accent);
 }
 
-[data-nb-sidebar] li > a:focus-visible,
-[data-nb-sidebar] summary:focus-visible {
+:is([data-nb-sidebar], [data-nb-api-nav], [data-nb-nav-results]) li > a:focus-visible,
+:is([data-nb-sidebar], [data-nb-api-nav]) summary:focus-visible {
   outline-offset: -2px;
 }
 
-[data-nb-sidebar] li > a[aria-current='page'] {
+:is([data-nb-sidebar], [data-nb-api-nav], [data-nb-nav-results]) li > a[aria-current='page'] {
   color: var(--nb-foreground);
   background: var(--nb-accent);
   font-weight: 600;
 }
 
-[data-nb-sidebar] summary {
+:is([data-nb-sidebar], [data-nb-api-nav]) summary {
   cursor: pointer;
   user-select: none;
   list-style: none;
 }
 
-[data-nb-sidebar] summary::-webkit-details-marker {
+:is([data-nb-sidebar], [data-nb-api-nav]) summary::-webkit-details-marker {
   display: none;
 }
 
-[data-nb-sidebar] summary > a {
+:is([data-nb-sidebar], [data-nb-api-nav]) summary > a {
   flex: 1;
   min-width: 0;
   color: inherit;
@@ -73,11 +74,12 @@
 }
 
 /* Groups on the current page's trail. */
-[data-nb-sidebar] details:has([aria-current='page']) > summary {
+:is([data-nb-sidebar], [data-nb-api-nav]) details:has([aria-current='page']) > summary,
+:is([data-nb-sidebar], [data-nb-api-nav]) summary[data-nb-active] {
   color: var(--nb-foreground);
 }
 
-[data-nb-sidebar] summary::after {
+:is([data-nb-sidebar], [data-nb-api-nav]) summary::after {
   content: '';
   flex-shrink: 0;
   width: 1rem;
@@ -94,19 +96,19 @@
     opacity 250ms cubic-bezier(0.87, 0, 0.13, 1);
 }
 
-[data-nb-sidebar] summary:hover::after {
+:is([data-nb-sidebar], [data-nb-api-nav]) summary:hover::after {
   opacity: 1;
 }
 
-[data-nb-sidebar] details[open] > summary::after {
+:is([data-nb-sidebar], [data-nb-api-nav]) details[open] > summary::after {
   rotate: 90deg;
 }
 
-[dir='rtl'] [data-nb-sidebar] summary::after {
+[dir='rtl'] :is([data-nb-sidebar], [data-nb-api-nav]) summary::after {
   rotate: 180deg;
 }
 
-[dir='rtl'] [data-nb-sidebar] details[open] > summary::after {
+[dir='rtl'] :is([data-nb-sidebar], [data-nb-api-nav]) details[open] > summary::after {
   rotate: 90deg;
 }
 
@@ -115,7 +117,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  [data-nb-sidebar] summary::after {
+  :is([data-nb-sidebar], [data-nb-api-nav]) summary::after {
     transition: none;
   }
 }
@@ -138,4 +140,9 @@
 /* In the mobile drawer, stick below the drawer's own "Navigation" bar. */
 [data-mobile-sidebar-nav] .sb-filter-bar {
   top: 3.5rem;
+}
+
+/* The API drawer is card-coloured. */
+[data-nb-api-drawer-slot] .sb-filter-bar {
+  background: var(--nb-card);
 }
