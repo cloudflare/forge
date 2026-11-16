@@ -1,0 +1,46 @@
+openapi: 3.1.0
+info:
+  title: Simple API
+  description: A basic OpenAPI description with a single endpoint.
+  version: 1.0.0
+servers:
+  - url: https://api.example.com/v1
+    description: Production server
+  - url: https://staging.example.com/v1
+    description: Staging server
+paths:
+  /getItems:
+    get:
+      summary: Retrieve a list of items
+      description: Fetch a list of items from the API.
+      operationId: getItems
+      responses:
+        '200':
+          description: Successful response with items
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    id:
+                      type: integer
+                      description: Unique identifier for the item
+                    name:
+                      type: string
+                      description: Name of the item
+                    description:
+                      type: string
+                      description: Detailed information about the item
+              examples:
+                example1:
+                  summary: Example response
+                  value:
+                    - id: 1
+                      name: Item One
+                      description: Description for item one
+                    - id: 2
+                      name: Item Two
+                      description: Description for item two
+

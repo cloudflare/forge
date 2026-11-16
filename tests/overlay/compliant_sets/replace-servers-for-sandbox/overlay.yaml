@@ -1,0 +1,13 @@
+overlay: 1.1.0
+info:
+  title: Change server URL
+  description: Replace servers list with a single sandbox or local development URL for the API
+  version: 1.0.0
+actions:
+  - target: '$.servers'
+    remove: true
+  - target: '$'
+    update:
+      servers:
+        - url: http://api-test-tunnel.local
+          description: Local development server

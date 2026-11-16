@@ -1,0 +1,10 @@
+overlay: 1.0.0
+info:
+  title: Add a building endpoint description
+  version: 1.0.0
+actions:
+- target: $.paths['/buildings'].get
+  update:
+    description: This is the summary of getting the buildings
+    summary: All of the available buildings
+

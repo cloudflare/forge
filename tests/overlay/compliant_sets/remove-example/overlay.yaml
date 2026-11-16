@@ -1,0 +1,7 @@
+overlay: 1.0.0
+info:
+  title: Remove an example
+  version: 1.0.0
+actions:
+- target: $.components.schemas.Building.properties['building'].example
+  remove: true
