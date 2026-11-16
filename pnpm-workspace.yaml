@@ -23,4 +23,3 @@ minimumReleaseAgeExclude:
   - miniflare@5.20261019.0-beta
   - '@cloudflare/nimbus-docs@0.20.0'
   - '@redocly/openapi-core@2.77.0'
-  - '@cloudflare/nimbus-docs@0.20.0'
