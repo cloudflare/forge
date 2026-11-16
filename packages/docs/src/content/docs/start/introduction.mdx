@@ -49,7 +49,8 @@ and returns files, and Forge writes them, only under `--out`. See
 Forge reads all three versions into the same model, so a plugin never needs to know which one a
 document was written in. Where the versions differ, Forge follows each one's rules:
 
-- **Next to a `$ref`**, 3.0 ignores every other keyword. From 3.1, Forge reads them: a
+- **Next to a `$ref`**, 3.0 ignores every other keyword, except Forge's own
+  `x-forge-sensitive`. From 3.1, Forge reads them: a
   `description`, `default`, `readOnly` or `nullable` beside a `$ref` applies to that use of it.
 - **Nullable values** are written `nullable: true` in 3.0 and as a list of types with `null` in 3.1.
   Forge reads both, in every version, as the same nullable type.

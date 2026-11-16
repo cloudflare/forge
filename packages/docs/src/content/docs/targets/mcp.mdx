@@ -94,8 +94,9 @@ match the API's documentation:
 | `body` | The body as the API takes it. A file is its text, or `{ content, filename?, contentType? }`. |
 
 A body in several media types is `anyOf` their schemas, and `headers` gains a `content-type` enum
-that names the one sent. Every object sets `additionalProperties: false`, so the SDK refuses a
-misspelled argument before the call reaches the tool.
+that names the one sent. The tool's arguments, and its `path`, `query` and
+`headers` objects, set `additionalProperties: false`, so the SDK refuses a misspelled argument
+before the call reaches the tool. The body's own objects keep what their schemas say.
 
 ## Schemas
 

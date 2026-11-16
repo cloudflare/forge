@@ -29,7 +29,8 @@ In Rust, `Type` is an enum you `match`; in TypeScript it is a union you narrow w
 | `Unknown`  | `{}`, `true`, a description only, or anything not covered. | `unknown`, `any`, `interface{}`      |
 | `Null`     | `type: null`, `const: null`.                             | `null`, `None`                         |
 | `Boolean`  | `type: boolean`.                                         | `boolean`, `bool`                      |
-| `String`   | `type: string` with no format, or one not listed here (`uuid`, `uri`, `email`). | `string`        |
+| `String`   | `type: string` with no format, or one not listed here (`uri`, `email`). | `string`               |
+| `Uuid`     | `format: uuid`.                                          | `string`, `UUID`                       |
 | `Number`   | `type: integer` or `number`, with its size.              | See below.                             |
 | `DateTime` | `format: date-time`.                                     | `Temporal.Instant`, `time.Time`        |
 | `Date`     | `format: date`.                                          | `Temporal.PlainDate`, `date`           |
@@ -73,8 +74,8 @@ An enum's values are strings, numbers or booleans, all different, at least one, 
 
 ## Arrays
 
-An array has an element type, `elem()`, which is `Unknown` without `items`, and `max_items()`, from
-`maxItems`. Tuples (`prefixItems`) are not covered yet, and are `Unknown`.
+An array has an element type, `elem()`, which is `Unknown` without `items`, and `min_items()` and
+`max_items()`, from `minItems` and `maxItems`. Tuples (`prefixItems`) are not covered yet, and are `Unknown`.
 
 ## Objects and maps
 
@@ -148,7 +149,7 @@ schema is a primitive. A plugin decides whether to refer to it by name or write 
 written in place. A schema `$ref` outside `components.schemas`, such as into `paths`, is not covered
 yet, and is an error, as is one to another document.
 
-In OpenAPI 3.0, keywords next to a `$ref` are ignored. From 3.1, descriptive ones such as
+In OpenAPI 3.0, keywords next to a `$ref` are ignored, except `x-forge-sensitive`. From 3.1, descriptive ones such as
 `description` keep the model, `nullable: true` makes it `Model | Null`, and anything else makes an
 intersection of the model and the rest.
 
