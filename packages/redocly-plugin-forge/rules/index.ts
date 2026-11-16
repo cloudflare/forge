@@ -3,7 +3,6 @@ import { booleanExtensions } from './boolean-extensions.ts';
 import { contentTypeOnlyForMultipart } from './content-type-only-for-multipart.ts';
 import { explodedFormDataIsArray } from './exploded-form-data-is-array.ts';
 import { noComplexQueryParams } from './no-complex-query-params.ts';
-import { noConflictingEndpointPaths } from './no-conflicting-endpoint-paths.ts';
 import { noConflictingParameterNames } from './no-conflicting-parameter-names.ts';
 import { noConflictingPropertyNames } from './no-conflicting-property-names.ts';
 import { noConflictingSchemaNames } from './no-conflicting-schema-names.ts';
@@ -25,7 +24,6 @@ export const ruleDefinitions: RuleDefinition[] = [
   contentTypeOnlyForMultipart,
   explodedFormDataIsArray,
   noComplexQueryParams,
-  noConflictingEndpointPaths,
   noConflictingParameterNames,
   noConflictingPropertyNames,
   noConflictingSchemaNames,
