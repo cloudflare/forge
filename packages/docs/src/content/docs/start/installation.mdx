@@ -1,11 +1,11 @@
 ---
 title: Installation
-description: Install Forge from npm, build it from source, or use it as a Rust library.
+description: Install Forge from npm, or build it from source.
 sidebar:
   order: 2
 ---
 
-Forge is one native binary. There are three ways to get it.
+Forge is one native binary. Install it from npm, or build it from source.
 
 ## From npm
 
@@ -42,12 +42,6 @@ C++ Redistributable.
 | Windows, arm64 | `aarch64-pc-windows-msvc`    |
 | Windows, x64   | `x86_64-pc-windows-msvc`     |
 
-The package also has the `forge-plugin` command and the libraries for
-[writing plugins in TypeScript](/plugins/typescript/). Plugin authors need one more package, which
-is an optional peer dependency because nobody else does:
-
-<PackageManagers pkg="@bytecodealliance/jco" dev />
-
 <Aside type="note" title="Installing a tarball">
 `just pack` in the repository builds the same package as a tarball in `packages/forge/dist/`. Install
 it with `npm install --save-dev /path/to/cloudflare-forge-0.1.0.tgz`, or reference it as
@@ -71,33 +65,8 @@ The `wasm` feature is what lets the command run [WebAssembly plugins](/plugins/o
 `--target wasm://...` fails with a message telling you to rebuild with `--features wasm`. The npm
 package's binaries are always built with it.
 
-To run a local build through the npm launcher, for example from a project that already depends on
-`@cloudflare/forge`, point `FORGE_BINARY` at it:
-
-```sh
-FORGE_BINARY=../forge/target/release/forge npx forge openapi.json --target ts --out sdk
-```
-
-## As a Rust library
-
-The crate is also a library. Turn the command off with `default-features = false` and you get the
-model, the plugin traits, `run` and `write`, with no `clap` in your dependency tree:
-
-```toml
-[dependencies]
-forge = { git = "https://github.com/cloudflare/forge", default-features = false }
-serde_json = "1"
-```
-
-That is how you build your own generator binary in Rust, with your plugin compiled in. See
-[Rust plugins](/plugins/rust/#use-forge-as-a-library).
-
-| Feature | Default | Adds                                                                 |
-| ------- | ------- | -------------------------------------------------------------------- |
-| `cli`   | yes     | The `forge` command (`clap`, `serde_json`).                          |
-| `wasm`  | no      | `forge::wasm`, which runs plugins compiled to WebAssembly components. |
-
 ## Next
 
 - [Quickstart](/start/quickstart/): generate something.
+- [Writing plugins](/plugins/overview/): what plugin authors install, and Forge as a Rust library.
 - [CLI reference](/reference/cli/): every option and error.
