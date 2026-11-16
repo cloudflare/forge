@@ -1,109 +1,71 @@
 ---
+/** An operation's Terraform declarations, drawn with the API reference's own
+ *  section heading and field rows. Each declaration is one list, like a
+ *  request body: required attributes first, then optional, then read-only. */
 import { terraformRolesSummary, type TerraformOperationData } from '../terraform.ts';
-import TerraformFields from './TerraformFields.astro';
+import TerraformFields, { type TerraformFlag } from './TerraformFields.astro';
 
 interface Props {
   operation: TerraformOperationData;
 }
 
 const { operation } = Astro.props;
+const kinds = { resource: 'Resource', 'data-source': 'Data source', 'list-data-source': 'List data source' };
 const groups = [
-  { id: 'required', label: 'Required', fields: 'required' as const },
-  { id: 'optional', label: 'Optional', fields: 'optional' as const },
-  { id: 'computed', label: 'Read-only', fields: 'computed' as const },
-];
-
-const declarationKindLabels = {
-  resource: 'Resource',
-  'data-source': 'Data source',
-  'list-data-source': 'List data source',
-};
+  { key: 'required', flag: 'required' },
+  { key: 'optional', flag: 'optional' },
+  { key: 'computed', flag: 'read-only' },
+] as const satisfies readonly { key: string; flag: TerraformFlag }[];
 ---
 
 {
   operation.declarations.map((declaration, index) => (
-    <section class="forge-terraform-declaration">
-      <header class="forge-terraform-declaration-header">
-        <span class="forge-terraform-declaration-kind">{declarationKindLabels[declaration.kind]}</span>
-        <h3 id={`terraform-${index + 1}`}>
-          <code>{declaration.name}</code>
+    <section class="fl-root forge-terraform-declaration" data-api-section>
+      <div class="fl-head">
+        <h3 id={`terraform-${index + 1}`} class="fl-title scroll-mt-24">
+          <span class="forge-terraform-kind">{kinds[declaration.kind]}</span>
+          {/* Inside .nb-md one level down, so the name is a chip like the inline code in the descriptions. */}
+          <span class="fl-desc nb-md forge-terraform-name">
+            <span>
+              <code>{declaration.name}</code>
+            </span>
+          </span>
         </h3>
-        <p class="forge-terraform-roles">{terraformRolesSummary(declaration)}</p>
-      </header>
+      </div>
+      <div class="fl-desc">{terraformRolesSummary(declaration)}</div>
       {declaration.descriptionHtml ? (
-        <div class="forge-terraform-summary nb-md" set:html={declaration.descriptionHtml} />
+        <div class="fl-desc nb-md forge-terraform-summary" set:html={declaration.descriptionHtml} />
       ) : declaration.description ? (
-        <p class="forge-terraform-summary forge-terraform-plain">{declaration.description}</p>
+        <div class="fl-desc forge-terraform-summary">
+          <p>{declaration.description}</p>
+        </div>
       ) : null}
-      {groups.map((group) =>
-        declaration[group.fields].length > 0 ? (
-          <section class="forge-terraform-group">
-            <h4>{group.label}</h4>
-            <TerraformFields fields={declaration[group.fields]} />
-          </section>
-        ) : null,
-      )}
+      <div class="forge-terraform-fields">
+        <TerraformFields
+          fields={groups.flatMap((group) => declaration[group.key].map((field) => ({ field, flag: group.flag })))}
+          anchor={`terraform-${index + 1}`}
+        />
+      </div>
     </section>
   ))
 }
 
 <style>
   .forge-terraform-declaration + .forge-terraform-declaration {
-    border-top: 1px solid var(--cf-border);
-    padding-top: 2.5rem;
+    margin-top: 2.5rem;
   }
-
-  .forge-terraform-declaration-header {
-    display: grid;
-    gap: 0.25rem;
+  .forge-terraform-kind {
+    color: var(--nb-muted-foreground);
+    font-weight: 400;
   }
-
-  .forge-terraform-declaration-header h3 {
+  .forge-terraform-name {
     margin: 0;
-    font-size: 1.125rem;
-    line-height: 1.4;
+    font-weight: 400;
   }
-
-  .forge-terraform-declaration-header h3 code {
-    padding: 0;
-    color: inherit;
-    background: transparent;
-    font-size: inherit;
-  }
-
-  .forge-terraform-declaration-kind {
-    color: var(--cf-muted-foreground);
-    font-size: 0.6875rem;
-    font-weight: 650;
-    letter-spacing: 0.08em;
-    line-height: 1.4;
-    text-transform: uppercase;
-  }
-
-  .forge-terraform-roles,
   .forge-terraform-summary {
-    margin: 0;
-    color: var(--cf-muted-foreground);
-    font-size: 0.8125rem;
-    line-height: 1.6;
+    margin-top: 0.5rem;
   }
-
-  .forge-terraform-summary {
-    margin-top: 0.75rem;
-  }
-
-  .forge-terraform-plain {
-    white-space: pre-wrap;
-  }
-
-  .forge-terraform-group {
-    margin-top: 1.5rem;
-  }
-
-  .forge-terraform-group h4 {
-    margin: 0;
-    color: var(--cf-foreground);
-    font-size: 0.875rem;
-    font-weight: 650;
+  .forge-terraform-fields {
+    margin-top: 1.25rem;
   }
 </style>

@@ -1,148 +1,82 @@
 ---
+/** Terraform attributes as the API reference's field rows (`ApiFieldRow`'s
+ *  markup and `field-list.css`), so they read like the rest of the page. Each
+ *  top-level row says whether the attribute is required, optional or read-only;
+ *  nested attributes open from the row's `{ n attributes }` button. */
 import type { TerraformAttribute } from '../terraform.ts';
 import TerraformFields from './TerraformFields.astro';
+import '@/components/ui/api-field-row/field-list.css';
+
+export type TerraformFlag = 'required' | 'optional' | 'read-only';
 
 interface Props {
-  fields: TerraformAttribute[];
+  fields: { field: TerraformAttribute; flag?: TerraformFlag }[];
+  /** Prefix of each row's anchor: the declaration's, then the parent's. */
+  anchor: string;
+  depth?: number;
 }
 
-const { fields } = Astro.props;
+const { fields, anchor, depth = 0 } = Astro.props;
+const linkSvg = `<svg viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>`;
+const count = (n: number) => `${n} ${n === 1 ? 'attribute' : 'attributes'}`;
 ---
 
-<ul class="forge-terraform-fields">
+<ul class:list={['fl-list', depth > 0 && 'fl-children']}>
   {
-    fields.map((field) => (
-      <li class="forge-terraform-field">
-        <div class="forge-terraform-field-head">
-          <code>{field.name}</code>
-          <span class="forge-terraform-type">{field.type}</span>
-          {field.sensitive ? <span class="forge-terraform-sensitive">sensitive</span> : null}
-          {field.deprecated ? <span class="forge-terraform-deprecated">deprecated</span> : null}
-        </div>
-        {field.descriptionHtml ? (
-          <div class="forge-terraform-description nb-md" set:html={field.descriptionHtml} />
-        ) : field.description ? (
-          <p class="forge-terraform-description forge-terraform-plain">{field.description}</p>
-        ) : null}
-        {field.deprecated && field.deprecated !== 'Deprecated.' ? (
-          <p class="forge-terraform-deprecation-message">{field.deprecated}</p>
-        ) : null}
-        {field.children?.length ? (
-          <details class="forge-terraform-nested">
-            <summary>
-              Show {field.children.length} {field.children.length === 1 ? 'attribute' : 'attributes'}
-            </summary>
-            <TerraformFields fields={field.children} />
-          </details>
-        ) : null}
-      </li>
-    ))
+    fields.map(({ field, flag }) => {
+      const id = `${anchor}-${field.name}`;
+      const children = field.children ?? [];
+      return (
+        <li id={id} class:list={['fl-item', depth > 0 && 'fl-item--child']}>
+          <div class="fl-row">
+            <a href={`#${id}`} class="fl-anchor" aria-label={`Link to ${field.name}`} set:html={linkSvg} />
+            <div class="fl-body">
+              <div class="fl-sig">
+                <div class:list={['fl-name', field.deprecated && 'fl-name--deprecated']}>{field.name}</div>
+                {field.deprecated && <div class="fl-deprecated-badge">deprecated</div>}
+                {(flag === 'optional' || flag === 'read-only') && <div class="fl-optional">{flag}</div>}
+                <div class="fl-type-group">
+                  <div class="fl-type">{field.type}</div>
+                </div>
+                {field.sensitive && <div class="fl-optional">sensitive</div>}
+                {(flag === 'required' || children.length > 0) && (
+                  <div class="fl-sig-tail">
+                    {flag === 'required' && <div class="fl-required">required</div>}
+                    {children.length > 0 && (
+                      <button type="button" class="fl-count" data-fl-toggle aria-expanded="false">
+                        <span class="fl-count-brace" aria-hidden="true">{'{'}</span>
+                        <span class="fl-count-text">{count(children.length)}</span>
+                        <span class="fl-count-brace" aria-hidden="true">{'}'}</span>
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+              {field.descriptionHtml ? (
+                <div class="fl-desc" set:html={field.descriptionHtml} />
+              ) : field.description ? (
+                <div class="fl-desc">
+                  <p>{field.description}</p>
+                </div>
+              ) : null}
+              {field.deprecated && field.deprecated !== 'Deprecated.' && <div class="fl-constraints">{field.deprecated}</div>}
+              {children.length > 0 && (
+                <details class="fl-expandable">
+                  <summary class="fl-expand-trigger" />
+                  <TerraformFields fields={children.map((child) => ({ field: child }))} anchor={id} depth={depth + 1} />
+                  <span class="fl-fold-close" aria-hidden="true">
+                    {'}'}
+                  </span>
+                </details>
+              )}
+            </div>
+          </div>
+        </li>
+      );
+    })
   }
 </ul>
 
-<style>
-  .forge-terraform-fields {
-    margin: 0.75rem 0 0;
-    padding: 0;
-    list-style: none;
-  }
-
-  .forge-terraform-field + .forge-terraform-field {
-    border-top: 1px solid var(--cf-border);
-  }
-
-  .forge-terraform-field {
-    padding: 1rem 0;
-  }
-
-  .forge-terraform-field-head {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: baseline;
-    gap: 0.5rem;
-  }
-
-  .forge-terraform-field-head code {
-    padding: 0;
-    color: var(--cf-foreground);
-    background: transparent;
-    font-family: var(--nb-font-mono);
-    font-size: 0.8125rem;
-    font-weight: 650;
-  }
-
-  .forge-terraform-type {
-    color: var(--cf-muted-foreground);
-    font-family: var(--nb-font-mono);
-    font-size: 0.75rem;
-  }
-
-  .forge-terraform-sensitive,
-  .forge-terraform-deprecated {
-    font-size: 0.7rem;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-  }
-
-  .forge-terraform-sensitive {
-    color: var(--cf-muted-foreground);
-  }
-
-  .forge-terraform-deprecated {
-    color: var(--cf-danger);
-  }
-
-  .forge-terraform-description,
-  .forge-terraform-deprecation-message {
-    margin: 0.35rem 0 0;
-    color: var(--cf-muted-foreground);
-    font-size: 0.8125rem;
-    line-height: 1.6;
-  }
-
-  .forge-terraform-plain,
-  .forge-terraform-deprecation-message {
-    white-space: pre-wrap;
-  }
-
-  .forge-terraform-deprecation-message {
-    color: var(--cf-danger);
-  }
-
-  .forge-terraform-nested {
-    margin-top: 0.75rem;
-    border-inline-start: 1px solid var(--cf-border);
-    padding-inline-start: 1rem;
-  }
-
-  .forge-terraform-nested > summary {
-    display: flex;
-    align-items: center;
-    gap: 0.4rem;
-    cursor: pointer;
-    color: var(--cf-muted-foreground);
-    font-size: 0.75rem;
-    font-weight: 550;
-  }
-
-  .forge-terraform-nested > summary:hover {
-    color: var(--cf-foreground);
-  }
-
-  .forge-terraform-nested > summary::before {
-    display: inline-grid;
-    place-items: center;
-    width: 1rem;
-    height: 1rem;
-    border: 1px solid var(--cf-border);
-    border-radius: 0.2rem;
-    content: '+';
-    font-family: var(--nb-font-mono);
-    line-height: 1;
-  }
-
-  .forge-terraform-nested[open] > summary::before {
-    content: '-';
-  }
-</style>
+<script>
+  import '@/components/ui/api-field-row/api-field-row.client';
+</script>
