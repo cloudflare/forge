@@ -1,0 +1,34 @@
+openapi: 3.0.3
+info:
+  title: Test API
+  version: 1.0.0
+# Pins behavior: when a body property's value is a `$ref`, the rule resolves the reference
+# before reading `readOnly`, `x-forge-skip`, and `x-forge-property-name`. A referenced schema
+# marked `readOnly: true` therefore drops out of the request-argument namespace, so the body
+# property does NOT collide with the path parameter.
+paths:
+  /plants/{plant_id}:
+    patch:
+      operationId: patchPlantRefReadOnly
+      parameters:
+        - name: plant_id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                plantId:
+                  $ref: '#/components/schemas/ReadOnlyId'
+      responses:
+        '200':
+          description: OK
+components:
+  schemas:
+    ReadOnlyId:
+      type: string
+      readOnly: true

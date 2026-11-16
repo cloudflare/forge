@@ -3,16 +3,18 @@
  * SDK field identifier on the same schema, and property keys that have no letters or digits.
  *
  * A property's effective name is `x-forge-property-name` when set (and non-empty), otherwise the
- * property key. Properties marked `x-forge-skip: true` are ignored. `readOnly` / `writeOnly` are
- * NOT skipped: both still appear on at least one of the generated request / response types, so a
- * collision between them is still real on that side.
+ * property key. Property values are resolved through `$ref` before `x-forge-property-name` and
+ * `x-forge-skip` are read, so a referenced schema's extensions are honored. Properties marked
+ * `x-forge-skip: true` are ignored. `readOnly` / `writeOnly` are NOT skipped: both still appear
+ * on at least one of the generated request / response types, so a collision between them is still
+ * real on that side.
  *
  * Checks `properties` on every Schema node — top-level component schemas and inline/nested ones.
  * Does not look into `allOf` composition: collisions across composed schemas are a separate
  * concern.
  */
 import { groupAndReport } from '../utils/collision.ts';
-import { isPlainObject } from '../utils/resolve.ts';
+import { isPlainObject, resolveNode } from '../utils/resolve.ts';
 import type { AnyNode, Location, RuleDefinition, UserContext } from '../utils/types.ts';
 import { forgeWordsKey, toForgeWords } from '../utils/words.ts';
 
@@ -31,14 +33,16 @@ function propertyLabel(property: EffectiveProperty): string {
 }
 
 function effectivePropertyOf(
+  ctx: Pick<UserContext, 'resolve'>,
   key: string,
   node: AnyNode,
   propertyLocation: Location,
 ): { kind: 'ok'; property: EffectiveProperty } | { kind: 'invalid'; message: string; location: Location } | undefined {
-  if (!isPlainObject(node) || node['x-forge-skip'] === true) {
+  const resolved = resolveNode(ctx, node, propertyLocation);
+  if (resolved === undefined || !isPlainObject(resolved.node) || resolved.node['x-forge-skip'] === true) {
     return undefined;
   }
-  const extensionValue = node['x-forge-property-name'];
+  const extensionValue = resolved.node['x-forge-property-name'];
   const usingExtension = typeof extensionValue === 'string' && extensionValue.length > 0;
   const effectiveName = usingExtension ? (extensionValue as string) : key;
   const words = toForgeWords(effectiveName);
@@ -79,7 +83,7 @@ export const noConflictingPropertyNames: RuleDefinition = {
       const propertiesLocation = ctx.location.child('properties');
       const effective: EffectiveProperty[] = [];
       for (const [key, propertyNode] of Object.entries(schema.properties)) {
-        const result = effectivePropertyOf(key, propertyNode, propertiesLocation.child(key));
+        const result = effectivePropertyOf(ctx, key, propertyNode, propertiesLocation.child(key));
         if (result === undefined) {
           continue;
         }

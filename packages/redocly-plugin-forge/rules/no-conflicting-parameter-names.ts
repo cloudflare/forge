@@ -9,8 +9,10 @@
  *   keyword arguments / request-struct fields on the generated method. Body properties are only
  *   folded in when the request body has a JSON media type and its schema is `type: object` with a
  *   `properties` map. `allOf`/`oneOf`/`anyOf` composition is out of scope (same deferral as
- *   `no-conflicting-property-names`). Body properties with `readOnly: true` or `x-forge-skip:
- *   true` are excluded (they don't appear on the request type).
+ *   `no-conflicting-property-names`). Property values are resolved through `$ref` before extensions
+ *   are read, so `readOnly`, `x-forge-skip`, and `x-forge-property-name` declared on a referenced
+ *   schema are honored. Body properties with `readOnly: true` or `x-forge-skip: true` are excluded
+ *   (they don't appear on the request type).
  * - `header` — headers become a separate argument (map, dict, …). `Accept`, `Content-Type`, and
  *   `Authorization` are excluded because they are set automatically.
  *
@@ -132,24 +134,28 @@ function* bodyPropertiesOf(ctx: Pick<UserContext, 'resolve'>, operation: Operati
   }
   const propertiesLocation = schema.location.child('properties');
   for (const [key, propertyNode] of Object.entries(schema.node.properties)) {
-    if (!isPlainObject(propertyNode) || propertyNode['x-forge-skip'] === true || propertyNode.readOnly === true) {
+    const propertyLocation = propertiesLocation.child(key);
+    const resolved = resolveNode(ctx, propertyNode, propertyLocation);
+    if (resolved === undefined || !isPlainObject(resolved.node)) {
       continue;
     }
-    const extensionValue = propertyNode['x-forge-property-name'];
+    if (resolved.node['x-forge-skip'] === true || resolved.node.readOnly === true) {
+      continue;
+    }
+    const extensionValue = resolved.node['x-forge-property-name'];
     const usingExtension = typeof extensionValue === 'string' && extensionValue.length > 0;
     const effectiveName = usingExtension ? (extensionValue as string) : key;
     const words = toForgeWords(effectiveName);
     if (words.length === 0) {
       continue;
     }
-    const propertyLocation = propertiesLocation.child(key);
     yield {
       effectiveName,
       words,
       kind: 'body-property',
       in: 'body',
       rawName: key,
-      node: propertyNode,
+      node: resolved.node,
       reportLocation: usingExtension ? propertyLocation.child('x-forge-property-name').key() : propertyLocation.key(),
       usingExtension,
     };
