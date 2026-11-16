@@ -24,9 +24,10 @@ Fern had equivalent rules. Each depends on a Forge semantic question not yet ans
 
 ## `x-forge-*` duplicate-collision rules
 
-`valid-identifiers` enforces the syntactic shape of `x-forge-method-name`, `x-forge-model-name`, `x-forge-property-name`, and `x-forge-parameter-name` values. `no-duplicate-method-name`, `no-conflicting-schema-names`, `no-conflicting-property-names`, and `no-conflicting-parameter-names` additionally reject structural collisions between author-visible names after Forge-identifier normalization. One collision class remains out of scope:
+`valid-identifiers` enforces the syntactic shape of `x-forge-method-name`, `x-forge-model-name`, `x-forge-property-name`, and `x-forge-parameter-name` values. `no-duplicate-method-name`, `no-conflicting-schema-names`, `no-conflicting-property-names`, and `no-conflicting-parameter-names` additionally reject structural collisions between author-visible names after Forge-identifier normalization. Two collision classes remain out of scope:
 
-- **Cross-schema property collisions in `allOf` composition** — two `allOf` members declare the same property key with different schemas (or two normalized-equivalent keys). The existing property-names rule walks each schema in isolation; a composition-aware check would merge members first. Worth building when the plugin matures.
+- **Cross-schema property collisions in `allOf` composition** — two `allOf` members declare the same property key with different schemas (or two normalized-equivalent keys). The existing property-names rule walks each schema in isolation; a composition-aware check would merge members first. Same deferral applies when the check is run against a composed request-body schema from `no-conflicting-parameter-names` (which currently only folds in `type: object` bodies). Worth building when the plugin matures.
+- **Non-JSON request-body argument collisions** — `no-conflicting-parameter-names` folds JSON object body properties into the SDK value-namespace, but not `multipart/form-data` or `application/x-www-form-urlencoded` fields. Those also surface as method arguments in most generators; fold them in once the shape of form-data generation across targets stabilizes.
 
 Explicitly out of scope for the above rules:
 
