@@ -1,0 +1,25 @@
+openapi: 3.0.3
+info:
+  title: Diamond composition via oneOf
+  version: 1.0.0
+paths: {}
+components:
+  schemas:
+    Outer:
+      allOf:
+        - $ref: '#/components/schemas/Diamond'
+    Diamond:
+      oneOf:
+        - $ref: '#/components/schemas/LeftBranch'
+        - $ref: '#/components/schemas/RightBranch'
+    LeftBranch:
+      allOf:
+        - $ref: '#/components/schemas/Base'
+    RightBranch:
+      allOf:
+        - $ref: '#/components/schemas/Base'
+    Base:
+      type: object
+      properties:
+        id:
+          type: string

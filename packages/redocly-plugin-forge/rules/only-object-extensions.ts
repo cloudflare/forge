@@ -12,7 +12,13 @@ import type { AnyNode, Located, RuleDefinition, UserContext } from '../utils/typ
 
 type Ctx = Pick<UserContext, 'resolve'>;
 
-function isObjectLike(ctx: Ctx, located: Located, seen: Set<string> = new Set()): boolean {
+/**
+ * Cycle detection is path-local: each descent gets a fresh copy of the ancestor set so that
+ * two sibling branches which both reach the same object schema (a diamond) are each decided on
+ * their own merits. Sharing a single mutable set across siblings would let the first branch mark
+ * the shared target "seen" and cause the second branch to short-circuit to `false`.
+ */
+function isObjectLike(ctx: Ctx, located: Located, seen: ReadonlySet<string> = new Set()): boolean {
   const resolved = resolveNode(ctx, located.node, located.location);
   if (resolved === undefined || !isPlainObject(resolved.node)) {
     return false;
@@ -21,7 +27,8 @@ function isObjectLike(ctx: Ctx, located: Located, seen: Set<string> = new Set())
   if (seen.has(key)) {
     return false;
   }
-  seen.add(key);
+  const nextSeen = new Set(seen);
+  nextSeen.add(key);
   const schema = resolved.node;
   if (
     schemaTypes(schema).includes('object') ||
@@ -32,14 +39,14 @@ function isObjectLike(ctx: Ctx, located: Located, seen: Set<string> = new Set())
   }
   if (Array.isArray(schema.allOf) && schema.allOf.length > 0) {
     return schema.allOf.every((member: AnyNode, index: number) =>
-      isObjectLike(ctx, { node: member, location: resolved.location.child(['allOf', index]) }, seen),
+      isObjectLike(ctx, { node: member, location: resolved.location.child(['allOf', index]) }, nextSeen),
     );
   }
   for (const keyword of ['oneOf', 'anyOf'] as const) {
     const members = schema[keyword];
     if (Array.isArray(members) && members.length > 0) {
       return members.every((member: AnyNode, index: number) =>
-        isObjectLike(ctx, { node: member, location: resolved.location.child([keyword, index]) }, seen),
+        isObjectLike(ctx, { node: member, location: resolved.location.child([keyword, index]) }, nextSeen),
       );
     }
   }
