@@ -671,14 +671,31 @@ fn goessner_filter_syntax_is_rejected() {
 // and `update.rs` cover the semantic forks; these tests cover the lighter
 // weight schema-level dispatch.
 
+/// §Info. `info.description` was added as a validated field in Overlay
+/// 1.1. In 1.0 the Info Object's schema permits only `title`, `version`,
+/// and `x-*` specification extensions, with `unevaluatedProperties: false`,
+/// so a 1.0 overlay carrying `info.description` is schema-invalid even
+/// though the upstream negative corpus ships no dedicated v1.0 fixture
+/// for it.
+#[test]
+fn v10_info_description_is_rejected() {
+    let (spec, ov) = files(
+        "v10-info-description",
+        SPEC,
+        r#"{
+  "overlay": "1.0.0",
+  "info": {"title": "fix", "version": "1", "description": "d"},
+  "actions": [{"target": "$.info", "update": {"description": "x"}}]
+}"#,
+    );
+
+    failed_with(
+        overlay(&[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap()], ""),
+        &["description", "info", "1.0", "unknown", "unrecognized", "unevaluated"],
+    );
+}
+
 /// §Info. `info.description` is accepted silently in 1.1 and 1.2.
-///
-/// We don't assert anything about 1.0's handling of `info.description`:
-/// the vendored upstream OAI corpus ships `v1.1/fail/info-description-invalid-type.yaml`
-/// but no v1.0 equivalent, so upstream treats `description` as an added
-/// field in 1.1+ without saying that 1.0 implementations must reject it.
-/// Either accepting it as an extra field or flagging it as an unknown key
-/// is defensible, and Forge is free to pick.
 #[test]
 fn v11_and_v12_info_description_is_accepted() {
     for version in ["1.1.0", "1.2.0"] {
@@ -841,7 +858,6 @@ fn extends_with_http_scheme_is_rejected_in_every_version_and_mode() {
         "policy",
         "forbidden",
         "not allowed",
-        "rejected",
     ];
     for version in ["1.0.0", "1.1.0", "1.2.0"] {
         for scheme in ["http", "https"] {
@@ -898,15 +914,7 @@ fn extends_with_http_scheme_is_rejected_in_every_version_and_mode() {
 /// Markers again exclude bare `http` so a URL echo alone does not pass.
 #[test]
 fn self_with_http_scheme_is_rejected_in_every_mode() {
-    const POLICY_MARKERS: &[&str] = &[
-        "scheme",
-        "network",
-        "security",
-        "policy",
-        "forbidden",
-        "not allowed",
-        "rejected",
-    ];
+    const POLICY_MARKERS: &[&str] = &["scheme", "network", "security", "policy", "forbidden", "not allowed"];
     for scheme in ["http", "https"] {
         let url = format!("{scheme}://example.com/overlays/fix.json");
         // Mode B
@@ -987,15 +995,7 @@ fn extends_http_is_rejected_before_any_network_connection() {
 
     let err = failed_with(
         overlay(&[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap()], ""),
-        &[
-            "scheme",
-            "network",
-            "security",
-            "policy",
-            "forbidden",
-            "not allowed",
-            "rejected",
-        ],
+        &["scheme", "network", "security", "policy", "forbidden", "not allowed"],
     );
     let redacted = err.replace(&url, "");
     assert!(

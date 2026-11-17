@@ -26,11 +26,25 @@
 //! - Forge MUST reject it (not accept it, not panic on it, not I/O-fail
 //!   on it, not pre-implementation-CLI-fail on it).
 //! - The rejection MUST name a scheme-policy marker
-//!   (`http`/`scheme`/`security`/`policy`/`network`).
-//! - The rejection MUST name EACH forbidden field (`$self` / `extends`)
-//!   held in the fixture.
-//! - The rejection MUST quote EACH forbidden URI verbatim so an operator
-//!   can see which specific reference tripped the policy.
+//!   (`scheme`/`security`/`policy`/`network`/`forbidden`/`not allowed`).
+//! - The rejection MUST name at least ONE complete `(field, URI)` pair
+//!   from the fixture — a field (`$self` or `extends`) alongside the
+//!   exact URI it holds, so an operator can see which specific reference
+//!   tripped the policy. A valid validator may stop at the first forbidden
+//!   reference it finds; we do NOT require every reference in the fixture
+//!   to be reported.
+//!
+//! The full manifest still lists every forbidden reference. That serves
+//! two purposes: documentation (readers see what is rejected and why),
+//! and fixture drift detection (the sanity test at the bottom asserts
+//! every listed `(field, URI)` pair matches the parsed YAML of the
+//! fixture, so an upstream rename or URI edit fails loudly).
+//!
+//! Dedicated handwritten tests in `tests/overlay/validation.rs`
+//! independently verify HTTP(S) rejection for BOTH `$self` and `extends`
+//! across every supported Overlay version and invocation mode — the
+//! policy-deviation path above is corpus-driven acceptance, not the
+//! sole proof of the security rule.
 //!
 //! An unlisted pass fixture that forge rejects is a bug — either in the
 //! implementation or in the deviations manifest.
@@ -100,20 +114,13 @@ const OVERLAY_MARKERS: &[&str] = &[
 /// Scheme-policy markers that must appear somewhere in a security-policy
 /// rejection — AFTER the forbidden URI has been redacted from stderr. The
 /// bare word `http` is deliberately absent: every deviation's URI starts
-/// with `http`/`https`, and that URI is quoted verbatim in stderr (we
-/// require that below), so including `http` here would make this check
-/// trivially true for any rejection that echoes the URL. Field names and
-/// forbidden URIs are checked separately as exact strings — see
-/// `PolicyDeviation`.
-const SECURITY_POLICY_SCHEME_MARKERS: &[&str] = &[
-    "scheme",
-    "security",
-    "policy",
-    "network",
-    "forbidden",
-    "not allowed",
-    "rejected",
-];
+/// with `http`/`https`, and that URI often appears verbatim in stderr, so
+/// including `http` here would make this check trivially true for any
+/// rejection that echoes the URL. `rejected` is also absent — too generic
+/// to prove the HTTP security policy fired rather than any other
+/// validation error.
+const SECURITY_POLICY_SCHEME_MARKERS: &[&str] =
+    &["scheme", "security", "policy", "network", "forbidden", "not allowed"];
 
 /// One forbidden (field, URI) pair inside a deviation fixture.
 #[derive(Clone, Copy)]
@@ -129,8 +136,11 @@ struct ForbiddenRef {
 struct PolicyDeviation {
     version: &'static str,
     file: &'static str,
-    /// Every forbidden reference in the fixture. ALL of these must be
-    /// named in stderr for the deviation to count as properly rejected.
+    /// Every forbidden reference in the fixture. Stored in full for
+    /// documentation and fixture-drift validation; the stderr-contents
+    /// check only requires AT LEAST ONE of these pairs to be named,
+    /// since a validator may legitimately stop at the first forbidden
+    /// reference it encounters.
     forbidden: &'static [ForbiddenRef],
 }
 
@@ -204,8 +214,7 @@ struct PassReport {
     unexpectedly_rejected: Vec<String>,
     deviation_unexpectedly_accepted: Vec<String>,
     deviation_missing_scheme_marker: Vec<String>,
-    deviation_missing_field: Vec<String>,
-    deviation_missing_uri: Vec<String>,
+    deviation_missing_matching_pair: Vec<String>,
     pre_impl: Vec<String>,
     non_overlay_error: Vec<String>,
 }
@@ -241,8 +250,8 @@ fn run_pass(version: &str) {
             // field checks run. The URIs themselves start with `http`/`https`
             // and contain their own path segments, so leaving them in would
             // let any stderr that merely echoes the URL trivially satisfy
-            // these checks. The URI-verbatim check below runs against the
-            // ORIGINAL stderr, where quoting IS the contract we want.
+            // these checks. The URI-verbatim side of the pair check below
+            // runs against the ORIGINAL stderr, where quoting IS the contract.
             let mut redacted = stderr.clone();
             for forbidden in deviation.forbidden {
                 redacted = redacted.replace(forbidden.uri, "");
@@ -255,23 +264,26 @@ fn run_pass(version: &str) {
                     .push(format!("{name}\n  stderr:\n{stderr}"));
                 continue;
             }
-            // Require: EVERY forbidden field name appears in the URI-free
-            // stderr (so merely echoing the YAML body does not count as
-            // naming the field), AND EVERY forbidden URI appears in the
-            // ORIGINAL stderr verbatim.
-            for forbidden in deviation.forbidden {
-                if !redacted.contains(forbidden.field) {
-                    report.deviation_missing_field.push(format!(
-                        "{name} (expected field {:?} in stderr outside the forbidden URI echo)\n  stderr:\n{stderr}",
-                        forbidden.field,
-                    ));
-                }
-                if !stderr.contains(forbidden.uri) {
-                    report.deviation_missing_uri.push(format!(
-                        "{name} (expected URI {:?} in stderr)\n  stderr:\n{stderr}",
-                        forbidden.uri,
-                    ));
-                }
+            // Require: AT LEAST ONE complete (field, URI) pair — the field
+            // name named in the URI-free stderr (so echoing the YAML body
+            // doesn't count) AND the URI quoted verbatim in the original
+            // stderr. A valid validator may stop at the first forbidden
+            // reference, so we don't demand every reference be reported.
+            let any_pair_named = deviation
+                .forbidden
+                .iter()
+                .any(|f| redacted.contains(f.field) && stderr.contains(f.uri));
+            if !any_pair_named {
+                let pairs = deviation
+                    .forbidden
+                    .iter()
+                    .map(|f| format!("({:?}, {:?})", f.field, f.uri))
+                    .collect::<Vec<_>>()
+                    .join(", ");
+                report.deviation_missing_matching_pair.push(format!(
+                    "{name} (expected at least one of these (field, URI) pairs \
+                     to be named in stderr: {pairs})\n  stderr:\n{stderr}",
+                ));
             }
         } else if !out.status.success() {
             if PRE_IMPL_MARKERS.iter().any(|m| stderr.contains(m)) {
@@ -317,28 +329,20 @@ fn run_pass(version: &str) {
     assert!(
         report.deviation_missing_scheme_marker.is_empty(),
         "{} OAI {version}/pass deviation scenarios were rejected, but stderr \
-         names no scheme-policy marker (http/scheme/security/policy/network). \
-         The rejection must be unambiguously the security policy, not an \
-         incidental parse error. Affected files:\n---\n{}\n---",
+         names no scheme-policy marker (scheme/security/policy/network/forbidden/\
+         not allowed). The rejection must be unambiguously the security policy, \
+         not an incidental parse error. Affected files:\n---\n{}\n---",
         report.deviation_missing_scheme_marker.len(),
         report.deviation_missing_scheme_marker.join("\n---\n")
     );
     assert!(
-        report.deviation_missing_field.is_empty(),
-        "{} OAI {version}/pass deviation references were rejected without \
-         stderr naming the exact overlay field ($self or extends) that holds \
-         the forbidden URI. Operators must see which field tripped the \
+        report.deviation_missing_matching_pair.is_empty(),
+        "{} OAI {version}/pass deviation scenarios were rejected without stderr \
+         naming at least ONE complete (field, URI) pair from the fixture. An \
+         operator must see which specific forbidden reference tripped the \
          policy. Affected files:\n---\n{}\n---",
-        report.deviation_missing_field.len(),
-        report.deviation_missing_field.join("\n---\n")
-    );
-    assert!(
-        report.deviation_missing_uri.is_empty(),
-        "{} OAI {version}/pass deviation references were rejected without \
-         stderr quoting the forbidden URI verbatim. Operators must see which \
-         URI tripped the policy. Affected files:\n---\n{}\n---",
-        report.deviation_missing_uri.len(),
-        report.deviation_missing_uri.join("\n---\n")
+        report.deviation_missing_matching_pair.len(),
+        report.deviation_missing_matching_pair.join("\n---\n")
     );
 }
 
