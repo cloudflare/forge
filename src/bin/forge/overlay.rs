@@ -66,8 +66,8 @@ fn run_mode_a(overlay_path: &Path, write: bool) -> Result<(), Err> {
             .into());
     }
     let bytes = read_file(overlay_path)?;
-    let overlay = Overlay::parse(&bytes, Format::sniff(overlay_path, &bytes))
-        .map_err(|e| format!("{}: {e}", overlay_path.display()))?;
+    let overlay =
+        Overlay::parse(&bytes, Format::sniff(&bytes)).map_err(|e| format!("{}: {e}", overlay_path.display()))?;
 
     // Disambiguate mode A input: must be an overlay. If it has `overlay`
     // version key we accept; otherwise suggest the user.
@@ -96,7 +96,7 @@ fn run_mode_a(overlay_path: &Path, write: bool) -> Result<(), Err> {
         uri::to_path(&spec_uri).ok_or_else(|| format!("extends resolves to {spec_uri}, which is not a local file"))?;
 
     let spec_bytes = fs::read(&spec_path).map_err(|e| format!("{}: {e}", spec_path.display()))?;
-    let spec_format = Format::sniff(&spec_path, &spec_bytes);
+    let spec_format = Format::sniff(&spec_bytes);
     let mut doc = Document::parse(&spec_bytes, spec_format).map_err(|e| format!("{}: {e}", spec_path.display()))?;
 
     overlay.apply(&mut doc)?;
@@ -111,7 +111,7 @@ fn run_mode_b(spec_path: &Path, overlay_paths: &[PathBuf], write: bool) -> Resul
     }
 
     let spec_bytes = read_file(spec_path)?;
-    let spec_format = Format::sniff_bytes_with_name(spec_path, &spec_bytes);
+    let spec_format = Format::sniff(&spec_bytes);
     let display = if spec_path == Path::new("-") {
         "stdin".to_owned()
     } else {
@@ -123,7 +123,7 @@ fn run_mode_b(spec_path: &Path, overlay_paths: &[PathBuf], write: bool) -> Resul
     let mut parsed = Vec::with_capacity(overlay_paths.len());
     for p in overlay_paths {
         let bytes = read_file(p)?;
-        let ov = Overlay::parse(&bytes, Format::sniff(p, &bytes)).map_err(|e| format!("{}: {e}", p.display()))?;
+        let ov = Overlay::parse(&bytes, Format::sniff(&bytes)).map_err(|e| format!("{}: {e}", p.display()))?;
         ov.diagnose_warnings();
 
         // 1.2 §Base URI rule 5: Mode B extends vs target-spec $self.

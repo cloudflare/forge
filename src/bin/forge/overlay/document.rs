@@ -1,8 +1,6 @@
 //! A spec document that tracks its original format (JSON or YAML) and its
 //! unmutated source bytes, so a no-op overlay round-trips byte-identically.
 
-use std::path::Path;
-
 use forge::Err;
 use serde_json::Value;
 
@@ -13,21 +11,11 @@ pub enum Format {
 }
 
 impl Format {
-    /// Pick a format: sniff by first non-whitespace byte (`{`/`[` is JSON,
+    /// Pick a format by the first non-whitespace byte (`{`/`[` is JSON,
     /// anything else YAML). Content wins over extension so a `.yaml` file
-    /// that actually holds JSON is treated as JSON (and vice-versa — YAML
+    /// that actually holds JSON is treated as JSON (and vice-versa: YAML
     /// is a superset, so this is safe).
-    pub fn sniff(_path: &Path, bytes: &[u8]) -> Format {
-        Format::sniff_bytes(bytes)
-    }
-
-    /// Same as [`Format::sniff`]; present for symmetry with stdin callers
-    /// that have a `-` pseudo-path.
-    pub fn sniff_bytes_with_name(_path: &Path, bytes: &[u8]) -> Format {
-        Format::sniff_bytes(bytes)
-    }
-
-    fn sniff_bytes(bytes: &[u8]) -> Format {
+    pub fn sniff(bytes: &[u8]) -> Format {
         for &b in bytes {
             match b {
                 b' ' | b'\t' | b'\r' | b'\n' => {}
@@ -98,4 +86,15 @@ fn parse_yaml(bytes: &[u8]) -> Result<Value, serde_yml::Error> {
     // Deserialize. serde_json::Value (with preserve_order) uses IndexMap
     // for objects, so key insertion order survives.
     serde_yml::from_slice::<Value>(bytes)
+}
+
+pub(super) fn type_name(v: &Value) -> &'static str {
+    match v {
+        Value::Null => "null",
+        Value::Bool(_) => "boolean",
+        Value::Number(_) => "number",
+        Value::String(_) => "string",
+        Value::Array(_) => "array",
+        Value::Object(_) => "object",
+    }
 }

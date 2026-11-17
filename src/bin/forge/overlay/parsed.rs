@@ -7,7 +7,7 @@ use forge::Err;
 use serde_json::Value;
 
 use super::action::{Action, ActionBody, Fields};
-use super::document::Document;
+use super::document::{Document, type_name};
 use super::path::Path as JPath;
 use super::uri;
 
@@ -662,15 +662,4 @@ fn validate_uri_field(name: &str, s: &str) -> Result<(), Err> {
         .into());
     }
     Ok(())
-}
-
-fn type_name(v: &Value) -> &'static str {
-    match v {
-        Value::Null => "null",
-        Value::Bool(_) => "boolean",
-        Value::Number(_) => "number",
-        Value::String(_) => "string",
-        Value::Array(_) => "array",
-        Value::Object(_) => "object",
-    }
 }

@@ -9,7 +9,7 @@ use forge::Err;
 use serde_json::Value;
 
 use super::action::Fields;
-use super::document::Document;
+use super::document::{Document, type_name};
 use super::parsed::Version;
 use super::path::{self, Path, Pointer, Segment};
 
@@ -539,15 +539,4 @@ fn parse_single_bracket_name(s: &str) -> Option<String> {
         i += ch.len_utf8();
     }
     Some(out)
-}
-
-fn type_name(v: &Value) -> &'static str {
-    match v {
-        Value::Null => "null",
-        Value::Bool(_) => "boolean",
-        Value::Number(_) => "number",
-        Value::String(_) => "string",
-        Value::Array(_) => "array",
-        Value::Object(_) => "object",
-    }
 }
