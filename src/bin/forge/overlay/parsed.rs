@@ -650,14 +650,22 @@ fn validate_uri_field(name: &str, s: &str) -> Result<(), Err> {
         )
         .into());
     }
-    // Security: forbid http/https on this field (no network).
+    // Security: only `file:`, `urn:`, and relative references are allowed.
     if let Some(sc) = uri::scheme(s)
-        && (sc == "http" || sc == "https")
+        && sc != "file"
+        && sc != "urn"
     {
+        if sc == "http" || sc == "https" {
+            return Err(format!(
+                "`{name}` URI {s:?} uses the {sc} scheme, which this forge refuses: \
+                 forge never opens a network connection to resolve overlay references. \
+                 Use a file: URI or a relative path to a file on disk."
+            )
+            .into());
+        }
         return Err(format!(
-            "`{name}` URI {s:?} uses the {sc} scheme, which this forge refuses: \
-             forge never opens a network connection to resolve overlay references. \
-             Use a file: URI or a relative path to a file on disk."
+            "`{name}` URI {s:?} uses the {sc} scheme, which is not supported for overlay \
+             references: only file:, urn:, and relative URI references are permitted."
         )
         .into());
     }

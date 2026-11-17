@@ -40,20 +40,32 @@ pub fn resolve_reference(base: &str, reference: &str) -> Result<String, String> 
     Ok(resolved.to_string())
 }
 
-/// Return the local file path for a `file:` URI, or `None` for any other
-/// scheme (which the caller MUST treat as "not a local file").
-pub fn to_path(uri: &str) -> Option<PathBuf> {
-    let (scheme, rest) = uri.split_once(':')?;
+/// Return the local file path for a `file:` URI. Errors for any other
+/// scheme, and for a `file:` URI whose authority is neither empty nor
+/// `localhost` (RFC 8089 only guarantees interop for those two).
+pub fn to_path(uri: &str) -> Result<PathBuf, String> {
+    let Some((scheme, rest)) = uri.split_once(':') else {
+        return Err(format!("{uri} has no scheme, so it is not a file: URI"));
+    };
     if !scheme.eq_ignore_ascii_case("file") {
-        return None;
+        return Err(format!(
+            "{uri} uses the {} scheme, not file:",
+            scheme.to_ascii_lowercase()
+        ));
     }
-    // `file:/path`, `file:///path`, `file://host/path`. Strip authority if
-    // present.
+    // `file:/path`, `file:///path`, `file://localhost/path`.
     let after_authority = if let Some(no_slashes) = rest.strip_prefix("//") {
-        match no_slashes.find('/') {
-            Some(i) => &no_slashes[i..],
-            None => "/",
+        let (authority, path) = match no_slashes.find('/') {
+            Some(i) => (&no_slashes[..i], &no_slashes[i..]),
+            None => (no_slashes, "/"),
+        };
+        if !authority.is_empty() && !authority.eq_ignore_ascii_case("localhost") {
+            return Err(format!(
+                "{uri} names host {authority:?}; only file: URIs with an empty authority or `localhost` \
+                 refer to a local file"
+            ));
         }
+        path
     } else {
         rest
     };
@@ -66,10 +78,10 @@ pub fn to_path(uri: &str) -> Option<PathBuf> {
     {
         // `/C:/foo` -> `C:/foo`.
         let trimmed = decoded.strip_prefix('/').unwrap_or(&decoded);
-        Some(PathBuf::from(trimmed))
+        Ok(PathBuf::from(trimmed))
     }
     #[cfg(not(windows))]
-    Some(PathBuf::from(decoded))
+    Ok(PathBuf::from(decoded))
 }
 
 /// The scheme of a URI, lowercased, or `None` for a relative reference.

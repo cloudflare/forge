@@ -92,8 +92,8 @@ fn run_mode_a(overlay_path: &Path, write: bool) -> Result<(), Err> {
 
     // Reject non-file schemes (http/https are rejected earlier by security
     // layer; here we also reject urn: etc. as unresolvable).
-    let spec_path =
-        uri::to_path(&spec_uri).ok_or_else(|| format!("extends resolves to {spec_uri}, which is not a local file"))?;
+    let spec_path = uri::to_path(&spec_uri)
+        .map_err(|e| format!("extends resolves to {spec_uri}, which is not a local file: {e}"))?;
 
     let spec_bytes = fs::read(&spec_path).map_err(|e| format!("{}: {e}", spec_path.display()))?;
     let spec_format = Format::sniff(&spec_bytes);
