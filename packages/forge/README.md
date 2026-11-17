@@ -351,14 +351,14 @@ The package is a single tarball, so you can install it without the
 registry. Install it by path:
 
 ```sh
-npm install --save-dev /path/to/cloudflare-forge-0.1.0.tgz
+npm install --save-dev /path/to/cloudflare-forge-0.2.0.tgz
 ```
 
 or list it in `package.json`. A path or URL to the tarball both work:
 
 ```json
 "devDependencies": {
-  "@cloudflare/forge": "file:../cloudflare-forge-0.1.0.tgz"
+  "@cloudflare/forge": "file:../cloudflare-forge-0.2.0.tgz"
 }
 ```
 
@@ -439,4 +439,4 @@ just pack --platform darwin-arm64
 ```
 
 A tarball that leaves platforms out lists the ones it has in its name, as in
-`cloudflare-forge-0.1.0-darwin-arm64.tgz`, so it can't pass for the full package.
+`cloudflare-forge-0.2.0-darwin-arm64.tgz`, so it can't pass for the full package.

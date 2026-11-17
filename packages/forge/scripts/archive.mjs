@@ -4,8 +4,8 @@
 //
 //     node scripts/archive.mjs [--artifacts <dir>] [--platform <os-cpu>]... [--out <dir>]
 //
-//     npm install /path/to/cloudflare-forge-0.1.0.tgz
-//     # or, in package.json: "@cloudflare/forge": "file:../cloudflare-forge-0.1.0.tgz"
+//     npm install /path/to/cloudflare-forge-0.2.0.tgz
+//     # or, in package.json: "@cloudflare/forge": "file:../cloudflare-forge-0.2.0.tgz"
 //
 // The binaries come from <dir>, the crate's target directory unless you say
 // otherwise (see findBinary in platforms.mjs). Every platform needs one.
