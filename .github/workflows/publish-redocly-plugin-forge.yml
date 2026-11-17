@@ -27,20 +27,22 @@
 #
 # Required repo settings (enforced by GitHub, not by this workflow):
 #
-#   - A tag ruleset matching `redocly-plugin-forge-v*` with
+#   - A tag ruleset matching `redocly-plugin-forge@*` with
 #     `required_signatures` enabled, and `creation` restricted to the
 #     release-manager bypass list. GitHub rejects unsigned or
 #     unauthorized tag pushes before this workflow ever runs; duplicating
 #     those checks in bash would just drift from the repo policy.
 #
-# Trigger: a tag of the form `redocly-plugin-forge-v<version>`.
+# Trigger: a tag of the form `redocly-plugin-forge@<version>` — the
+# `<name>@<version>` form matches npm's own identifier syntax and is the
+# convention changesets and other JS monorepos use.
 #
 # To cut a release:
 #   1. Land a PR to main that bumps packages/redocly-plugin-forge/package.json
 #      "version" to the new version.
 #   2. After it merges, create and push a signed tag:
-#        git tag -s redocly-plugin-forge-v0.1.0 -m 'redocly-plugin-forge 0.1.0'
-#        git push origin redocly-plugin-forge-v0.1.0
+#        git tag -s redocly-plugin-forge@0.1.0 -m 'redocly-plugin-forge 0.1.0'
+#        git push origin redocly-plugin-forge@0.1.0
 #   3. This workflow then publishes the new version.
 
 name: Publish @cloudflare/redocly-plugin-forge
@@ -48,7 +50,7 @@ name: Publish @cloudflare/redocly-plugin-forge
 on:
   push:
     tags:
-      - 'redocly-plugin-forge-v*'
+      - 'redocly-plugin-forge@*'
 
 # Only one publish job runs at a time; a second tag push queues behind the
 # first rather than racing it to the registry.
@@ -84,7 +86,7 @@ jobs:
           GITHUB_REF_NAME: ${{ github.ref_name }}
         run: |
           set -euo pipefail
-          tag_version="${GITHUB_REF_NAME#redocly-plugin-forge-v}"
+          tag_version="${GITHUB_REF_NAME#redocly-plugin-forge@}"
           pkg_version=$(node -p "require('./packages/redocly-plugin-forge/package.json').version")
           if [ "$tag_version" != "$pkg_version" ]; then
             echo "Tag version ($tag_version) does not match package.json version ($pkg_version)" >&2
