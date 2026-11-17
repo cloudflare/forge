@@ -18,9 +18,10 @@ const SPEC: &str = r#"{
   }
 }"#;
 
-/// Runs `forge` with `args`, writing `stdin` to it.
-fn forge(args: &[&str], stdin: &str) -> Output {
+/// Runs `forge generate` with `args`, writing `stdin` to it.
+fn generate(args: &[&str], stdin: &str) -> Output {
     let mut child = Command::new(env!("CARGO_BIN_EXE_forge"))
+        .arg("generate")
         .args(args)
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
@@ -40,27 +41,27 @@ fn failure(out: Output) -> String {
 
 #[test]
 fn flags_are_required() {
-    let err = failure(forge(&["-"], SPEC));
+    let err = failure(generate(&["-"], SPEC));
     assert!(err.contains("--target <TARGET>"), "{err}");
     assert!(err.contains("--out <OUT>"), "{err}");
 }
 
 #[test]
 fn unknown_target() {
-    let err = failure(forge(&["-", "--target", "go", "--out", "sdk"], SPEC));
+    let err = failure(generate(&["-", "--target", "go", "--out", "sdk"], SPEC));
     assert!(err.contains("invalid value 'go'"), "{err}");
     assert!(err.contains("possible values: ts, capnweb"), "{err}");
 }
 
 #[test]
 fn missing_spec() {
-    let err = failure(forge(&["missing.json", "--target", "ts", "--out", "sdk"], ""));
+    let err = failure(generate(&["missing.json", "--target", "ts", "--out", "sdk"], ""));
     assert!(err.starts_with("forge: missing.json: "), "{err}");
 }
 
 #[test]
 fn invalid_spec() {
-    let err = failure(forge(&["-", "--target", "ts", "--out", "sdk"], "{"));
+    let err = failure(generate(&["-", "--target", "ts", "--out", "sdk"], "{"));
     assert!(err.starts_with("forge: -: "), "{err}");
 }
 
@@ -68,7 +69,7 @@ fn invalid_spec() {
 fn ts() {
     let out = std::env::temp_dir().join(format!("forge-cli-ts-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&out);
-    let result = forge(&["-", "--target", "ts", "--out", out.to_str().unwrap()], SPEC);
+    let result = generate(&["-", "--target", "ts", "--out", out.to_str().unwrap()], SPEC);
     assert!(result.status.success(), "{}", String::from_utf8_lossy(&result.stderr));
     for name in [
         "index.ts",
@@ -92,7 +93,7 @@ fn ts() {
 fn capnweb() {
     let out = std::env::temp_dir().join(format!("forge-cli-capnweb-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&out);
-    let result = forge(&["-", "--target", "capnweb", "--out", out.to_str().unwrap()], SPEC);
+    let result = generate(&["-", "--target", "capnweb", "--out", out.to_str().unwrap()], SPEC);
     assert!(result.status.success(), "{}", String::from_utf8_lossy(&result.stderr));
     for name in ["index.ts", "options.ts", "server.ts", "a/index.ts", "a/server.ts"] {
         assert!(out.join(name).is_file(), "{name} is missing");
@@ -103,54 +104,4 @@ fn capnweb() {
         "{server}"
     );
     std::fs::remove_dir_all(&out).unwrap();
-}
-
-/// `forge generate <spec>` is the new subcommand.
-#[test]
-fn generate_subcommand_uses_the_spec_argument() {
-    let dir = std::env::temp_dir().join(format!("forge-cli-generate-sub-{}", std::process::id()));
-    let _ = std::fs::remove_dir_all(&dir);
-    std::fs::create_dir_all(&dir).unwrap();
-    let spec = dir.join("openapi.json");
-    std::fs::write(&spec, SPEC).unwrap();
-    let out = dir.join("out");
-    let result = forge(
-        &[
-            "generate",
-            spec.to_str().unwrap(),
-            "--target",
-            "ts",
-            "--out",
-            out.to_str().unwrap(),
-        ],
-        "",
-    );
-    assert!(result.status.success(), "{}", String::from_utf8_lossy(&result.stderr));
-    assert!(out.join("a/client.ts").is_file());
-    std::fs::remove_dir_all(&dir).unwrap();
-}
-
-/// `forge generate --target … --out …` with no positional spec means the
-/// file literally named `generate`, through the legacy root alias.
-#[test]
-fn generate_without_a_spec_falls_back_to_the_alias_with_generate_as_the_spec() {
-    let dir = std::env::temp_dir().join(format!("forge-cli-generate-alias-{}", std::process::id()));
-    let _ = std::fs::remove_dir_all(&dir);
-    std::fs::create_dir_all(&dir).unwrap();
-    // The spec is a file named `generate` in the working directory.
-    std::fs::write(dir.join("generate"), SPEC).unwrap();
-    let out = dir.join("out");
-    let mut child = Command::new(env!("CARGO_BIN_EXE_forge"))
-        .current_dir(&dir)
-        .args(["generate", "--target", "ts", "--out", out.to_str().unwrap()])
-        .stdin(Stdio::piped())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .spawn()
-        .unwrap();
-    child.stdin.take().unwrap();
-    let result = child.wait_with_output().unwrap();
-    assert!(result.status.success(), "{}", String::from_utf8_lossy(&result.stderr));
-    assert!(out.join("a/client.ts").is_file());
-    std::fs::remove_dir_all(&dir).unwrap();
 }
