@@ -52,17 +52,56 @@ pub fn run(args: Args) -> Result<(), Err> {
                     .into(),
             );
         }
-        run_mode_a(&args.inputs[0], out)
+        run_mode_a_path(&args.inputs[0], out)
     } else {
         if args.inputs.len() > 1 {
             return Err("`forge overlay <spec> --overlay ...` takes exactly one positional spec".into());
         }
-        run_mode_b(&args.inputs[0], &args.overlays, out)
+        run_mode_b_paths(&args.inputs[0], &args.overlays, out)
     }
 }
 
 /// Mode A: `forge overlay <overlay>` — overlay drives the spec via `extends`.
-fn run_mode_a(overlay_path: &Path, out: Option<&Path>) -> Result<(), Err> {
+pub fn run_mode_a_path(overlay_path: &Path, out: Option<&Path>) -> Result<(), Err> {
+    let doc = apply_mode_a(overlay_path)?;
+    emit(&doc, out, None)
+}
+
+/// Mode B: `forge overlay <spec> --overlay <ov>...` — spec on CLI.
+pub fn run_mode_b_paths(spec_path: &Path, overlay_paths: &[PathBuf], out: Option<&Path>) -> Result<(), Err> {
+    let doc = apply_mode_b(spec_path, overlay_paths)?;
+    // In Mode B the spec file (when it is a real file, not stdin) is a
+    // candidate for the in-place rewrite path. In Mode A there is no spec
+    // file argument on the CLI to compare against.
+    let spec_for_compare = (spec_path != Path::new("-")).then_some(spec_path);
+    emit(&doc, out, spec_for_compare)
+}
+
+/// Apply the positional overlay (resolving its `extends`) and then every file
+/// in `extra_overlays` in order, and return the merged document as a plain
+/// `Value`. Used by the top-level `forge` when the positional is an overlay
+/// that drives the spec via `extends`, with optional further `--overlay`
+/// flags stacked after it.
+pub fn apply_from_overlay_positional(
+    positional_overlay: &Path,
+    extra_overlays: &[PathBuf],
+) -> Result<serde_json::Value, Err> {
+    let mut doc = apply_mode_a(positional_overlay)?;
+    apply_overlays_to_doc(&mut doc, extra_overlays)?;
+    Ok(doc.value().clone())
+}
+
+/// Apply `overlays` in order to the spec at `spec_path` and return the merged
+/// document as a plain `Value`. Used by the top-level `forge` when the
+/// positional is a plain spec plus one or more `--overlay` flags.
+pub fn apply_to_spec(spec_path: &Path, overlays: &[PathBuf]) -> Result<serde_json::Value, Err> {
+    let doc = apply_mode_b(spec_path, overlays)?;
+    Ok(doc.value().clone())
+}
+
+/// Shared Mode A core: load the overlay, resolve its `extends`, parse the
+/// spec it points at, and apply the overlay. Returns the merged `Document`.
+fn apply_mode_a(overlay_path: &Path) -> Result<Document, Err> {
     let bytes = read_file(overlay_path)?;
     let format = Format::sniff(&bytes);
 
@@ -98,12 +137,12 @@ fn run_mode_a(overlay_path: &Path, out: Option<&Path>) -> Result<(), Err> {
     let mut doc = Document::parse(&spec_bytes, spec_format).map_err(|e| format!("{}: {e}", spec_path.display()))?;
 
     overlay.apply(&mut doc)?;
-    emit(&doc, out, None)?;
-    Ok(())
+    Ok(doc)
 }
 
-/// Mode B: `forge overlay <spec> --overlay <ov>...` — spec on CLI.
-fn run_mode_b(spec_path: &Path, overlay_paths: &[PathBuf], out: Option<&Path>) -> Result<(), Err> {
+/// Shared Mode B core: parse the spec and apply each overlay in order,
+/// returning the merged `Document`.
+fn apply_mode_b(spec_path: &Path, overlay_paths: &[PathBuf]) -> Result<Document, Err> {
     let spec_bytes = read_file(spec_path)?;
     let spec_format = Format::sniff(&spec_bytes);
     let display = if spec_path == Path::new("-") {
@@ -112,7 +151,16 @@ fn run_mode_b(spec_path: &Path, overlay_paths: &[PathBuf], out: Option<&Path>) -
         spec_path.display().to_string()
     };
     let mut doc = Document::parse(&spec_bytes, spec_format).map_err(|e| format!("{display}: {e}"))?;
+    apply_overlays_to_doc(&mut doc, overlay_paths)?;
+    Ok(doc)
+}
 
+/// Load, validate, and apply `overlay_paths` to `doc` in order. All overlays
+/// are parsed first so a bad one fails the chain before any mutation. The
+/// 1.2 `$self`/`extends` identity check is applied against the target doc's
+/// current `$self`, so it covers both Mode B and the top-level case where a
+/// Mode A result is further extended with extra overlays.
+fn apply_overlays_to_doc(doc: &mut Document, overlay_paths: &[PathBuf]) -> Result<(), Err> {
     // Load and parse all overlays first (transactional validation).
     let mut parsed = Vec::with_capacity(overlay_paths.len());
     for p in overlay_paths {
@@ -120,10 +168,10 @@ fn run_mode_b(spec_path: &Path, overlay_paths: &[PathBuf], out: Option<&Path>) -
         let ov = Overlay::parse(&bytes, Format::sniff(&bytes)).map_err(|e| format!("{}: {e}", p.display()))?;
         ov.diagnose_warnings();
 
-        // 1.2 §Base URI rule 5: Mode B extends vs target-spec $self.
-        // When BOTH the overlay has extends AND we can compute a base URI
-        // from its $self, and the target spec has a $self, the resolved
-        // extends identifier must equal the target's $self (string equality).
+        // 1.2 §Base URI rule 5: extends vs target-spec $self. When BOTH the
+        // overlay has extends AND we can compute a base URI from its $self,
+        // and the target spec has a $self, the resolved extends identifier
+        // must equal the target's $self (string equality).
         if let Some(extends) = ov.extends()
             && ov.version_supports_components()
             && let Some(target_self) = doc.value().get("$self").and_then(|v| v.as_str())
@@ -148,14 +196,8 @@ fn run_mode_b(spec_path: &Path, overlay_paths: &[PathBuf], out: Option<&Path>) -
 
     // Apply in order; first failure stops the chain and nothing is written.
     for ov in &parsed {
-        ov.apply(&mut doc)?;
+        ov.apply(doc)?;
     }
-
-    // In Mode B the spec file (when it is a real file, not stdin) is a
-    // candidate for the in-place rewrite path. In Mode A there is no spec
-    // file argument on the CLI to compare against.
-    let spec_for_compare = (spec_path != Path::new("-")).then_some(spec_path);
-    emit(&doc, out, spec_for_compare)?;
     Ok(())
 }
 

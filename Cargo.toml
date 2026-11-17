@@ -55,6 +55,10 @@ name = "overlay"
 required-features = ["cli"]
 
 [[test]]
+name = "top_level_overlay"
+required-features = ["cli"]
+
+[[test]]
 name = "wasm"
 required-features = ["cli", "wasm"]
 

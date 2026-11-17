@@ -6,7 +6,10 @@ It's [still early-days](https://blog.cloudflare.com/forge-open-source-generation
 
 ## Docs
 
-- [`forge overlay`](docs/overlay.md) — applying OpenAPI Overlay documents, supported versions, security profile, and strictness choices.
+- [`forge overlay`](docs/overlay.md) — applying OpenAPI Overlay documents
+  (either `forge <overlay>` or `forge <spec> --overlay <ov>...`, also under
+  the `forge overlay` subcommand), supported versions, security profile, and
+  strictness choices.
 
 ## License
 

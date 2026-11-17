@@ -5,16 +5,28 @@ documents to an OpenAPI spec and prints the result (or writes it to a file
 with `--out`).
 
 ```
-forge overlay <overlay>                         # Mode A: overlay drives the spec via its `extends`
-forge overlay <spec> --overlay <overlay>...     # Mode B
+forge overlay <overlay>                             # Mode A: overlay drives the spec via its `extends`
+forge overlay <spec> --overlay <overlay>...         # Mode B
 forge overlay <spec> --overlay <overlay> --out <path>
 ```
 
-Without `--out` the overlaid document is printed to standard output.
-`--out <path>` (short `-o`) writes it to `<path>` instead; if `<path>` is
-the same file as the Mode B spec, the file is rewritten atomically (temp
-file + rename in the same directory) and left byte-identical when no
-action mutated it.
+At the top level, overlays are a preprocessing step before SDK generation,
+not a separate print mode:
+
+```
+forge <spec> --overlay <overlay>... --target <t> --out <dir>
+forge <overlay-with-extends> [--overlay <ov>]... --target <t> --out <dir>
+```
+
+Use `forge overlay` (the subcommand) when you want to inspect or write the
+merged spec itself; use the top-level `forge` when you want an SDK built
+from a preprocessed spec.
+
+Without `--out` the `forge overlay` subcommand prints the overlaid document
+to standard output. `--out <path>` writes it to `<path>` instead; if
+`<path>` is the same file as the Mode B spec, the file is rewritten
+atomically (temp file + rename in the same directory) and left
+byte-identical when no action mutated it.
 
 ## Supported Overlay versions
 
