@@ -38,7 +38,7 @@ rules:
 Four rules catch names that are distinct on the wire but normalize to the same SDK identifier after Forge's `Name::new` word-splitting (so `notification_url` collides with `notificationUrl`, `getBy` with `get_by`, and so on):
 
 - `forge/no-conflicting-parameter-names` — within one operation, path+query+cookie and top-level JSON request-body properties share one namespace; headers share another (ignoring `Accept`, `Content-Type`, and `Authorization`). Body properties with `readOnly: true` or `x-forge-skip: true` are excluded, and `allOf`/`oneOf`/`anyOf` body schemas are out of scope. Also reports repeated path placeholders (`/pets/{id}/toys/{id}`) and placeholders with no letters or digits.
-- `forge/no-conflicting-property-names` — properties on the same object schema. Skips `x-forge-skip: true` and `readOnly: true`.
+- `forge/no-conflicting-property-names` — properties on the same object schema. Skips `x-forge-skip: true`. `readOnly` and `writeOnly` properties are included, since both appear on at least one of the generated request / response types.
 - `forge/no-conflicting-schema-names` — keys under `components.schemas`. Skips `x-forge-skip: true`.
 - `forge/no-duplicate-method-name` — `(x-forge-group-name, x-forge-method-name)` pairs across operations and `x-forge-aliases`. An alias inherits its operation's group when it does not declare its own.
 
