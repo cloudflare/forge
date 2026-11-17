@@ -105,3 +105,47 @@ fn capnweb() {
     );
     std::fs::remove_dir_all(&out).unwrap();
 }
+
+/// `forge` with no arguments prints the top-level help on stdout and exits
+/// successfully, so it reads cleanly in a pager or pipeline. Every other
+/// invalid invocation keeps the usual stderr-and-exit-2 shape.
+#[test]
+fn no_arguments_print_help_on_stdout_with_exit_zero() {
+    let out = Command::new(env!("CARGO_BIN_EXE_forge")).output().unwrap();
+
+    assert!(out.status.success(), "status: {:?}", out.status);
+    assert_eq!(out.status.code(), Some(0));
+    assert!(
+        out.stderr.is_empty(),
+        "stderr: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    let stdout = String::from_utf8(out.stdout).unwrap();
+    assert!(stdout.contains("Usage: forge <COMMAND>"), "{stdout}");
+    assert!(stdout.contains("generate"), "{stdout}");
+    assert!(stdout.contains("normalize"), "{stdout}");
+}
+
+/// An unknown subcommand still errors on stderr with status 2, so scripts
+/// that watch exit codes keep catching bad invocations.
+#[test]
+fn an_unknown_subcommand_errors_on_stderr_with_exit_two() {
+    let out = Command::new(env!("CARGO_BIN_EXE_forge"))
+        .arg("not-a-command")
+        .output()
+        .unwrap();
+
+    assert_eq!(
+        out.status.code(),
+        Some(2),
+        "stderr: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    assert!(
+        out.stdout.is_empty(),
+        "stdout: {}",
+        String::from_utf8_lossy(&out.stdout)
+    );
+    let stderr = String::from_utf8(out.stderr).unwrap();
+    assert!(stderr.contains("unrecognized subcommand 'not-a-command'"), "{stderr}");
+}

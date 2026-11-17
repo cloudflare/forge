@@ -24,7 +24,7 @@ mod ts;
 
 /// Generates an SDK from an OpenAPI document.
 #[derive(Parser)]
-#[command(version, subcommand_required = true, arg_required_else_help = true)]
+#[command(version, subcommand_required = true)]
 struct Args {
     #[command(subcommand)]
     command: Command,
@@ -102,6 +102,15 @@ impl Target {
 }
 
 fn main() -> ExitCode {
+    // `forge` on its own is the help command: print the top-level help to
+    // stdout and exit 0 so it reads cleanly in a pager or pipeline. Every
+    // other invalid invocation keeps clap's error-to-stderr, exit-2 shape.
+    if std::env::args_os().len() <= 1 {
+        let mut cmd = <Args as clap::CommandFactory>::command();
+        cmd.print_help().expect("write top-level help to stdout");
+        println!();
+        return ExitCode::SUCCESS;
+    }
     let args = match Args::try_parse() {
         Ok(args) => args,
         Err(err) => {
