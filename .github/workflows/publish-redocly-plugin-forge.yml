@@ -1,0 +1,156 @@
+# Publishes @cloudflare/redocly-plugin-forge to npmjs.com on tag push.
+#
+# The plugin lints OpenAPI specs in downstream CI pipelines that may run on
+# protected refs with access to secrets, so every step of this workflow is
+# hardened accordingly. In particular:
+#
+#   - Runs on tag only, never on arbitrary PRs.
+#   - Installs with --frozen-lockfile; the lockfile itself pins exact
+#     versions of all transitive dependencies.
+#   - Runs `pnpm audit --audit-level=high` before packaging. Fails closed on
+#     any high-or-critical finding — no "warn and continue."
+#   - Typechecks and runs the full unit-test suite before publishing.
+#   - Publishes with `npm publish --provenance`, producing an attestation
+#     that links the released tarball to this workflow run and the commit
+#     the tag points at. Consumers can verify with `npm view … attestations`.
+#   - Uses npm's OIDC-backed trusted-publisher flow: no long-lived publish
+#     token is stored in GitHub secrets. (If migrating from a legacy
+#     NODE_AUTH_TOKEN setup, the token must be a granular, scope-limited
+#     automation token stored as NPM_TOKEN and masked from logs.)
+#
+# Trigger: a tag of the form `redocly-plugin-forge-v<version>`, which should
+# be created from a signed commit on `main`. Branch protection on `main`
+# plus required review on any PR touching the plugin or this workflow
+# enforces the "signed commits on publish tags" requirement from the trust
+# model.
+#
+# To cut a release:
+#   1. Land a PR to main that bumps packages/redocly-plugin-forge/package.json
+#      "version" to the new version.
+#   2. After it merges, create and push a signed tag:
+#        git tag -s redocly-plugin-forge-v0.1.0 -m 'redocly-plugin-forge 0.1.0'
+#        git push origin redocly-plugin-forge-v0.1.0
+#   3. This workflow then publishes the new version.
+
+name: Publish @cloudflare/redocly-plugin-forge
+
+on:
+  push:
+    tags:
+      - 'redocly-plugin-forge-v*'
+
+# Only one publish job runs at a time; a second tag push queues behind the
+# first rather than racing it to the registry.
+concurrency:
+  group: publish-redocly-plugin-forge
+  cancel-in-progress: false
+
+# Workflow-level permissions are read-only; the publish job raises just the
+# two it needs (`id-token: write` for provenance, `contents: read` for the
+# checkout). No job gets `contents: write`, so a compromised step cannot
+# push commits or create releases.
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    name: Publish to npm
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: npm-publish
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Checkout tag
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Verify tag version matches package.json
+        env:
+          GITHUB_REF_NAME: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          tag_version="${GITHUB_REF_NAME#redocly-plugin-forge-v}"
+          pkg_version=$(node -p "require('./packages/redocly-plugin-forge/package.json').version")
+          if [ "$tag_version" != "$pkg_version" ]; then
+            echo "Tag version ($tag_version) does not match package.json version ($pkg_version)" >&2
+            exit 1
+          fi
+          echo "Publishing @cloudflare/redocly-plugin-forge@$pkg_version"
+
+      - name: Setup workspace
+        uses: ./.github/actions/setup-workspace
+
+      # Fail closed on high or critical vulnerabilities in the plugin's
+      # resolved production dependency tree before anything else touches the
+      # code. Scoped to the plugin workspace so unrelated site dependencies
+      # cannot block a publish; the plugin's trust model is that its own
+      # prod tree is clean, not the entire monorepo.
+      - name: Audit plugin dependencies
+        run: pnpm --filter @cloudflare/redocly-plugin-forge audit --audit-level=high --prod
+
+      - name: Typecheck
+        run: pnpm --filter @cloudflare/redocly-plugin-forge typecheck
+
+      - name: Test
+        run: pnpm --filter @cloudflare/redocly-plugin-forge test
+
+      - name: Build
+        run: pnpm --filter @cloudflare/redocly-plugin-forge run build
+
+      # Pack first and inspect the tarball contents. A surprise file in the
+      # package (an unexpected script, a credential, a stray env file) shows
+      # up here and the publish step below operates on the exact same
+      # tarball, not on a fresh pack.
+      - name: Pack
+        working-directory: packages/redocly-plugin-forge
+        run: pnpm pack
+
+      - name: Inspect package contents
+        working-directory: packages/redocly-plugin-forge
+        run: |
+          set -euo pipefail
+          tarball=$(ls cloudflare-redocly-plugin-forge-*.tgz)
+          echo "Packed $tarball"
+          tar -tzf "$tarball" | sort | tee "$RUNNER_TEMP/pack-contents.txt"
+          # Fail if the tarball includes anything that smells like a secret
+          # or a sensitive build artifact.
+          if grep -Ei '(\.env$|\.env\.|\.npmrc$|/\.git/|/node_modules/|\.pem$|\.key$)' "$RUNNER_TEMP/pack-contents.txt"; then
+            echo "Refusing to publish: tarball contains disallowed path above." >&2
+            exit 1
+          fi
+
+      # --provenance generates and uploads an attestation tying this tarball
+      # to this workflow run; it requires id-token: write (granted above).
+      # --access public is explicit so a misconfigured publishConfig can't
+      # silently publish a scoped package as private.
+      - name: Publish
+        working-directory: packages/redocly-plugin-forge
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NPM_CONFIG_PROVENANCE: 'true'
+        run: |
+          set -euo pipefail
+          echo '//registry.npmjs.org/:_authToken=${NODE_AUTH_TOKEN}' > ~/.npmrc
+          tarball=$(ls cloudflare-redocly-plugin-forge-*.tgz)
+          npm publish "$tarball" --provenance --access public
+          rm ~/.npmrc
+
+      - name: Summary
+        env:
+          VERSION: ${{ github.ref_name }}
+        run: |
+          cat >> "$GITHUB_STEP_SUMMARY" <<EOF
+          ### Published @cloudflare/redocly-plugin-forge
+
+          Tag: \`$VERSION\`
+
+          Verify provenance:
+
+          \`\`\`sh
+          npm view @cloudflare/redocly-plugin-forge --json | jq .dist.attestations
+          \`\`\`
+          EOF

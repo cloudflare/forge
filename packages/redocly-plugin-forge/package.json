@@ -1,11 +1,48 @@
 {
   "name": "@cloudflare/redocly-plugin-forge",
-  "private": true,
+  "version": "0.1.0",
+  "description": "Redocly plugin: twenty OAS-native lint rules that catch common OpenAPI mistakes before they reach code generation, plus a handful of x-forge-* validators for Cloudflare Forge users.",
+  "keywords": [
+    "code-generation",
+    "forge",
+    "lint",
+    "oas",
+    "openapi",
+    "redocly",
+    "redocly-plugin"
+  ],
+  "homepage": "https://github.com/cloudflare/forge/tree/main/packages/redocly-plugin-forge",
+  "bugs": {
+    "url": "https://github.com/cloudflare/forge/issues"
+  },
+  "license": "Apache-2.0",
+  "author": "Cloudflare, Inc.",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/cloudflare/forge.git",
+    "directory": "packages/redocly-plugin-forge"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
   "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
   "exports": {
-    ".": "./index.ts"
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
   },
   "scripts": {
+    "build": "rm -rf dist && tsc -p tsconfig.build.json",
+    "prepack": "pnpm run build",
     "test": "vitest run",
     "test:update": "UPDATE_FIXTURES=1 vitest run",
     "typecheck": "tsc --noEmit"
