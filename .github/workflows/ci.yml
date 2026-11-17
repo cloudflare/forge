@@ -33,9 +33,10 @@ jobs:
       # tag time (or worse, to a downstream consumer). `pnpm pack` runs
       # the plugin's `prepack` script, which exercises the full build.
       - name: Verify @cloudflare/redocly-plugin-forge pack
+        working-directory: packages/redocly-plugin-forge
         run: |
-          pnpm --filter @cloudflare/redocly-plugin-forge pack
-          pnpm dlx publint@0.3.16 packages/redocly-plugin-forge/cloudflare-redocly-plugin-forge-*.tgz
+          pnpm pack
+          pnpm dlx publint@0.3.16 ./cloudflare-redocly-plugin-forge-*.tgz
 
       - name: Install Playwright browser
         run: pnpm --filter astro-fern exec playwright install --with-deps chromium
