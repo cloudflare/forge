@@ -3,7 +3,7 @@ import cloudflare from '@astrojs/cloudflare';
 import nimbus, { defineConfig as defineNimbusConfig } from '@cloudflare/nimbus-docs';
 import tailwindcss from '@tailwindcss/vite';
 import { defineConfig } from 'astro/config';
-import { builtForgeApi, forgeApi, isAstroPreview } from './src/forge-api.ts';
+import { builtForgeApi, forgeApi, isAstroPreview, stainlessEdgeRedirects } from './src/forge-api.ts';
 
 const site = 'https://docs.experiments.devprod.cloudflare.dev';
 
@@ -32,12 +32,16 @@ const nimbusConfig = defineNimbusConfig({
   api: [api],
 });
 
+const base = '/api';
+
 export default defineConfig({
-  base: '/api',
+  base,
   output: 'server',
   trailingSlash: 'always',
   adapter: cloudflare({ prerenderEnvironment: 'node' }),
   security: { allowedDomains },
+  // The retired Stainless site's top pages, which the adapter writes to `_redirects`; the middleware redirects the rest.
+  redirects: stainlessEdgeRedirects(base),
   vite: {
     plugins: [tailwindcss()],
   },

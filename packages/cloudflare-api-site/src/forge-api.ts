@@ -22,6 +22,7 @@ import { cloudflareTerraformExtension } from './terraform-extension.ts';
 import { TERRAFORM_EXTENSION_NAME, type TerraformOperationData, terraformOperationDataSchema } from './terraform.ts';
 import { assertToolingRouteNamespace } from './command-reference/routing.ts';
 import { cloudflareApiVersionLabel, parseCloudflareApiVersion } from './version.ts';
+import { planStainlessRedirects, type StainlessSnapshot } from './stainless-redirects.ts';
 
 export const TERRAFORM_EXTENSION = 'x-cloudflare-terraform';
 const HTTP_METHODS = ['get', 'put', 'post', 'delete', 'options', 'head', 'patch', 'trace'] as const;
@@ -62,6 +63,8 @@ export interface PreparedForgeApi {
   products: ForgeProduct[];
   /** Collection-relative pathnames the site served and Nimbus doesn't → where they live now. */
   redirects: Record<string, string>;
+  /** The product and resource pages Nimbus draws, collection-relative. */
+  sections: string[];
   /** Tag name → the URL segment that replaces it, for products Nimbus holds a segment for. */
   tagSegments: Record<string, string>;
 }
@@ -256,6 +259,7 @@ export function prepareForgeApi(
     operations,
     products: primaryProducts.map(({ id, slug, title }) => ({ id, slug, title })),
     redirects,
+    sections: [...sections],
     tagSegments: Object.fromEntries(
       primaryProducts
         .filter((product) => product.slug in MOVED_PRODUCT_SLUGS)
@@ -311,6 +315,7 @@ export async function forgeApi(): Promise<ApiSpec> {
   writeFileSync(new URL(specFile, dir), JSON.stringify(prepared.document));
   writeFileSync(new URL('products.json', dir), JSON.stringify(prepared.products, null, 2));
   writeFileSync(new URL('redirects.json', dir), JSON.stringify(prepared.redirects, null, 2));
+  writeStainlessRedirects(prepared, dir);
 
   const api: ApiSpec = {
     collection: 'api',
@@ -343,6 +348,44 @@ export async function forgeApi(): Promise<ApiSpec> {
 }
 
 const BUILT_API_FILE = 'api.json';
+
+const STAINLESS_EDGE_FILE = 'stainless-edge.json';
+
+/**
+ * Plans the retired Stainless site's redirects against today's pages: the ones
+ * for Astro's `redirects`, which the adapter writes to `_redirects`, and the
+ * middleware's lookup for the rest.
+ */
+function writeStainlessRedirects(prepared: PreparedForgeApi, dir: URL): void {
+  const snapshot = JSON.parse(
+    readFileSync(new URL('./stainless-redirects.json', import.meta.url), 'utf8'),
+  ) as StainlessSnapshot;
+  const plan = planStainlessRedirects(snapshot, {
+    operations: prepared.operations,
+    sections: new Set(prepared.sections),
+  });
+  if (plan.fallbacks.length > 0) {
+    console.warn(
+      `[forge-api] ${plan.fallbacks.length} Stainless pages have no page today and redirect to an ancestor's; see .forge/stainless-fallbacks.json`,
+    );
+  }
+  writeFileSync(new URL('stainless-fallbacks.json', dir), JSON.stringify(plan.fallbacks, null, 2));
+  writeFileSync(new URL('stainless-lookup.json', dir), JSON.stringify(plan.lookup));
+  writeFileSync(new URL(STAINLESS_EDGE_FILE, dir), JSON.stringify(plan.edge));
+}
+
+/**
+ * Astro's `redirects` for the retired Stainless pages the edge serves, as the
+ * last `forgeApi()` run planned them. Sources are collection-relative, as Astro
+ * takes them; destinations carry `base`, which Astro copies as written.
+ */
+export function stainlessEdgeRedirects(base: string): Record<string, { status: 301; destination: string }> {
+  const file = new URL(`../.forge/${STAINLESS_EDGE_FILE}`, import.meta.url);
+  const edge = JSON.parse(readFileSync(file, 'utf8')) as Record<string, string>;
+  return Object.fromEntries(
+    Object.entries(edge).map(([from, to]) => [from, { status: 301, destination: `${base}${to}` }]),
+  );
+}
 
 /**
  * Whether this process is `astro preview`: the command is the argument after

@@ -34,14 +34,16 @@ release, loaded by `src/openapi-source.ts`. Fern SDK group and method metadata d
 resource hierarchy, and method route. OpenAPI tags remain internal ownership
 metadata and do not appear in URLs.
 
-`prepareForgeApi` writes three files to the git-ignored `.forge/` directory:
+`forgeApi` writes these files to the git-ignored `.forge/` directory:
 
 - `openapi-<version>.json`: the spec Nimbus renders, with Cloudflare titles,
   `x-nimbus-order` for lifecycle order, request samples, synthesized response
   examples, and Terraform data under `x-cloudflare-terraform`;
 - `products.json`: the products and their slugs, read by the command sidebar;
 - `redirects.json`: old section, alias-operation, and moved-product URLs, read by
-  `src/middleware.ts`.
+  `src/middleware.ts`;
+- `stainless-edge.json`, `stainless-lookup.json`, and `stainless-fallbacks.json`:
+  the retired Stainless site's redirects (see [Stainless redirects](#stainless-redirects)).
 
 Operations with removed Forge metadata are left out with a build warning.
 Operations `astro-fern` gives no URL are left out silently.
@@ -69,7 +71,10 @@ approved zone mapping.
   and `llms-full.txt.ts` are Nimbus's agent routes. A Markdown twin lives at
   `/<page>/index.md`; `[...slug].md.ts` 301s the old `/<page>.md` URLs to it.
   Its frontmatter leaves out the description, which the body repeats.
-- `src/middleware.ts` 302s the URLs in `.forge/redirects.json` to their pages.
+- `src/middleware.ts` 302s the URLs in `.forge/redirects.json` to their pages,
+  and 301s the retired Stainless site's URLs the edge doesn't.
+- `src/stainless-redirects.ts` plans the Stainless redirects; `public/_redirects`
+  holds the edge rules for its SDK languages.
 - `src/command-reference/`, `src/command-sidebar.ts`, `src/pages/tooling/`, and
   `src/pages/[product]/tooling/` own the `cf` command pages. They render on
   request, inside `CommandPage.astro`, with the same API sidebar as the API
@@ -175,6 +180,41 @@ Agent routes:
 /api/llms-full.txt
 /api/zero-trust/devices/ip-profiles/methods/list/index.md
 ```
+
+## Stainless redirects
+
+The site replaces the Stainless API reference once served at these paths. Its
+URLs 301 to today's pages. The old site is frozen, so what it served is a
+committed snapshot, `src/stainless-redirects.json`: each method page with its
+operationId, each resource and model page, and every operationId it knew, all in
+the HTTP form and collection-relative. It was made once from the old site's
+sitemap and source, and is not regenerated.
+
+Each build resolves the snapshot against today's pages with
+`planStainlessRedirects`:
+
+- a method page goes to its operation's page;
+- a resource page goes to the deepest section holding its methods, within the
+  product that holds most of them;
+- a model page goes to its resource's target;
+- `/operations/<operationId>/` goes to its operation's page.
+
+A page with no counterpart today goes to its nearest old ancestor's target, or
+the home page. The build warns with their count and lists them in
+`.forge/stainless-fallbacks.json`.
+
+The redirects are served in three layers:
+
+1. **The edge.** `public/_redirects` folds the SDK languages (`/api/typescript/`,
+   `/api/python/`, `/api/go/`, `/api/node/`) onto the HTTP pages. The site has no
+   SDK samples. Astro's `redirects` adds the 2,000 highest-ranked pages, the
+   static-rule limit of Workers static assets, which drops rules past it
+   silently. The overview goes first, then resources and then methods, each
+   shallowest first. The adapter writes them to `_redirects`.
+2. **The middleware.** It answers every other old page, every Markdown twin
+   (`index.md`), and `/api/terraform/...`, which keeps its view with
+   `?lang=terraform`.
+3. **Old paths the snapshot doesn't hold.** These were never pages and 404.
 
 ## Run it
 
