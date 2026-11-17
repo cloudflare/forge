@@ -98,9 +98,22 @@ const OVERLAY_MARKERS: &[&str] = &[
 ];
 
 /// Scheme-policy markers that must appear somewhere in a security-policy
-/// rejection. Field names and forbidden URIs are checked separately as
-/// exact strings — see `PolicyDeviation`.
-const SECURITY_POLICY_SCHEME_MARKERS: &[&str] = &["http", "scheme", "security", "policy", "network"];
+/// rejection — AFTER the forbidden URI has been redacted from stderr. The
+/// bare word `http` is deliberately absent: every deviation's URI starts
+/// with `http`/`https`, and that URI is quoted verbatim in stderr (we
+/// require that below), so including `http` here would make this check
+/// trivially true for any rejection that echoes the URL. Field names and
+/// forbidden URIs are checked separately as exact strings — see
+/// `PolicyDeviation`.
+const SECURITY_POLICY_SCHEME_MARKERS: &[&str] = &[
+    "scheme",
+    "security",
+    "policy",
+    "network",
+    "forbidden",
+    "not allowed",
+    "rejected",
+];
 
 /// One forbidden (field, URI) pair inside a deviation fixture.
 #[derive(Clone, Copy)]
@@ -224,20 +237,32 @@ fn run_pass(version: &str) {
                 report.non_overlay_error.push(format!("{name}\n  stderr:\n{stderr}"));
                 continue;
             }
-            // Require: a scheme-policy marker.
-            if !stderr_has_any(&lower, SECURITY_POLICY_SCHEME_MARKERS) {
+            // Redact every forbidden URI from stderr before the scheme and
+            // field checks run. The URIs themselves start with `http`/`https`
+            // and contain their own path segments, so leaving them in would
+            // let any stderr that merely echoes the URL trivially satisfy
+            // these checks. The URI-verbatim check below runs against the
+            // ORIGINAL stderr, where quoting IS the contract we want.
+            let mut redacted = stderr.clone();
+            for forbidden in deviation.forbidden {
+                redacted = redacted.replace(forbidden.uri, "");
+            }
+            let redacted_lower = redacted.to_lowercase();
+            // Require: a scheme-policy marker — in the URI-free stderr.
+            if !stderr_has_any(&redacted_lower, SECURITY_POLICY_SCHEME_MARKERS) {
                 report
                     .deviation_missing_scheme_marker
                     .push(format!("{name}\n  stderr:\n{stderr}"));
                 continue;
             }
-            // Require: EVERY forbidden field name AND EVERY forbidden URI
-            // appears in stderr verbatim. An operator must see which
-            // specific reference tripped the policy.
+            // Require: EVERY forbidden field name appears in the URI-free
+            // stderr (so merely echoing the YAML body does not count as
+            // naming the field), AND EVERY forbidden URI appears in the
+            // ORIGINAL stderr verbatim.
             for forbidden in deviation.forbidden {
-                if !stderr.contains(forbidden.field) {
+                if !redacted.contains(forbidden.field) {
                     report.deviation_missing_field.push(format!(
-                        "{name} (expected field {:?} in stderr)\n  stderr:\n{stderr}",
+                        "{name} (expected field {:?} in stderr outside the forbidden URI echo)\n  stderr:\n{stderr}",
                         forbidden.field,
                     ));
                 }
@@ -422,10 +447,11 @@ fn oai_v1_2_fail() {
 }
 
 /// Sanity: every entry in `POLICY_DEVIATIONS` names a real vendored
-/// fixture AND the exact forbidden URI it declares is actually present
-/// in that fixture's bytes. If an upstream rename or a URI edit lands
-/// and this manifest isn't updated, this test fails loudly instead of
-/// silently dropping coverage.
+/// fixture AND the exact forbidden URI it declares is actually bound to
+/// the declared field (`$self` or `extends`) in that fixture, not merely
+/// present somewhere in the bytes. If an upstream rename moves the URI
+/// to a different field, or a URI edit changes its value, this test
+/// fails loudly instead of silently dropping coverage.
 #[test]
 fn policy_deviations_manifest_matches_vendored_fixtures() {
     for deviation in POLICY_DEVIATIONS {
@@ -440,14 +466,26 @@ fn policy_deviations_manifest_matches_vendored_fixtures() {
                 deviation.version, deviation.file,
             )
         });
+        let parsed: serde_yml::Value = serde_yml::from_str(&contents).unwrap_or_else(|e| {
+            panic!(
+                "POLICY_DEVIATIONS entry {}/pass/{} is not valid YAML: {e}",
+                deviation.version, deviation.file,
+            )
+        });
         for forbidden in deviation.forbidden {
-            assert!(
-                contents.contains(forbidden.uri),
-                "POLICY_DEVIATIONS says {}/pass/{} contains URI {:?}, but the fixture doesn't — \
-                 upstream probably edited the URI. Update the manifest.",
-                deviation.version,
-                deviation.file,
-                forbidden.uri,
+            let actual = parsed.get(forbidden.field).and_then(|v| v.as_str()).unwrap_or_else(|| {
+                panic!(
+                    "POLICY_DEVIATIONS says {}/pass/{} has forbidden URI in field {:?}, \
+                     but the fixture has no string value at that field. Update the manifest.",
+                    deviation.version, deviation.file, forbidden.field,
+                )
+            });
+            assert_eq!(
+                actual, forbidden.uri,
+                "POLICY_DEVIATIONS says {}/pass/{} has URI {:?} at field {:?}, \
+                 but the fixture's actual value there is {:?} — upstream probably \
+                 edited the URI. Update the manifest.",
+                deviation.version, deviation.file, forbidden.uri, forbidden.field, actual,
             );
         }
     }

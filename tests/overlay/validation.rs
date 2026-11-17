@@ -671,27 +671,14 @@ fn goessner_filter_syntax_is_rejected() {
 // and `update.rs` cover the semantic forks; these tests cover the lighter
 // weight schema-level dispatch.
 
-/// §Info. `info.description` is a new optional field introduced in Overlay
-/// 1.1. A 1.0 overlay carrying it is rejected as an unknown `info` key.
-#[test]
-fn v10_info_description_is_rejected() {
-    let (spec, ov) = files(
-        "v10-info-description",
-        SPEC,
-        r#"{
-  "overlay": "1.0.0",
-  "info": {"title": "fix", "version": "1", "description": "d"},
-  "actions": [{"target": "$.info", "update": {"description": "x"}}]
-}"#,
-    );
-
-    failed_with(
-        overlay(&[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap()], ""),
-        &["description", "info", "1.0", "unknown", "unrecognized"],
-    );
-}
-
 /// §Info. `info.description` is accepted silently in 1.1 and 1.2.
+///
+/// We don't assert anything about 1.0's handling of `info.description`:
+/// the vendored upstream OAI corpus ships `v1.1/fail/info-description-invalid-type.yaml`
+/// but no v1.0 equivalent, so upstream treats `description` as an added
+/// field in 1.1+ without saying that 1.0 implementations must reject it.
+/// Either accepting it as an extra field or flagging it as an unknown key
+/// is defensible, and Forge is free to pick.
 #[test]
 fn v11_and_v12_info_description_is_accepted() {
     for version in ["1.1.0", "1.2.0"] {
@@ -841,9 +828,21 @@ fn patch_versions_share_minor_feature_set() {
 /// Security. `extends` with an `http://` or `https://` scheme is rejected
 /// in EVERY supported version AND both modes. Forge never opens a network
 /// socket. (Mode A 1.0 is covered separately in `cli.rs`; this test
-/// extends that guarantee to 1.1, 1.2, and Mode B.)
+/// extends that guarantee to 1.1, 1.2, and Mode B.) Markers are chosen
+/// so the URI echo alone does not satisfy them: `http` would, so it is
+/// excluded in favor of policy-specific terms.
 #[test]
 fn extends_with_http_scheme_is_rejected_in_every_version_and_mode() {
+    const POLICY_MARKERS: &[&str] = &[
+        "scheme",
+        "network",
+        "remote",
+        "security",
+        "policy",
+        "forbidden",
+        "not allowed",
+        "rejected",
+    ];
     for version in ["1.0.0", "1.1.0", "1.2.0"] {
         for scheme in ["http", "https"] {
             // Mode B: `forge overlay <spec> --overlay <ov>`.
@@ -861,11 +860,12 @@ fn extends_with_http_scheme_is_rejected_in_every_version_and_mode() {
             );
             let err = failed_with(
                 overlay(&[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap()], ""),
-                &["extends", "http", "network", "remote"],
+                POLICY_MARKERS,
             );
+            let redacted = err.replace(&format!("{scheme}://example.com/openapi.json"), "");
             assert!(
-                err.to_lowercase().contains("http"),
-                "{scheme}/{version} Mode B names the scheme: {err}"
+                redacted.to_lowercase().contains("extends"),
+                "{scheme}/{version} Mode B names the extends field (outside the URI echo): {err}"
             );
 
             // Mode A: `forge overlay <ov>`.
@@ -882,13 +882,11 @@ fn extends_with_http_scheme_is_rejected_in_every_version_and_mode() {
                 ),
             )
             .unwrap();
-            let err = failed_with(
-                overlay(&[d.join("overlay.json").to_str().unwrap()], ""),
-                &["extends", "http", "network", "remote"],
-            );
+            let err = failed_with(overlay(&[d.join("overlay.json").to_str().unwrap()], ""), POLICY_MARKERS);
+            let redacted = err.replace(&format!("{scheme}://example.com/openapi.json"), "");
             assert!(
-                err.to_lowercase().contains("http"),
-                "{scheme}/{version} Mode A names the scheme: {err}"
+                redacted.to_lowercase().contains("extends"),
+                "{scheme}/{version} Mode A names the extends field (outside the URI echo): {err}"
             );
         }
     }
@@ -897,9 +895,20 @@ fn extends_with_http_scheme_is_rejected_in_every_version_and_mode() {
 /// Security. `$self` with `http://` or `https://` is rejected (1.2 only
 /// — `$self` is 1.2-only; 1.0/1.1 reject it as an unknown top-level key
 /// regardless of scheme). Rejection is independent of invocation mode.
+/// Markers again exclude bare `http` so a URL echo alone does not pass.
 #[test]
 fn self_with_http_scheme_is_rejected_in_every_mode() {
+    const POLICY_MARKERS: &[&str] = &[
+        "scheme",
+        "network",
+        "security",
+        "policy",
+        "forbidden",
+        "not allowed",
+        "rejected",
+    ];
     for scheme in ["http", "https"] {
+        let url = format!("{scheme}://example.com/overlays/fix.json");
         // Mode B
         let (spec, ov) = files(
             &format!("mode-b-self-{scheme}"),
@@ -907,7 +916,7 @@ fn self_with_http_scheme_is_rejected_in_every_mode() {
             &format!(
                 r##"{{
   "overlay": "1.2.0",
-  "$self": "{scheme}://example.com/overlays/fix.json",
+  "$self": "{url}",
   "info": {{"title": "fix", "version": "1"}},
   "actions": [{{"target": "$.info", "update": {{"description": "d"}}}}]
 }}"##
@@ -915,11 +924,12 @@ fn self_with_http_scheme_is_rejected_in_every_mode() {
         );
         let err = failed_with(
             overlay(&[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap()], ""),
-            &["$self", "http", "scheme", "security", "policy"],
+            POLICY_MARKERS,
         );
+        let redacted = err.replace(&url, "");
         assert!(
-            err.to_lowercase().contains("http"),
-            "{scheme} Mode B names scheme: {err}"
+            redacted.contains("$self"),
+            "{scheme} Mode B names $self outside the URI echo: {err}"
         );
 
         // Mode A
@@ -930,7 +940,7 @@ fn self_with_http_scheme_is_rejected_in_every_mode() {
             format!(
                 r##"{{
   "overlay": "1.2.0",
-  "$self": "{scheme}://example.com/overlays/fix.json",
+  "$self": "{url}",
   "info": {{"title": "fix", "version": "1"}},
   "extends": "./spec.json",
   "actions": [{{"target": "$.info", "update": {{"description": "d"}}}}]
@@ -938,13 +948,11 @@ fn self_with_http_scheme_is_rejected_in_every_mode() {
             ),
         )
         .unwrap();
-        let err = failed_with(
-            overlay(&[d.join("overlay.json").to_str().unwrap()], ""),
-            &["$self", "http", "scheme", "security", "policy"],
-        );
+        let err = failed_with(overlay(&[d.join("overlay.json").to_str().unwrap()], ""), POLICY_MARKERS);
+        let redacted = err.replace(&url, "");
         assert!(
-            err.to_lowercase().contains("http"),
-            "{scheme} Mode A names scheme: {err}"
+            redacted.contains("$self"),
+            "{scheme} Mode A names $self outside the URI echo: {err}"
         );
     }
 }
@@ -963,6 +971,7 @@ fn extends_http_is_rejected_before_any_network_connection() {
     let port = listener.local_addr().unwrap().port();
     listener.set_nonblocking(true).unwrap();
 
+    let url = format!("http://127.0.0.1:{port}/openapi.json");
     let (spec, ov) = files(
         "no-network-connection",
         SPEC,
@@ -970,7 +979,7 @@ fn extends_http_is_rejected_before_any_network_connection() {
             r#"{{
   "overlay": "1.2.0",
   "info": {{"title": "fix", "version": "1"}},
-  "extends": "http://127.0.0.1:{port}/openapi.json",
+  "extends": "{url}",
   "actions": [{{"target": "$.info", "update": {{"description": "d"}}}}]
 }}"#
         ),
@@ -978,9 +987,21 @@ fn extends_http_is_rejected_before_any_network_connection() {
 
     let err = failed_with(
         overlay(&[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap()], ""),
-        &["extends", "http", "scheme", "security", "policy", "network"],
+        &[
+            "scheme",
+            "network",
+            "security",
+            "policy",
+            "forbidden",
+            "not allowed",
+            "rejected",
+        ],
     );
-    assert!(err.to_lowercase().contains("http"), "error names the scheme: {err}");
+    let redacted = err.replace(&url, "");
+    assert!(
+        redacted.to_lowercase().contains("extends"),
+        "error names the extends field outside the URI echo: {err}"
+    );
 
     // Verify the listener's accept queue is empty — forge never connected.
     match listener.accept() {

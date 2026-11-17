@@ -278,22 +278,22 @@ fn v11_copy_source_with_multiple_matches_is_rejected() {
 // the same category (object, array, or primitive). Mixed selections are
 // rejected because the applicable rule depends on the category.
 
-/// 1.1+ Copy. Also drop bare "target" from the mixed-object-and-array
-/// markers — `failed_with` ORs the list and `"target"` matches almost any
-/// overlay error. Keep the specific homogeneity vocabulary only.
+/// 1.1+ Copy. Mixed target (object + array) → rejected. Union selects
+/// an object child (`responses`) and an array child (`tags`, seeded first)
+/// of the same operation — a genuinely two-category nodelist. (A filter
+/// like `[?@]` would also pull in the primitive `operationId`, which is
+/// a different mixed case covered by its own test below.)
 #[test]
 fn v11_copy_target_mixed_object_and_array_is_rejected() {
     let (spec, ov) = files(
         "v11-copy-mixed-obj-arr",
         crate::common::SPEC,
-        // `$.paths["/a"].get` is an object; adding a parameters array next
-        // to it and targeting the union gives a mixed nodelist.
         r#"{
   "overlay": "1.1.0",
   "info": {"title": "fix", "version": "1"},
   "actions": [
     {"target": "$.paths[\"/a\"].get", "update": {"tags": ["x"]}},
-    {"target": "$.paths[\"/a\"].get[?@]", "copy": "$.info.title"}
+    {"target": "$.paths[\"/a\"].get[\"responses\",\"tags\"]", "copy": "$.info.title"}
   ]
 }"#,
     );

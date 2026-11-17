@@ -225,7 +225,9 @@ fn update_on_non_empty_array_keeps_order() {
 // all be the same category (object, array, or primitive). Mixed selections
 // are rejected because the applicable rule depends on the category.
 
-/// 1.1+ Update. Mixed target (object + array) → rejected.
+/// 1.1+ Update. Mixed target (object + array) → rejected. Union selects
+/// an object child (`responses`) and an array child (`tags`, seeded first)
+/// of the same operation — a genuinely two-category nodelist.
 #[test]
 fn v11_update_target_mixed_object_and_array_is_rejected() {
     let (spec, ov) = crate::common::files(
@@ -236,7 +238,7 @@ fn v11_update_target_mixed_object_and_array_is_rejected() {
   "info": {"title": "fix", "version": "1"},
   "actions": [
     {"target": "$.paths[\"/a\"].get", "update": {"tags": ["x"]}},
-    {"target": "$.paths[\"/a\"].get[?@]", "update": {"summary": "s"}}
+    {"target": "$.paths[\"/a\"].get[\"responses\",\"tags\"]", "update": {"summary": "s"}}
   ]
 }"#,
     );

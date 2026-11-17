@@ -986,8 +986,11 @@ fn v12_mode_a_missing_relative_extends_reports_resolved_path() {
 
 /// 1.2 Mode B. A fragment-free, non-http(s) `extends` is accepted and
 /// ignored in Mode B: the target comes from the command line, so `extends`
-/// is parsed to validate its shape but not fetched. (http(s) `extends` is
-/// a separate rejection, covered cross-version in `validation.rs`.)
+/// is parsed to validate its shape but never fetched. The proof is
+/// success on a well-formed local-ish `extends` value — whether forge
+/// logs the fact is a style choice we deliberately don't pin. (http(s)
+/// `extends` is a separate rejection, covered cross-version in
+/// `validation.rs`.)
 #[test]
 fn v12_mode_b_accepts_local_extends_without_fetching() {
     for extends in ["./spec.yaml", "openapi.json", "../sibling/spec.yaml"] {
@@ -1006,10 +1009,5 @@ fn v12_mode_b_accepts_local_extends_without_fetching() {
 
         let out = overlay(&[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap()], "");
         succeeded(&out);
-        assert!(
-            text(&out.stderr).to_lowercase().contains("extends"),
-            "info log mentions extends was ignored: {}",
-            text(&out.stderr)
-        );
     }
 }
