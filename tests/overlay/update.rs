@@ -368,7 +368,7 @@ fn v11_update_object_property_with_primitive_is_rejected() {
 }
 
 /// 1.1+. `update` on an array target with an empty array source is a
-/// no-op: nothing is appended, no mutation is recorded, and `--write`'s
+/// no-op: nothing is appended, no mutation is recorded, and `--out`'s
 /// transactional guard leaves the spec file byte-identical.
 #[test]
 fn v11_update_array_target_with_empty_array_is_noop() {
@@ -396,19 +396,25 @@ fn v11_update_array_target_with_empty_array_is_noop() {
     .unwrap();
 
     let out = crate::common::overlay(
-        &[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap(), "--write"],
+        &[
+            spec.to_str().unwrap(),
+            "--overlay",
+            ov.to_str().unwrap(),
+            "--out",
+            spec.to_str().unwrap(),
+        ],
         "",
     );
     crate::common::succeeded(&out);
     assert_eq!(
         fs::read(&spec).unwrap(),
         before,
-        "empty-array update is a no-op: --write did not touch the spec"
+        "empty-array update is a no-op: --out <spec> did not touch the spec"
     );
 }
 
 /// 1.1+. `update` on an object target whose keys already carry the given
-/// values is a no-op: the merge records no change, and `--write` leaves
+/// values is a no-op: the merge records no change, and `--out <spec>` leaves
 /// the file byte-identical.
 #[test]
 fn v11_update_object_with_current_values_is_noop() {
@@ -431,7 +437,13 @@ fn v11_update_object_with_current_values_is_noop() {
     .unwrap();
 
     let out = crate::common::overlay(
-        &[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap(), "--write"],
+        &[
+            spec.to_str().unwrap(),
+            "--overlay",
+            ov.to_str().unwrap(),
+            "--out",
+            spec.to_str().unwrap(),
+        ],
         "",
     );
     crate::common::succeeded(&out);

@@ -641,8 +641,8 @@ fn v11_copy_nested_property_type_incompatibility_is_rejected() {
 
 /// 1.1+ Copy. Primitive source onto a primitive target that already
 /// carries the identical value is a no-op: the new value equals the
-/// current one, so mutation is not recorded. Under `--write`, the spec
-/// file is left byte-for-byte identical.
+/// current one, so mutation is not recorded. Under `--out <spec>`, the
+/// spec file is left byte-for-byte identical.
 #[test]
 fn v11_copy_primitive_to_same_value_is_noop_under_write() {
     use std::fs;
@@ -671,14 +671,20 @@ fn v11_copy_primitive_to_same_value_is_noop_under_write() {
     .unwrap();
 
     let out = crate::common::overlay(
-        &[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap(), "--write"],
+        &[
+            spec.to_str().unwrap(),
+            "--overlay",
+            ov.to_str().unwrap(),
+            "--out",
+            spec.to_str().unwrap(),
+        ],
         "",
     );
     crate::common::succeeded(&out);
     assert_eq!(
         fs::read(&spec).unwrap(),
         before,
-        "copy of identical primitive is a no-op: --write did not touch the spec"
+        "copy of identical primitive is a no-op: --out <spec> did not touch the spec"
     );
 }
 
@@ -709,14 +715,20 @@ fn v11_copy_primitive_to_different_value_mutates() {
     .unwrap();
 
     let out = crate::common::overlay(
-        &[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap(), "--write"],
+        &[
+            spec.to_str().unwrap(),
+            "--overlay",
+            ov.to_str().unwrap(),
+            "--out",
+            spec.to_str().unwrap(),
+        ],
         "",
     );
     crate::common::succeeded(&out);
     assert_ne!(
         fs::read(&spec).unwrap(),
         before,
-        "copy of differing primitive does mutate: --write rewrote the spec"
+        "copy of differing primitive does mutate: --out <spec> rewrote the spec"
     );
     let doc: serde_json::Value = serde_json::from_slice(&fs::read(&spec).unwrap()).unwrap();
     assert_eq!(doc["info"]["title"], "new-version");

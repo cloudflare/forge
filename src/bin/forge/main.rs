@@ -58,8 +58,9 @@ enum Command {
     /// With a single positional argument, treat it as an overlay whose
     /// `extends` names the spec. With `--overlay` flags, treat the positional
     /// as the spec (or `-` for standard input) and apply each overlay in
-    /// order. `--write` rewrites the spec file in place; without it the
-    /// result is printed to standard output.
+    /// order. Without `--out`, the result is printed to standard output;
+    /// with `--out <PATH>` it is written to that file (if `<PATH>` is the
+    /// spec itself, as an atomic in-place rewrite).
     Overlay(overlay::Args),
 }
 

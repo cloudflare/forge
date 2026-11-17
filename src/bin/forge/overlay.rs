@@ -28,10 +28,12 @@ pub struct Args {
     /// is then the spec, not an overlay.
     #[arg(long = "overlay", value_name = "OVERLAY")]
     overlays: Vec<PathBuf>,
-    /// Rewrite the spec file in place instead of printing to stdout.
-    /// Mode B only.
-    #[arg(short, long)]
-    write: bool,
+    /// Write the overlaid result to PATH. Without this flag the result is
+    /// printed to standard output. If PATH is the same file as the spec in
+    /// Mode B, it is rewritten atomically (temp file + rename) and left
+    /// byte-identical when no action mutated it.
+    #[arg(short = 'o', long = "out", value_name = "PATH")]
+    out: Option<PathBuf>,
 }
 
 pub fn run(args: Args) -> Result<(), Err> {
@@ -41,6 +43,7 @@ pub fn run(args: Args) -> Result<(), Err> {
              \x20      forge overlay <spec> --overlay <overlay>...   (Mode B)"
             .into());
     }
+    let out = args.out.as_deref();
     if args.overlays.is_empty() {
         if args.inputs.len() > 1 {
             return Err(
@@ -49,22 +52,17 @@ pub fn run(args: Args) -> Result<(), Err> {
                     .into(),
             );
         }
-        run_mode_a(&args.inputs[0], args.write)
+        run_mode_a(&args.inputs[0], out)
     } else {
         if args.inputs.len() > 1 {
             return Err("`forge overlay <spec> --overlay ...` takes exactly one positional spec".into());
         }
-        run_mode_b(&args.inputs[0], &args.overlays, args.write)
+        run_mode_b(&args.inputs[0], &args.overlays, out)
     }
 }
 
 /// Mode A: `forge overlay <overlay>` — overlay drives the spec via `extends`.
-fn run_mode_a(overlay_path: &Path, write: bool) -> Result<(), Err> {
-    if write {
-        return Err("--write is only meaningful in Mode B (with --overlay): \
-             Mode A has no spec file on the command line to rewrite"
-            .into());
-    }
+fn run_mode_a(overlay_path: &Path, out: Option<&Path>) -> Result<(), Err> {
     let bytes = read_file(overlay_path)?;
     let format = Format::sniff(&bytes);
 
@@ -100,16 +98,12 @@ fn run_mode_a(overlay_path: &Path, write: bool) -> Result<(), Err> {
     let mut doc = Document::parse(&spec_bytes, spec_format).map_err(|e| format!("{}: {e}", spec_path.display()))?;
 
     overlay.apply(&mut doc)?;
-    write_stdout(&doc)?;
+    emit(&doc, out, None)?;
     Ok(())
 }
 
 /// Mode B: `forge overlay <spec> --overlay <ov>...` — spec on CLI.
-fn run_mode_b(spec_path: &Path, overlay_paths: &[PathBuf], write: bool) -> Result<(), Err> {
-    if write && spec_path == Path::new("-") {
-        return Err("--write cannot be used when the spec is read from standard input (`-`)".into());
-    }
-
+fn run_mode_b(spec_path: &Path, overlay_paths: &[PathBuf], out: Option<&Path>) -> Result<(), Err> {
     let spec_bytes = read_file(spec_path)?;
     let spec_format = Format::sniff(&spec_bytes);
     let display = if spec_path == Path::new("-") {
@@ -157,13 +151,96 @@ fn run_mode_b(spec_path: &Path, overlay_paths: &[PathBuf], write: bool) -> Resul
         ov.apply(&mut doc)?;
     }
 
-    if write {
-        // In --write, only touch the file if we actually mutated it.
-        if doc.mutated() {
-            fs::write(spec_path, doc.to_bytes()?).map_err(|e| format!("{}: {e}", spec_path.display()))?;
+    // In Mode B the spec file (when it is a real file, not stdin) is a
+    // candidate for the in-place rewrite path. In Mode A there is no spec
+    // file argument on the CLI to compare against.
+    let spec_for_compare = (spec_path != Path::new("-")).then_some(spec_path);
+    emit(&doc, out, spec_for_compare)?;
+    Ok(())
+}
+
+/// Routes the applied document to `--out <path>` or stdout. When `out_path`
+/// canonically equals `spec_path`, treats the write as an in-place rewrite:
+/// skip the write entirely if nothing was mutated, otherwise replace the
+/// file atomically via a temp file + rename in the same directory.
+fn emit(doc: &Document, out_path: Option<&Path>, spec_path: Option<&Path>) -> Result<(), Err> {
+    match out_path {
+        None => write_stdout(doc),
+        Some(path) => write_output(doc, path, spec_path),
+    }
+}
+
+fn write_output(doc: &Document, out_path: &Path, spec_path: Option<&Path>) -> Result<(), Err> {
+    let in_place = match spec_path {
+        Some(sp) => same_file(sp, out_path),
+        None => false,
+    };
+
+    if in_place {
+        // Preserve bytes and mtime on a no-op, matching the old --write
+        // guarantee. Any other --out path still gets written even on a
+        // no-op, because the user asked for output there.
+        if !doc.mutated() {
+            return Ok(());
         }
+        let bytes = doc.to_bytes()?;
+        write_atomic(out_path, &bytes)?;
     } else {
-        write_stdout(&doc)?;
+        let bytes = doc.to_bytes()?;
+        fs::write(out_path, &bytes).map_err(|e| format!("{}: {e}", out_path.display()))?;
+    }
+    Ok(())
+}
+
+/// True when both paths resolve to the same filesystem location. Canonical
+/// comparison, so `./spec.yaml` and `spec.yaml` compare equal. When `out_path`
+/// does not exist yet (the usual case), its parent directory is canonicalized
+/// and the final component appended.
+fn same_file(spec_path: &Path, out_path: &Path) -> bool {
+    match (canonical_target(spec_path), canonical_target(out_path)) {
+        (Ok(a), Ok(b)) => a == b,
+        _ => false,
+    }
+}
+
+fn canonical_target(path: &Path) -> io::Result<PathBuf> {
+    if let Ok(c) = fs::canonicalize(path) {
+        return Ok(c);
+    }
+    let parent = path
+        .parent()
+        .filter(|p| !p.as_os_str().is_empty())
+        .unwrap_or_else(|| Path::new("."));
+    let file_name = path
+        .file_name()
+        .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "path has no file name"))?;
+    let parent_c = fs::canonicalize(parent)?;
+    Ok(parent_c.join(file_name))
+}
+
+/// Writes `bytes` to a sibling temp file in the same directory as `path`,
+/// then renames it over `path`. The rename is atomic on POSIX filesystems,
+/// so a concurrent reader sees either the old or the new file, never a
+/// partially-written one. On rename failure the temp file is cleaned up.
+fn write_atomic(path: &Path, bytes: &[u8]) -> Result<(), Err> {
+    let dir = path
+        .parent()
+        .filter(|p| !p.as_os_str().is_empty())
+        .unwrap_or_else(|| Path::new("."));
+    let base = path
+        .file_name()
+        .ok_or_else(|| format!("{}: has no file name", path.display()))?
+        .to_string_lossy();
+    let pid = std::process::id();
+    let nanos = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_or(0, |d| d.as_nanos());
+    let tmp = dir.join(format!(".{base}.forge-overlay-{pid}-{nanos}.tmp"));
+
+    fs::write(&tmp, bytes).map_err(|e| format!("{}: {e}", tmp.display()))?;
+    if let Err(e) = fs::rename(&tmp, path) {
+        let _ = fs::remove_file(&tmp);
+        return Err(format!("{}: {e}", path.display()).into());
     }
     Ok(())
 }

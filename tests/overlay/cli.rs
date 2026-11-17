@@ -1,6 +1,6 @@
 //! Tests for the `forge overlay` CLI surface:
 //! Mode A (overlay drives the spec via `extends`), Mode B (spec given on the
-//! CLI with one or more `--overlay`), `--write`, multiple overlays applied in
+//! CLI with one or more `--overlay`), `--out`, multiple overlays applied in
 //! order, `extends` resolution and HTTP rejection, output byte-fidelity, and
 //! IO failure modes (missing files, malformed documents).
 
@@ -185,13 +185,13 @@ fn mode_a_extends_bare_filename() {
     assert_eq!(doc["info"]["description"], "d");
 }
 
-/// Mode A. `--write` is not meaningful: we are not told which file to
-/// rewrite (the overlay is input, the spec is pulled from `extends` and is
-/// just read). Reject with a message that names `--overlay` as the way to
-/// get the spec-on-CLI semantics that `--write` expects.
+/// Mode A. `--out <path>` writes the applied result to that file, exactly as
+/// it would have been printed to stdout. The `extends`-resolved spec on disk
+/// is read-only: it is not the "spec file" for in-place purposes, because
+/// Mode A has no spec file on the CLI to compare against.
 #[test]
-fn mode_a_with_write_is_rejected() {
-    let dir = dir("mode-a-write");
+fn mode_a_out_writes_to_path() {
+    let dir = dir("mode-a-out");
     fs::write(dir.join("spec.json"), SPEC).unwrap();
     fs::write(
         dir.join("overlay.json"),
@@ -203,11 +203,29 @@ fn mode_a_with_write_is_rejected() {
 }"#,
     )
     .unwrap();
+    let out_path = dir.join("applied.json");
 
-    failed_with(
-        overlay(&[dir.join("overlay.json").to_str().unwrap(), "--write"], ""),
-        &["--write", "--overlay", "mode a"],
+    // Stdout baseline.
+    let stdout_run = overlay(&[dir.join("overlay.json").to_str().unwrap()], "");
+    succeeded(&stdout_run);
+
+    let out = overlay(
+        &[
+            dir.join("overlay.json").to_str().unwrap(),
+            "--out",
+            out_path.to_str().unwrap(),
+        ],
+        "",
     );
+    succeeded(&out);
+    assert!(out.stdout.is_empty(), "nothing is printed when --out is given");
+    assert_eq!(
+        fs::read(&out_path).unwrap(),
+        stdout_run.stdout,
+        "--out file matches what stdout would have produced"
+    );
+    let doc: serde_json::Value = serde_json::from_slice(&fs::read(&out_path).unwrap()).unwrap();
+    assert_eq!(doc["info"]["description"], "d");
 }
 
 // --- Mode B: spec on the CLI, one or more `--overlay` files --------------
@@ -419,11 +437,12 @@ fn mode_b_extensionless_file_uses_content_detection() {
     assert_eq!(doc["info"]["description"], "d");
 }
 
-/// Mode B. `--write` rewrites the spec file in place.
+/// Mode B. `--out <spec>` — the out path canonically equals the spec file —
+/// rewrites the spec in place.
 #[test]
-fn mode_b_write_rewrites_spec_in_place() {
+fn mode_b_out_matching_spec_rewrites_in_place() {
     let (spec, ov) = files(
-        "mode-b-write",
+        "mode-b-out-in-place",
         SPEC,
         r#"{
   "overlay": "1.0.0",
@@ -433,21 +452,27 @@ fn mode_b_write_rewrites_spec_in_place() {
     );
 
     let out = overlay(
-        &[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap(), "--write"],
+        &[
+            spec.to_str().unwrap(),
+            "--overlay",
+            ov.to_str().unwrap(),
+            "--out",
+            spec.to_str().unwrap(),
+        ],
         "",
     );
     succeeded(&out);
 
     let doc: serde_json::Value = serde_json::from_str(&fs::read_to_string(&spec).unwrap()).unwrap();
     assert_eq!(doc["info"]["description"], "d");
-    assert!(out.stdout.is_empty(), "nothing is printed when --write is given");
+    assert!(out.stdout.is_empty(), "nothing is printed when --out is given");
 }
 
-/// Mode B. `--write` on a YAML spec keeps the spec in YAML.
+/// Mode B. `--out <spec>` on a YAML spec keeps the spec in YAML.
 #[test]
-fn mode_b_write_preserves_yaml_format() {
+fn mode_b_out_matching_spec_preserves_yaml_format() {
     let (spec, ov) = files_ext(
-        "mode-b-write-yaml",
+        "mode-b-out-yaml",
         ("openapi: 3.0.3\ninfo:\n  title: t\n  version: '1'\npaths: {}\n", "yaml"),
         (
             "overlay: '1.0.0'\ninfo:\n  title: fix\n  version: '1'\nactions:\n  - target: $.info\n    update:\n      description: d\n",
@@ -456,7 +481,13 @@ fn mode_b_write_preserves_yaml_format() {
     );
 
     let out = overlay(
-        &[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap(), "--write"],
+        &[
+            spec.to_str().unwrap(),
+            "--overlay",
+            ov.to_str().unwrap(),
+            "--out",
+            spec.to_str().unwrap(),
+        ],
         "",
     );
     succeeded(&out);
@@ -469,35 +500,88 @@ fn mode_b_write_preserves_yaml_format() {
     assert!(rewritten.contains("description: d"), "overlay was applied: {rewritten}");
 }
 
-/// Mode B. `--write` with `-` for the spec is an error: standard input is
-/// not a file to rewrite.
+/// Mode B. `--out <other-path>` writes the applied result to a new file and
+/// leaves the original spec byte-identical (and with its mtime unchanged).
 #[test]
-fn mode_b_write_with_stdin_is_rejected() {
-    let dir = dir("mode-b-write-stdin");
-    let ov = dir.join("overlay.json");
-    fs::write(
-        &ov,
+fn mode_b_out_to_different_path() {
+    let (spec, ov) = files(
+        "mode-b-out-other",
+        SPEC,
         r#"{
   "overlay": "1.0.0",
   "info": {"title": "fix", "version": "1"},
   "actions": [{"target": "$.info", "update": {"description": "d"}}]
 }"#,
-    )
-    .unwrap();
+    );
+    let before_bytes = fs::read(&spec).unwrap();
+    let before_mtime = fs::metadata(&spec).unwrap().modified().unwrap();
+    let out_path = spec.with_file_name("applied.json");
 
-    failed_with(
-        overlay(&["-", "--overlay", ov.to_str().unwrap(), "--write"], SPEC),
-        &["--write", "stdin", "standard input"],
+    // Stdout baseline for byte-equality.
+    let stdout_run = overlay(&[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap()], "");
+    succeeded(&stdout_run);
+
+    let out = overlay(
+        &[
+            spec.to_str().unwrap(),
+            "--overlay",
+            ov.to_str().unwrap(),
+            "--out",
+            out_path.to_str().unwrap(),
+        ],
+        "",
+    );
+    succeeded(&out);
+    assert!(out.stdout.is_empty(), "nothing is printed when --out is given");
+    assert_eq!(
+        fs::read(&out_path).unwrap(),
+        stdout_run.stdout,
+        "--out file matches stdout output"
+    );
+    assert_eq!(fs::read(&spec).unwrap(), before_bytes, "original spec bytes preserved");
+    assert_eq!(
+        fs::metadata(&spec).unwrap().modified().unwrap(),
+        before_mtime,
+        "original spec mtime preserved"
     );
 }
 
-/// Mode B. `--write` is transactional: if any overlay fails to apply, the
-/// spec file is left byte-identical and nothing is written to stdout. The
+/// Mode B. `--out ./no/such/dir/out.yaml` fails cleanly without creating
+/// anything.
+#[test]
+fn mode_b_out_to_nonexistent_parent_is_an_error() {
+    let (spec, ov) = files(
+        "mode-b-out-bad-parent",
+        SPEC,
+        r#"{
+  "overlay": "1.0.0",
+  "info": {"title": "fix", "version": "1"},
+  "actions": [{"target": "$.info", "update": {"description": "d"}}]
+}"#,
+    );
+    let bogus = spec.with_file_name("no").join("such").join("dir").join("out.yaml");
+
+    let err = failed(overlay(
+        &[
+            spec.to_str().unwrap(),
+            "--overlay",
+            ov.to_str().unwrap(),
+            "--out",
+            bogus.to_str().unwrap(),
+        ],
+        "",
+    ));
+    assert!(err.contains("out.yaml") || err.contains("no"), "names the path: {err}");
+    assert!(!bogus.exists(), "out file was not created");
+}
+
+/// Mode B. `--out <spec>` is transactional: if any overlay fails to apply,
+/// the spec file is left byte-identical and nothing is written to stdout. The
 /// first overlay is valid and _would_ change the spec on its own; the
 /// second has an invalid `target` that is rejected at apply time.
 #[test]
-fn mode_b_write_is_transactional_on_failure() {
-    let dir = dir("mode-b-write-transactional");
+fn mode_b_out_matching_spec_atomic_on_failure() {
+    let dir = dir("mode-b-out-transactional");
     let spec = dir.join("spec.json");
     fs::write(&spec, SPEC).unwrap();
     let before = fs::read(&spec).unwrap();
@@ -530,7 +614,8 @@ fn mode_b_write_is_transactional_on_failure() {
             good.to_str().unwrap(),
             "--overlay",
             bad.to_str().unwrap(),
-            "--write",
+            "--out",
+            spec.to_str().unwrap(),
         ],
         "",
     );
@@ -547,14 +632,15 @@ fn mode_b_write_is_transactional_on_failure() {
     );
 }
 
-/// Mode B. `--write` no-op (overlay changes nothing) leaves the spec file
-/// byte-identical. Complements the stdout no-op test below.
+/// Mode B. `--out <spec>` with a no-op overlay (nothing mutated) skips the
+/// write entirely, leaving the spec file byte-identical AND mtime-identical.
 #[test]
-fn mode_b_write_noop_preserves_bytes() {
-    let dir = dir("mode-b-write-noop");
+fn mode_b_out_matching_spec_skips_write_on_noop() {
+    let dir = dir("mode-b-out-noop");
     let spec = dir.join("spec.json");
     fs::write(&spec, SPEC_MINIFIED).unwrap();
     let before = fs::read(&spec).unwrap();
+    let before_mtime = fs::metadata(&spec).unwrap().modified().unwrap();
 
     let ov = dir.join("overlay.json");
     fs::write(
@@ -568,11 +654,56 @@ fn mode_b_write_noop_preserves_bytes() {
     .unwrap();
 
     let out = overlay(
-        &[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap(), "--write"],
+        &[
+            spec.to_str().unwrap(),
+            "--overlay",
+            ov.to_str().unwrap(),
+            "--out",
+            spec.to_str().unwrap(),
+        ],
         "",
     );
     succeeded(&out);
     assert_eq!(fs::read(&spec).unwrap(), before, "bytes preserved on no-op");
+    assert_eq!(
+        fs::metadata(&spec).unwrap().modified().unwrap(),
+        before_mtime,
+        "mtime preserved on no-op (the write was skipped entirely)"
+    );
+}
+
+/// Mode B. `-` for the spec + `--out <path>` writes the overlaid stdin spec
+/// to the given path. There is no "spec file" to compare against, so the
+/// path is simply written.
+#[test]
+fn stdin_spec_with_out_writes_to_path() {
+    let dir = dir("stdin-out");
+    let ov = dir.join("overlay.json");
+    fs::write(
+        &ov,
+        r#"{
+  "overlay": "1.0.0",
+  "info": {"title": "fix", "version": "1"},
+  "actions": [{"target": "$.info", "update": {"description": "d"}}]
+}"#,
+    )
+    .unwrap();
+    let out_path = dir.join("applied.json");
+
+    let out = overlay(
+        &[
+            "-",
+            "--overlay",
+            ov.to_str().unwrap(),
+            "--out",
+            out_path.to_str().unwrap(),
+        ],
+        SPEC,
+    );
+    succeeded(&out);
+    assert!(out.stdout.is_empty(), "nothing is printed when --out is given");
+    let doc: serde_json::Value = serde_json::from_slice(&fs::read(&out_path).unwrap()).unwrap();
+    assert_eq!(doc["info"]["description"], "d");
 }
 
 /// Mode B. `extends` in the overlay is ignored when a spec is on the CLI,
