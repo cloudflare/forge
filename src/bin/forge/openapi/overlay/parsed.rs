@@ -17,6 +17,10 @@ pub struct Overlay {
     pub actions: Vec<Action>,
     /// 1.2 only; name -> (Fields, optional description).
     pub components_actions: std::collections::BTreeMap<String, Fields>,
+    /// Resolved base URI (`$self`-resolved against the retrieval URI) if
+    /// known. Used to rebase relative `$ref`s inside inserted content so
+    /// the merged spec is self-contained.
+    pub base_uri: Option<String>,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -70,6 +74,16 @@ impl Overlay {
         self.extends.as_deref()
     }
 
+    /// Chainable setter for the resolved base URI.
+    pub fn with_base_uri(mut self, base: Option<String>) -> Overlay {
+        self.base_uri = base;
+        self
+    }
+
+    pub fn base_uri(&self) -> Option<&str> {
+        self.base_uri.as_deref()
+    }
+
     pub fn version_supports_components(&self) -> bool {
         self.version.supports_components()
     }
@@ -106,6 +120,8 @@ impl Overlay {
 
     pub fn apply(&self, doc: &mut Document) -> Result<Vec<super::apply::ActionReport>, Err> {
         let mut reports = Vec::with_capacity(self.actions.len());
+        let overlay_base = self.base_uri();
+        let spec_base = doc.base_uri().map(str::to_owned);
         for (i, action) in self.actions.iter().enumerate() {
             let (body, ref_name) = match &action.body {
                 ActionBody::Direct(f) => (f, None),
@@ -119,8 +135,15 @@ impl Overlay {
                     (fields, Some(name.clone()))
                 }
             };
-            let mut report = super::apply::apply_action(doc, self.version, &action.target_path, body)
-                .map_err(|e| format!("action {i} (target {}): {e}", action.target_path.source()))?;
+            let mut report = super::apply::apply_action(
+                doc,
+                self.version,
+                &action.target_path,
+                body,
+                overlay_base,
+                spec_base.as_deref(),
+            )
+            .map_err(|e| format!("action {i} (target {}): {e}", action.target_path.source()))?;
             report.ref_name = ref_name;
             reports.push(report);
         }
@@ -240,6 +263,7 @@ fn parse_overlay(value: &Value) -> Result<Overlay, Err> {
         extends,
         actions,
         components_actions,
+        base_uri: None,
     })
 }
 

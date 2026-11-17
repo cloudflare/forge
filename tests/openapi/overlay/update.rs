@@ -517,3 +517,148 @@ fn v10_update_primitive_error_lists_sibling_primitives() {
         "error should mention both primitive siblings (/b and /c under x-internal):\n{err}"
     );
 }
+
+// --- $ref rebasing in inserted content ---------------------------------
+//
+// When an `update` inserts a value containing a `$ref` whose target is a
+// relative URI reference, the overlay runtime resolves it against the
+// overlay's retrieval base before merging. Absolute URIs and pure-fragment
+// references pass through unchanged. See the commit that introduced this.
+
+/// A relative `$ref` inside an inserted object is rebased to an absolute
+/// URI against the overlay's retrieval base.
+#[test]
+fn update_rebases_relative_ref_in_inserted_object() {
+    let (spec, ov) = crate::common::files(
+        "update-rebase-relative-ref",
+        crate::common::SPEC,
+        r#"{
+  "overlay": "1.1.0",
+  "info": {"title": "fix", "version": "1"},
+  "actions": [{
+    "target": "$.paths[\"/a\"].get",
+    "update": {"requestBody": {"$ref": "./shared.json#/components/schemas/X"}}
+  }]
+}"#,
+    );
+
+    let out = crate::common::overlay(&[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap()], "");
+    crate::common::succeeded(&out);
+    let doc: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    let r = doc["paths"]["/a"]["get"]["requestBody"]["$ref"].as_str().unwrap();
+    assert!(r.starts_with("file://"), "$ref rebased to absolute file: URI: {r}");
+    assert!(
+        r.ends_with("/shared.json#/components/schemas/X"),
+        "$ref retains fragment: {r}"
+    );
+}
+
+/// An absolute `$ref` (one with a scheme) passes through unchanged.
+#[test]
+fn update_preserves_absolute_ref() {
+    let (spec, ov) = crate::common::files(
+        "update-preserve-absolute-ref",
+        crate::common::SPEC,
+        r#"{
+  "overlay": "1.1.0",
+  "info": {"title": "fix", "version": "1"},
+  "actions": [{
+    "target": "$.paths[\"/a\"].get",
+    "update": {"requestBody": {"$ref": "file:///abs/path/shared.json#/X"}}
+  }]
+}"#,
+    );
+
+    let out = crate::common::overlay(&[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap()], "");
+    crate::common::succeeded(&out);
+    let doc: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    assert_eq!(
+        doc["paths"]["/a"]["get"]["requestBody"]["$ref"], "file:///abs/path/shared.json#/X",
+        "absolute $ref untouched"
+    );
+}
+
+/// A pure-fragment `$ref` (`#/...`) targets the containing document and
+/// passes through unchanged.
+#[test]
+fn update_preserves_pure_fragment_ref() {
+    let (spec, ov) = crate::common::files(
+        "update-preserve-fragment-ref",
+        crate::common::SPEC,
+        r##"{
+  "overlay": "1.1.0",
+  "info": {"title": "fix", "version": "1"},
+  "actions": [{
+    "target": "$.paths[\"/a\"].get",
+    "update": {"requestBody": {"$ref": "#/components/schemas/X"}}
+  }]
+}"##,
+    );
+
+    let out = crate::common::overlay(&[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap()], "");
+    crate::common::succeeded(&out);
+    let doc: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    assert_eq!(
+        doc["paths"]["/a"]["get"]["requestBody"]["$ref"], "#/components/schemas/X",
+        "pure-fragment $ref untouched"
+    );
+}
+
+/// A `$ref` buried deep inside a nested object is still walked and rebased.
+#[test]
+fn update_rebases_nested_ref() {
+    let (spec, ov) = crate::common::files(
+        "update-rebase-nested-ref",
+        crate::common::SPEC,
+        r#"{
+  "overlay": "1.1.0",
+  "info": {"title": "fix", "version": "1"},
+  "actions": [{
+    "target": "$.paths[\"/a\"].get",
+    "update": {"responses": {"200": {"content": {"application/json": {"schema": {"$ref": "./nested.json#/T"}}}}}}
+  }]
+}"#,
+    );
+
+    let out = crate::common::overlay(&[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap()], "");
+    crate::common::succeeded(&out);
+    let doc: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    let r = doc["paths"]["/a"]["get"]["responses"]["200"]["content"]["application/json"]["schema"]["$ref"]
+        .as_str()
+        .unwrap();
+    assert!(r.starts_with("file://"), "deep nested $ref rebased: {r}");
+    assert!(r.ends_with("/nested.json#/T"));
+}
+
+/// An array of objects each with its own `$ref` has each entry walked.
+#[test]
+fn update_rebases_refs_inside_array() {
+    let (spec, ov) = crate::common::files(
+        "update-rebase-array-of-refs",
+        crate::common::SPEC,
+        r##"{
+  "overlay": "1.1.0",
+  "info": {"title": "fix", "version": "1"},
+  "actions": [{
+    "target": "$.paths[\"/a\"].get",
+    "update": {"parameters": [
+      {"$ref": "./params.json#/A"},
+      {"$ref": "#/components/parameters/B"}
+    ]}
+  }]
+}"##,
+    );
+
+    let out = crate::common::overlay(&[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap()], "");
+    crate::common::succeeded(&out);
+    let doc: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    let params = doc["paths"]["/a"]["get"]["parameters"].as_array().unwrap();
+    assert_eq!(params.len(), 2);
+    let r0 = params[0]["$ref"].as_str().unwrap();
+    assert!(r0.starts_with("file://"), "relative ref rebased: {r0}");
+    assert!(r0.ends_with("/params.json#/A"));
+    assert_eq!(
+        params[1]["$ref"], "#/components/parameters/B",
+        "pure-fragment ref untouched"
+    );
+}

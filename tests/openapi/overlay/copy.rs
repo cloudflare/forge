@@ -733,3 +733,38 @@ fn v11_copy_primitive_to_different_value_mutates() {
     let doc: serde_json::Value = serde_json::from_slice(&fs::read(&spec).unwrap()).unwrap();
     assert_eq!(doc["info"]["title"], "new-version");
 }
+
+/// `copy` sources come from the spec itself (not the overlay), so a `$ref`
+/// inside the source is already in the spec's coordinate system and is
+/// re-inserted unchanged — rebasing only applies to inserted content whose
+/// base URI differs from the target spec's. This guards the deliberate
+/// scope of the rebase: inserted-from-overlay only.
+#[test]
+fn v11_copy_leaves_in_spec_refs_untouched() {
+    let doc = apply(
+        "v11-copy-leaves-ref-untouched",
+        r#"{
+  "overlay": "1.1.0",
+  "info": {"title": "fix", "version": "1"},
+  "actions": [
+    {
+      "target": "$",
+      "update": {"components": {"schemas": {"Src": {"$ref": "./from-spec.json#/T"}}}}
+    },
+    {"target": "$.paths[\"/a\"].get", "update": {"parameters": []}},
+    {"target": "$.paths[\"/a\"].get.parameters", "copy": "$.components.schemas.Src"}
+  ]
+}"#,
+    );
+
+    // The overlay's `update` seeded `components.schemas.Src` with a
+    // rebased absolute ref (file:// ...). Copying it into the parameters
+    // array preserves what the spec now holds — the absolute ref — and
+    // does not re-rebase against the overlay base.
+    let p = doc["paths"]["/a"]["get"]["parameters"][0]["$ref"].as_str().unwrap();
+    assert_eq!(
+        p,
+        doc["components"]["schemas"]["Src"]["$ref"].as_str().unwrap(),
+        "copy transplants the source value verbatim"
+    );
+}

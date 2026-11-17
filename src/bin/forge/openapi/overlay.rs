@@ -178,8 +178,11 @@ fn apply_mode_a(overlay_path: &Path) -> Result<(Document, Vec<apply::ActionRepor
 
     let spec_bytes = fs::read(&spec_path).map_err(|e| format!("{}: {e}", spec_path.display()))?;
     let spec_format = Format::sniff(&spec_bytes);
-    let mut doc = Document::parse(&spec_bytes, spec_format).map_err(|e| format!("{}: {e}", spec_path.display()))?;
+    let mut doc = Document::parse(&spec_bytes, spec_format)
+        .map_err(|e| format!("{}: {e}", spec_path.display()))?
+        .with_base_uri(Some(spec_uri));
 
+    let overlay = overlay.with_base_uri(Some(base));
     let reports = overlay.apply(&mut doc)?;
     Ok((doc, reports))
 }
@@ -194,9 +197,27 @@ fn apply_mode_b(spec_path: &Path, overlay_paths: &[PathBuf]) -> Result<(Document
     } else {
         spec_path.display().to_string()
     };
-    let mut doc = Document::parse(&spec_bytes, spec_format).map_err(|e| format!("{display}: {e}"))?;
+    // Spec retrieval URI: the file path when there is one, otherwise CWD
+    // (used by overlay apply to rebase relative `$ref`s in inserted content).
+    let spec_base = spec_base_uri(spec_path);
+    let mut doc = Document::parse(&spec_bytes, spec_format)
+        .map_err(|e| format!("{display}: {e}"))?
+        .with_base_uri(spec_base);
     let reports = apply_overlays_to_doc(&mut doc, overlay_paths)?;
     Ok((doc, reports))
+}
+
+/// Compute the retrieval URI for a spec path: a `file:` URI for a real file,
+/// a CWD-based `file:` URI for stdin (so relative `$ref`s in inserted content
+/// still rebase to a knowable location).
+fn spec_base_uri(spec_path: &Path) -> Option<String> {
+    if spec_path == Path::new("-") {
+        // CWD fallback for stdin.
+        let cwd = std::env::current_dir().ok()?;
+        uri::from_path(&cwd).ok()
+    } else {
+        uri::from_path(spec_path).ok()
+    }
 }
 
 /// Load, validate, and apply `overlay_paths` to `doc` in order. All overlays
@@ -213,6 +234,12 @@ fn apply_overlays_to_doc(doc: &mut Document, overlay_paths: &[PathBuf]) -> Resul
         let ov = Overlay::parse(&bytes, Format::sniff(&bytes)).map_err(|e| format!("{}: {e}", p.display()))?;
         ov.diagnose_warnings();
 
+        // Track the overlay's resolved base URI so apply can rebase relative
+        // `$ref`s inside inserted content against it. Computed from the
+        // overlay's retrieval URI, then resolved through any `$self`.
+        let retrieval = uri::from_path(p)?;
+        let base = ov.resolve_base_uri(&retrieval)?;
+
         // 1.2 §Base URI rule 5: extends vs target-spec $self. When BOTH the
         // overlay has extends AND we can compute a base URI from its $self,
         // and the target spec has a $self, the resolved extends identifier
@@ -221,8 +248,6 @@ fn apply_overlays_to_doc(doc: &mut Document, overlay_paths: &[PathBuf]) -> Resul
             && ov.version_supports_components()
             && let Some(target_self) = doc.value().get("$self").and_then(|v| v.as_str())
         {
-            let retrieval = uri::from_path(p)?;
-            let base = ov.resolve_base_uri(&retrieval)?;
             let resolved = uri::resolve_reference(&base, extends)
                 .map_err(|e| format!("{}: cannot resolve extends: {e}", p.display()))?;
             if resolved != target_self {
@@ -236,7 +261,7 @@ fn apply_overlays_to_doc(doc: &mut Document, overlay_paths: &[PathBuf]) -> Resul
             }
         }
 
-        parsed.push(ov);
+        parsed.push(ov.with_base_uri(Some(base)));
     }
 
     // Apply in order; first failure stops the chain and nothing is written.

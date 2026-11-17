@@ -34,6 +34,10 @@ pub struct Document {
     format: Format,
     original: Vec<u8>,
     mutated: bool,
+    /// Retrieval URI the document was loaded from (a `file:` URI for a path
+    /// on disk, or an absolute `file:` URI for CWD when the input was stdin).
+    /// Used by overlay apply to rebase relative `$ref`s in inserted content.
+    base_uri: Option<String>,
 }
 
 impl Document {
@@ -47,7 +51,18 @@ impl Document {
             format,
             original: bytes.to_vec(),
             mutated: false,
+            base_uri: None,
         })
+    }
+
+    /// Chainable setter for the retrieval base URI.
+    pub fn with_base_uri(mut self, base: Option<String>) -> Document {
+        self.base_uri = base;
+        self
+    }
+
+    pub fn base_uri(&self) -> Option<&str> {
+        self.base_uri.as_deref()
     }
 
     pub fn value(&self) -> &Value {

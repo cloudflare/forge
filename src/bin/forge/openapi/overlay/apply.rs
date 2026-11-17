@@ -12,6 +12,7 @@ use super::action::Fields;
 use super::document::{Document, type_name};
 use super::parsed::Version;
 use super::path::{self, Path, Pointer, Segment};
+use super::uri;
 
 /// What one overlay action did when it ran.
 pub struct ActionReport {
@@ -85,7 +86,14 @@ impl ActionReport {
     }
 }
 
-pub fn apply_action(doc: &mut Document, version: Version, target: &Path, fields: &Fields) -> Result<ActionReport, Err> {
+pub fn apply_action(
+    doc: &mut Document,
+    version: Version,
+    target: &Path,
+    fields: &Fields,
+    overlay_base: Option<&str>,
+    spec_base: Option<&str>,
+) -> Result<ActionReport, Err> {
     // Resolve target nodelist against the current document state.
     let locations = target.select(doc.value());
     let matched = locations.len();
@@ -108,7 +116,7 @@ pub fn apply_action(doc: &mut Document, version: Version, target: &Path, fields:
         if version != Version::V1_0 {
             enforce_homogeneous_category(doc.value(), &locations)?;
         }
-        let mutated = apply_update(doc, version, &locations, update_val)?;
+        let mutated = apply_update(doc, version, &locations, update_val, overlay_base, spec_base)?;
         return Ok(ActionReport {
             verb: Verb::Update,
             target: target.source().to_owned(),
@@ -208,10 +216,30 @@ fn split_last<T>(segs: &[T]) -> Option<(&T, &[T])> {
     Some((&segs[n - 1], &segs[..n - 1]))
 }
 
-fn apply_update(doc: &mut Document, version: Version, locations: &[Pointer], update: &Value) -> Result<usize, Err> {
+fn apply_update(
+    doc: &mut Document,
+    version: Version,
+    locations: &[Pointer],
+    update: &Value,
+    overlay_base: Option<&str>,
+    spec_base: Option<&str>,
+) -> Result<usize, Err> {
     if locations.is_empty() {
         return Ok(0);
     }
+    // Rebase relative `$ref`s in the inserted value against the overlay's
+    // retrieval base so the merged spec is self-contained. Done once on a
+    // clone so the owning `Overlay` is untouched; all insertion points
+    // below (`*node = update.clone()`, `merge_object(... up)`,
+    // `arr.push(other.clone())`) read from `update`.
+    let mut rebased_owner;
+    let update: &Value = if overlay_base.is_some() {
+        rebased_owner = update.clone();
+        rebase_refs(&mut rebased_owner, overlay_base, spec_base);
+        &rebased_owner
+    } else {
+        update
+    };
     for p in locations {
         let cat = category_at(doc.value(), p);
         match cat {
@@ -563,6 +591,63 @@ fn merge_object(
 
 fn is_primitive(v: &Value) -> bool {
     matches!(v, Value::Null | Value::Bool(_) | Value::Number(_) | Value::String(_))
+}
+
+/// Walk `value` and rewrite every relative `$ref` string so it keeps pointing
+/// at the same target once the content is merged into a document that lives
+/// at `spec_base`. The ref is parsed as a URI reference and:
+///
+/// - Pure-fragment refs (`#/foo`) pass through unchanged — they target the
+///   containing document, which is still the merged spec.
+/// - Absolute URIs (with a scheme) pass through unchanged — already
+///   self-contained.
+/// - Relative refs are resolved against `overlay_base` (the retrieval URI
+///   of the content's source) to an absolute URI and emitted as-is.
+///   Re-expressing relative to `spec_base` is possible but non-trivial, so
+///   per the brief we emit the absolute form — this matches Redocly's
+///   `rebaseRefs` fallback.
+///
+/// Called on the inserted VALUE within apply, never on the overlay as a
+/// whole, so Reusable Action `$ref`s under `components.actions.*` are not
+/// touched (and a pure-fragment ref like `#/components/actions/Foo` is
+/// skipped above anyway).
+fn rebase_refs(value: &mut Value, overlay_base: Option<&str>, spec_base: Option<&str>) {
+    let Some(overlay_base) = overlay_base else { return };
+    rebase_refs_walk(value, overlay_base, spec_base);
+}
+
+fn rebase_refs_walk(value: &mut Value, overlay_base: &str, spec_base: Option<&str>) {
+    match value {
+        Value::Object(map) => {
+            if let Some(Value::String(r)) = map.get("$ref")
+                && let Some(rewritten) = rebase_one_ref(r, overlay_base, spec_base)
+            {
+                map.insert("$ref".to_owned(), Value::String(rewritten));
+            }
+            for (_, v) in map.iter_mut() {
+                rebase_refs_walk(v, overlay_base, spec_base);
+            }
+        }
+        Value::Array(arr) => {
+            for v in arr {
+                rebase_refs_walk(v, overlay_base, spec_base);
+            }
+        }
+        _ => {}
+    }
+}
+
+fn rebase_one_ref(r: &str, overlay_base: &str, _spec_base: Option<&str>) -> Option<String> {
+    if r.starts_with('#') {
+        return None;
+    }
+    if uri::scheme(r).is_some() {
+        return None;
+    }
+    // Relative URI reference: resolve against overlay_base. Emit the resolved
+    // absolute URI; re-expressing it relative to `spec_base` is non-trivial
+    // (and the brief explicitly allows the absolute-URI fallback).
+    uri::resolve_reference(overlay_base, r).ok()
 }
 
 /// Render a `Pointer` as a human-friendly JSONPath-shaped string, for error
