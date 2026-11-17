@@ -17,7 +17,7 @@ export const onRequest = defineMiddleware(({ url, redirect }, next) => {
   const path = url.pathname.slice(base.length);
   const target = moved[path];
   if (target) return redirect(`${base}${target}${url.search}`, 302);
-  const old = stainlessRedirect(path, url.search, stainless);
-  if (old) return redirect(`${base}${old}`, 301);
+  const stainlessTarget = stainlessRedirect(path, url.search, stainless);
+  if (stainlessTarget) return redirect(`${base}${stainlessTarget}`, 301);
   return next();
 });

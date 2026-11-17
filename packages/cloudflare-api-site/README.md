@@ -18,10 +18,10 @@ openapi.forge.json (latest stable Forge release)
    products, resources, routes, Terraform data
                  |
                  v
-   prepareForgeApi (src/forge-api.ts)
+   prepareForgeApi (src/forge-api.ts)  <-  src/stainless-redirects.json
                  |
                  v
-   .forge/  spec, products, redirects
+   .forge/  spec, products, redirects, Stainless redirects
                  |
                  v
    Nimbus api collection
@@ -150,7 +150,11 @@ Terraform natively, remove it:
      `src/nimbus-api.d.ts`;
    - the `renderDescription` fixture in `src/plain-text.test.ts`;
    - the Terraform checks in `e2e/site.e2e.ts` and the `operation-terraform`
-     shot in `e2e/visual.e2e.ts`.
+     shot in `e2e/visual.e2e.ts`;
+   - `?lang=terraform` on the retired Stainless site's `/terraform/` redirects in
+     `stainlessRedirect` (`src/stainless-redirects.ts`), and in its test and
+     e2e cases, if the view goes: the old Terraform pages then fold onto the HTTP
+     ones.
 4. Decide on the `terraform` target in `src/cloudflare.ts`: drop it with its
    case in `src/cloudflare.test.ts`, or keep it for Forge's own Terraform
    samples. Kept without samples, every operation shows a placeholder.
