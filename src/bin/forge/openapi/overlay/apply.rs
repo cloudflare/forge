@@ -201,11 +201,17 @@ fn apply_remove(doc: &mut Document, locations: &[Pointer]) -> Result<usize, Err>
 
 fn remove_at(root: &mut Value, p: &Pointer) -> Result<bool, Err> {
     let Some((last, parent_segs)) = split_last(&p.0) else {
-        // Root target removal: clear the root. For root-removal we replace
-        // with an empty object (typical overlay use is "remove then
-        // re-create").
-        *root = Value::Object(serde_json::Map::new());
-        return Ok(true);
+        // Root target `$` with `remove: true` would leave nothing a
+        // downstream OpenAPI consumer can use. Overwhelmingly this is a
+        // typoed JSONPath (`$` instead of `$.something`) silently nuking
+        // the spec — fail fast instead. The spec is silent; Redocly
+        // rejects this too.
+        return Err("action remove: cannot remove the root of the document \
+                   (target `$`). If you meant to clear and replace the spec, \
+                   use `update` with a full replacement value; if you meant \
+                   to remove a child, tighten the target (e.g. `$.servers` \
+                   instead of `$`)."
+            .into());
     };
     let Some(parent) = path::resolve_mut(root, &Pointer(parent_segs.to_vec())) else {
         return Ok(false); // Already gone.

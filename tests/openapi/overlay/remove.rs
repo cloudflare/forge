@@ -142,3 +142,29 @@ fn v10_remove_primitive_valued_property_follows_oai_fixtures_not_strict_spec() {
         "siblings untouched"
     );
 }
+
+/// Root target `$` with `remove: true` is rejected. Overlay spec is
+/// silent, but silently nuking the whole document is overwhelmingly a
+/// typoed JSONPath (`$` instead of `$.something`) and the resulting
+/// empty object is unusable downstream. Fail fast matches Redocly.
+#[test]
+fn remove_root_target_is_rejected() {
+    let (spec, ov) = crate::common::files(
+        "remove-root-target",
+        crate::common::SPEC,
+        r#"{
+  "overlay": "1.0.0",
+  "info": {"title": "fix", "version": "1"},
+  "actions": [{"target": "$", "remove": true}]
+}"#,
+    );
+
+    let err = crate::common::failed_with(
+        crate::common::overlay(&[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap()], ""),
+        &["remove", "root"],
+    );
+    assert!(
+        err.contains("`$`") || err.contains("$ "),
+        "error should name the root selector so the author knows which target is the problem:\n{err}"
+    );
+}
