@@ -3,7 +3,7 @@
 These eight scenario directories are vendored verbatim from the official
 `OAI/Overlay-Specification` repository on GitHub. They are the canonical
 compliant-sets corpus, used here as a black-box conformance suite for
-`forge overlay`.
+`forge openapi overlay`.
 
 ## Provenance
 
@@ -28,7 +28,7 @@ document structurally equal to `output.yaml`:
 - `update-root`
 
 Two scenarios use the older Goessner `[?(...)]` JSONPath filter syntax,
-which RFC 9535 forbids; `forge overlay` rejects them and MUST point authors
+which RFC 9535 forbids; `forge openapi overlay` rejects them and MUST point authors
 at RFC 9535 in the diagnostic:
 
 - `remove-property`

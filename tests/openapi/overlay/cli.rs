@@ -1,4 +1,4 @@
-//! Tests for the `forge overlay` CLI surface:
+//! Tests for the `forge openapi overlay` CLI surface:
 //! Mode A (overlay drives the spec via `extends`), Mode B (spec given on the
 //! CLI with one or more `--overlay`), `--out`, multiple overlays applied in
 //! order, `extends` resolution and HTTP rejection, output byte-fidelity, and
@@ -10,7 +10,7 @@ use crate::common::{SPEC, SPEC_MINIFIED, dir, failed, failed_with, files, files_
 
 // --- Mode A: overlay drives the spec via `extends` -----------------------
 
-/// Mode A. `forge overlay <overlay>` with no `--overlay` reads the overlay,
+/// Mode A. `forge openapi overlay <overlay>` with no `--overlay` reads the overlay,
 /// resolves its `extends` to a local file (relative to the overlay's own
 /// location), and prints the overlaid spec to stdout.
 #[test]
@@ -230,7 +230,7 @@ fn mode_a_out_writes_to_path() {
 
 // --- Mode B: spec on the CLI, one or more `--overlay` files --------------
 
-/// Mode B. `forge overlay <spec> --overlay <overlay>` applies the overlay
+/// Mode B. `forge openapi overlay <spec> --overlay <overlay>` applies the overlay
 /// and prints the result to stdout. The spec file is left untouched.
 #[test]
 fn mode_b_applies_and_prints() {
@@ -870,10 +870,10 @@ fn k2_key_order_is_preserved_and_additions_append() {
 
 // --- CLI argument parsing ------------------------------------------------
 
-/// `forge overlay` is a recognized subcommand.
+/// `forge openapi overlay` is a recognized subcommand.
 #[test]
 fn subcommand_is_recognized() {
-    let out = forge(&["overlay", "--help"], "");
+    let out = forge(&["openapi", "overlay", "--help"], "");
     assert!(out.status.success(), "help failed: {}", text(&out.stderr));
     assert!(
         text(&out.stdout).to_lowercase().contains("overlay"),
@@ -887,12 +887,12 @@ fn subcommand_is_recognized() {
 fn no_input_is_rejected() {
     let err = failed(overlay(&[], ""));
     assert!(
-        err.to_lowercase().contains("required") || err.to_lowercase().contains("usage: forge overlay"),
+        err.to_lowercase().contains("required") || err.to_lowercase().contains("usage: forge openapi overlay"),
         "names the missing argument: {err}"
     );
 }
 
-/// `forge overlay` without `--overlay` treats the positional as an overlay
+/// `forge openapi overlay` without `--overlay` treats the positional as an overlay
 /// document. A positional that is not an overlay (e.g. an OpenAPI spec) is
 /// rejected with a message pointing authors at `--overlay` or at adding an
 /// `overlay` version key to their file. The exact suggested-fix wording is

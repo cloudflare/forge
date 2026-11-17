@@ -5,7 +5,7 @@
 //! - A positional overlay-with-`extends` resolves its spec, then generates.
 //! - `--overlay` flags apply in order, then generate.
 //! - `--target` and `--out` are always required at the top level.
-//! - The `overlay` subcommand still prints the merged spec (unchanged).
+//! - The `openapi overlay` subcommand still prints the merged spec (unchanged).
 
 use std::fs;
 use std::io::Write;
@@ -202,6 +202,7 @@ fn top_level_spec_with_multiple_overlays_applies_in_order_then_generates() {
     // inputs: b overrides a, so the merged spec shows from-b.
     let subcmd = forge(
         &[
+            "openapi",
             "overlay",
             spec.to_str().unwrap(),
             "--overlay",
@@ -237,7 +238,10 @@ fn top_level_overlay_positional_requires_target_and_out() {
     let err = failed(forge(&[overlay.to_str().unwrap()], ""));
     assert!(err.contains("--target"), "message names --target: {err}");
     // The user needs to know that print-mode lives on the subcommand now.
-    assert!(err.contains("overlay"), "message hints at `forge overlay`: {err}");
+    assert!(
+        err.contains("overlay"),
+        "message hints at `forge openapi overlay`: {err}"
+    );
 }
 
 /// `forge <spec> --overlay <ov>` alone (no `--target`, no `--out`) is
@@ -352,7 +356,13 @@ fn top_level_overlay_subcommand_still_prints_merged_spec() {
     .unwrap();
 
     let out = forge(
-        &["overlay", spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap()],
+        &[
+            "openapi",
+            "overlay",
+            spec.to_str().unwrap(),
+            "--overlay",
+            ov.to_str().unwrap(),
+        ],
         "",
     );
     succeeded(&out);

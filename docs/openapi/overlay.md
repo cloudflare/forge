@@ -1,13 +1,13 @@
-# `forge overlay`
+# `forge openapi overlay`
 
 Applies one or more [OpenAPI Overlay](https://spec.openapis.org/overlay/latest)
 documents to an OpenAPI spec and prints the result (or writes it to a file
 with `--out`).
 
 ```
-forge overlay <overlay>                             # Mode A: overlay drives the spec via its `extends`
-forge overlay <spec> --overlay <overlay>...         # Mode B
-forge overlay <spec> --overlay <overlay> --out <path>
+forge openapi overlay <overlay>                             # Mode A: overlay drives the spec via its `extends`
+forge openapi overlay <spec> --overlay <overlay>...         # Mode B
+forge openapi overlay <spec> --overlay <overlay> --out <path>
 ```
 
 At the top level, overlays are a preprocessing step before SDK generation,
@@ -18,12 +18,12 @@ forge <spec> --overlay <overlay>... --target <t> --out <dir>
 forge <overlay-with-extends> [--overlay <ov>]... --target <t> --out <dir>
 ```
 
-Use `forge overlay` (the subcommand) when you want to inspect or write the
-merged spec itself; use the top-level `forge` when you want an SDK built
+Use `forge openapi overlay` (the subcommand) when you want to inspect or write
+the merged spec itself; use the top-level `forge` when you want an SDK built
 from a preprocessed spec.
 
-Without `--out` the `forge overlay` subcommand prints the overlaid document
-to standard output. `--out <path>` writes it to `<path>` instead; if
+Without `--out` the `forge openapi overlay` subcommand prints the overlaid
+document to standard output. `--out <path>` writes it to `<path>` instead; if
 `<path>` is the same file as the Mode B spec, the file is rewritten
 atomically (temp file + rename in the same directory) and left
 byte-identical when no action mutated it.
@@ -63,26 +63,26 @@ is intentional and tracks the spec; the fixes are small overlay edits.
 
 The normative baselines forge is tested against live in the repo:
 
-- `tests/overlay/oai_tests/` — the OAI's own pass/fail fixtures across
+- `tests/openapi/overlay/oai_tests/` — the OAI's own pass/fail fixtures across
   versions 1.0, 1.1, and 1.2-dev.
-- `tests/overlay/compliant_sets/` — end-to-end apply scenarios from the
+- `tests/openapi/overlay/compliant_sets/` — end-to-end apply scenarios from the
   OAI compliant-sets corpus.
-- `tests/overlay/real_world/` — vendored `(spec, overlay, expected)` triples
-  from real-world projects, as byte-stable regression gates.
+- `tests/openapi/overlay/real_world/` — vendored `(spec, overlay, expected)`
+  triples from real-world projects, as byte-stable regression gates.
 
 ## Linting
 
-`forge overlay --check <overlay>...` validates one or more overlay documents
-without applying them. Each overlay is parsed through the full validator
-pipeline (required fields, allowed keys per version, RFC 9535 JSONPath
-parse of every `target`, `components.actions` shape, `$ref` validity,
+`forge openapi overlay --check <overlay>...` validates one or more overlay
+documents without applying them. Each overlay is parsed through the full
+validator pipeline (required fields, allowed keys per version, RFC 9535
+JSONPath parse of every `target`, `components.actions` shape, `$ref` validity,
 URI allow-list, action uniqueness, future-minor warnings). `extends` is
 NOT resolved — lint is about the overlay document itself, not the files
 it points at. `-` reads one overlay from standard input.
 
 ```
-forge overlay --check overlays/*.yaml
-cat ov.yaml | forge overlay --check -
+forge openapi overlay --check overlays/*.yaml
+cat ov.yaml | forge openapi overlay --check -
 ```
 
 Exits 0 when every overlay is valid. On failure, each file's diagnostics
@@ -95,12 +95,12 @@ or `--out`.
 
 `--explain` prints one line to stderr per overlay action as it runs,
 naming the overlay path, action index, verb, target, and node counts.
-It is available on both the `forge overlay` subcommand and the top-level
-`forge` (where overlays are a preprocessing step before SDK generation).
-Stdout and generated files are unchanged.
+It is available on both the `forge openapi overlay` subcommand and the
+top-level `forge` (where overlays are a preprocessing step before SDK
+generation). Stdout and generated files are unchanged.
 
 ```
-forge overlay spec.yaml --overlay fix.yaml --explain
+forge openapi overlay spec.yaml --overlay fix.yaml --explain
 forge spec.yaml --overlay fix.yaml --target ts --out sdk --explain
 ```
 

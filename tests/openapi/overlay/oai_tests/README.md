@@ -9,7 +9,7 @@ Per-version corpora of overlay documents vendored from the official
   defect the spec forbids. Implementations MUST reject them.
 
 The harness in [`../oai_conformance.rs`](../oai_conformance.rs) walks every file
-and invokes `forge overlay <trivial-spec> --overlay <test.yaml>` to assert the
+and invokes `forge openapi overlay <trivial-spec> --overlay <test.yaml>` to assert the
 expected outcome. We run each OAI document in Mode B against a trivial spec, so
 `extends` is ignored (log-only) — this lets us test documents whose `extends`
 URIs point at files we don't have.

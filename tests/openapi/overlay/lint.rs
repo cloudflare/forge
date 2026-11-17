@@ -1,4 +1,4 @@
-//! Tests for `forge overlay --check`: lint overlay documents without
+//! Tests for `forge openapi overlay --check`: lint overlay documents without
 //! resolving `extends` or applying to a spec.
 
 use std::fs;
@@ -145,7 +145,7 @@ fn check_rejects_out_flag() {
     );
 }
 
-/// `forge overlay --check -` lints one overlay from standard input.
+/// `forge openapi overlay --check -` lints one overlay from standard input.
 #[test]
 fn check_stdin() {
     let out = overlay(&["--check", "-"], VALID_1_0);

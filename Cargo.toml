@@ -51,7 +51,7 @@ name = "cli"
 required-features = ["cli"]
 
 [[test]]
-name = "overlay"
+name = "openapi"
 required-features = ["cli"]
 
 [[test]]

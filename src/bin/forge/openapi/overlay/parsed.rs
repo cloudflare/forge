@@ -98,7 +98,7 @@ impl Overlay {
     pub fn diagnose_warnings(&self) {
         if let Version::FutureV1(minor) = self.version {
             eprintln!(
-                "forge overlay: warning: overlay version 1.{minor}.x is newer than this build; \
+                "forge openapi overlay: warning: overlay version 1.{minor}.x is newer than this build; \
                  applying known features and skipping any that are unsupported"
             );
         }

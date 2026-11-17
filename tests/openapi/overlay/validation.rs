@@ -863,7 +863,7 @@ fn extends_with_http_scheme_is_rejected_in_every_version_and_mode() {
 }}"#
             );
 
-            // Mode B: `forge overlay <spec> --overlay <ov>`.
+            // Mode B: `forge openapi overlay <spec> --overlay <ov>`.
             let (spec, ov) = files(&format!("mode-b-extends-{scheme}-{version}"), SPEC, &body);
             let err = failed(overlay(
                 &[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap()],
@@ -875,7 +875,7 @@ fn extends_with_http_scheme_is_rejected_in_every_version_and_mode() {
             );
             assert!(err.contains(&url), "{scheme}/{version} Mode B shows the URI: {err}");
 
-            // Mode A: `forge overlay <ov>`.
+            // Mode A: `forge openapi overlay <ov>`.
             let d = crate::common::dir(&format!("mode-a-extends-{scheme}-{version}"));
             std::fs::write(d.join("overlay.json"), &body).unwrap();
             let err = failed(overlay(&[d.join("overlay.json").to_str().unwrap()], ""));

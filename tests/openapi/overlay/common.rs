@@ -1,4 +1,4 @@
-//! Shared helpers for `forge overlay` tests: process invocation, temp dirs,
+//! Shared helpers for `forge openapi overlay` tests: process invocation, temp dirs,
 //! and the two short documents the tests apply overlays to.
 
 use std::fs;
@@ -26,11 +26,11 @@ pub const SPEC: &str = r#"{
 pub const SPEC_MINIFIED: &str = r#"{"openapi":"3.0.3","info":{"title":"t","version":"1"},"paths":{"/a":{"get":{"operationId":"aGet","responses":{"200":{"description":"ok"}}}}}}"#;
 
 /// Strings that only appear in the Clap error forge emits today, before the
-/// `overlay` subcommand exists. If a test asserts "the command failed with
-/// an overlay-specific error" and the error actually contains one of these
-/// markers, the assertion is almost certainly a false positive from the
+/// `openapi overlay` subcommand exists. If a test asserts "the command failed
+/// with an overlay-specific error" and the error actually contains one of
+/// these markers, the assertion is almost certainly a false positive from the
 /// pre-implementation binary. `failed()` panics on these so no test can
-/// pass accidentally before `forge overlay` is implemented.
+/// pass accidentally before `forge openapi overlay` is implemented.
 ///
 /// Exposed `pub` so sibling modules (e.g. `oai_conformance`) can share one
 /// authoritative list; duplicating it causes drift the next time forge's
@@ -39,8 +39,9 @@ pub const PRE_IMPL_MARKERS: &[&str] = &[
     // Current forge CLI treats `overlay` as a positional SPEC and complains
     // that the next arg cannot also be a `<SPEC>`.
     "cannot be used with '<SPEC>'",
-    // Once `overlay` is a registered subcommand this message disappears; it
-    // only exists while the top-level CLI still requires `--target`.
+    // Once `openapi overlay` is a registered subcommand this message
+    // disappears; it only exists while the top-level CLI still requires
+    // `--target`.
     "the following required arguments were not provided",
     // Clap's "no such subcommand" variants.
     "unrecognized subcommand",
@@ -57,9 +58,9 @@ pub fn dir(name: &str) -> PathBuf {
     dir
 }
 
-/// Runs `forge overlay` with `args`, writing `stdin` to the process.
+/// Runs `forge openapi overlay` with `args`, writing `stdin` to the process.
 pub fn overlay(args: &[&str], stdin: &str) -> Output {
-    forge(&[&["overlay"][..], args].concat(), stdin)
+    forge(&[&["openapi", "overlay"][..], args].concat(), stdin)
 }
 
 /// Runs `forge` with `args`, writing `stdin` to the process.
@@ -102,8 +103,8 @@ pub fn files_ext(name: &str, spec: (&str, &str), overlay: (&str, &str)) -> (Path
 }
 
 /// Applies `overlay_doc` to `SPEC` by writing both to a fresh temp dir and
-/// running `forge overlay <spec> --overlay <overlay>`, returning the parsed
-/// stdout JSON. Panics if the command fails.
+/// running `forge openapi overlay <spec> --overlay <overlay>`, returning the
+/// parsed stdout JSON. Panics if the command fails.
 pub fn apply(name: &str, overlay_doc: &str) -> serde_json::Value {
     let (spec_path, overlay_path) = files(name, SPEC, overlay_doc);
     let out = overlay(

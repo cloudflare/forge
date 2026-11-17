@@ -6,7 +6,7 @@
 //! the spec and MUST be rejected. See `oai_tests/README.md` for the vendored
 //! commit SHA.
 //!
-//! We invoke each as `forge overlay <trivial-spec> --overlay <test>` in
+//! We invoke each as `forge openapi overlay <trivial-spec> --overlay <test>` in
 //! Mode B. Mode B ignores `extends`, so tests whose `extends` URIs point at
 //! files we don't have still parse cleanly.
 //!
@@ -23,7 +23,7 @@
 //! the pre-implementation CLI diagnostic. Full discrimination of the
 //! HTTP security rule (correct field named, URI shown, no network
 //! connection attempted) is proven exhaustively across versions and
-//! modes by the handwritten tests in `tests/overlay/validation.rs`.
+//! modes by the handwritten tests in `tests/openapi/overlay/validation.rs`.
 //! Duplicating that discrimination here would just enforce error-text
 //! vocabulary before any error text exists.
 //!
@@ -123,7 +123,7 @@ const POLICY_DEVIATIONS: &[PolicyDeviation] = &[
 
 fn scenario_files(version: &str, kind: &str) -> Vec<PathBuf> {
     let root = Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("tests/overlay/oai_tests")
+        .join("tests/openapi/overlay/oai_tests")
         .join(version)
         .join(kind);
     let mut paths: Vec<_> = fs::read_dir(&root)
@@ -209,7 +209,7 @@ fn run_pass(version: &str) {
     assert!(
         report.pre_impl.is_empty(),
         "{} OAI {version}/pass scenarios tripped the pre-implementation CLI \
-         diagnostic rather than the overlay command. `forge overlay` is almost \
+         diagnostic rather than the overlay command. `forge openapi overlay` is almost \
          certainly unimplemented. Affected files:\n{}",
         report.pre_impl.len(),
         report.pre_impl.join("\n")
@@ -335,7 +335,7 @@ fn oai_v1_2_fail() {
 fn policy_deviations_manifest_matches_vendored_fixtures() {
     for deviation in POLICY_DEVIATIONS {
         let path = Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("tests/overlay/oai_tests")
+            .join("tests/openapi/overlay/oai_tests")
             .join(deviation.version)
             .join("pass")
             .join(deviation.file);

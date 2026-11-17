@@ -1,6 +1,6 @@
 //! The OAI `compliant-sets/` corpus, run as a black box.
 //!
-//! Each scenario under `tests/overlay/compliant_sets/<name>/` is a triple of
+//! Each scenario under `tests/openapi/overlay/compliant_sets/<name>/` is a triple of
 //! `openapi.yaml`, `overlay.yaml`, and `output.yaml`. For each scenario we
 //! apply the overlay to the spec and assert the result is structurally equal
 //! to the expected output.
@@ -16,7 +16,7 @@ use crate::common::{failed, overlay, succeeded};
 
 fn scenario(name: &str) -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("tests/overlay/compliant_sets")
+        .join("tests/openapi/overlay/compliant_sets")
         .join(name)
 }
 

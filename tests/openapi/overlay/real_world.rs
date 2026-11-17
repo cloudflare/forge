@@ -1,12 +1,12 @@
 //! Real-world overlay regression fixtures.
 //!
-//! Each subdirectory under `tests/overlay/real_world/` is a `(spec, overlay,
-//! expected)` triple. The test applies `overlay` to `spec` and asserts the
-//! parsed YAML tree matches `expected`. Any silent drift in forge's apply
-//! semantics on a known-good overlay surfaces here.
+//! Each subdirectory under `tests/openapi/overlay/real_world/` is a `(spec,
+//! overlay, expected)` triple. The test applies `overlay` to `spec` and
+//! asserts the parsed YAML tree matches `expected`. Any silent drift in
+//! forge's apply semantics on a known-good overlay surfaces here.
 //!
-//! See `tests/overlay/real_world/README.md` for the per-fixture source, license,
-//! and upstream commit SHA.
+//! See `tests/openapi/overlay/real_world/README.md` for the per-fixture
+//! source, license, and upstream commit SHA.
 
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -14,7 +14,7 @@ use std::path::{Path, PathBuf};
 use crate::common::{overlay, text};
 
 fn root() -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/overlay/real_world")
+    Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/openapi/overlay/real_world")
 }
 
 /// Every subdirectory of `real_world/` that holds a triple.
@@ -60,7 +60,7 @@ fn every_fixture_applies_cleanly_and_matches_expected() {
         let out = overlay(&[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap()], "");
         assert!(
             out.status.success(),
-            "{name}: `forge overlay` failed: {}",
+            "{name}: `forge openapi overlay` failed: {}",
             text(&out.stderr)
         );
 

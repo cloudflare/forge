@@ -10,7 +10,7 @@
 //! forge overlay.yaml --target ts --out sdk               # overlay drives spec via its `extends`
 //! forge overlay.yaml --overlay extra.yaml --target ts --out sdk
 //! forge normalize specs/*.json
-//! forge overlay <spec-or-overlay> [--overlay <ov>]...    # print or write the merged spec
+//! forge openapi overlay <spec-or-overlay> [--overlay <ov>]...   # print or write the merged spec
 //! ```
 
 use std::fs;
@@ -25,7 +25,7 @@ use strum::{EnumString, VariantNames};
 mod capnweb;
 mod mcp;
 mod normalize;
-mod overlay;
+mod openapi;
 mod ts;
 
 /// Generate an SDK, apply an overlay, or run a subcommand.
@@ -65,15 +65,8 @@ enum Command {
     /// that has none is left as it is. A native key is never replaced: when a
     /// document says the same thing twice, the native key is kept.
     Normalize(normalize::Args),
-    /// Apply one or more OpenAPI Overlay documents to a spec.
-    ///
-    /// With a single positional argument, treat it as an overlay whose
-    /// `extends` names the spec. With `--overlay` flags, treat the positional
-    /// as the spec (or `-` for standard input) and apply each overlay in
-    /// order. Without `--out`, the result is printed to standard output;
-    /// with `--out <PATH>` it is written to that file (if `<PATH>` is the
-    /// spec itself, as an atomic in-place rewrite).
-    Overlay(overlay::Args),
+    /// OpenAPI-specific commands.
+    Openapi(openapi::Args),
 }
 
 /// What forge generates an SDK with.
@@ -148,7 +141,7 @@ enum Dispatch {
 fn run(args: Args) -> Result<(), Err> {
     match dispatch(args)? {
         Dispatch::Subcommand(Command::Normalize(a)) => normalize::run(a),
-        Dispatch::Subcommand(Command::Overlay(a)) => overlay::run(a),
+        Dispatch::Subcommand(Command::Openapi(a)) => openapi::run(a),
         Dispatch::GenerateSdk {
             input,
             input_is_overlay,
@@ -190,7 +183,7 @@ fn dispatch(args: Args) -> Result<Dispatch, Err> {
                 missing.push("--out <OUT>");
             }
             return Err(format!(
-                "SDK generation needs {}. Use `forge overlay` if you want to apply an overlay \
+                "SDK generation needs {}. Use `forge openapi overlay` if you want to apply an overlay \
                  and print or write the merged spec instead.",
                 missing.join(" and ")
             )
@@ -271,15 +264,15 @@ fn generate(
     // read: overlay apply is fast enough that overlapping it with a wasm
     // plugin compile would complicate the code without a meaningful win.
     let value = if input_is_overlay {
-        let (v, reports) = overlay::apply_from_overlay_positional_explained(input, overlays)?;
+        let (v, reports) = openapi::overlay::apply_from_overlay_positional_explained(input, overlays)?;
         if explain {
-            overlay::print_reports_public(&reports);
+            openapi::overlay::print_reports_public(&reports);
         }
         v
     } else {
-        let (v, reports) = overlay::apply_to_spec_explained(input, overlays)?;
+        let (v, reports) = openapi::overlay::apply_to_spec_explained(input, overlays)?;
         if explain {
-            overlay::print_reports_public(&reports);
+            openapi::overlay::print_reports_public(&reports);
         }
         v
     };

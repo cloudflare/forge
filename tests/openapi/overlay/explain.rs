@@ -1,5 +1,5 @@
 //! Tests for `--explain`: per-action diagnostics on stderr during overlay
-//! apply, on both the `forge overlay` subcommand and the top-level `forge`.
+//! apply, on both the `forge openapi overlay` subcommand and the top-level `forge`.
 
 use std::fs;
 use std::io::Write;

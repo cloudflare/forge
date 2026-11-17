@@ -581,7 +581,7 @@ fn v12_self_with_fragment_is_rejected_mode_a() {
 /// not runtime fetching: the fragment is a schema error regardless of mode.
 #[test]
 fn v12_extends_with_fragment_is_rejected_in_every_mode() {
-    // Mode A: `forge overlay <overlay-path>` (no explicit target). Relative.
+    // Mode A: `forge openapi overlay <overlay-path>` (no explicit target). Relative.
     let d = dir("v12-extends-fragment-mode-a-relative");
     fs::write(d.join("spec.json"), SPEC).unwrap();
     fs::write(
@@ -599,7 +599,7 @@ fn v12_extends_with_fragment_is_rejected_in_every_mode() {
         &["extends", "fragment", "#"],
     );
 
-    // Mode A: `forge overlay <overlay-path>`. Absolute `file:` base.
+    // Mode A: `forge openapi overlay <overlay-path>`. Absolute `file:` base.
     let d = dir("v12-extends-fragment-mode-a-absolute");
     fs::write(
         d.join("overlay.json"),
@@ -616,7 +616,7 @@ fn v12_extends_with_fragment_is_rejected_in_every_mode() {
         &["extends", "fragment", "#"],
     );
 
-    // Mode B: `forge overlay <spec> --overlay <overlay>`. Relative.
+    // Mode B: `forge openapi overlay <spec> --overlay <overlay>`. Relative.
     let (spec, ov) = files(
         "v12-extends-fragment-mode-b-relative",
         SPEC,
@@ -632,7 +632,7 @@ fn v12_extends_with_fragment_is_rejected_in_every_mode() {
         &["extends", "fragment", "#"],
     );
 
-    // Mode B: `forge overlay <spec> --overlay <overlay>`. Absolute `file:`
+    // Mode B: `forge openapi overlay <spec> --overlay <overlay>`. Absolute `file:`
     // base.
     let (spec, ov) = files(
         "v12-extends-fragment-mode-b-absolute",

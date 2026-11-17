@@ -1,4 +1,4 @@
-//! `forge overlay`, which applies one or more OpenAPI Overlay documents
+//! `forge openapi overlay`, which applies one or more OpenAPI Overlay documents
 //! (v1.0, v1.1, v1.2) to an OpenAPI document.
 
 mod action;
@@ -22,7 +22,7 @@ use parsed::Overlay;
 /// order the actions ran.
 pub type TaggedReports = Vec<(PathBuf, Vec<apply::ActionReport>)>;
 
-/// Arguments to `forge overlay`.
+/// Arguments to `forge openapi overlay`.
 #[derive(clap::Args)]
 pub struct Args {
     /// In Mode A, the overlay document (its `extends` names the spec).
@@ -59,32 +59,34 @@ pub fn run(args: Args) -> Result<(), Err> {
         return run_check(&args.inputs);
     }
     if args.inputs.is_empty() {
-        return Err("no input given; `forge overlay` requires an overlay or a spec. \
-             Usage: forge overlay <overlay>   (Mode A: overlay drives the spec via its `extends`)\n\
-             \x20      forge overlay <spec> --overlay <overlay>...   (Mode B)\n\
-             \x20      forge overlay --check <overlay>...   (lint only)"
-            .into());
+        return Err(
+            "no input given; `forge openapi overlay` requires an overlay or a spec. \
+             Usage: forge openapi overlay <overlay>   (Mode A: overlay drives the spec via its `extends`)\n\
+             \x20      forge openapi overlay <spec> --overlay <overlay>...   (Mode B)\n\
+             \x20      forge openapi overlay --check <overlay>...   (lint only)"
+                .into(),
+        );
     }
     let out = args.out.as_deref();
     let explain = args.explain;
     if args.overlays.is_empty() {
         if args.inputs.len() > 1 {
             return Err(
-                "`forge overlay` takes exactly one positional argument in Mode A (the overlay). \
-                 To apply more than one overlay use `forge overlay <spec> --overlay <overlay>...`"
+                "`forge openapi overlay` takes exactly one positional argument in Mode A (the overlay). \
+                 To apply more than one overlay use `forge openapi overlay <spec> --overlay <overlay>...`"
                     .into(),
             );
         }
         run_mode_a_path(&args.inputs[0], out, explain)
     } else {
         if args.inputs.len() > 1 {
-            return Err("`forge overlay <spec> --overlay ...` takes exactly one positional spec".into());
+            return Err("`forge openapi overlay <spec> --overlay ...` takes exactly one positional spec".into());
         }
         run_mode_b_paths(&args.inputs[0], &args.overlays, out, explain)
     }
 }
 
-/// Mode A: `forge overlay <overlay>` — overlay drives the spec via `extends`.
+/// Mode A: `forge openapi overlay <overlay>` — overlay drives the spec via `extends`.
 pub fn run_mode_a_path(overlay_path: &Path, out: Option<&Path>, explain: bool) -> Result<(), Err> {
     let (doc, reports) = apply_mode_a(overlay_path)?;
     if explain {
@@ -93,7 +95,7 @@ pub fn run_mode_a_path(overlay_path: &Path, out: Option<&Path>, explain: bool) -
     emit(&doc, out, None)
 }
 
-/// Mode B: `forge overlay <spec> --overlay <ov>...` — spec on CLI.
+/// Mode B: `forge openapi overlay <spec> --overlay <ov>...` — spec on CLI.
 pub fn run_mode_b_paths(
     spec_path: &Path,
     overlay_paths: &[PathBuf],
@@ -355,7 +357,7 @@ fn disambiguation_error(path: &Path, is_spec: bool) -> Err {
     if is_spec {
         format!(
             "{shown}: looks like an OpenAPI spec, not an Overlay document. Did you mean \
-             `forge overlay <spec> --overlay <overlay>` or add an `overlay` version key?"
+             `forge openapi overlay <spec> --overlay <overlay>` or add an `overlay` version key?"
         )
         .into()
     } else {

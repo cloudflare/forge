@@ -2,7 +2,7 @@
 
 Each subdirectory here is an end-to-end `(spec, overlay, expected)` triple that
 `real_world.rs` applies and compares. The goal is to catch any silent drift in
-`forge overlay`'s apply semantics against known-good baselines.
+`forge openapi overlay`'s apply semantics against known-good baselines.
 
 Comparison is YAML tree-based (parse both sides, compare `serde_yml::Value`),
 not byte-exact: the output of forge's YAML serializer is allowed to re-shape
@@ -47,7 +47,7 @@ output with:
 
 ```
 cargo build --bin forge --features cli
-./target/debug/forge overlay <dir>/spec.yaml --overlay <dir>/overlay.yaml \
+./target/debug/forge openapi overlay <dir>/spec.yaml --overlay <dir>/overlay.yaml \
   > <dir>/expected.yaml
 ```
 
