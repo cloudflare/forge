@@ -441,3 +441,67 @@ fn v11_update_object_with_current_values_is_noop() {
         "updating keys with their current values did not change the file"
     );
 }
+
+/// When a filter sweeps multiple paths and one of them is a primitive, the
+/// 1.0 "update forbids primitives" error names the offending path AND lists
+/// at least one sibling primitive path — otherwise the author is left to
+/// guess which of several selected nodes tripped the check and why their
+/// filter is over-broad.
+#[test]
+fn v10_update_primitive_error_lists_sibling_primitives() {
+    // `paths[*]` selects path items. Each path item has a `get` operation
+    // (object) but `/b` and `/c` also carry an `x-internal` boolean. With
+    // the union selector `['get','x-internal']` the filter sweeps three
+    // objects and two primitives; the error should name one primitive and
+    // at least one sibling primitive.
+    let spec = r#"{
+  "openapi": "3.0.3",
+  "info": {"title": "t", "version": "1"},
+  "paths": {
+    "/a": {
+      "get": {"operationId": "aGet", "responses": {"200": {"description": "ok"}}}
+    },
+    "/b": {
+      "x-internal": true,
+      "get": {"operationId": "bGet", "responses": {"200": {"description": "ok"}}}
+    },
+    "/c": {
+      "x-internal": true,
+      "get": {"operationId": "cGet", "responses": {"200": {"description": "ok"}}}
+    }
+  }
+}"#;
+    let (spec_path, ov_path) = crate::common::files(
+        "v10-update-primitive-sibling-hint",
+        spec,
+        r#"{
+  "overlay": "1.0.0",
+  "info": {"title": "fix", "version": "1"},
+  "actions": [{"target": "$.paths.*[\"get\", \"x-internal\"]", "update": {"summary": "s"}}]
+}"#,
+    );
+
+    let err = crate::common::failed_with(
+        crate::common::overlay(
+            &[spec_path.to_str().unwrap(), "--overlay", ov_path.to_str().unwrap()],
+            "",
+        ),
+        &["primitive", "target also selects"],
+    );
+
+    // The error must name an offending primitive path AND at least one
+    // sibling primitive path — not just the first one in isolation. Both
+    // `/b.x-internal` and `/c.x-internal` are the only primitives the
+    // filter picks up, so one is the offender and the other must appear
+    // in the "also selects" list.
+    assert!(
+        err.contains("x-internal"),
+        "error should name the offending `x-internal` segment:\n{err}"
+    );
+    let b_present = err.contains("/b") && err.contains("x-internal");
+    let c_present = err.contains("/c") && err.contains("x-internal");
+    assert!(
+        b_present && c_present,
+        "error should mention both primitive siblings (/b and /c under x-internal):\n{err}"
+    );
+}

@@ -112,17 +112,24 @@ fn apply_update(doc: &mut Document, version: Version, locations: &[Pointer], upd
         match cat {
             Category::Primitive => {
                 if !version.allows_primitive_update() {
-                    return Err("action update: target selects a primitive value, which overlay 1.0 \
-                         forbids as an `update` target (must select objects or arrays). Forge \
-                         follows Overlay 1.0 §5 strictly for `update` on primitives."
-                        .into());
+                    return Err(format!(
+                        "action update: target selects a primitive value at {offender}, \
+                         which overlay 1.0 forbids as an `update` target (must select \
+                         objects or arrays). Forge follows Overlay 1.0 §5 strictly for \
+                         `update` on primitives.{siblings}",
+                        offender = pointer_to_jsonpath(p),
+                        siblings = sibling_hint(doc.value(), locations, p),
+                    )
+                    .into());
                 }
                 if !is_primitive(update) {
                     return Err(format!(
-                        "action update: primitive target requires a primitive update value \
-                         (got {}); the Overlay 1.1 spec says primitive update values replace \
-                         the selected node",
-                        type_name(update)
+                        "action update: primitive target at {offender} requires a primitive \
+                         update value (got {got}); the Overlay 1.1 spec says primitive update \
+                         values replace the selected node.{siblings}",
+                        offender = pointer_to_jsonpath(p),
+                        got = type_name(update),
+                        siblings = sibling_hint(doc.value(), locations, p),
                     )
                     .into());
                 }
@@ -439,6 +446,68 @@ fn merge_object(
 
 fn is_primitive(v: &Value) -> bool {
     matches!(v, Value::Null | Value::Bool(_) | Value::Number(_) | Value::String(_))
+}
+
+/// Render a `Pointer` as a human-friendly JSONPath-shaped string, for error
+/// messages. Index segments become `[i]`; name segments become `.name` when
+/// `name` is a simple identifier (alnum, `_`, `-`) and `['name']` otherwise
+/// (including anything with slashes, dots, quotes, or surrogates).
+fn pointer_to_jsonpath(p: &Pointer) -> String {
+    let mut s = String::from("$");
+    for seg in &p.0 {
+        match seg {
+            Segment::Index(i) => {
+                s.push('[');
+                s.push_str(&i.to_string());
+                s.push(']');
+            }
+            Segment::Name(n) => {
+                if is_identifier(n) {
+                    s.push('.');
+                    s.push_str(n);
+                } else {
+                    s.push_str("['");
+                    for ch in n.chars() {
+                        if ch == '\\' || ch == '\'' {
+                            s.push('\\');
+                        }
+                        s.push(ch);
+                    }
+                    s.push_str("']");
+                }
+            }
+        }
+    }
+    s
+}
+
+fn is_identifier(s: &str) -> bool {
+    !s.is_empty() && s.chars().all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-')
+}
+
+/// Build a " — target also selects: <p1>, <p2>, ... (and N more)" fragment
+/// listing OTHER primitive locations in `locations`, so the author can see
+/// the filter was over-broad — e.g. sweeping `x-internal: true` into an
+/// operation-level selection. Empty string when the offending pointer is
+/// the only primitive the target picked up.
+fn sibling_hint(root: &Value, locations: &[Pointer], offender: &Pointer) -> String {
+    const MAX_SHOWN: usize = 3;
+    let others: Vec<String> = locations
+        .iter()
+        .filter(|p| *p != offender && category_at(root, p) == Category::Primitive)
+        .map(pointer_to_jsonpath)
+        .collect();
+    if others.is_empty() {
+        return String::new();
+    }
+    let shown: Vec<&str> = others.iter().take(MAX_SHOWN).map(String::as_str).collect();
+    let more = others.len().saturating_sub(shown.len());
+    let tail = if more == 0 {
+        String::new()
+    } else {
+        format!(" (and {more} more)")
+    };
+    format!(" — target also selects: {}{tail}", shown.join(", "))
 }
 
 /// If `src` ends with a simple name selector (`.name`, `["name"]`,
