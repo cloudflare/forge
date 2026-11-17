@@ -9,8 +9,8 @@ const stainless: Record<string, string | undefined> = stainlessLookup;
 
 /**
  * Section ids, alias operation URLs and moved products 302 to the pages Nimbus
- * draws. The retired Stainless site's pages past the edge's `_redirects`, their
- * Markdown twins and their Terraform views 301 to theirs.
+ * draws. The retired Stainless site's pages, their Markdown twins and their
+ * language variants 301 to theirs.
  */
 export const onRequest = defineMiddleware(({ url, redirect }, next) => {
   if (!url.pathname.startsWith(`${base}/`)) return next();

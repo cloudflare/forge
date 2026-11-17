@@ -1,7 +1,0 @@
-# The retired Stainless site's SDK languages: this site has no SDK samples, so
-# their pages fold onto the HTTP ones, which Astro's `redirects` and the
-# middleware redirect. Terraform has a view here, so the middleware takes it.
-/api/typescript/* /api/:splat 301
-/api/python/* /api/:splat 301
-/api/go/* /api/:splat 301
-/api/node/* /api/:splat 301

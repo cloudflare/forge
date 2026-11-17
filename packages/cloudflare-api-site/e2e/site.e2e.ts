@@ -28,11 +28,11 @@ test.describe('routes', () => {
     ['/api/hyperdrive/integration/planetscale/', 302, '', '/api/hyperdrive/'],
     ['/api/tags/', 302, '', '/api/tagging/'],
     ['/api/tags/keys/methods/list/', 302, '', '/api/tagging/keys/methods/list/'],
-    // The retired Stainless site: `_redirects`, the SDK languages folded at the edge, then the middleware.
+    // The retired Stainless site, redirected by the middleware.
     ['/api/resources/zones/', 301, '', '/api/zones/'],
     ['/api/resources/zones/?a=1', 301, '', '/api/zones/?a=1'],
     ['/api/operations/zones-get/', 301, '', '/api/zones/methods/list/'],
-    ['/api/python/resources/zones/', 301, '', '/api/resources/zones/'],
+    ['/api/python/resources/zones/', 301, '', '/api/zones/'],
     ['/api/resources/zones/methods/list/index.md', 301, '', '/api/zones/methods/list/index.md'],
     ['/api/terraform/resources/zones/methods/list/', 301, '', '/api/zones/methods/list/?lang=terraform'],
     ['/api/resources/nope/', 404, 'text/html'],
