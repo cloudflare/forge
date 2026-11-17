@@ -984,3 +984,214 @@ fn extends_http_is_rejected_before_any_network_connection() {
         Err(e) => panic!("unexpected accept error: {e}"),
     }
 }
+
+/// Security. `extends` with a scheme outside the allow-list (`file:`, `urn:`,
+/// relative) is rejected. These schemes don't trigger the HTTP-specific
+/// network-refusal branch, but still can't resolve to a local spec file, so
+/// the error must name both the field and the offending URI.
+#[test]
+fn extends_with_non_allowed_scheme_is_rejected() {
+    for uri in [
+        "ftp://example.com/openapi.json",
+        "data:application/json,%7B%7D",
+        "javascript:alert(1)",
+    ] {
+        let (spec, ov) = files(
+            &format!("extends-scheme-{}", uri.split(':').next().unwrap()),
+            SPEC,
+            &format!(
+                r#"{{
+  "overlay": "1.2.0",
+  "info": {{"title": "fix", "version": "1"}},
+  "extends": "{uri}",
+  "actions": [{{"target": "$.info", "update": {{"description": "d"}}}}]
+}}"#
+            ),
+        );
+        let err = failed(overlay(
+            &[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap()],
+            "",
+        ));
+        assert!(err.contains("extends"), "{uri}: error names extends: {err}");
+        assert!(err.contains(uri), "{uri}: error shows the URI: {err}");
+    }
+}
+
+/// Security. `$self` with a scheme outside the allow-list is rejected the
+/// same way `extends` is: the field and the URI are both named.
+#[test]
+fn self_with_non_allowed_scheme_is_rejected() {
+    for uri in ["ftp://example.com/overlay.json", "data:application/json,%7B%7D"] {
+        let (spec, ov) = files(
+            &format!("self-scheme-{}", uri.split(':').next().unwrap()),
+            SPEC,
+            &format!(
+                r#"{{
+  "overlay": "1.2.0",
+  "$self": "{uri}",
+  "info": {{"title": "fix", "version": "1"}},
+  "actions": [{{"target": "$.info", "update": {{"description": "d"}}}}]
+}}"#
+            ),
+        );
+        let err = failed(overlay(
+            &[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap()],
+            "",
+        ));
+        assert!(err.contains("$self"), "{uri}: error names $self: {err}");
+        assert!(err.contains(uri), "{uri}: error shows the URI: {err}");
+    }
+}
+
+/// Mode A. A `file://localhost/...` extends URI resolves to the same local
+/// path as `file:///...` (RFC 8089: empty authority and `localhost` are the
+/// two interoperable forms).
+#[test]
+fn mode_a_extends_file_localhost_authority_is_accepted() {
+    let dir = crate::common::dir("mode-a-file-localhost");
+    let spec_path = dir.join("spec.json");
+    std::fs::write(&spec_path, SPEC).unwrap();
+    let file_uri = format!("file://localhost{}", spec_path.display());
+    std::fs::write(
+        dir.join("overlay.json"),
+        format!(
+            r#"{{
+  "overlay": "1.0.0",
+  "info": {{"title": "fix", "version": "1"}},
+  "extends": "{file_uri}",
+  "actions": [{{"target": "$.info", "update": {{"description": "d"}}}}]
+}}"#
+        ),
+    )
+    .unwrap();
+
+    let out = overlay(&[dir.join("overlay.json").to_str().unwrap()], "");
+    crate::common::succeeded(&out);
+    let doc: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    assert_eq!(doc["info"]["description"], "d");
+}
+
+/// Mode A. A `file://host.example/...` extends URI names a remote host, not
+/// a local file; forge refuses it rather than silently dropping the authority.
+#[test]
+fn mode_a_extends_file_remote_authority_is_rejected() {
+    let dir = crate::common::dir("mode-a-file-remote-authority");
+    let file_uri = "file://host.example/openapi.json";
+    std::fs::write(
+        dir.join("overlay.json"),
+        format!(
+            r#"{{
+  "overlay": "1.0.0",
+  "info": {{"title": "fix", "version": "1"}},
+  "extends": "{file_uri}",
+  "actions": [{{"target": "$.info", "update": {{"description": "d"}}}}]
+}}"#
+        ),
+    )
+    .unwrap();
+
+    let err = failed(overlay(&[dir.join("overlay.json").to_str().unwrap()], ""));
+    assert!(err.contains(file_uri), "names the URI: {err}");
+}
+
+/// Mode A. A `file:/path` form (single slash, no authority) is a valid
+/// RFC 8089 reference and resolves to `/path`.
+#[test]
+fn mode_a_extends_file_single_slash_is_accepted() {
+    let dir = crate::common::dir("mode-a-file-single-slash");
+    let spec_path = dir.join("spec.json");
+    std::fs::write(&spec_path, SPEC).unwrap();
+    // `file:` + absolute path on disk with no `//` authority marker.
+    let file_uri = format!("file:{}", spec_path.display());
+    std::fs::write(
+        dir.join("overlay.json"),
+        format!(
+            r#"{{
+  "overlay": "1.0.0",
+  "info": {{"title": "fix", "version": "1"}},
+  "extends": "{file_uri}",
+  "actions": [{{"target": "$.info", "update": {{"description": "d"}}}}]
+}}"#
+        ),
+    )
+    .unwrap();
+
+    let out = overlay(&[dir.join("overlay.json").to_str().unwrap()], "");
+    crate::common::succeeded(&out);
+    let doc: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    assert_eq!(doc["info"]["description"], "d");
+}
+
+/// A `urn:` extends passes scheme validation but cannot resolve to a local
+/// file; Mode A rejects it at `extends`-resolution time with an error that
+/// names the URI.
+#[test]
+fn mode_a_extends_urn_scheme_is_unresolvable() {
+    let dir = crate::common::dir("mode-a-extends-urn");
+    let urn = "urn:example:openapi";
+    std::fs::write(
+        dir.join("overlay.json"),
+        format!(
+            r#"{{
+  "overlay": "1.2.0",
+  "info": {{"title": "fix", "version": "1"}},
+  "extends": "{urn}",
+  "actions": [{{"target": "$.info", "update": {{"description": "d"}}}}]
+}}"#
+        ),
+    )
+    .unwrap();
+
+    let err = failed(overlay(&[dir.join("overlay.json").to_str().unwrap()], ""));
+    assert!(err.contains(urn), "names the URI: {err}");
+}
+
+/// Two `actions` entries that are byte-for-byte identical are rejected as
+/// duplicates (per the OAI test corpus uniqueness rule).
+#[test]
+fn duplicate_identical_actions_are_rejected() {
+    let (spec, ov) = files(
+        "duplicate-actions-identical",
+        SPEC,
+        r#"{
+  "overlay": "1.0.0",
+  "info": {"title": "fix", "version": "1"},
+  "actions": [
+    {"target": "$.info", "update": {"description": "d"}},
+    {"target": "$.info", "update": {"description": "d"}}
+  ]
+}"#,
+    );
+    failed_with(
+        overlay(&[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap()], ""),
+        &["duplicate", "unique"],
+    );
+}
+
+/// Dedup compares actions by JSON value, not by textual spelling. Two
+/// actions whose source JSON is textually distinct (different key order
+/// inside an object member) but equal as JSON values must be accepted —
+/// this belt-and-braces check guards against a naive string-based dedup.
+#[test]
+fn actions_equal_as_values_but_textually_distinct_are_accepted() {
+    // The `update` objects have the same two keys in a different order, so
+    // they compare equal as serde_json::Value but unequal as strings.
+    let (spec, ov) = files(
+        "actions-value-equal-text-distinct",
+        SPEC,
+        r#"{
+  "overlay": "1.0.0",
+  "info": {"title": "fix", "version": "1"},
+  "actions": [
+    {"target": "$.info", "update": {"description": "d", "x-note": "a"}},
+    {"target": "$.paths[\"/a\"].get", "update": {"summary": "s"}}
+  ]
+}"#,
+    );
+    // Both actions apply cleanly.
+    let out = overlay(&[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap()], "");
+    crate::common::succeeded(&out);
+    let doc: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    assert_eq!(doc["info"]["description"], "d");
+    assert_eq!(doc["paths"]["/a"]["get"]["summary"], "s");
+}
