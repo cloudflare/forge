@@ -298,14 +298,14 @@ fn looks_goessner(s: &str) -> bool {
 }
 
 /// A single edge in a JSONPath pointer.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum Segment {
     Name(String),
     Index(usize),
 }
 
 /// A sequence of segments resolving to a node in the document.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct Pointer(pub Vec<Segment>);
 
 /// Resolve a pointer to a mutable reference into `root`. Returns `None` if

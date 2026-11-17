@@ -322,6 +322,32 @@ fn v10_update_target_mixed_object_and_array_is_rejected() {
     );
 }
 
+/// RFC 9535 §2.5.1: a selector like `$['a', 'a']` yields two outputs,
+/// one per child-segment element. Without dedup an overlay update
+/// targeting a duplicated nodelist would mutate the same node twice
+/// (e.g., 1.1 array-concat would append `tags` twice). Confirm that
+/// overlay apply touches each node at most once.
+#[test]
+fn v11_update_dedups_duplicated_nodelist_entries() {
+    let result = crate::common::apply(
+        "v11-update-dedup-nodelist",
+        r#"{
+  "overlay": "1.1.0",
+  "info": {"title": "fix", "version": "1"},
+  "actions": [
+    {"target": "$.paths[\"/a\", \"/a\"].get", "update": {"tags": ["t"]}}
+  ]
+}"#,
+    );
+    let tags = &result["paths"]["/a"]["get"]["tags"];
+    assert_eq!(
+        tags,
+        &serde_json::json!(["t"]),
+        "tags should be [\"t\"], not [\"t\", \"t\"]; the duplicated selector \
+         `$['/a', '/a']` must not cause the update to apply twice. Got: {tags}"
+    );
+}
+
 // --- Value-type matrix: primitive targets in 1.1+ -----------------------
 
 /// 1.1+ Update. A primitive target with an array update value is rejected

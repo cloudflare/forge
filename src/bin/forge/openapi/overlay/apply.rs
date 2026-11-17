@@ -95,7 +95,20 @@ pub fn apply_action(
     spec_base: Option<&str>,
 ) -> Result<ActionReport, Err> {
     // Resolve target nodelist against the current document state.
-    let locations = target.select(doc.value());
+    // RFC 9535 §2.5.1: a selector like `$['a', 'a']` yields two outputs,
+    // one per child-segment element. Dedup by JSON Pointer so each node
+    // is visited at most once (otherwise 1.1 array-concat would append
+    // the same update twice, remove would try to remove the same index
+    // twice, etc.). `matched` is the count the user actually gets, so
+    // report it from the deduped set — anything else is misleading.
+    let raw = target.select(doc.value());
+    let mut seen: std::collections::HashSet<Pointer> = std::collections::HashSet::new();
+    let mut locations: Vec<Pointer> = Vec::with_capacity(raw.len());
+    for p in raw {
+        if seen.insert(p.clone()) {
+            locations.push(p);
+        }
+    }
     let matched = locations.len();
 
     // Precedence: remove > update > copy (per spec).
