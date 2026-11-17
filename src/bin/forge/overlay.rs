@@ -66,17 +66,17 @@ fn run_mode_a(overlay_path: &Path, write: bool) -> Result<(), Err> {
             .into());
     }
     let bytes = read_file(overlay_path)?;
-    let overlay =
-        Overlay::parse(&bytes, Format::sniff(&bytes)).map_err(|e| format!("{}: {e}", overlay_path.display()))?;
+    let format = Format::sniff(&bytes);
 
-    // Disambiguate mode A input: must be an overlay. If it has `overlay`
-    // version key we accept; otherwise suggest the user.
-    if overlay.is_spec_shaped() {
-        return Err(disambiguation_error(overlay_path, true));
+    // Sniff the raw top-level keys first: `Overlay::parse` rejects a spec's
+    // `openapi` key as unknown, which would hide the helpful hint.
+    if let Ok(raw) = Document::parse(&bytes, format)
+        && let Some(obj) = raw.value().as_object()
+        && !obj.contains_key("overlay")
+    {
+        return Err(disambiguation_error(overlay_path, obj.contains_key("openapi")));
     }
-    if !overlay.has_overlay_key() {
-        return Err(disambiguation_error(overlay_path, false));
-    }
+    let overlay = Overlay::parse(&bytes, format).map_err(|e| format!("{}: {e}", overlay_path.display()))?;
     overlay.diagnose_warnings();
 
     let extends = overlay

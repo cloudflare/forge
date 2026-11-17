@@ -1,8 +1,6 @@
 //! Overlay document: parsing, validation, security checks, and the
 //! top-level application driver.
 
-use std::collections::BTreeSet;
-
 use forge::Err;
 use serde_json::Value;
 
@@ -19,8 +17,6 @@ pub struct Overlay {
     pub actions: Vec<Action>,
     /// 1.2 only; name -> (Fields, optional description).
     pub components_actions: std::collections::BTreeMap<String, Fields>,
-    /// Shape hint of the raw document, for CLI disambiguation.
-    pub shape: Shape,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -57,11 +53,6 @@ impl Version {
     }
 }
 
-pub struct Shape {
-    pub has_openapi: bool,
-    pub has_overlay: bool,
-}
-
 impl Overlay {
     pub fn parse(bytes: &[u8], format: super::document::Format) -> Result<Overlay, Err> {
         let value: Value = match format {
@@ -73,14 +64,6 @@ impl Overlay {
             }
         };
         parse_overlay(&value)
-    }
-
-    pub fn is_spec_shaped(&self) -> bool {
-        self.shape.has_openapi && !self.shape.has_overlay
-    }
-
-    pub fn has_overlay_key(&self) -> bool {
-        self.shape.has_overlay
     }
 
     pub fn extends(&self) -> Option<&str> {
@@ -143,11 +126,6 @@ fn parse_overlay(value: &Value) -> Result<Overlay, Err> {
     let obj = value
         .as_object()
         .ok_or_else(|| "overlay document root must be an object".to_owned())?;
-
-    let shape = Shape {
-        has_openapi: obj.contains_key("openapi"),
-        has_overlay: obj.contains_key("overlay"),
-    };
 
     // ---- overlay version ----
     let overlay_v = obj
@@ -237,16 +215,16 @@ fn parse_overlay(value: &Value) -> Result<Overlay, Err> {
     if actions_arr.is_empty() {
         return Err("`actions` array must contain at least one entry".into());
     }
-    let mut seen: BTreeSet<String> = BTreeSet::new();
+    let mut seen: Vec<&Value> = Vec::with_capacity(actions_arr.len());
     let mut actions = Vec::with_capacity(actions_arr.len());
     for (i, a) in actions_arr.iter().enumerate() {
         let action = parse_action(a, version, &components_actions, i)?;
         // Overlay-spec uniqueness (per OAI test corpus): the same
         // (target, fields) action may not appear twice.
-        let key = serde_json::to_string(a).unwrap_or_default();
-        if !seen.insert(key) {
+        if seen.iter().any(|prev| *prev == a) {
             return Err(format!("duplicate action at index {i}: overlay `actions` entries must be unique").into());
         }
+        seen.push(a);
         actions.push(action);
     }
 
@@ -256,7 +234,6 @@ fn parse_overlay(value: &Value) -> Result<Overlay, Err> {
         extends,
         actions,
         components_actions,
-        shape,
     })
 }
 
