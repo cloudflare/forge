@@ -1,0 +1,14 @@
+[
+  {
+    "ruleId": "forge/fern-valid-oauth",
+    "severity": "error",
+    "message": "OAuth client-credentials flow requires a `get-token` endpoint: set the getToken.endpoint option of forge/fern-valid-oauth.",
+    "location": "openapi.yaml#/paths"
+  },
+  {
+    "ruleId": "forge/fern-valid-oauth",
+    "severity": "error",
+    "message": "The refreshToken.endpoint option of forge/fern-valid-oauth must be an endpoint such as \"POST /token\".",
+    "location": "openapi.yaml#/paths"
+  }
+]

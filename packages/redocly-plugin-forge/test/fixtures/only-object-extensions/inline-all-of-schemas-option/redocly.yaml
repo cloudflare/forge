@@ -1,0 +1,4 @@
+rules:
+  forge/fern-only-object-extensions:
+    severity: error
+    inlineAllOfSchemas: true

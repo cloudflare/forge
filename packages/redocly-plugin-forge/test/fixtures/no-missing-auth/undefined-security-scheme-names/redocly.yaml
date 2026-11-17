@@ -1,0 +1,3 @@
+rules:
+  security-defined: error
+  forge/fern-no-missing-auth: error

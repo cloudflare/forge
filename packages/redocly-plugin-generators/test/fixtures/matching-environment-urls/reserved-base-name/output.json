@@ -1,8 +1,0 @@
-[
-  {
-    "ruleId": "generators/fern-matching-environment-urls",
-    "severity": "error",
-    "message": "Operation- and path-level servers cannot be named 'Base': Fern uses 'Base' for the top-level server URL of each environment. Fern drops 'https://upload.example.com', and the operation is sent to the top-level server URL.",
-    "location": "openapi.yaml#/paths/~1files/post/servers/0/x-fern-server-name"
-  }
-]

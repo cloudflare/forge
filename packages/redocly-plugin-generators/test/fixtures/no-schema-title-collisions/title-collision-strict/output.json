@@ -1,8 +1,0 @@
-[
-  {
-    "ruleId": "generators/fern-no-schema-title-collisions",
-    "severity": "error",
-    "message": "Schema title collision detected: Multiple schemas use title 'User'. Schema 'UserSchema2' conflicts with schema 'UserSchema1', and Fern names schemas after their titles (title-as-schema-name). Change one of the titles, or set 'resolve-schema-collisions: true' in generators.yml (and resolveSchemaCollisions: true on this rule) to resolve collisions automatically.",
-    "location": "openapi.yaml#/components/schemas/UserSchema2/title"
-  }
-]

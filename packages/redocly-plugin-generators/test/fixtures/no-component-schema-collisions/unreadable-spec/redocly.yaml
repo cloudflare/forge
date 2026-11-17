@@ -1,4 +1,0 @@
-rules:
-  generators/fern-no-component-schema-collisions:
-    severity: warn
-    apis: [missing.yaml, broken.txt]

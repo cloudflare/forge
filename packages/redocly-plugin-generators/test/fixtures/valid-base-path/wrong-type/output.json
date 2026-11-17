@@ -1,8 +1,0 @@
-[
-  {
-    "ruleId": "generators/fern-valid-base-path",
-    "severity": "error",
-    "message": "x-fern-base-path must be a string such as '/v1', or an object with a `path`; Fern ignores [\"/v1\"].",
-    "location": "openapi.yaml#/x-fern-base-path"
-  }
-]

@@ -1,8 +1,0 @@
-[
-  {
-    "ruleId": "generators/fern-matching-environment-urls",
-    "severity": "error",
-    "message": "Servers 'https://upload.example.com' and 'https://images.example.com' are both named 'Upload'. Fern keeps a single URL per server name, so one of them silently replaces the other for every operation using 'Upload'.",
-    "location": "openapi.yaml#/paths/~1images/post/servers/0/x-fern-server-name"
-  }
-]

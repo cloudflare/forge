@@ -1,0 +1,4 @@
+rules:
+  forge/fern-no-duplicate-declarations:
+    severity: error
+    resolveSchemaCollisions: true

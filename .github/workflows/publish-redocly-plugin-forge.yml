@@ -1,0 +1,107 @@
+name: Publish redocly-plugin-forge
+
+# Publishes `@cloudflare/redocly-plugin-forge` to npm with provenance when a
+# signed tag matching `redocly-plugin-forge@<semver>` is pushed.
+#
+# Security posture (do not relax without review):
+# - Tag-triggered only: the workflow does not run on PRs or branch pushes, so
+#   a PR cannot cause a publish.
+# - Minimal permissions: `contents: read` + `id-token: write` (required for
+#   npm provenance). No `write` on contents, packages, or pull-requests.
+# - Frozen lockfile install, no post-install scripts beyond what pnpm has
+#   already approved in `pnpm-workspace.yaml`.
+# - `pnpm audit --audit-level=high` runs before publish; the workflow fails
+#   closed if the audit reports anything. No warn-and-continue.
+# - Tag signature is verified before anything else runs.
+# - Publishes with `npm publish --provenance` so the tarball is traceable to
+#   this workflow run and the commit the tag points at.
+# - The NPM_TOKEN secret is a granular, publish-only token scoped to the
+#   `@cloudflare/redocly-plugin-forge` package. It is never echoed; npm reads
+#   it from the environment.
+
+on:
+  push:
+    tags:
+      - 'redocly-plugin-forge@*'
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    name: Publish to npm
+    runs-on: ubuntu-latest
+    environment: npm-publish-redocly-plugin-forge
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Checkout tag
+        uses: actions/checkout@v7.0.1
+        with:
+          # Fetch the tag and its pointed commit; nothing else is needed.
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Verify tag signature
+        run: |
+          set -euo pipefail
+          tag="${GITHUB_REF#refs/tags/}"
+          echo "Verifying signature on tag: ${tag}"
+          git tag --verify "${tag}"
+
+      - name: Verify tag matches package version
+        working-directory: packages/redocly-plugin-forge
+        run: |
+          set -euo pipefail
+          tag="${GITHUB_REF#refs/tags/}"
+          tag_version="${tag#redocly-plugin-forge@}"
+          pkg_version="$(node -p "require('./package.json').version")"
+          if [ "${tag_version}" != "${pkg_version}" ]; then
+            echo "Tag version (${tag_version}) does not match package.json version (${pkg_version})"
+            exit 1
+          fi
+
+      - name: Set up workspace
+        uses: ./.github/actions/setup-workspace
+
+      - name: Security audit
+        # Fails the job if any high-or-critical advisory is reported.
+        run: pnpm audit --audit-level=high --prod
+
+      - name: Lint and format check
+        run: pnpm check
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Run unit tests
+        run: pnpm --filter @cloudflare/redocly-plugin-forge test
+
+      - name: Build package
+        run: pnpm --filter @cloudflare/redocly-plugin-forge build
+
+      - name: Configure npm registry
+        working-directory: packages/redocly-plugin-forge
+        run: |
+          set -euo pipefail
+          cat > .npmrc <<'EOF'
+          //registry.npmjs.org/:_authToken=${NODE_AUTH_TOKEN}
+          registry=https://registry.npmjs.org/
+          always-auth=true
+          provenance=true
+          EOF
+
+      - name: Publish with provenance
+        working-directory: packages/redocly-plugin-forge
+        env:
+          # Granular, publish-only npm token scoped to this single package.
+          # Rotate on a schedule and whenever a maintainer with access leaves.
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: npm publish --provenance --access public
+
+      - name: Scrub token file
+        if: always()
+        working-directory: packages/redocly-plugin-forge
+        run: rm -f .npmrc

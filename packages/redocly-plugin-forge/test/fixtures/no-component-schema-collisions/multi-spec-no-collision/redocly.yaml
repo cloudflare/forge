@@ -1,0 +1,4 @@
+rules:
+  forge/fern-no-component-schema-collisions:
+    severity: warn
+    apis: [orders.yaml]

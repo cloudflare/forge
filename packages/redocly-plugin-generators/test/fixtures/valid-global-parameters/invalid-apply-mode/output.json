@@ -1,8 +1,0 @@
-[
-  {
-    "ruleId": "generators/fern-valid-global-parameters",
-    "severity": "error",
-    "message": "Global parameter 'currency' has invalid apply mode 'always'; expected one of: explicit, auto",
-    "location": "openapi.yaml#/x-fern-global-parameters/0/apply"
-  }
-]

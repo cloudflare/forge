@@ -1,0 +1,7 @@
+rules:
+  forge/fern-valid-oauth:
+    severity: error
+    getToken:
+      endpoint: POST /token
+      requestProperties:
+        clientSecret: 5
