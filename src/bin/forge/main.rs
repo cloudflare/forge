@@ -20,6 +20,7 @@ use strum::{EnumString, VariantNames};
 mod capnweb;
 mod mcp;
 mod normalize;
+mod overlay;
 mod ts;
 
 /// Generates an SDK from an OpenAPI document.
@@ -52,6 +53,14 @@ enum Command {
     /// that has none is left as it is. A native key is never replaced: when a
     /// document says the same thing twice, the native key is kept.
     Normalize(normalize::Args),
+    /// Apply one or more OpenAPI Overlay documents to a spec.
+    ///
+    /// With a single positional argument, treat it as an overlay whose
+    /// `extends` names the spec. With `--overlay` flags, treat the positional
+    /// as the spec (or `-` for standard input) and apply each overlay in
+    /// order. `--write` rewrites the spec file in place; without it the
+    /// result is printed to standard output.
+    Overlay(overlay::Args),
 }
 
 /// What forge generates an SDK with.
@@ -107,8 +116,10 @@ fn main() -> ExitCode {
 
 /// Does what `args` ask for.
 fn run(args: Args) -> Result<(), Err> {
-    if let Some(Command::Normalize(args)) = args.command {
-        return normalize::run(args);
+    match args.command {
+        Some(Command::Normalize(args)) => return normalize::run(args),
+        Some(Command::Overlay(args)) => return overlay::run(args),
+        None => {}
     }
     // They are required, which a command is the only way around.
     let (Some(spec), Some(target), Some(out)) = (args.spec, args.target, args.out) else {
