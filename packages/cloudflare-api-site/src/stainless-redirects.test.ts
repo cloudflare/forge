@@ -95,29 +95,7 @@ test('old model, operation and overview pages redirect too', () => {
   assert.equal(plan.lookup['/overview/'], '/');
 });
 
-test('the edge serves the shallowest pages up to its budget', () => {
-  const plan = planStainlessRedirects(
-    {
-      resources: ['/resources/zones/subresources/models/', '/resources/zones/subresources/holds/', '/resources/zones/'],
-      methods: {
-        '/resources/zones/subresources/holds/methods/get/': 'holds-get',
-        '/resources/zones/methods/list/': 'zones-get',
-      },
-      models: ['/resources/zones/models/zone/'],
-      operations: ['zones-get'],
-    },
-    site,
-    { staticRules: 4 },
-  );
-  assert.deepEqual(plan.edge, {
-    '/overview/': '/',
-    '/resources/zones/': '/zones/',
-    '/resources/zones/subresources/holds/': '/zones/',
-    '/resources/zones/subresources/models/': '/zones/',
-  });
-});
-
-test('the request-time lookup redirects every old page, its Markdown twin and its Terraform page', () => {
+test('the request-time lookup redirects every old page, its Markdown twin and its language variants', () => {
   const lookup = {
     '/overview/': '/',
     '/resources/zones/': '/zones/',
@@ -140,6 +118,12 @@ test('the request-time lookup redirects every old page, its Markdown twin and it
     ['/terraform/resources/zones/methods/list/', '?a=1', '/zones/methods/list/?a=1&lang=terraform'],
     ['/terraform/resources/zones/methods/list/index.md', '', '/zones/methods/list/index.md'],
     ['/terraform/resources/zones/models/zone/', '', '/zones/?lang=terraform'],
+    ['/python/resources/zones/', '?a=1', '/zones/?a=1'],
+    ['/node/resources/zones/methods/list/index.md', '', '/zones/methods/list/index.md'],
+    ['/go/', '', '/'],
+    ['/typescript/index.md', '', '/index.md'],
+    ['/python/operations/zones-get/', '', undefined],
+    ['/ruby/resources/zones/', '', undefined],
     ['/resources/ai/subresources/models/', '', '/ai/models/'],
     ['/resources/ai/subresources/models/index.md', '', '/ai/models/index.md'],
     ['/resources/nope/', '', undefined],

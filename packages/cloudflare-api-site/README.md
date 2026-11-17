@@ -42,7 +42,7 @@ metadata and do not appear in URLs.
 - `products.json`: the products and their slugs, read by the command sidebar;
 - `redirects.json`: old section, alias-operation, and moved-product URLs, read by
   `src/middleware.ts`;
-- `stainless-edge.json`, `stainless-lookup.json`, and `stainless-fallbacks.json`:
+- `stainless-lookup.json` and `stainless-fallbacks.json`:
   the retired Stainless site's redirects (see [Stainless redirects](#stainless-redirects)).
 
 Operations with removed Forge metadata are left out with a build warning.
@@ -74,7 +74,10 @@ approved zone mapping.
 - `src/pages/search-manifest.json.ts` prerenders `/api/search-manifest.json`,
   the records a search index loads: `src/search-manifest.ts` turns each
   product, resource, and operation page of Nimbus's API model into one.
-- `src/middleware.ts` 302s the URLs in `.forge/redirects.json` to their pages.
+- `src/middleware.ts` 302s the URLs in `.forge/redirects.json` to their pages,
+  and 301s the retired Stainless site's URLs.
+- `src/stainless-redirects.ts` plans the Stainless redirects and resolves them
+  per request.
 - `src/command-reference/`, `src/command-sidebar.ts`, `src/pages/tooling/`, and
   `src/pages/[product]/tooling/` own the `cf` command pages. They render on
   request, inside `CommandPage.astro`, with the same API sidebar as the API
@@ -207,18 +210,18 @@ A page with no counterpart today goes to its nearest old ancestor's target, or
 the home page. The build warns with their count and lists them in
 `.forge/stainless-fallbacks.json`.
 
-The redirects are served in three layers:
+`src/middleware.ts` serves them with `stainlessRedirect`:
 
-1. **The edge.** `public/_redirects` folds the SDK languages (`/api/typescript/`,
-   `/api/python/`, `/api/go/`, `/api/node/`) onto the HTTP pages. The site has no
-   SDK samples. Astro's `redirects` adds the 2,000 highest-ranked pages, the
-   static-rule limit of Workers static assets, which drops rules past it
-   silently. The overview goes first, then resources and then methods, each
-   shallowest first. The adapter writes them to `_redirects`.
-2. **The middleware.** It answers every other old page, every Markdown twin
-   (`index.md`), and `/api/terraform/...`, which keeps its view with
-   `?lang=terraform`.
-3. **Old paths the snapshot doesn't hold.** These were never pages and 404.
+- each old page and its Markdown twin (`index.md`);
+- its SDK language variants (`/api/typescript/`, `/api/python/`, `/api/go/`,
+  `/api/node/`), which fold onto the HTTP page because the site has no SDK
+  samples;
+- its Terraform variant (`/api/terraform/`), which keeps its view with
+  `?lang=terraform`.
+
+Old paths the snapshot doesn't hold were never pages, and they 404. The
+redirects don't use `_redirects`: it allows only 2,000 static rules, and it
+counts every rule after the first dynamic one as dynamic, against a limit of 100.
 
 ## Run it
 

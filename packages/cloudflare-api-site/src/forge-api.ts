@@ -349,13 +349,7 @@ export async function forgeApi(): Promise<ApiSpec> {
 
 const BUILT_API_FILE = 'api.json';
 
-const STAINLESS_EDGE_FILE = 'stainless-edge.json';
-
-/**
- * Plans the retired Stainless site's redirects against today's pages: the ones
- * for Astro's `redirects`, which the adapter writes to `_redirects`, and the
- * middleware's lookup for the rest.
- */
+/** Plans the retired Stainless site's redirects against today's pages, for the middleware. */
 function writeStainlessRedirects(prepared: PreparedForgeApi, dir: URL): void {
   const snapshot = JSON.parse(
     readFileSync(new URL('./stainless-redirects.json', import.meta.url), 'utf8'),
@@ -371,20 +365,6 @@ function writeStainlessRedirects(prepared: PreparedForgeApi, dir: URL): void {
   }
   writeFileSync(new URL('stainless-fallbacks.json', dir), JSON.stringify(plan.fallbacks, null, 2));
   writeFileSync(new URL('stainless-lookup.json', dir), JSON.stringify(plan.lookup));
-  writeFileSync(new URL(STAINLESS_EDGE_FILE, dir), JSON.stringify(plan.edge));
-}
-
-/**
- * Astro's `redirects` for the retired Stainless pages the edge serves, as the
- * last `forgeApi()` run planned them. Sources are collection-relative, as Astro
- * takes them; destinations carry `base`, which Astro copies as written.
- */
-export function stainlessEdgeRedirects(base: string): Record<string, { status: 301; destination: string }> {
-  const file = new URL(`../.forge/${STAINLESS_EDGE_FILE}`, import.meta.url);
-  const edge = JSON.parse(readFileSync(file, 'utf8')) as Record<string, string>;
-  return Object.fromEntries(
-    Object.entries(edge).map(([from, to]) => [from, { status: 301, destination: `${base}${to}` }]),
-  );
 }
 
 /**
