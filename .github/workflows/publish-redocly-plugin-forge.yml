@@ -5,8 +5,13 @@
 # hardened accordingly. In particular:
 #
 #   - Runs on tag only, never on arbitrary PRs.
+#   - Verifies the tagged commit is reachable from `main` (so it went
+#     through branch protection and review) and that the tag itself is
+#     GPG/SSH/Sigstore signed by a key GitHub can verify.
 #   - Installs with --frozen-lockfile; the lockfile itself pins exact
-#     versions of all transitive dependencies.
+#     versions of all transitive dependencies, including the `publint`
+#     dev dep the pack-lint step uses (no `pnpm dlx` fetch at publish
+#     time).
 #   - Runs `pnpm audit --audit-level=high` before packaging. Fails closed on
 #     any high-or-critical finding — no "warn and continue."
 #   - Typechecks and runs the full unit-test suite before publishing.
@@ -19,6 +24,9 @@
 #     publish credential, scoped to this repo and this workflow. Trusted
 #     publishing must be configured for the package on npmjs.com before
 #     the first tag.
+#   - All third-party actions (here and in the shared setup-workspace
+#     composite) are pinned by commit SHA, so a re-tagged upstream
+#     release cannot inject code into a run that holds OIDC credentials.
 #
 # Trigger: a tag of the form `redocly-plugin-forge-v<version>`, which should
 # be created from a signed commit on `main`. Branch protection on `main`
@@ -69,6 +77,58 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+
+      # Ensure the tagged commit has actually been through main's review
+      # and branch-protection gates. A tag pushed to a commit that never
+      # landed on main — a fork, an unmerged branch, a pre-main commit —
+      # should not reach the registry. The GitHub compare API's `status`
+      # is "identical" when the tag commit is main's tip and "behind"
+      # when main has moved past it; anything else means the commit is
+      # not reachable from main.
+      - name: Verify tag commit is reachable from main
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          status=$(gh api "repos/${GITHUB_REPOSITORY}/compare/main...${SHA}" --jq '.status')
+          case "$status" in
+            identical|behind)
+              echo "Tag commit ${SHA} is on main (compare status: ${status})." ;;
+            *)
+              echo "Tag commit ${SHA} is not reachable from main (compare status: ${status}). Refusing to publish." >&2
+              exit 1 ;;
+          esac
+
+      # Enforce the signed-tag requirement from the trust model. For an
+      # annotated tag, check the tag object's own signature; for a
+      # lightweight tag, fall back to the pointed-at commit's signature
+      # (since there is no tag object to sign). GitHub's
+      # `verification.verified` is true only for signatures it was able
+      # to validate against a key published on the signer's account.
+      - name: Verify tag is signed
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REF: ${{ github.ref_name }}
+          SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          tag_type=$(gh api "repos/${GITHUB_REPOSITORY}/git/refs/tags/${REF}" --jq '.object.type')
+          if [ "$tag_type" = "tag" ]; then
+            tag_sha=$(gh api "repos/${GITHUB_REPOSITORY}/git/refs/tags/${REF}" --jq '.object.sha')
+            verified=$(gh api "repos/${GITHUB_REPOSITORY}/git/tags/${tag_sha}" --jq '.verification.verified')
+            reason=$(gh api "repos/${GITHUB_REPOSITORY}/git/tags/${tag_sha}" --jq '.verification.reason')
+            kind="annotated tag"
+          else
+            verified=$(gh api "repos/${GITHUB_REPOSITORY}/commits/${SHA}" --jq '.commit.verification.verified')
+            reason=$(gh api "repos/${GITHUB_REPOSITORY}/commits/${SHA}" --jq '.commit.verification.reason')
+            kind="pointed-at commit (lightweight tag)"
+          fi
+          if [ "$verified" != "true" ]; then
+            echo "Tag ${REF} is not signed and verified (${kind}: ${reason}). Refusing to publish." >&2
+            exit 1
+          fi
+          echo "Tag ${REF} signature verified (${kind})."
 
       - name: Verify tag version matches package.json
         env:
