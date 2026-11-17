@@ -1,0 +1,8 @@
+[
+  {
+    "ruleId": "forge/no-conflicting-parameter-names",
+    "severity": "error",
+    "message": "Parameters query parameter 'organization_id', query parameter 'organizationId' all normalize to 'organization id' in generated SDK code, which collides. Rename one of them or set a distinct x-forge-parameter-name.",
+    "location": "openapi.yaml#/paths/~1plants/parameters/1/name (key)"
+  }
+]

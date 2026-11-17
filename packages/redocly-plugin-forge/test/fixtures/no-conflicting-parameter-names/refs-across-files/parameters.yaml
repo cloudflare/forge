@@ -1,0 +1,11 @@
+PlantIdPath:
+  name: plantId
+  in: path
+  required: true
+  schema:
+    type: string
+PlantIdQuery:
+  name: plant_id
+  in: query
+  schema:
+    type: string

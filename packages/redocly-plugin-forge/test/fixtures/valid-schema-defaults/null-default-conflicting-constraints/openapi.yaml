@@ -1,0 +1,31 @@
+openapi: 3.1.0
+info:
+  title: Direct nullability constraints must all agree
+  version: 1.0.0
+components:
+  schemas:
+    # Nullable type, but enum excludes null → reject.
+    NullableTypeExcludingEnum:
+      type: [string, 'null']
+      enum: [open, closed]
+      default: null
+    # Nullable type, but const fixes a non-null value → reject.
+    NullableTypeExcludingConst:
+      type: [string, 'null']
+      const: fixed
+      default: null
+    # Null appears in enum, but the type excludes null → reject.
+    EnumWithNullNonNullableType:
+      type: string
+      enum: [open, null]
+      default: null
+    # const is null, but the type excludes null → reject.
+    ConstNullNonNullableType:
+      type: string
+      const: null
+      default: null
+    # Every present constraint admits null → accepted.
+    AllAgreeNullable:
+      type: [string, 'null']
+      enum: [open, closed, null]
+      default: null

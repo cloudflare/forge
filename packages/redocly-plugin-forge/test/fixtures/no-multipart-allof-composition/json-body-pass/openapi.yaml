@@ -1,0 +1,27 @@
+openapi: 3.1.0
+info:
+  title: JSON body pass
+  version: 1.0.0
+paths:
+  /thing:
+    post:
+      operationId: createThing
+      requestBody:
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/Base'
+              properties:
+                extra:
+                  type: string
+      responses:
+        '200':
+          description: OK
+components:
+  schemas:
+    Base:
+      type: object
+      properties:
+        name:
+          type: string

@@ -1,0 +1,19 @@
+openapi: 3.0.3
+info:
+  title: Test API
+  version: 1.0.0
+# Pins behavior: property values are resolved through `$ref` before `x-forge-skip` is read.
+# The referenced schema's `x-forge-skip: true` drops the property out of the collision check,
+# so `notification_url` (ref'd skipped schema) does NOT collide with `notificationUrl`.
+components:
+  schemas:
+    Notification:
+      type: object
+      properties:
+        notification_url:
+          $ref: '#/components/schemas/SkippedUrl'
+        notificationUrl:
+          type: string
+    SkippedUrl:
+      type: string
+      x-forge-skip: true

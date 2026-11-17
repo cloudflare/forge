@@ -1,9 +1,0 @@
-parameters:
-  - $ref: ../parameters.yaml#/PlantIdPath
-get:
-  operationId: getPlant
-  parameters:
-    - $ref: ../parameters.yaml#/PlantIdHeader
-  responses:
-    '200':
-      description: OK

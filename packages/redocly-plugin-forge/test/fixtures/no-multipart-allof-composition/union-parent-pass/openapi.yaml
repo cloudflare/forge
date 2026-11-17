@@ -1,0 +1,31 @@
+openapi: 3.1.0
+info:
+  title: Union parent pass
+  version: 1.0.0
+paths:
+  /upload:
+    post:
+      operationId: upload
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/Union'
+              properties:
+                file:
+                  type: string
+                  format: binary
+      responses:
+        '200':
+          description: OK
+components:
+  schemas:
+    Union:
+      oneOf:
+        - type: object
+          properties:
+            kind: {const: a}
+        - type: object
+          properties:
+            kind: {const: b}

@@ -1,0 +1,8 @@
+[
+  {
+    "ruleId": "forge/no-conflicting-schema-names",
+    "severity": "error",
+    "message": "Schema '---' has no letters or digits. Rename the schema or set x-forge-model-name to a valid SDK identifier.",
+    "location": "openapi.yaml#/components/schemas/--- (key)"
+  }
+]

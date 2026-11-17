@@ -1,8 +1,0 @@
-[
-  {
-    "ruleId": "generators/fern-valid-base-url-env",
-    "severity": "warn",
-    "message": "x-fern-base-url-env PETSTORE_BASE_URL has no effect because no environments are declared. Fern builds environments from the top-level servers, and the environment variable overrides the default environment, so it is only read when at least one top-level server with a url exists. Add a top-level server, or remove x-fern-base-url-env.",
-    "location": "openapi.yaml#/x-fern-base-url-env (key)"
-  }
-]

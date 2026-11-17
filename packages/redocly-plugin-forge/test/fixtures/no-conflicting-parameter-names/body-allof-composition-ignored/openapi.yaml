@@ -1,0 +1,59 @@
+openapi: 3.0.3
+info:
+  title: Test API
+  version: 1.0.0
+paths:
+  /plants/{plant_id}/allof:
+    patch:
+      operationId: patchPlantAllOf
+      parameters:
+        - name: plant_id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/PlantPatch'
+                - type: object
+                  properties:
+                    nickname:
+                      type: string
+      responses:
+        '200':
+          description: OK
+  /plants/{plantId}/oneof:
+    patch:
+      operationId: patchPlantOneOf
+      parameters:
+        - name: plantId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  properties:
+                    plantId:
+                      type: string
+                - type: object
+                  properties:
+                    nickname:
+                      type: string
+      responses:
+        '200':
+          description: OK
+components:
+  schemas:
+    PlantPatch:
+      type: object
+      properties:
+        plantId:
+          type: string

@@ -1,8 +1,0 @@
-[
-  {
-    "ruleId": "generators/fern-no-duplicate-declarations",
-    "severity": "error",
-    "message": "The request of POST /plants (named after its request body schema components.schemas.NewPlant, which Fern inlines into the request) is named \"NewPlant\", which is already declared by the schema components.schemas.Seedling (named by its x-fern-type-name) at #/components/schemas/Seedling/x-fern-type-name. fern check fails with \"NewPlant is already declared\". Rename this request with x-fern-request-name on the operation.",
-    "location": "openapi.yaml#/paths/~1plants/post/requestBody/content/application~1json/schema"
-  }
-]

@@ -1,0 +1,21 @@
+openapi: 3.1.0
+info:
+  title: Duplicate simple
+  version: 1.0.0
+paths:
+  /zones:
+    get:
+      operationId: listZones
+      x-forge-group-name: zones
+      x-forge-method-name: list
+      responses:
+        '200':
+          description: OK
+  /zone-list:
+    get:
+      operationId: legacyListZones
+      x-forge-group-name: zones
+      x-forge-method-name: list
+      responses:
+        '200':
+          description: OK
