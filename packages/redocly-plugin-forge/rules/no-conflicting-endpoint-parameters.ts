@@ -13,7 +13,6 @@ const REQUEST_PARAMETER_NAME = 'request';
 
 export const noConflictingEndpointParameters: RuleDefinition = {
   name: 'no-conflicting-endpoint-parameters',
-  vendor: 'fern',
   sourceRules: ['fern-definition/no-conflicting-endpoint-parameters'],
   severity: 'error',
   description: 'Path parameters must not be named "request", which conflicts with the request body argument.',

@@ -1,12 +1,12 @@
 [
   {
-    "ruleId": "forge/fern-no-response-property",
+    "ruleId": "forge/no-response-property",
     "severity": "error",
     "message": "x-fern-sdk-return-value must be a string naming a top-level property of the response.",
     "location": "openapi.yaml#/paths/~1a/get/x-fern-sdk-return-value"
   },
   {
-    "ruleId": "forge/fern-no-response-property",
+    "ruleId": "forge/no-response-property",
     "severity": "error",
     "message": "x-fern-sdk-return-value must be a string naming a top-level property of the response.",
     "location": "openapi.yaml#/paths/~1b/get/x-fern-sdk-return-value"

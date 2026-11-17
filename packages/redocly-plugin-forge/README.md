@@ -26,9 +26,9 @@ extends:
 
 rules:
   # Override a single rule's severity:
-  forge/fern-no-complex-query-params: warn
+  forge/no-complex-query-params: warn
   # Or turn one off:
-  forge/fern-no-duplicate-field-names: off
+  forge/no-duplicate-field-names: off
 ```
 
 ### Configs
@@ -37,8 +37,7 @@ rules:
 
 ### Rule naming
 
-- **Vendor-specific** rules (depend on `x-fern-*` extensions or vendor-specific structure) are prefixed with the vendor: `forge/fern-<base-name>`, e.g. `forge/fern-valid-oauth`. A `grep fern-` finds everything from one vendor.
-- **Generator-agnostic** rules use the bare base name: `forge/<base-name>`. None today; future truly generic rules land here.
+Every rule in this plugin is addressed as `forge/<rule-name>` (for example, `forge/valid-oauth`, `forge/no-duplicate-field-names`). Rule source lives in [`rules/`](./rules); fixtures with representative passing and failing cases live under [`test/fixtures/<rule-name>/`](./test/fixtures).
 
 ## Using in CI
 
@@ -70,11 +69,11 @@ extends:
 
 rules:
   # Report but do not block CI:
-  forge/fern-no-conflicting-endpoint-paths: info
+  forge/no-conflicting-endpoint-paths: info
   # Warn but do not block:
-  forge/fern-no-complex-query-params: warn
+  forge/no-complex-query-params: warn
   # Disable entirely:
-  forge/fern-no-get-request-body: off
+  forge/no-get-request-body: off
 ```
 
 ### Gradual severity ratchet
@@ -90,8 +89,8 @@ Recommended ratchet:
 
 ### Rule-specific CI guidance
 
-- **`forge/fern-no-conflicting-endpoint-paths`** produces many real-but-partly-redundant findings on large specs (one logical conflict can report at several locations). Cap this rule at `info` in CI contexts where blocking on it is not warranted. The findings still appear in the lint output; they just do not fail the build.
-- Rules that validate vendor-specific naming conventions (for example, `forge/fern-valid-type-name` and `forge/fern-valid-field-names`) typically produce zero findings on specs that do not use those vendor extensions. They can be adopted at `error` with no cleanup effort.
+- **`forge/no-conflicting-endpoint-paths`** produces many real-but-partly-redundant findings on large specs (one logical conflict can report at several locations). Cap this rule at `info` in CI contexts where blocking on it is not warranted. The findings still appear in the lint output; they just do not fail the build.
+- Rules that validate naming conventions — for example, **`forge/valid-type-name`** and **`forge/valid-field-names`** — typically produce zero findings on specs that do not use the underlying extensions. They can be adopted at `error` with no cleanup effort.
 
 ## Trust model
 
@@ -129,7 +128,7 @@ pnpm --filter @cloudflare/redocly-plugin-forge build
 pnpm --filter @cloudflare/redocly-plugin-forge test:update
 ```
 
-Tests use [Vitest](https://vitest.dev/). Fixtures live under `test/fixtures/<base-rule-name>/<case-name>/` with an `openapi.yaml` (or `.json` / `swagger.yaml`), an optional `redocly.yaml`, and a snapshotted `output.json`. Fixture directories are named by the rule's **base** name (without vendor prefix); the harness looks up the matching `RuleDefinition` and uses its prefixed Redocly ID when running the lint.
+Tests use [Vitest](https://vitest.dev/). Fixtures live under `test/fixtures/<rule-name>/<case-name>/` with an `openapi.yaml` (or `.json` / `swagger.yaml`), an optional `redocly.yaml`, and a snapshotted `output.json`. Fixture directories are named by the rule's `name`; the harness runs each case with `forge/<rule-name>` enabled at `error`.
 
 ## Publishing
 

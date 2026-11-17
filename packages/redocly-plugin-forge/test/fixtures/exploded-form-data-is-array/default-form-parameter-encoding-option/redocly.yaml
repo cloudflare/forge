@@ -1,4 +1,4 @@
 rules:
-  forge/fern-exploded-form-data-is-array:
+  forge/exploded-form-data-is-array:
     severity: error
     defaultFormParameterEncoding: form

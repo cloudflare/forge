@@ -1,6 +1,6 @@
 [
   {
-    "ruleId": "forge/fern-no-component-schema-collisions",
+    "ruleId": "forge/no-component-schema-collisions",
     "severity": "warn",
     "message": "The apis option of forge/no-component-schema-collisions must be a list of file paths.",
     "location": "openapi.yaml#/"

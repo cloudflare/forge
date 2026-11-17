@@ -1,18 +1,18 @@
 [
   {
-    "ruleId": "forge/fern-valid-pagination",
+    "ruleId": "forge/valid-pagination",
     "severity": "error",
     "message": "x-fern-pagination for endpoint listWithInvalidPaginationPrefix must define a dot-delimited 'cursor' property starting with $request (e.g. $request.cursor).",
     "location": "openapi.yaml#/paths/~1users/get/x-fern-pagination/cursor"
   },
   {
-    "ruleId": "forge/fern-valid-pagination",
+    "ruleId": "forge/valid-pagination",
     "severity": "error",
     "message": "x-fern-pagination for endpoint listWithInvalidPaginationPrefix must define a dot-delimited 'next_cursor' property starting with $response (e.g. $response.next_cursor).",
     "location": "openapi.yaml#/paths/~1users/get/x-fern-pagination/next_cursor"
   },
   {
-    "ruleId": "forge/fern-valid-pagination",
+    "ruleId": "forge/valid-pagination",
     "severity": "error",
     "message": "x-fern-pagination for endpoint listWithInvalidPaginationPrefix must define a dot-delimited 'results' property starting with $response (e.g. $response.results).",
     "location": "openapi.yaml#/paths/~1users/get/x-fern-pagination/results"

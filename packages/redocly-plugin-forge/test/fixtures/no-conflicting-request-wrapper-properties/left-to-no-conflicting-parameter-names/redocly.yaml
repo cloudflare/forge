@@ -1,3 +1,3 @@
 rules:
-  forge/fern-no-conflicting-request-wrapper-properties: error
-  forge/fern-no-conflicting-parameter-names: error
+  forge/no-conflicting-request-wrapper-properties: error
+  forge/no-conflicting-parameter-names: error

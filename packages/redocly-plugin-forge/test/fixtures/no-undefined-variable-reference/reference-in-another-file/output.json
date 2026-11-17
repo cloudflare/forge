@@ -1,6 +1,6 @@
 [
   {
-    "ruleId": "forge/fern-no-undefined-variable-reference",
+    "ruleId": "forge/no-undefined-variable-reference",
     "severity": "error",
     "message": "Variable app is not defined. Declare it in x-fern-sdk-variables at the root of the document.",
     "location": "parameters.yaml#/AppId/x-fern-sdk-variable"

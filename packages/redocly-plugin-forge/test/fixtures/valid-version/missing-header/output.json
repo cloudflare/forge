@@ -1,6 +1,6 @@
 [
   {
-    "ruleId": "forge/fern-valid-version",
+    "ruleId": "forge/valid-version",
     "severity": "error",
     "message": "x-fern-version must specify the `header` that carries the version. fern check does not catch this, but SDK generation fails.",
     "location": "openapi.yaml#/x-fern-version/header (key)"

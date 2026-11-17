@@ -1,12 +1,12 @@
 [
   {
-    "ruleId": "forge/fern-no-component-schema-collisions",
+    "ruleId": "forge/no-component-schema-collisions",
     "severity": "warn",
     "message": "\"broken.txt\", listed in the apis option of forge/no-component-schema-collisions, is not valid YAML or JSON.",
     "location": "openapi.yaml#/"
   },
   {
-    "ruleId": "forge/fern-no-component-schema-collisions",
+    "ruleId": "forge/no-component-schema-collisions",
     "severity": "warn",
     "message": "Cannot read \"missing.yaml\", listed in the apis option of forge/no-component-schema-collisions.",
     "location": "openapi.yaml#/"

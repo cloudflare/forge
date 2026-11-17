@@ -1,4 +1,4 @@
 rules:
-  forge/fern-no-component-schema-collisions:
+  forge/no-component-schema-collisions:
     severity: warn
     apis: [openapi.yaml, ./api2.yaml]

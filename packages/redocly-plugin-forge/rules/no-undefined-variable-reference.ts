@@ -11,7 +11,6 @@ import type { AnyNode, RuleDefinition, UserContext } from '../utils/types.ts';
 
 export const noUndefinedVariableReference: RuleDefinition = {
   name: 'no-undefined-variable-reference',
-  vendor: 'fern',
   sourceRules: ['fern-definition/no-undefined-variable-reference'],
   severity: 'error',
   description:

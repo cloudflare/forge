@@ -6,7 +6,7 @@
  *
  * ```yaml
  * rules:
- *   forge/fern-valid-oauth:
+ *   forge/valid-oauth:
  *     severity: error
  *     getToken:
  *       endpoint: POST /token
@@ -162,7 +162,7 @@ function checkEndpoint(
     const example = spec.id.replace('-', '_');
     if (configured !== null && configured !== undefined && typeof configured !== 'string') {
       ctx.report({
-        message: `The ${optionPath} option of forge/fern-valid-oauth must be a string selector such as '${spec.side === 'request' ? REQUEST_PREFIX : RESPONSE_PREFIX}${example}'.`,
+        message: `The ${optionPath} option of forge/valid-oauth must be a string selector such as '${spec.side === 'request' ? REQUEST_PREFIX : RESPONSE_PREFIX}${example}'.`,
         location: operation.location,
       });
       return;
@@ -241,7 +241,6 @@ function checkEndpoint(
 
 export const validOauth: RuleDefinition = {
   name: 'valid-oauth',
-  vendor: 'fern',
   sourceRules: ['fern-definition/valid-oauth'],
   severity: 'error',
   description:
@@ -264,7 +263,7 @@ export const validOauth: RuleDefinition = {
         const resolve = (optionName: string, value: AnyNode): OperationInfo | undefined => {
           if (!isPlainObject(value) || typeof value.endpoint !== 'string') {
             ctx.report({
-              message: `The ${optionName}.endpoint option of forge/fern-valid-oauth must be an endpoint such as "POST /token".`,
+              message: `The ${optionName}.endpoint option of forge/valid-oauth must be an endpoint such as "POST /token".`,
               location: pathsLocation,
             });
             return undefined;
@@ -286,7 +285,7 @@ export const validOauth: RuleDefinition = {
         if (getToken === null || getToken === undefined) {
           ctx.report({
             message:
-              'OAuth client-credentials flow requires a `get-token` endpoint: set the getToken.endpoint option of forge/fern-valid-oauth.',
+              'OAuth client-credentials flow requires a `get-token` endpoint: set the getToken.endpoint option of forge/valid-oauth.',
             location: pathsLocation,
           });
         } else {

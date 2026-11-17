@@ -5,13 +5,13 @@ import { builtInRules } from '../index.ts';
 import { lintCase, listDirectories, readExpected, shouldUpdate, writeExpected } from './harness.ts';
 
 /**
- * Each directory here is named after a Fern rule that Redocly already implements with a built-in
- * rule. The fixtures prove the built-in rule (configured in the case's redocly.yaml) reports the
- * same problem, which is why this plugin does not re-implement it.
+ * Each directory here is named after an upstream source rule that Redocly already implements
+ * with a built-in rule. The fixtures prove the built-in rule (configured in the case's
+ * redocly.yaml) reports the same problem, which is why this plugin does not re-implement it.
  */
 const FIXTURES = join(import.meta.dirname, 'covered-by-redocly');
 
-describe('Fern rules covered by built-in Redocly rules', () => {
+describe('source rules covered by built-in Redocly rules', () => {
   for (const sourceRule of listDirectories(FIXTURES)) {
     describe(sourceRule, () => {
       for (const caseName of listDirectories(join(FIXTURES, sourceRule))) {

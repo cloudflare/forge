@@ -1,4 +1,4 @@
 rules:
-  forge/fern-no-duplicate-overrides:
+  forge/no-duplicate-overrides:
     severity: error
     namespace: payment

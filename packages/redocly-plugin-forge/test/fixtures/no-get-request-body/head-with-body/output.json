@@ -1,6 +1,6 @@
 [
   {
-    "ruleId": "forge/fern-no-get-request-body",
+    "ruleId": "forge/no-get-request-body",
     "severity": "error",
     "message": "Operation is a HEAD, so it cannot have a request body.",
     "location": "openapi.yaml#/paths/~1plants/head/requestBody (key)"

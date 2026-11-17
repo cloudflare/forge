@@ -50,7 +50,6 @@ function errorList(model: EndpointModel): string {
 
 export const validExampleEndpointCall: RuleDefinition = {
   name: 'valid-example-endpoint-call',
-  vendor: 'fern',
   sourceRules: ['fern-definition/valid-example-endpoint-call', 'docs/valid-openapi-examples'],
   severity: 'error',
   description:

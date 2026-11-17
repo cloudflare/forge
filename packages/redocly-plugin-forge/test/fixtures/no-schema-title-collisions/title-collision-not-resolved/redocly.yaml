@@ -1,4 +1,4 @@
 rules:
-  forge/fern-no-schema-title-collisions:
+  forge/no-schema-title-collisions:
     severity: error
     resolveSchemaCollisions: false

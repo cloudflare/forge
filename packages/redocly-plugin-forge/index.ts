@@ -1,16 +1,7 @@
 import { ruleDefinitions } from './rules/index.ts';
-import type { Oas2Rule, Oas3Rule, RuleDefinition, Severity, Vendor } from './utils/types.ts';
+import type { Oas2Rule, Oas3Rule, RuleDefinition, Severity } from './utils/types.ts';
 
 export const PLUGIN_ID = 'forge';
-
-/**
- * Full rule name including vendor prefix when present. `fern-no-get-request-body` for a Fern-
- * targeted rule, `no-get-request-body` for a generator-agnostic one. The Redocly rule ID is
- * `${PLUGIN_ID}/${fullName(definition)}`.
- */
-export function fullName(definition: RuleDefinition): string {
-  return definition.vendor === undefined ? definition.name : `${definition.vendor}-${definition.name}`;
-}
 
 export interface BuiltInRule {
   severity: Severity;
@@ -77,7 +68,7 @@ function rulesFor(spec: 'oas3' | 'oas2'): Record<string, Oas3Rule | Oas2Rule> {
   const result: Record<string, Oas3Rule | Oas2Rule> = {};
   for (const definition of ruleDefinitions) {
     if ((definition.spec ?? 'oas3') === spec) {
-      result[fullName(definition)] = definition.rule;
+      result[definition.name] = definition.rule;
     }
   }
   return result;
@@ -113,7 +104,7 @@ function buildRecommendedConfig(): ConfigShape {
       continue;
     }
     const target = (definition.spec ?? 'oas3') === 'oas2' ? oas2Rules : oas3Rules;
-    target[`${PLUGIN_ID}/${fullName(definition)}`] = definition.severity;
+    target[`${PLUGIN_ID}/${definition.name}`] = definition.severity;
   }
 
   return {
@@ -139,4 +130,4 @@ export default function forgePlugin() {
 }
 
 export { ruleDefinitions };
-export type { RuleDefinition, Vendor };
+export type { RuleDefinition };

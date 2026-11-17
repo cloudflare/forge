@@ -1,5 +1,5 @@
 rules:
-  forge/fern-valid-oauth:
+  forge/valid-oauth:
     severity: error
     getToken:
       endpoint: POST /token

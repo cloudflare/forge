@@ -45,7 +45,6 @@ function visitStrings(value: unknown, location: Location, visit: (value: string,
 
 export const noUndefinedExampleReference: RuleDefinition = {
   name: 'no-undefined-example-reference',
-  vendor: 'fern',
   sourceRules: ['fern-definition/no-undefined-example-reference'],
   severity: 'error',
   description:

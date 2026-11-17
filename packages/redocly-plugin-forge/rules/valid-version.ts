@@ -11,7 +11,6 @@ import type { AnyNode, RuleDefinition, UserContext } from '../utils/types.ts';
 
 export const validVersion: RuleDefinition = {
   name: 'valid-version',
-  vendor: 'fern',
   sourceRules: ['fern-definition/valid-version'],
   severity: 'error',
   description: 'x-fern-version declares a header, a list of unique values, and a default that is one of them.',

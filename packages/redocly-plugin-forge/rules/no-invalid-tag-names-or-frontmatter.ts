@@ -31,7 +31,6 @@ function tagMessage(tag: string): string {
 
 export const noInvalidTagNamesOrFrontmatter: RuleDefinition = {
   name: 'no-invalid-tag-names-or-frontmatter',
-  vendor: 'fern',
   sourceRules: ['oss/no-invalid-tag-names-or-frontmatter'],
   severity: 'error',
   description: 'Tag names must be ASCII and operation descriptions must not contain `---` frontmatter delimiters.',

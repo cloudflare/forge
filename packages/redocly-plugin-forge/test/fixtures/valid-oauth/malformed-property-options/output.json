@@ -1,8 +1,8 @@
 [
   {
-    "ruleId": "forge/fern-valid-oauth",
+    "ruleId": "forge/valid-oauth",
     "severity": "error",
-    "message": "The getToken.requestProperties.clientSecret option of forge/fern-valid-oauth must be a string selector such as '$request.client_secret'.",
+    "message": "The getToken.requestProperties.clientSecret option of forge/valid-oauth must be a string selector such as '$request.client_secret'.",
     "location": "openapi.yaml#/paths/~1token/post"
   }
 ]
