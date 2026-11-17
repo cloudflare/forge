@@ -221,7 +221,7 @@ fn parse_overlay(value: &Value) -> Result<Overlay, Err> {
         let action = parse_action(a, version, &components_actions, i)?;
         // Overlay-spec uniqueness (per OAI test corpus): the same
         // (target, fields) action may not appear twice.
-        if seen.iter().any(|prev| *prev == a) {
+        if seen.contains(&a) {
             return Err(format!("duplicate action at index {i}: overlay `actions` entries must be unique").into());
         }
         seen.push(a);

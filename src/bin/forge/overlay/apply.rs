@@ -166,10 +166,10 @@ fn apply_update(doc: &mut Document, version: Version, locations: &[Pointer], upd
                 doc.mark_mutated();
             }
             (Category::Object, Some(Value::Object(map))) => {
-                if let Some(upd) = update.as_object() {
-                    if merge_object(map, upd, version)? {
-                        doc.mark_mutated();
-                    }
+                if let Some(upd) = update.as_object()
+                    && merge_object(map, upd, version)?
+                {
+                    doc.mark_mutated();
                 }
             }
             (Category::Array, Some(Value::Array(arr))) => {
