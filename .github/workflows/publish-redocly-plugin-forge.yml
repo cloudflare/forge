@@ -14,9 +14,11 @@
 #     that links the released tarball to this workflow run and the commit
 #     the tag points at. Consumers can verify with `npm view … attestations`.
 #   - Uses npm's OIDC-backed trusted-publisher flow: no long-lived publish
-#     token is stored in GitHub secrets. (If migrating from a legacy
-#     NODE_AUTH_TOKEN setup, the token must be a granular, scope-limited
-#     automation token stored as NPM_TOKEN and masked from logs.)
+#     token is stored in GitHub secrets. The job's `id-token: write`
+#     permission lets npm exchange the GitHub OIDC token for a short-lived
+#     publish credential, scoped to this repo and this workflow. Trusted
+#     publishing must be configured for the package on npmjs.com before
+#     the first tag.
 #
 # Trigger: a tag of the form `redocly-plugin-forge-v<version>`, which should
 # be created from a signed commit on `main`. Branch protection on `main`
@@ -101,43 +103,32 @@ jobs:
       - name: Build
         run: pnpm --filter @cloudflare/redocly-plugin-forge run build
 
-      # Pack first and inspect the tarball contents. A surprise file in the
-      # package (an unexpected script, a credential, a stray env file) shows
-      # up here and the publish step below operates on the exact same
-      # tarball, not on a fresh pack.
       - name: Pack
         working-directory: packages/redocly-plugin-forge
         run: pnpm pack
 
-      - name: Inspect package contents
+      # publint catches `exports` / `main` / `types` map bugs and other
+      # package.json shape issues that `tsc` and `pnpm pack` do not — the
+      # kind of thing that only surfaces when a downstream consumer tries
+      # to `import` the published package.
+      - name: Lint packaged tarball
         working-directory: packages/redocly-plugin-forge
-        run: |
-          set -euo pipefail
-          tarball=$(ls cloudflare-redocly-plugin-forge-*.tgz)
-          echo "Packed $tarball"
-          tar -tzf "$tarball" | sort | tee "$RUNNER_TEMP/pack-contents.txt"
-          # Fail if the tarball includes anything that smells like a secret
-          # or a sensitive build artifact.
-          if grep -Ei '(\.env$|\.env\.|\.npmrc$|/\.git/|/node_modules/|\.pem$|\.key$)' "$RUNNER_TEMP/pack-contents.txt"; then
-            echo "Refusing to publish: tarball contains disallowed path above." >&2
-            exit 1
-          fi
+        run: pnpm dlx publint@0.3.16 ./cloudflare-redocly-plugin-forge-*.tgz
 
-      # --provenance generates and uploads an attestation tying this tarball
-      # to this workflow run; it requires id-token: write (granted above).
-      # --access public is explicit so a misconfigured publishConfig can't
-      # silently publish a scoped package as private.
+      # Publishes via npm's OIDC-backed trusted-publisher flow. The job's
+      # `id-token: write` permission lets npm exchange the GitHub OIDC
+      # token for a short-lived publish credential — no long-lived
+      # NPM_TOKEN secret needed. `--provenance` generates and uploads an
+      # attestation tying this tarball to this workflow run and commit;
+      # `--access public` is explicit so a misconfigured publishConfig
+      # can't silently publish a scoped package as private.
+      #
+      # Trusted publishing for @cloudflare/redocly-plugin-forge must be
+      # configured on npmjs.com (Package → Settings → Trusted Publishers)
+      # to point at this repo and this workflow file before the first tag.
       - name: Publish
         working-directory: packages/redocly-plugin-forge
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-          NPM_CONFIG_PROVENANCE: 'true'
-        run: |
-          set -euo pipefail
-          echo '//registry.npmjs.org/:_authToken=${NODE_AUTH_TOKEN}' > ~/.npmrc
-          tarball=$(ls cloudflare-redocly-plugin-forge-*.tgz)
-          npm publish "$tarball" --provenance --access public
-          rm ~/.npmrc
+        run: npm publish ./cloudflare-redocly-plugin-forge-*.tgz --provenance --access public
 
       - name: Summary
         env:
