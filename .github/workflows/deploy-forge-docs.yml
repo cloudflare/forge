@@ -38,5 +38,5 @@ jobs:
           # `FORGE_DOCS_SITE_URL` repository variable to the Worker's address
           # once it exists; without it they point at localhost.
           DOCS_SITE_URL: ${{ vars.FORGE_DOCS_SITE_URL }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.FORGE_DOCS_CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.FORGE_DOCS_CLOUDFLARE_API_TOKEN }}
