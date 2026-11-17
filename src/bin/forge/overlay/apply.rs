@@ -167,9 +167,7 @@ fn apply_update(doc: &mut Document, version: Version, locations: &[Pointer], upd
             }
             (Category::Object, Some(Value::Object(map))) => {
                 if let Some(upd) = update.as_object() {
-                    let before = serde_json::to_string(&Value::Object(map.clone())).ok();
-                    merge_object(map, upd, version)?;
-                    if serde_json::to_string(&Value::Object(map.clone())).ok() != before {
+                    if merge_object(map, upd, version)? {
                         doc.mark_mutated();
                     }
                 }
@@ -261,8 +259,9 @@ fn apply_copy(
                 (Value::Object(src), Some(Value::Object(dst))) => {
                     check_nested_merge_compat(&Value::Object(dst.clone()), src)?;
                     let src_clone = src.clone();
-                    merge_object(dst, &src_clone, version)?;
-                    doc.mark_mutated();
+                    if merge_object(dst, &src_clone, version)? {
+                        doc.mark_mutated();
+                    }
                 }
                 (Value::Array(_), _) => {
                     return Err(
@@ -283,7 +282,9 @@ fn apply_copy(
                             for it in src {
                                 dst.push(it.clone());
                             }
-                            doc.mark_mutated();
+                            if !src.is_empty() {
+                                doc.mark_mutated();
+                            }
                         }
                         other => {
                             dst.push(other.clone());
@@ -306,7 +307,9 @@ fn apply_copy(
                     );
                 }
                 _ => {
-                    if let Some(node) = path::resolve_mut(doc.value_mut(), p) {
+                    if let Some(node) = path::resolve_mut(doc.value_mut(), p)
+                        && *node != source_value
+                    {
                         *node = source_value.clone();
                         doc.mark_mutated();
                     }
@@ -398,35 +401,40 @@ fn check_nested_merge_compat(target: &Value, update: &serde_json::Map<String, Va
     Ok(())
 }
 
+/// Merge `update` into `target`. Returns whether anything changed.
 fn merge_object(
     target: &mut serde_json::Map<String, Value>,
     update: &serde_json::Map<String, Value>,
     version: Version,
-) -> Result<(), Err> {
+) -> Result<bool, Err> {
+    let mut changed = false;
     for (k, v_upd) in update {
         match target.get_mut(k) {
             None => {
                 // Append new key at the end, preserving existing order.
                 target.insert(k.clone(), v_upd.clone());
+                changed = true;
             }
             Some(existing) => match (existing, v_upd) {
                 (Value::Object(ex), Value::Object(up)) => {
-                    merge_object(ex, up, version)?;
+                    changed |= merge_object(ex, up, version)?;
                 }
                 (Value::Array(ex), Value::Array(up)) if version.concat_arrays() => {
-                    for it in up {
-                        ex.push(it.clone());
-                    }
+                    ex.extend(up.iter().cloned());
+                    changed |= !up.is_empty();
                 }
                 (slot, up) => {
                     // 1.0 replace; 1.1+ nested category must match, checked
                     // ahead of this call.
-                    *slot = up.clone();
+                    if *slot != *up {
+                        *slot = up.clone();
+                        changed = true;
+                    }
                 }
             },
         }
     }
-    Ok(())
+    Ok(changed)
 }
 
 fn is_primitive(v: &Value) -> bool {
