@@ -24,15 +24,16 @@
 //! fixture:
 //!
 //! - Forge MUST reject it (not accept it, not panic on it, not I/O-fail
-//!   on it).
-//! - The rejection MUST name the forbidden URI and a security/policy
-//!   marker (`http`, `security`, `policy`, `scheme`) alongside the field
-//!   name (`$self`/`extends`).
+//!   on it, not pre-implementation-CLI-fail on it).
+//! - The rejection MUST name a scheme-policy marker
+//!   (`http`/`scheme`/`security`/`policy`/`network`).
+//! - The rejection MUST name EACH forbidden field (`$self` / `extends`)
+//!   held in the fixture.
+//! - The rejection MUST quote EACH forbidden URI verbatim so an operator
+//!   can see which specific reference tripped the policy.
 //!
 //! An unlisted pass fixture that forge rejects is a bug — either in the
-//! implementation or in the deviations manifest. Likewise an unlisted
-//! fixture whose rejection would be expected by Forge's security policy
-//! must be added here deliberately.
+//! implementation or in the deviations manifest.
 //!
 //! ## Discrimination of negative fixtures
 //!
@@ -41,7 +42,8 @@
 //!
 //! 1. NOT contain any of the generic pre-implementation CLI diagnostics
 //!    forge emits before `overlay` is a registered subcommand (identical
-//!    guard to `common::failed`'s `PRE_IMPL_MARKERS`).
+//!    guard to `common::PRE_IMPL_MARKERS`, imported here rather than
+//!    duplicated).
 //! 2. NOT look like a target-OpenAPI parse error, a missing-file I/O
 //!    failure, or a panic — those don't demonstrate that the overlay was
 //!    rejected for the reason the fixture is about.
@@ -57,17 +59,7 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use crate::common::{SPEC, dir, overlay, text};
-
-/// Strings forge emits for the pre-implementation CLI, not for an overlay
-/// rejection. Mirrors `common::PRE_IMPL_MARKERS` (kept private there).
-const PRE_IMPL_MARKERS: &[&str] = &[
-    "cannot be used with '<SPEC>'",
-    "the following required arguments were not provided",
-    "unrecognized subcommand",
-    "unexpected argument 'overlay'",
-    "unexpected argument \"overlay\"",
-];
+use crate::common::{PRE_IMPL_MARKERS, SPEC, dir, overlay, text};
 
 /// Strings that indicate the error came from somewhere other than the
 /// overlay validator — a missing file, a target-spec parser, a panic. If
@@ -105,28 +97,61 @@ const OVERLAY_MARKERS: &[&str] = &[
     "rfc 9535",
 ];
 
-/// Markers that must appear in a security-policy rejection: a URI-scheme
-/// word plus a field name. At least one of each category is required so
-/// the error unambiguously names Forge's policy, not a generic parse
-/// error that happens to contain `http`.
+/// Scheme-policy markers that must appear somewhere in a security-policy
+/// rejection. Field names and forbidden URIs are checked separately as
+/// exact strings — see `PolicyDeviation`.
 const SECURITY_POLICY_SCHEME_MARKERS: &[&str] = &["http", "scheme", "security", "policy", "network"];
-const SECURITY_POLICY_FIELD_MARKERS: &[&str] = &["$self", "extends"];
+
+/// One forbidden (field, URI) pair inside a deviation fixture.
+#[derive(Clone, Copy)]
+struct ForbiddenRef {
+    /// Exact overlay field holding the URI (`$self` or `extends`).
+    field: &'static str,
+    /// The complete forbidden URI as it appears in the fixture, verbatim.
+    uri: &'static str,
+}
+
+/// One entry in the policy deviations manifest.
+#[derive(Clone, Copy)]
+struct PolicyDeviation {
+    version: &'static str,
+    file: &'static str,
+    /// Every forbidden reference in the fixture. ALL of these must be
+    /// named in stderr for the deviation to count as properly rejected.
+    forbidden: &'static [ForbiddenRef],
+}
 
 /// Explicit list of OAI `pass/*.yaml` fixtures that Forge's security
-/// policy REJECTS. Each entry is `(version, filename, forbidden_uri)` —
-/// the forbidden URI must appear in stderr verbatim so operators can see
-/// exactly which URI tripped the policy.
-///
-/// Rationale per entry is documented in the surrounding module docs.
-const POLICY_DEVIATIONS: &[(&str, &str, &str)] = &[
-    // $self AND extends both https — both are rejected; we check that at
-    // least one of them is named in the error, together with a policy
-    // marker. The upstream fixture's intent (reusable identifier) is not
-    // one Forge can honor without network access.
-    ("v1.2-dev", "self-and-extends-identifier.yaml", "https://"),
-    // $self is https (extends is relative, which would otherwise be
-    // fine); Forge rejects for the $self scheme.
-    ("v1.2-dev", "self-with-relative-extends.yaml", "https://"),
+/// policy REJECTS. Each entry records every forbidden (field, URI) pair
+/// in the fixture verbatim; see the module docs for the exact contract.
+const POLICY_DEVIATIONS: &[PolicyDeviation] = &[
+    // $self AND extends both https — both forbidden refs MUST be named.
+    // The upstream fixture's intent (reusable identifier) cannot be
+    // honored without network access.
+    PolicyDeviation {
+        version: "v1.2-dev",
+        file: "self-and-extends-identifier.yaml",
+        forbidden: &[
+            ForbiddenRef {
+                field: "$self",
+                uri: "https://example.com/overlays/petstore.overlay.yaml",
+            },
+            ForbiddenRef {
+                field: "extends",
+                uri: "https://api.example.com/openapi/petstore.yaml",
+            },
+        ],
+    },
+    // $self is https (extends is a plain relative reference, which would
+    // otherwise be fine); Forge rejects for the $self scheme.
+    PolicyDeviation {
+        version: "v1.2-dev",
+        file: "self-with-relative-extends.yaml",
+        forbidden: &[ForbiddenRef {
+            field: "$self",
+            uri: "https://example.com/overlays/petstore.overlay.yaml",
+        }],
+    },
 ];
 
 fn scenario_files(version: &str, kind: &str) -> Vec<PathBuf> {
@@ -151,12 +176,10 @@ fn spec_for(tag: &str) -> PathBuf {
     p
 }
 
-fn deviation_for(version: &str, name: &str) -> Option<&'static str> {
-    POLICY_DEVIATIONS.iter().find_map(
-        |(v, n, uri)| {
-            if *v == version && *n == name { Some(*uri) } else { None }
-        },
-    )
+fn deviation_for(version: &str, name: &str) -> Option<&'static PolicyDeviation> {
+    POLICY_DEVIATIONS
+        .iter()
+        .find(|d| d.version == version && d.file == name)
 }
 
 fn stderr_has_any(lower: &str, markers: &[&str]) -> bool {
@@ -167,7 +190,8 @@ fn stderr_has_any(lower: &str, markers: &[&str]) -> bool {
 struct PassReport {
     unexpectedly_rejected: Vec<String>,
     deviation_unexpectedly_accepted: Vec<String>,
-    deviation_bad_rejection: Vec<String>,
+    deviation_missing_scheme_marker: Vec<String>,
+    deviation_missing_field: Vec<String>,
     deviation_missing_uri: Vec<String>,
     pre_impl: Vec<String>,
     non_overlay_error: Vec<String>,
@@ -184,7 +208,7 @@ fn run_pass(version: &str) {
         let stderr = text(&out.stderr).to_owned();
         let lower = stderr.to_lowercase();
 
-        if let Some(forbidden_uri) = deviation_for(version, &name) {
+        if let Some(deviation) = deviation_for(version, &name) {
             // Policy deviation: Forge MUST reject.
             if out.status.success() {
                 report
@@ -200,20 +224,29 @@ fn run_pass(version: &str) {
                 report.non_overlay_error.push(format!("{name}\n  stderr:\n{stderr}"));
                 continue;
             }
-            // Require: a scheme-policy marker AND a field marker AND the
-            // forbidden URI itself in the error.
-            let has_scheme_marker = stderr_has_any(&lower, SECURITY_POLICY_SCHEME_MARKERS);
-            let has_field_marker = stderr_has_any(&lower, SECURITY_POLICY_FIELD_MARKERS);
-            if !has_scheme_marker || !has_field_marker {
+            // Require: a scheme-policy marker.
+            if !stderr_has_any(&lower, SECURITY_POLICY_SCHEME_MARKERS) {
                 report
-                    .deviation_bad_rejection
+                    .deviation_missing_scheme_marker
                     .push(format!("{name}\n  stderr:\n{stderr}"));
                 continue;
             }
-            if !stderr.contains(forbidden_uri) {
-                report.deviation_missing_uri.push(format!(
-                    "{name} (expected {forbidden_uri:?} in stderr)\n  stderr:\n{stderr}"
-                ));
+            // Require: EVERY forbidden field name AND EVERY forbidden URI
+            // appears in stderr verbatim. An operator must see which
+            // specific reference tripped the policy.
+            for forbidden in deviation.forbidden {
+                if !stderr.contains(forbidden.field) {
+                    report.deviation_missing_field.push(format!(
+                        "{name} (expected field {:?} in stderr)\n  stderr:\n{stderr}",
+                        forbidden.field,
+                    ));
+                }
+                if !stderr.contains(forbidden.uri) {
+                    report.deviation_missing_uri.push(format!(
+                        "{name} (expected URI {:?} in stderr)\n  stderr:\n{stderr}",
+                        forbidden.uri,
+                    ));
+                }
             }
         } else if !out.status.success() {
             if PRE_IMPL_MARKERS.iter().any(|m| stderr.contains(m)) {
@@ -257,20 +290,28 @@ fn run_pass(version: &str) {
         report.non_overlay_error.join("\n---\n")
     );
     assert!(
-        report.deviation_bad_rejection.is_empty(),
-        "{} OAI {version}/pass deviation scenarios were rejected, but the error \
-         did not name both a scheme-policy marker (http/scheme/security/policy/\
-         network) and a field marker ($self/extends). The rejection must be \
-         unambiguously the security policy, not an incidental parse error. \
-         Affected files:\n---\n{}\n---",
-        report.deviation_bad_rejection.len(),
-        report.deviation_bad_rejection.join("\n---\n")
+        report.deviation_missing_scheme_marker.is_empty(),
+        "{} OAI {version}/pass deviation scenarios were rejected, but stderr \
+         names no scheme-policy marker (http/scheme/security/policy/network). \
+         The rejection must be unambiguously the security policy, not an \
+         incidental parse error. Affected files:\n---\n{}\n---",
+        report.deviation_missing_scheme_marker.len(),
+        report.deviation_missing_scheme_marker.join("\n---\n")
+    );
+    assert!(
+        report.deviation_missing_field.is_empty(),
+        "{} OAI {version}/pass deviation references were rejected without \
+         stderr naming the exact overlay field ($self or extends) that holds \
+         the forbidden URI. Operators must see which field tripped the \
+         policy. Affected files:\n---\n{}\n---",
+        report.deviation_missing_field.len(),
+        report.deviation_missing_field.join("\n---\n")
     );
     assert!(
         report.deviation_missing_uri.is_empty(),
-        "{} OAI {version}/pass deviation scenarios were rejected with the right \
-         markers, but the forbidden URI itself was not quoted in stderr. \
-         Operators must see which URI tripped the policy. Affected files:\n---\n{}\n---",
+        "{} OAI {version}/pass deviation references were rejected without \
+         stderr quoting the forbidden URI verbatim. Operators must see which \
+         URI tripped the policy. Affected files:\n---\n{}\n---",
         report.deviation_missing_uri.len(),
         report.deviation_missing_uri.join("\n---\n")
     );
@@ -381,20 +422,33 @@ fn oai_v1_2_fail() {
 }
 
 /// Sanity: every entry in `POLICY_DEVIATIONS` names a real vendored
-/// fixture. If a fixture is renamed upstream and we re-vendor without
-/// updating this manifest, this test fails loudly instead of silently
-/// dropping coverage.
+/// fixture AND the exact forbidden URI it declares is actually present
+/// in that fixture's bytes. If an upstream rename or a URI edit lands
+/// and this manifest isn't updated, this test fails loudly instead of
+/// silently dropping coverage.
 #[test]
-fn policy_deviations_manifest_entries_all_exist() {
-    for (version, name, _uri) in POLICY_DEVIATIONS {
+fn policy_deviations_manifest_matches_vendored_fixtures() {
+    for deviation in POLICY_DEVIATIONS {
         let path = Path::new(env!("CARGO_MANIFEST_DIR"))
             .join("tests/overlay/oai_tests")
-            .join(version)
+            .join(deviation.version)
             .join("pass")
-            .join(name);
-        assert!(
-            path.exists(),
-            "POLICY_DEVIATIONS entry {version}/pass/{name} is not a vendored fixture: {path:?}"
-        );
+            .join(deviation.file);
+        let contents = fs::read_to_string(&path).unwrap_or_else(|e| {
+            panic!(
+                "POLICY_DEVIATIONS entry {}/pass/{} is not a vendored fixture ({path:?}): {e}",
+                deviation.version, deviation.file,
+            )
+        });
+        for forbidden in deviation.forbidden {
+            assert!(
+                contents.contains(forbidden.uri),
+                "POLICY_DEVIATIONS says {}/pass/{} contains URI {:?}, but the fixture doesn't — \
+                 upstream probably edited the URI. Update the manifest.",
+                deviation.version,
+                deviation.file,
+                forbidden.uri,
+            );
+        }
     }
 }

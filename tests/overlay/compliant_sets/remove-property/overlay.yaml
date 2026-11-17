@@ -3,6 +3,5 @@ info:
   title: Remove all string properties
   version: 1.0.0
 actions:
-- target: $.paths['/locations'].get.responses['200']..properties[?(@.type == 'string')]
-  remove: true
-
+  - target: $.paths['/locations'].get.responses['200']..properties[?(@.type == 'string')]
+    remove: true

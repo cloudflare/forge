@@ -31,7 +31,11 @@ pub const SPEC_MINIFIED: &str = r#"{"openapi":"3.0.3","info":{"title":"t","versi
 /// markers, the assertion is almost certainly a false positive from the
 /// pre-implementation binary. `failed()` panics on these so no test can
 /// pass accidentally before `forge overlay` is implemented.
-const PRE_IMPL_MARKERS: &[&str] = &[
+///
+/// Exposed `pub` so sibling modules (e.g. `oai_conformance`) can share one
+/// authoritative list; duplicating it causes drift the next time forge's
+/// CLI diagnostic wording shifts.
+pub const PRE_IMPL_MARKERS: &[&str] = &[
     // Current forge CLI treats `overlay` as a positional SPEC and complains
     // that the next arg cannot also be a `<SPEC>`.
     "cannot be used with '<SPEC>'",

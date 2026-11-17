@@ -71,4 +71,3 @@ components:
         location_id:
           type: integer
           example: 44
-

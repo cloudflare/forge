@@ -243,11 +243,13 @@ fn v11_update_target_mixed_object_and_array_is_rejected() {
 
     crate::common::failed_with(
         crate::common::overlay(&[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap()], ""),
-        &["target", "nodes", "same category", "mixed", "homogeneous"],
+        &["nodes", "same category", "mixed", "homogeneous"],
     );
 }
 
-/// 1.1+ Update. Mixed target (object + primitive) → rejected.
+/// 1.1+ Update. Mixed target (object + primitive) → rejected. Union
+/// selects a primitive child (`operationId`) and an object child
+/// (`responses`) of the same operation.
 #[test]
 fn v11_update_target_mixed_object_and_primitive_is_rejected() {
     let (spec, ov) = crate::common::files(
@@ -256,17 +258,19 @@ fn v11_update_target_mixed_object_and_primitive_is_rejected() {
         r#"{
   "overlay": "1.1.0",
   "info": {"title": "fix", "version": "1"},
-  "actions": [{"target": "$.info[?@]", "update": "new-value"}]
+  "actions": [{"target": "$.paths[\"/a\"].get[\"operationId\",\"responses\"]", "update": "new-value"}]
 }"#,
     );
 
     crate::common::failed_with(
         crate::common::overlay(&[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap()], ""),
-        &["target", "nodes", "same category", "mixed", "homogeneous"],
+        &["nodes", "same category", "mixed", "homogeneous"],
     );
 }
 
-/// 1.1+ Update. Mixed target (array + primitive) → rejected.
+/// 1.1+ Update. Mixed target (array + primitive) → rejected. Union
+/// selects an array child (`tags`, seeded first) and a primitive child
+/// (`operationId`) of the same operation.
 #[test]
 fn v11_update_target_mixed_array_and_primitive_is_rejected() {
     let (spec, ov) = crate::common::files(
@@ -276,15 +280,15 @@ fn v11_update_target_mixed_array_and_primitive_is_rejected() {
   "overlay": "1.1.0",
   "info": {"title": "fix", "version": "1"},
   "actions": [
-    {"target": "$.paths[\"/a\"].get", "update": {"tags": ["a"], "summary": "s"}},
-    {"target": "$.paths[\"/a\"].get[?@.tags || @.summary]", "update": "x"}
+    {"target": "$.paths[\"/a\"].get", "update": {"tags": ["a"]}},
+    {"target": "$.paths[\"/a\"].get[\"operationId\",\"tags\"]", "update": "x"}
   ]
 }"#,
     );
 
     crate::common::failed_with(
         crate::common::overlay(&[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap()], ""),
-        &["target", "nodes", "same category", "mixed", "homogeneous"],
+        &["nodes", "same category", "mixed", "homogeneous"],
     );
 }
 

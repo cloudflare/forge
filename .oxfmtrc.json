@@ -18,6 +18,7 @@
     "packages/cloudflare-api-site/src/lib/**",
     "packages/cloudflare-api-site/src/styles/globals.css",
     "packages/redocly-plugin-generators/test/fixtures/**",
-    "packages/redocly-plugin-generators/test/covered-by-redocly/**"
+    "packages/redocly-plugin-generators/test/covered-by-redocly/**",
+    "tests/overlay/oai_tests/**"
   ]
 }

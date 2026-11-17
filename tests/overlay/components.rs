@@ -684,10 +684,16 @@ fn v12_mode_a_no_self_resolves_extends_against_overlay_retrieval_uri() {
 fn v12_mode_a_absolute_self_resolves_extends_against_self_not_disk() {
     let d = dir("v12-self-absolute-with-relative-extends");
     // DECOY: a file right next to the overlay with the same relative
-    // name. If forge wrongly uses the on-disk directory as the base it
-    // succeeds by loading this file; the test will then fail because we
-    // require rejection.
-    fs::write(d.join("openapi.yaml"), SPEC).unwrap();
+    // name, tagged with a sentinel title so we can positively detect
+    // accidental coercion. If forge wrongly uses the on-disk directory
+    // as the base it loads this file; the test asserts that tag never
+    // reaches stdout.
+    let decoy_spec = r##"{
+  "openapi": "3.0.3",
+  "info": {"title": "DECOY-MUST-NOT-LOAD", "version": "1"},
+  "paths": {"/a": {"get": {"operationId": "aGet", "responses": {"200": {"description": "ok"}}}}}
+}"##;
+    fs::write(d.join("openapi.yaml"), decoy_spec).unwrap();
     fs::write(
         d.join("overlay.json"),
         r##"{
@@ -700,21 +706,24 @@ fn v12_mode_a_absolute_self_resolves_extends_against_self_not_disk() {
     )
     .unwrap();
 
-    // The resolved identifier is `file:///identifiers/overlays/openapi.yaml`;
-    // the error names the resolved path (`/identifiers/overlays/openapi.yaml`
-    // or the full `file:` URI), not the overlay-local path.
-    let err = crate::common::failed(overlay(&[d.join("overlay.json").to_str().unwrap()], ""));
+    let out = overlay(&[d.join("overlay.json").to_str().unwrap()], "");
     assert!(
-        err.to_lowercase().contains("extends"),
-        "error names the offending field: {err}"
+        !out.status.success(),
+        "forge succeeded; it almost certainly loaded the decoy sibling file. stdout:\n{}",
+        text(&out.stdout)
     );
+    let stdout = text(&out.stdout);
+    let stderr = text(&out.stderr);
     assert!(
-        err.contains("/identifiers/overlays/openapi.yaml") || err.contains("file:///identifiers"),
-        "error names the resolved identifier (not the overlay-local path): {err}"
+        !stdout.contains("DECOY-MUST-NOT-LOAD"),
+        "the decoy sibling file was loaded. stdout:\n{stdout}"
     );
+    // The error must positively name the resolved identifier (under
+    // `/identifiers/overlays/`), not the decoy's actual location.
     assert!(
-        !err.contains(d.join("openapi.yaml").to_str().unwrap()),
-        "error does NOT name the decoy sibling path: {err}"
+        stderr.contains("/identifiers/overlays/openapi.yaml") || stderr.contains("file:///identifiers"),
+        "error does not name the resolved identifier (should mention the file:/// path \
+         under /identifiers/overlays/, not the decoy's path): {stderr}"
     );
 }
 

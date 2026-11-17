@@ -8,8 +8,8 @@ compliant-sets corpus, used here as a black-box conformance suite for
 ## Provenance
 
 - Upstream: https://github.com/OAI/Overlay-Specification/tree/main/compliant-sets
-- Commit:   `58f5fe684d4723224cdeb960098c69f43d7f4575`
-- Date:     2025-11-18
+- Commit: `58f5fe684d4723224cdeb960098c69f43d7f4575`
+- Date: 2025-11-18
 
 Refresh the fixtures by re-vendoring from the same path at the newest commit
 and updating the SHA above. See `../compliant_sets.rs` for the harness that

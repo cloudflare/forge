@@ -278,7 +278,9 @@ fn v11_copy_source_with_multiple_matches_is_rejected() {
 // the same category (object, array, or primitive). Mixed selections are
 // rejected because the applicable rule depends on the category.
 
-/// 1.1+ Copy. Mixed target selection (object + array) → rejected.
+/// 1.1+ Copy. Also drop bare "target" from the mixed-object-and-array
+/// markers — `failed_with` ORs the list and `"target"` matches almost any
+/// overlay error. Keep the specific homogeneity vocabulary only.
 #[test]
 fn v11_copy_target_mixed_object_and_array_is_rejected() {
     let (spec, ov) = files(
@@ -298,11 +300,14 @@ fn v11_copy_target_mixed_object_and_array_is_rejected() {
 
     failed_with(
         overlay(&[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap()], ""),
-        &["target", "nodes", "same category", "mixed", "homogeneous"],
+        &["nodes", "same category", "mixed", "homogeneous"],
     );
 }
 
 /// 1.1+ Copy. Mixed target selection (object + primitive) → rejected.
+/// Target is a union over an object child (`responses`) and a primitive
+/// child (`operationId`) of the same operation, so the nodelist is
+/// genuinely heterogeneous.
 #[test]
 fn v11_copy_target_mixed_object_and_primitive_is_rejected() {
     let (spec, ov) = files(
@@ -311,17 +316,19 @@ fn v11_copy_target_mixed_object_and_primitive_is_rejected() {
         r#"{
   "overlay": "1.1.0",
   "info": {"title": "fix", "version": "1"},
-  "actions": [{"target": "$.info[?@]", "copy": "$.openapi"}]
+  "actions": [{"target": "$.paths[\"/a\"].get[\"operationId\",\"responses\"]", "copy": "$.openapi"}]
 }"#,
     );
 
     failed_with(
         overlay(&[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap()], ""),
-        &["target", "nodes", "same category", "mixed", "homogeneous"],
+        &["nodes", "same category", "mixed", "homogeneous"],
     );
 }
 
 /// 1.1+ Copy. Mixed target selection (array + primitive) → rejected.
+/// Target is a union over an array child (`tags`, added by the first
+/// action) and a primitive child (`operationId`) of the same operation.
 #[test]
 fn v11_copy_target_mixed_array_and_primitive_is_rejected() {
     let (spec, ov) = files(
@@ -331,15 +338,15 @@ fn v11_copy_target_mixed_array_and_primitive_is_rejected() {
   "overlay": "1.1.0",
   "info": {"title": "fix", "version": "1"},
   "actions": [
-    {"target": "$.paths[\"/a\"].get", "update": {"tags": ["x"], "summary": "s"}},
-    {"target": "$.paths[\"/a\"].get[?@.tags || @.summary]", "copy": "$.openapi"}
+    {"target": "$.paths[\"/a\"].get", "update": {"tags": ["x"]}},
+    {"target": "$.paths[\"/a\"].get[\"operationId\",\"tags\"]", "copy": "$.openapi"}
   ]
 }"#,
     );
 
     failed_with(
         overlay(&[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap()], ""),
-        &["target", "nodes", "same category", "mixed", "homogeneous"],
+        &["nodes", "same category", "mixed", "homogeneous"],
     );
 }
 
@@ -369,6 +376,9 @@ fn v11_copy_array_into_array_target_concatenates() {
 }
 
 /// 1.1+ Copy. Object source into array target → appended as one entry.
+/// SPEC has no `components` key, so the source material is seeded via a
+/// root-targeted update first — that gives the subsequent copy a real
+/// source node to pick up.
 #[test]
 fn v11_copy_object_into_array_target_appends_one_entry() {
     let doc = apply(
@@ -377,8 +387,8 @@ fn v11_copy_object_into_array_target_appends_one_entry() {
   "overlay": "1.1.0",
   "info": {"title": "fix", "version": "1"},
   "actions": [
+    {"target": "$", "update": {"components": {"schemas": {"X": {"type": "string"}}}}},
     {"target": "$.paths[\"/a\"].get", "update": {"parameters": []}},
-    {"target": "$.components", "update": {"schemas": {"X": {"type": "string"}}}},
     {"target": "$.paths[\"/a\"].get.parameters", "copy": "$.components.schemas.X"}
   ]
 }"#,
@@ -504,7 +514,10 @@ fn v11_copy_with_zero_target_matches_is_a_successful_noop() {
 
 // --- Value-type matrix: cross-category negatives -----------------------
 
-/// 1.1+ Copy. Object source into primitive target → rejected.
+/// 1.1+ Copy. Object source into primitive target → rejected. Seeds the
+/// source object via a root-targeted update so the copy actually has a
+/// one-node source (instead of tripping source-cardinality on a missing
+/// `$.components`).
 #[test]
 fn v11_copy_object_source_into_primitive_target_is_rejected() {
     let (spec, ov) = files(
@@ -514,7 +527,7 @@ fn v11_copy_object_source_into_primitive_target_is_rejected() {
   "overlay": "1.1.0",
   "info": {"title": "fix", "version": "1"},
   "actions": [
-    {"target": "$.components", "update": {"schemas": {"X": {"type": "string"}}}},
+    {"target": "$", "update": {"components": {"schemas": {"X": {"type": "string"}}}}},
     {"target": "$.info.title", "copy": "$.components.schemas.X"}
   ]
 }"#,
@@ -522,7 +535,12 @@ fn v11_copy_object_source_into_primitive_target_is_rejected() {
 
     failed_with(
         overlay(&[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap()], ""),
-        &["copy", "primitive", "scalar", "object", "incompatible"],
+        &[
+            "incompatible",
+            "category",
+            "primitive and object",
+            "object into primitive",
+        ],
     );
 }
 
@@ -544,7 +562,7 @@ fn v11_copy_array_source_into_object_target_is_rejected() {
 
     failed_with(
         overlay(&[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap()], ""),
-        &["copy", "array", "object", "incompatible"],
+        &["incompatible", "category", "cannot merge", "array into object"],
     );
 }
 
@@ -566,7 +584,7 @@ fn v11_copy_array_source_into_primitive_target_is_rejected() {
 
     failed_with(
         overlay(&[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap()], ""),
-        &["copy", "array", "primitive", "scalar", "incompatible"],
+        &["incompatible", "category", "array into primitive", "array into scalar"],
     );
 }
 
@@ -585,13 +603,21 @@ fn v11_copy_primitive_source_into_object_target_is_rejected() {
 
     failed_with(
         overlay(&[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap()], ""),
-        &["copy", "primitive", "scalar", "object", "incompatible"],
+        &[
+            "incompatible",
+            "category",
+            "primitive into object",
+            "scalar into object",
+        ],
     );
 }
 
 /// 1.1+ Copy. Nested property-type incompatibility: the source object
 /// has a property whose value disagrees in category with the same-named
-/// target property. The merge has no sensible rule and must be rejected.
+/// target property (source `responses` is a string; target `responses`
+/// is an object). The merge has no sensible rule and must be rejected.
+/// Source object is seeded via a root-targeted update so the copy has a
+/// real one-node source.
 #[test]
 fn v11_copy_nested_property_type_incompatibility_is_rejected() {
     let (spec, ov) = files(
@@ -601,7 +627,7 @@ fn v11_copy_nested_property_type_incompatibility_is_rejected() {
   "overlay": "1.1.0",
   "info": {"title": "fix", "version": "1"},
   "actions": [
-    {"target": "$.components", "update": {"schemas": {"Bad": {"responses": "oops"}}}},
+    {"target": "$", "update": {"components": {"schemas": {"Bad": {"responses": "oops"}}}}},
     {"target": "$.paths[\"/a\"].get", "copy": "$.components.schemas.Bad"}
   ]
 }"#,
@@ -609,6 +635,6 @@ fn v11_copy_nested_property_type_incompatibility_is_rejected() {
 
     failed_with(
         overlay(&[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap()], ""),
-        &["copy", "type", "incompatible", "primitive", "object"],
+        &["incompatible", "category", "cannot merge", "primitive and object"],
     );
 }
