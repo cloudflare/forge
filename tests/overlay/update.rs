@@ -366,3 +366,78 @@ fn v11_update_object_property_with_primitive_is_rejected() {
         &["type", "incompatible", "primitive", "object", "merge"],
     );
 }
+
+/// 1.1+. `update` on an array target with an empty array source is a
+/// no-op: nothing is appended, no mutation is recorded, and `--write`'s
+/// transactional guard leaves the spec file byte-identical.
+#[test]
+fn v11_update_array_target_with_empty_array_is_noop() {
+    use std::fs;
+
+    let dir = crate::common::dir("v11-update-empty-array-noop");
+    let spec = dir.join("spec.json");
+    // Spec already carries `parameters: []` on `/a.get`, so the only
+    // action in the overlay is the branch under test.
+    fs::write(
+        &spec,
+        r#"{"openapi":"3.0.3","info":{"title":"t","version":"1"},"paths":{"/a":{"get":{"operationId":"aGet","parameters":[],"responses":{"200":{"description":"ok"}}}}}}"#,
+    )
+    .unwrap();
+    let before = fs::read(&spec).unwrap();
+    let ov = dir.join("overlay.json");
+    fs::write(
+        &ov,
+        r#"{
+  "overlay": "1.1.0",
+  "info": {"title": "fix", "version": "1"},
+  "actions": [{"target": "$.paths[\"/a\"].get.parameters", "update": []}]
+}"#,
+    )
+    .unwrap();
+
+    let out = crate::common::overlay(
+        &[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap(), "--write"],
+        "",
+    );
+    crate::common::succeeded(&out);
+    assert_eq!(
+        fs::read(&spec).unwrap(),
+        before,
+        "empty-array update is a no-op: --write did not touch the spec"
+    );
+}
+
+/// 1.1+. `update` on an object target whose keys already carry the given
+/// values is a no-op: the merge records no change, and `--write` leaves
+/// the file byte-identical.
+#[test]
+fn v11_update_object_with_current_values_is_noop() {
+    use std::fs;
+
+    let dir = crate::common::dir("v11-update-object-noop");
+    let spec = dir.join("spec.json");
+    // The spec already has `info.title = "t"` and `info.version = "1"`.
+    fs::write(&spec, crate::common::SPEC_MINIFIED).unwrap();
+    let before = fs::read(&spec).unwrap();
+    let ov = dir.join("overlay.json");
+    fs::write(
+        &ov,
+        r#"{
+  "overlay": "1.1.0",
+  "info": {"title": "fix", "version": "1"},
+  "actions": [{"target": "$.info", "update": {"title": "t", "version": "1"}}]
+}"#,
+    )
+    .unwrap();
+
+    let out = crate::common::overlay(
+        &[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap(), "--write"],
+        "",
+    );
+    crate::common::succeeded(&out);
+    assert_eq!(
+        fs::read(&spec).unwrap(),
+        before,
+        "updating keys with their current values did not change the file"
+    );
+}

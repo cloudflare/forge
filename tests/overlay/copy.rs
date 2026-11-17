@@ -638,3 +638,86 @@ fn v11_copy_nested_property_type_incompatibility_is_rejected() {
         &["incompatible", "category", "cannot merge", "primitive and object"],
     );
 }
+
+/// 1.1+ Copy. Primitive source onto a primitive target that already
+/// carries the identical value is a no-op: the new value equals the
+/// current one, so mutation is not recorded. Under `--write`, the spec
+/// file is left byte-for-byte identical.
+#[test]
+fn v11_copy_primitive_to_same_value_is_noop_under_write() {
+    use std::fs;
+
+    let dir = crate::common::dir("v11-copy-primitive-same-value");
+    let spec = dir.join("spec.json");
+    // `info.title` and `info.version` are both "1"-style primitives in
+    // the trivial spec, but copying `info.title` onto `info.title` would
+    // still be a no-op. Force a case where source and target are
+    // different *locations* but carry the same primitive value.
+    fs::write(
+        &spec,
+        r#"{"openapi":"3.0.3","info":{"title":"same","version":"same"},"paths":{"/a":{"get":{"operationId":"aGet","responses":{"200":{"description":"ok"}}}}}}"#,
+    )
+    .unwrap();
+    let before = fs::read(&spec).unwrap();
+    let ov = dir.join("overlay.json");
+    fs::write(
+        &ov,
+        r#"{
+  "overlay": "1.1.0",
+  "info": {"title": "fix", "version": "1"},
+  "actions": [{"target": "$.info.title", "copy": "$.info.version"}]
+}"#,
+    )
+    .unwrap();
+
+    let out = crate::common::overlay(
+        &[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap(), "--write"],
+        "",
+    );
+    crate::common::succeeded(&out);
+    assert_eq!(
+        fs::read(&spec).unwrap(),
+        before,
+        "copy of identical primitive is a no-op: --write did not touch the spec"
+    );
+}
+
+/// 1.1+ Copy. Primitive source onto a primitive target that holds a
+/// different value *does* record a mutation and the target takes the
+/// source's value.
+#[test]
+fn v11_copy_primitive_to_different_value_mutates() {
+    use std::fs;
+
+    let dir = crate::common::dir("v11-copy-primitive-diff-value");
+    let spec = dir.join("spec.json");
+    fs::write(
+        &spec,
+        r#"{"openapi":"3.0.3","info":{"title":"old-title","version":"new-version"},"paths":{"/a":{"get":{"operationId":"aGet","responses":{"200":{"description":"ok"}}}}}}"#,
+    )
+    .unwrap();
+    let before = fs::read(&spec).unwrap();
+    let ov = dir.join("overlay.json");
+    fs::write(
+        &ov,
+        r#"{
+  "overlay": "1.1.0",
+  "info": {"title": "fix", "version": "1"},
+  "actions": [{"target": "$.info.title", "copy": "$.info.version"}]
+}"#,
+    )
+    .unwrap();
+
+    let out = crate::common::overlay(
+        &[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap(), "--write"],
+        "",
+    );
+    crate::common::succeeded(&out);
+    assert_ne!(
+        fs::read(&spec).unwrap(),
+        before,
+        "copy of differing primitive does mutate: --write rewrote the spec"
+    );
+    let doc: serde_json::Value = serde_json::from_slice(&fs::read(&spec).unwrap()).unwrap();
+    assert_eq!(doc["info"]["title"], "new-version");
+}
