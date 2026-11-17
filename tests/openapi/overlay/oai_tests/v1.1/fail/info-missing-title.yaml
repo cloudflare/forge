@@ -1,0 +1,5 @@
+overlay: 1.1.0
+info:
+  version: 1.0.0
+actions:
+  - target: '$' # Root of document

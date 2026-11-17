@@ -1,0 +1,11 @@
+overlay: 1.0.0
+info:
+  title: Strip internal operations and schemas
+  version: '1.0.0'
+actions:
+# Remove operations marked internal.
+- target: $.paths[?@.get['x-internal'] == true]
+  remove: true
+# Remove schemas marked internal.
+- target: $.components.schemas[?@['x-internal'] == true]
+  remove: true

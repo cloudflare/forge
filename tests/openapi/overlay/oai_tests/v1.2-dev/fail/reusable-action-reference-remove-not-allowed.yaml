@@ -1,0 +1,13 @@
+overlay: 1.2.0
+info:
+  title: Reusable action reference must not contain remove
+  version: 1.0.0
+components:
+  actions:
+    removeInfoDescription:
+      fields:
+        remove: true
+actions:
+  - $ref: '#/components/actions/removeInfoDescription'
+    target: '$.info.description'
+    remove: true

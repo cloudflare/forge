@@ -1,0 +1,15 @@
+overlay: 1.2.0
+info:
+  title: Reusable action extensions
+  version: 1.0.0
+components:
+  actions:
+    setDescription:
+      x-action-extension:
+        mode: reusable
+      fields:
+        update:
+          description: Updated
+actions:
+  - $ref: '#/components/actions/setDescription'
+    target: '$.info'

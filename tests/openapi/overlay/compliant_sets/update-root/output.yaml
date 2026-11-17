@@ -1,0 +1,71 @@
+openapi: 3.1.0
+info:
+  version: 1.0.0
+  title: Imaginary town
+  x-overlaid: true
+servers:
+  - url: 'https://example.com'
+    description: Example server
+paths:
+  /buildings:
+    get:
+      summary: All buildings
+      operationId: buildingsList
+      responses:
+        '200':
+          description: Return all known buildings
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Building'
+  '/buildings/{buildingId}':
+    get:
+      summary: Specific building
+      operationId: buildingById
+      parameters:
+        - name: buildingId
+          in: path
+          required: true
+          description: Which building to return
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Return a building
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Building'
+  /locations:
+    get:
+      summary: All locations
+      operationId: locationList
+      responses:
+        '200':
+          description: Returns all locations
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    location_id:
+                      type: integer
+                      example: 44
+                    name:
+                      type: string
+                      example: North Village
+components:
+  schemas:
+    Building:
+      type: object
+      properties:
+        building:
+          type: string
+          example: house
+        location_id:
+          type: integer
+          example: 44

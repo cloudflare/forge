@@ -1,0 +1,15 @@
+overlay: 1.2.0
+info:
+  title: Reusable action reference with escaped component key
+  version: 1.0.0
+components:
+  actions:
+    'error-response/v1~beta':
+      fields:
+        description: Adds an error response
+        update:
+          '404':
+            description: Not Found
+actions:
+  - $ref: '#/components/actions/error-response~1v1~0beta'
+    target: '$.paths.*.get.responses'

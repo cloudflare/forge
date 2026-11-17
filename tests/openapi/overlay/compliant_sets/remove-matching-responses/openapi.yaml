@@ -1,0 +1,30 @@
+openapi: 3.1.0
+info:
+  title: Responses
+  version: 1.0.0
+paths:
+  /foo:
+    get:
+      responses:
+        '200':
+          description: OK
+        '500':
+          description: oops
+  /bar:
+    post:
+      responses:
+        '201':
+          description: Created
+        '500':
+          description: oops
+        default:
+          description: something
+  /baa:
+    post:
+      responses:
+        '201':
+          description: Shouted
+        '500':
+          description: oops
+        default:
+          description: something

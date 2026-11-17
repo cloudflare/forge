@@ -1,0 +1,15 @@
+overlay: 1.2.0
+info:
+  title: Reusable action reference must not contain update
+  version: 1.0.0
+components:
+  actions:
+    setDescription:
+      fields:
+        update:
+          description: Updated by reusable action
+actions:
+  - $ref: '#/components/actions/setDescription'
+    target: '$.info'
+    update:
+      description: Updated by reference

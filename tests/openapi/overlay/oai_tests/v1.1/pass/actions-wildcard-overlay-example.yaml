@@ -1,0 +1,12 @@
+overlay: 1.1.0
+info:
+  title: Update many objects at once
+  version: 1.0.0
+actions:
+  - target: $.paths.*.get
+    update:
+      x-safe: true
+  - target: $.paths.*.get.parameters[?@.name=='filter' && @.in=='query']
+    update:
+      schema:
+        $ref: '#/components/schemas/filterSchema'

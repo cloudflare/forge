@@ -1,0 +1,7 @@
+overlay: 1.2.0
+info:
+  title: Invalid extends with fragment
+  version: 1.0.0
+extends: https://api.example.com/openapi/petstore.yaml#/paths/~1pets
+actions:
+  - target: '$'

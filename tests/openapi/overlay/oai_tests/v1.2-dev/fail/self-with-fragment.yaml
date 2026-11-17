@@ -1,0 +1,7 @@
+overlay: 1.2.0
+$self: https://example.com/overlays/petstore.overlay.yaml#fragment
+info:
+  title: Invalid self with fragment
+  version: 1.0.0
+actions:
+  - target: '$'

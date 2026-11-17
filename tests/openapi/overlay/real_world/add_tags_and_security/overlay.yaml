@@ -1,0 +1,22 @@
+overlay: 1.1.0
+info:
+  title: Append auth and extra tag
+  version: '1.0.0'
+actions:
+# Array-concat: 1.1+ concatenates arrays-under-properties and arrays-under-arrays.
+- target: $
+  update:
+    tags:
+    - name: admin
+      description: Admin endpoints
+    security:
+    - bearerAuth: []
+- target: $.components.securitySchemes
+  update:
+    bearerAuth:
+      type: http
+      scheme: bearer
+# Array-concat on a direct array target.
+- target: $.paths['/widgets'].get.tags
+  update:
+  - admin
