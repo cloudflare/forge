@@ -100,20 +100,19 @@ jobs:
       - name: Test
         run: pnpm --filter @cloudflare/redocly-plugin-forge test
 
-      - name: Build
-        run: pnpm --filter @cloudflare/redocly-plugin-forge run build
-
-      - name: Pack
+      # Pack and lint the tarball in one step via the plugin's own
+      # `verify-pack` script (the same script PR CI runs). `pnpm pack`
+      # fires `prepack` → full build, so no separate build step is needed.
+      # The produced filename is captured as a step output so the Publish
+      # step can reference it without re-globbing.
+      - name: Build, pack, and lint
+        id: pack
         working-directory: packages/redocly-plugin-forge
-        run: pnpm pack
-
-      # publint catches `exports` / `main` / `types` map bugs and other
-      # package.json shape issues that `tsc` and `pnpm pack` do not — the
-      # kind of thing that only surfaces when a downstream consumer tries
-      # to `import` the published package.
-      - name: Lint packaged tarball
-        working-directory: packages/redocly-plugin-forge
-        run: pnpm dlx publint@0.3.16 ./cloudflare-redocly-plugin-forge-*.tgz
+        run: |
+          set -euo pipefail
+          pnpm run verify-pack
+          tarball=$(ls cloudflare-redocly-plugin-forge-*.tgz)
+          echo "tarball=$tarball" >> "$GITHUB_OUTPUT"
 
       # Publishes via npm's OIDC-backed trusted-publisher flow. The job's
       # `id-token: write` permission lets npm exchange the GitHub OIDC
@@ -128,7 +127,9 @@ jobs:
       # to point at this repo and this workflow file before the first tag.
       - name: Publish
         working-directory: packages/redocly-plugin-forge
-        run: npm publish ./cloudflare-redocly-plugin-forge-*.tgz --provenance --access public
+        env:
+          TARBALL: ${{ steps.pack.outputs.tarball }}
+        run: npm publish "./$TARBALL" --provenance --access public
 
       - name: Summary
         env:

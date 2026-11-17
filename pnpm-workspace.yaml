@@ -11,9 +11,10 @@ allowBuilds:
 # GHSA-f65p-4m7j-42xc, GHSA-fph4-wmhf-6fwf, GHSA-jqff-g426-hqxp,
 # GHSA-qw65-cvwx-89v3). 3.1.7 fixes them all and is a drop-in replacement.
 # Required so `pnpm audit --audit-level=high` passes in the publish workflow
-# for @cloudflare/redocly-plugin-forge.
+# for @cloudflare/redocly-plugin-forge. Drop this override once the parent
+# packages widen their ranges above 3.1.7 themselves.
 overrides:
-  fast-uri@<3.1.7: '>=3.1.7 <4'
+  fast-uri@<3.1.7: '>=3.1.7'
 minimumReleaseAgeExclude:
   - '@astrojs/cloudflare@15.0.0-beta.2'
   - '@cloudflare/runtime-types@0.1.13'

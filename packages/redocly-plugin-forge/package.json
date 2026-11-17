@@ -28,8 +28,6 @@
     "LICENSE"
   ],
   "type": "module",
-  "main": "./dist/index.js",
-  "types": "./dist/index.d.ts",
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
@@ -41,11 +39,12 @@
     "provenance": true
   },
   "scripts": {
-    "build": "rm -rf dist && tsc -p tsconfig.build.json",
+    "build": "node --eval \"require('node:fs').rmSync('dist',{recursive:true,force:true})\" && tsc -p tsconfig.build.json",
     "prepack": "pnpm run build",
     "test": "vitest run",
     "test:update": "UPDATE_FIXTURES=1 vitest run",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "verify-pack": "pnpm pack && publint ./cloudflare-redocly-plugin-forge-*.tgz"
   },
   "dependencies": {
     "@redocly/ajv": "8.18.3",
@@ -56,6 +55,7 @@
     "@redocly/openapi-core": "2.77.0",
     "@types/lodash-es": "4.17.12",
     "@types/node": "25.3.5",
+    "publint": "0.3.16",
     "typescript": "5.9.3",
     "vitest": "5.1.0"
   },

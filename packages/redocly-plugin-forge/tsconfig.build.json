@@ -3,8 +3,8 @@
   "compilerOptions": {
     "noEmit": false,
     "declaration": true,
-    "declarationMap": true,
-    "sourceMap": true,
+    "declarationMap": false,
+    "sourceMap": false,
     "outDir": "./dist",
     "rootDir": ".",
     "module": "nodenext",
