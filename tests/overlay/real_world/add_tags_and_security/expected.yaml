@@ -1,0 +1,46 @@
+openapi: '3.0.3'
+info:
+  title: Widgets API
+  version: '1.0.0'
+servers:
+- url: https://api.example.com
+security:
+- apiKey: []
+- bearerAuth: []
+tags:
+- name: widgets
+- name: admin
+  description: Admin endpoints
+paths:
+  /widgets:
+    get:
+      operationId: listWidgets
+      tags:
+      - widgets
+      - admin
+      responses:
+        '200':
+          description: ok
+  /widgets/{id}:
+    get:
+      operationId: getWidget
+      tags:
+      - widgets
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: ok
+components:
+  securitySchemes:
+    apiKey:
+      type: apiKey
+      in: header
+      name: X-API-Key
+    bearerAuth:
+      type: http
+      scheme: bearer

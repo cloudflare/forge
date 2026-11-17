@@ -21,6 +21,8 @@ mod copy;
 #[cfg(feature = "cli")]
 mod oai_conformance;
 #[cfg(feature = "cli")]
+mod real_world;
+#[cfg(feature = "cli")]
 mod remove;
 #[cfg(feature = "cli")]
 mod targeting;
