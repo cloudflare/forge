@@ -99,3 +99,21 @@ jobs:
           name: docs-site-e2e-results
           path: packages/cloudflare-api-site/e2e/__test-results__
           retention-days: 7
+
+  forge-docs:
+    name: Forge docs build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v7.0.1
+
+      - uses: ./.github/actions/setup-workspace
+
+      # Every internal link is checked as the site builds, so a broken one
+      # fails here.
+      - name: Build
+        run: pnpm --filter forge-docs build
+
+      - name: Lint pages
+        run: pnpm --filter forge-docs lint:docs
