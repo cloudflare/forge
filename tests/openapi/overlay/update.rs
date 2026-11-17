@@ -294,6 +294,34 @@ fn v11_update_target_mixed_array_and_primitive_is_rejected() {
     );
 }
 
+/// 1.0 Update. The homogeneous-category check is NOT gated on version: the
+/// 1.0 spec says `update` targets must select objects or arrays (and in
+/// 1.0 primitives are rejected outright). When a 1.0 target sweeps across
+/// a mix of kinds — here `responses` (object) and `tags` (array, seeded
+/// first) on the same operation — the mixed-kind error is the clearer
+/// diagnostic than the single-node object-into-array mismatch it used to
+/// surface.
+#[test]
+fn v10_update_target_mixed_object_and_array_is_rejected() {
+    let (spec, ov) = crate::common::files(
+        "v10-update-mixed-obj-arr",
+        crate::common::SPEC,
+        r#"{
+  "overlay": "1.0.0",
+  "info": {"title": "fix", "version": "1"},
+  "actions": [
+    {"target": "$.paths[\"/a\"].get", "update": {"tags": ["x"]}},
+    {"target": "$.paths[\"/a\"].get[\"responses\",\"tags\"]", "update": {"summary": "s"}}
+  ]
+}"#,
+    );
+
+    crate::common::failed_with(
+        crate::common::overlay(&[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap()], ""),
+        &["nodes", "same category", "mixed", "homogeneous"],
+    );
+}
+
 // --- Value-type matrix: primitive targets in 1.1+ -----------------------
 
 /// 1.1+ Update. A primitive target with an array update value is rejected

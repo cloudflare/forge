@@ -113,9 +113,10 @@ pub fn apply_action(
 
     // If there is an update, copy is ignored.
     if let Some(update_val) = &fields.update {
-        if version != Version::V1_0 {
-            enforce_homogeneous_category(doc.value(), &locations)?;
+        if version == Version::V1_0 {
+            reject_v10_primitive_in_update(doc.value(), &locations)?;
         }
+        enforce_homogeneous_category(doc.value(), &locations)?;
         let mutated = apply_update(doc, version, &locations, update_val, overlay_base, spec_base)?;
         return Ok(ActionReport {
             verb: Verb::Update,
@@ -128,9 +129,7 @@ pub fn apply_action(
     }
 
     if let Some(copy_src) = &fields.copy {
-        if version != Version::V1_0 {
-            enforce_homogeneous_category(doc.value(), &locations)?;
-        }
+        enforce_homogeneous_category(doc.value(), &locations)?;
         let mutated = apply_copy(doc, version, target, &locations, copy_src)?;
         return Ok(ActionReport {
             verb: Verb::Copy,
@@ -515,6 +514,29 @@ fn enforce_homogeneous_category(root: &Value, locations: &[Pointer]) -> Result<(
                     .into());
             }
             _ => {}
+        }
+    }
+    Ok(())
+}
+
+/// Overlay 1.0 forbids `update` on primitive targets (§5). When a 1.0
+/// target sweeps across a mixed-kind nodelist that happens to include a
+/// primitive, surface the primitive-specific error (with its sibling
+/// listing) rather than the generic mixed-category message — the
+/// primitive is the actionable problem and the sibling hint tells the
+/// author which filter clause to narrow.
+fn reject_v10_primitive_in_update(root: &Value, locations: &[Pointer]) -> Result<(), Err> {
+    for p in locations {
+        if category_at(root, p) == Category::Primitive {
+            return Err(format!(
+                "action update: target selects a primitive value at {offender}, \
+                 which overlay 1.0 forbids as an `update` target (must select \
+                 objects or arrays). Forge follows Overlay 1.0 §5 strictly for \
+                 `update` on primitives.{siblings}",
+                offender = pointer_to_jsonpath(p),
+                siblings = sibling_hint(root, locations, p),
+            )
+            .into());
         }
     }
     Ok(())
