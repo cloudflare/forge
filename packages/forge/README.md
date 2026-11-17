@@ -4,13 +4,13 @@ Generates SDKs from OpenAPI documents.
 
 ```sh
 npm install --save-dev @cloudflare/forge
-npx forge openapi.json --target ts --out sdk
+npx forge generate openapi.json --target ts --out sdk
 ```
 
 Or run it once without installing:
 
 ```sh
-npx @cloudflare/forge openapi.json --target ts --out sdk
+npx @cloudflare/forge generate openapi.json --target ts --out sdk
 ```
 
 Pass `-` instead of a path to read the document from standard input. Run
@@ -93,7 +93,7 @@ WebAssembly components, so they run anywhere forge does, sandboxed: a plugin
 reads nothing but the document, and its only output is the files it returns.
 
 ```sh
-npx forge openapi.json --target wasm://plugin.wasm --out sdk
+npx forge generate openapi.json --target wasm://plugin.wasm --out sdk
 ```
 
 ### Writing one in TypeScript
@@ -140,7 +140,7 @@ Build it, and run it:
 
 ```sh
 npx forge-plugin build plugin.ts -o plugin.wasm
-npx forge openapi.json --target wasm://plugin.wasm --out sdk
+npx forge generate openapi.json --target wasm://plugin.wasm --out sdk
 ```
 
 `@cloudflare/forge/plugin` is typed throughout. A type is a union you narrow

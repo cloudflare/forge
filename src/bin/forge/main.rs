@@ -1,12 +1,16 @@
 //! The `forge` command, which generates an SDK from an OpenAPI document.
 //!
 //! ```text
-//! forge openapi.json --target ts --out sdk
-//! forge openapi.json --target capnweb --out server
-//! forge openapi.json --target mcp --out tools
-//! forge openapi.json --target wasm://plugin.wasm --out sdk
+//! forge generate openapi.json --target ts --out sdk
+//! forge generate openapi.json --target capnweb --out server
+//! forge generate openapi.json --target mcp --out tools
+//! forge generate openapi.json --target wasm://plugin.wasm --out sdk
 //! forge normalize specs/*.json
 //! ```
+//!
+//! The root form, `forge openapi.json --target ts --out sdk`, is an alias
+//! for `forge generate` kept for backward compatibility: it will be removed
+//! in a breaking release.
 
 use std::fs;
 use std::io::{self, Read};
@@ -24,11 +28,13 @@ mod ts;
 
 /// Generates an SDK from an OpenAPI document.
 #[derive(Parser)]
-#[command(version, args_conflicts_with_subcommands = true)]
+#[command(version, args_conflicts_with_subcommands = true, arg_required_else_help = true)]
 struct Args {
     #[command(subcommand)]
     command: Option<Command>,
     /// The OpenAPI JSON document, or - to read it from standard input.
+    ///
+    /// Alias for `forge generate`, kept for backward compatibility.
     #[arg(required = true)]
     spec: Option<PathBuf>,
     /// The language of the SDK: `ts` for TypeScript, `capnweb` for a Cap'n
@@ -42,9 +48,11 @@ struct Args {
     out: Option<PathBuf>,
 }
 
-/// What `forge` does other than generate an SDK.
+/// What `forge` does.
 #[derive(clap::Subcommand)]
 enum Command {
+    /// Generate an SDK from an OpenAPI document.
+    Generate(GenerateArgs),
     /// Rewrite other tools' extensions into the native x-forge-* ones.
     ///
     /// One document is printed to standard output, and nothing is changed,
@@ -52,6 +60,23 @@ enum Command {
     /// that has none is left as it is. A native key is never replaced: when a
     /// document says the same thing twice, the native key is kept.
     Normalize(normalize::Args),
+}
+
+/// What `forge generate` is given.
+#[derive(clap::Args)]
+struct GenerateArgs {
+    /// The OpenAPI JSON document, or - to read it from standard input.
+    #[arg(required = true)]
+    spec: PathBuf,
+    /// The language of the SDK: `ts` for TypeScript, `capnweb` for a Cap'n
+    /// Web server of the TypeScript SDK, which it imports from `#sdk`, `mcp`
+    /// for the tools of an MCP server in TypeScript, or `wasm://PATH` for the
+    /// plugin compiled to a WebAssembly component at PATH.
+    #[arg(long, value_parser = Target::parse, required = true)]
+    target: Target,
+    /// The directory to write the SDK to.
+    #[arg(long, required = true)]
+    out: PathBuf,
 }
 
 /// What forge generates an SDK with.
@@ -107,12 +132,16 @@ fn main() -> ExitCode {
 
 /// Does what `args` ask for.
 fn run(args: Args) -> Result<(), Err> {
-    if let Some(Command::Normalize(args)) = args.command {
-        return normalize::run(args);
-    }
-    // They are required, which a command is the only way around.
-    let (Some(spec), Some(target), Some(out)) = (args.spec, args.target, args.out) else {
-        unreachable!("clap asks for a spec, a target and an out when there is no command");
+    let (spec, target, out) = match args.command {
+        Some(Command::Normalize(args)) => return normalize::run(args),
+        Some(Command::Generate(args)) => (args.spec, args.target, args.out),
+        None => {
+            // They are required when there is no subcommand.
+            let (Some(spec), Some(target), Some(out)) = (args.spec, args.target, args.out) else {
+                unreachable!("clap asks for a spec, a target and an out when there is no command");
+            };
+            (spec, target, out)
+        }
     };
     generate(&spec, target, &out)
 }
@@ -168,20 +197,30 @@ mod tests {
     }
 
     #[test]
-    fn a_command_and_a_document_are_told_apart() {
+    fn a_command_and_the_root_alias_are_told_apart() {
         let parse = |args: &[&str]| Args::try_parse_from(std::iter::once("forge").chain(args.iter().copied()));
 
-        let command = parse(&["normalize", "--check", "a.json"]).unwrap();
-        assert!(matches!(command.command, Some(Command::Normalize(_))) && command.spec.is_none());
+        let normalize = parse(&["normalize", "--check", "a.json"]).unwrap();
+        assert!(matches!(normalize.command, Some(Command::Normalize(_))) && normalize.spec.is_none());
 
-        let document = parse(&["./normalize", "--target", "ts", "--out", "sdk"]).unwrap();
-        assert!(document.command.is_none() && document.spec.as_deref() == Some(Path::new("./normalize")));
+        let generate = parse(&["generate", "./a.json", "--target", "ts", "--out", "sdk"]).unwrap();
+        let Some(Command::Generate(g)) = generate.command else {
+            panic!("expected Generate");
+        };
+        assert_eq!(g.spec.as_path(), Path::new("./a.json"));
 
-        // What a command or a document needs is not waived for the other.
+        // The root alias still works: it's equivalent to `forge generate`.
+        let alias = parse(&["./a.json", "--target", "ts", "--out", "sdk"]).unwrap();
+        assert!(alias.command.is_none() && alias.spec.as_deref() == Some(Path::new("./a.json")));
+
+        // What a command or the alias needs is not waived for the other.
         assert!(parse(&["normalize"]).is_err());
+        assert!(parse(&["generate"]).is_err());
         assert!(parse(&["a.json"]).is_err());
+        assert!(parse(&["generate", "a.json"]).is_err());
         assert!(parse(&["normalize", "--target", "ts", "a.json"]).is_err());
         assert!(parse(&["--target", "ts", "normalize", "a.json"]).is_err());
+        // With nothing at all, clap prints help.
         assert!(parse(&[]).is_err());
     }
 }
