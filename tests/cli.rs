@@ -104,3 +104,53 @@ fn capnweb() {
     );
     std::fs::remove_dir_all(&out).unwrap();
 }
+
+/// `forge generate <spec>` is the new subcommand.
+#[test]
+fn generate_subcommand_uses_the_spec_argument() {
+    let dir = std::env::temp_dir().join(format!("forge-cli-generate-sub-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    let spec = dir.join("openapi.json");
+    std::fs::write(&spec, SPEC).unwrap();
+    let out = dir.join("out");
+    let result = forge(
+        &[
+            "generate",
+            spec.to_str().unwrap(),
+            "--target",
+            "ts",
+            "--out",
+            out.to_str().unwrap(),
+        ],
+        "",
+    );
+    assert!(result.status.success(), "{}", String::from_utf8_lossy(&result.stderr));
+    assert!(out.join("a/client.ts").is_file());
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
+/// `forge generate --target … --out …` with no positional spec means the
+/// file literally named `generate`, through the legacy root alias.
+#[test]
+fn generate_without_a_spec_falls_back_to_the_alias_with_generate_as_the_spec() {
+    let dir = std::env::temp_dir().join(format!("forge-cli-generate-alias-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    // The spec is a file named `generate` in the working directory.
+    std::fs::write(dir.join("generate"), SPEC).unwrap();
+    let out = dir.join("out");
+    let mut child = Command::new(env!("CARGO_BIN_EXE_forge"))
+        .current_dir(&dir)
+        .args(["generate", "--target", "ts", "--out", out.to_str().unwrap()])
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .unwrap();
+    child.stdin.take().unwrap();
+    let result = child.wait_with_output().unwrap();
+    assert!(result.status.success(), "{}", String::from_utf8_lossy(&result.stderr));
+    assert!(out.join("a/client.ts").is_file());
+    std::fs::remove_dir_all(&dir).unwrap();
+}

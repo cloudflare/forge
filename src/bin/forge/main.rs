@@ -10,8 +10,12 @@
 //!
 //! The root form, `forge openapi.json --target ts --out sdk`, is an alias
 //! for `forge generate` kept for backward compatibility: it will be removed
-//! in a breaking release.
+//! in a breaking release. To preserve the alias in the corner case where the
+//! spec is a file literally named `generate`, `forge generate --target …
+//! --out …` with no positional spec falls back to the alias (see
+//! [`parse_cli`]).
 
+use std::ffi::OsString;
 use std::fs;
 use std::io::{self, Read};
 use std::path::{Path, PathBuf};
@@ -121,13 +125,47 @@ impl Target {
 }
 
 fn main() -> ExitCode {
-    match run(Args::parse()) {
+    let args = match parse_cli(std::env::args_os()) {
+        Ok(args) => args,
+        Err(err) => err.exit(),
+    };
+    match run(args) {
         Ok(()) => ExitCode::SUCCESS,
         Err(err) => {
             eprintln!("forge: {err}");
             ExitCode::FAILURE
         }
     }
+}
+
+/// Parses command-line arguments, with a backward-compatibility fallback:
+/// `forge generate --target … --out …` with no positional spec previously
+/// meant "generate an SDK for the file named `generate`" through the root
+/// alias. Clap now matches `generate` as the subcommand name instead, so
+/// that invocation fails with a missing `<SPEC>` error. When that happens,
+/// we retry with `generate` moved to the end as the spec of the root alias,
+/// which preserves the old behavior. `forge generate <spec> …` keeps its
+/// new meaning, since the first parse succeeds.
+fn parse_cli<I, T>(raw: I) -> Result<Args, clap::Error>
+where
+    I: IntoIterator<Item = T>,
+    T: Into<OsString> + Clone,
+{
+    let raw: Vec<OsString> = raw.into_iter().map(Into::into).collect();
+    let result = Args::try_parse_from(&raw);
+    if let Err(err) = &result
+        && raw.get(1).and_then(|a| a.to_str()) == Some("generate")
+        && err.kind() == clap::error::ErrorKind::MissingRequiredArgument
+    {
+        let mut legacy = Vec::with_capacity(raw.len());
+        legacy.push(raw[0].clone());
+        legacy.extend(raw[2..].iter().cloned());
+        legacy.push(OsString::from("generate"));
+        if let Ok(args) = Args::try_parse_from(&legacy) {
+            return Ok(args);
+        }
+    }
+    result
 }
 
 /// Does what `args` ask for.
@@ -190,6 +228,7 @@ mod tests {
 
     use super::Args;
     use super::Command;
+    use super::parse_cli;
 
     #[test]
     fn args() {
@@ -222,5 +261,31 @@ mod tests {
         assert!(parse(&["--target", "ts", "normalize", "a.json"]).is_err());
         // With nothing at all, clap prints help.
         assert!(parse(&[]).is_err());
+    }
+
+    #[test]
+    fn generate_with_a_spec_runs_the_subcommand_and_without_a_spec_falls_back_to_the_alias() {
+        let parse = |args: &[&str]| parse_cli(std::iter::once("forge").chain(args.iter().copied()));
+
+        // A spec after `generate` is the subcommand form.
+        let subcommand = parse(&["generate", "openapi.json", "--target", "ts", "--out", "sdk"]).unwrap();
+        let Some(Command::Generate(g)) = subcommand.command else {
+            panic!("expected Generate subcommand, got {:?}", subcommand.command.is_some());
+        };
+        assert_eq!(g.spec.as_path(), Path::new("openapi.json"));
+
+        // No positional spec after `generate` means the legacy alias: the
+        // spec is the file literally named `generate`.
+        let alias = parse(&["generate", "--target", "ts", "--out", "sdk"]).unwrap();
+        assert!(alias.command.is_none(), "expected the root alias, got a subcommand");
+        assert_eq!(alias.spec.as_deref(), Some(Path::new("generate")));
+
+        // `forge generate` alone is still an error: neither form has what it
+        // needs.
+        assert!(parse(&["generate"]).is_err());
+
+        // `forge normalize` is unchanged.
+        let normalize = parse(&["normalize", "--check", "a.json"]).unwrap();
+        assert!(matches!(normalize.command, Some(Command::Normalize(_))));
     }
 }
