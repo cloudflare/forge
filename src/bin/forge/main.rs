@@ -48,16 +48,15 @@ enum Command {
 #[derive(clap::Args)]
 struct GenerateArgs {
     /// The OpenAPI JSON document, or - to read it from standard input.
-    #[arg(required = true)]
     spec: PathBuf,
     /// The language of the SDK: `ts` for TypeScript, `capnweb` for a Cap'n
     /// Web server of the TypeScript SDK, which it imports from `#sdk`, `mcp`
     /// for the tools of an MCP server in TypeScript, or `wasm://PATH` for the
     /// plugin compiled to a WebAssembly component at PATH.
-    #[arg(long, value_parser = Target::parse, required = true)]
+    #[arg(long, value_parser = Target::parse)]
     target: Target,
     /// The directory to write the SDK to.
-    #[arg(long, required = true)]
+    #[arg(long)]
     out: PathBuf,
 }
 
@@ -103,13 +102,40 @@ impl Target {
 }
 
 fn main() -> ExitCode {
-    match run(Args::parse()) {
+    let args = match Args::try_parse() {
+        Ok(args) => args,
+        Err(err) => {
+            let _ = err.print();
+            if let Some(hint) = hint_old_root_form(err.kind(), std::env::args().nth(1).as_deref()) {
+                eprintln!();
+                eprintln!("{hint}");
+            }
+            std::process::exit(if err.use_stderr() { 2 } else { 0 });
+        }
+    };
+    match run(args) {
         Ok(()) => ExitCode::SUCCESS,
         Err(err) => {
             eprintln!("forge: {err}");
             ExitCode::FAILURE
         }
     }
+}
+
+/// Returns a hint pointing at `forge generate` when clap rejected the first
+/// argument as an unknown subcommand and it looks like a spec (a path with
+/// `/` or `.`, a `wasm://` URL, or `-` for stdin). Clap already prints its
+/// own "did you mean" hint for near-miss typos, so the migration hint is
+/// skipped for bare words, the only case where the near-miss hint helps.
+fn hint_old_root_form(kind: clap::error::ErrorKind, first_arg: Option<&str>) -> Option<&'static str> {
+    if kind != clap::error::ErrorKind::InvalidSubcommand {
+        return None;
+    }
+    let arg = first_arg?;
+    let looks_like_spec = arg == "-" || arg.contains('.') || arg.contains('/') || arg.starts_with("wasm://");
+    looks_like_spec.then_some(
+        "note: the root form `forge <SPEC> --target --out` has been removed; use\n      `forge generate <SPEC> --target --out` instead.",
+    )
 }
 
 /// Does what `args` ask for.
@@ -164,10 +190,32 @@ mod tests {
 
     use super::Args;
     use super::Command;
+    use super::hint_old_root_form;
 
     #[test]
     fn args() {
         Args::command().debug_assert();
+    }
+
+    #[test]
+    fn the_migration_hint_fires_only_when_the_first_arg_looks_like_a_spec() {
+        use clap::error::ErrorKind;
+
+        // Spec-looking inputs get the hint.
+        assert!(hint_old_root_form(ErrorKind::InvalidSubcommand, Some("openapi.json")).is_some());
+        assert!(hint_old_root_form(ErrorKind::InvalidSubcommand, Some("./a.json")).is_some());
+        assert!(hint_old_root_form(ErrorKind::InvalidSubcommand, Some("path/to/spec")).is_some());
+        assert!(hint_old_root_form(ErrorKind::InvalidSubcommand, Some("-")).is_some());
+        assert!(hint_old_root_form(ErrorKind::InvalidSubcommand, Some("wasm://plugin.wasm")).is_some());
+
+        // A near-miss typo of a real subcommand doesn't look like a spec,
+        // so clap's own "did you mean" hint is the only one shown.
+        assert!(hint_old_root_form(ErrorKind::InvalidSubcommand, Some("generat")).is_none());
+        assert!(hint_old_root_form(ErrorKind::InvalidSubcommand, Some("normaliz")).is_none());
+
+        // Other error kinds never trigger the hint.
+        assert!(hint_old_root_form(ErrorKind::MissingRequiredArgument, Some("openapi.json")).is_none());
+        assert!(hint_old_root_form(ErrorKind::InvalidSubcommand, None).is_none());
     }
 
     #[test]
@@ -188,8 +236,11 @@ mod tests {
         assert!(parse(&["generate"]).is_err());
         assert!(parse(&["generate", "a.json"]).is_err());
         assert!(parse(&["generate", "a.json", "--target", "ts"]).is_err());
-        // The old root form is gone: a bare spec + flags is an error.
+        // The old root form is gone: a bare spec + flags is an error, and
+        // the removed `--target`/`--out` are not top-level flags any more.
         assert!(parse(&["a.json", "--target", "ts", "--out", "sdk"]).is_err());
+        assert!(parse(&["normalize", "--target", "ts", "a.json"]).is_err());
+        assert!(parse(&["--target", "ts", "normalize", "a.json"]).is_err());
         // With nothing at all, clap prints help.
         assert!(parse(&[]).is_err());
     }
