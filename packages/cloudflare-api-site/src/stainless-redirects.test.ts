@@ -16,7 +16,7 @@ const site = {
 
 test('an old method page redirects to the page of its operation', () => {
   const plan = planStainlessRedirects(snapshot, site);
-  assert.equal(plan.redirects['/resources/zones/methods/list/'], '/zones/methods/list/');
+  assert.equal(plan.lookup['/resources/zones/methods/list/'], '/zones/methods/list/');
 });
 
 test('an old resource page redirects to the deepest section holding all its methods', () => {
@@ -46,8 +46,8 @@ test('an old resource page redirects to the deepest section holding all its meth
       ]),
     },
   );
-  assert.equal(plan.redirects['/resources/zero_trust/subresources/dex/'], '/zero-trust/dex/');
-  assert.equal(plan.redirects['/resources/zero_trust/'], '/zero-trust/');
+  assert.equal(plan.lookup['/resources/zero_trust/subresources/dex/'], '/zero-trust/dex/');
+  assert.equal(plan.lookup['/resources/zero_trust/'], '/zero-trust/');
 });
 
 test('what the site no longer publishes falls back to the nearest old ancestor that redirects', () => {
@@ -58,18 +58,20 @@ test('what the site no longer publishes falls back to the nearest old ancestor t
         '/resources/accounts/methods/list/': 'accounts-list',
         '/resources/accounts/subresources/profile/methods/get/': 'profile-get',
       },
-      models: [],
-      operations: [],
+      models: ['/resources/accounts/subresources/profile/models/profile/'],
+      operations: ['profile-get'],
     },
     { operations: { 'accounts-list': 'accounts/methods/list' }, sections: new Set(['/accounts/']) },
   );
-  assert.equal(plan.redirects['/resources/accounts/subresources/profile/methods/get/'], '/accounts/');
-  assert.equal(plan.redirects['/resources/accounts/subresources/profile/'], '/accounts/');
-  assert.equal(plan.redirects['/resources/$shared/'], '/');
+  assert.equal(plan.lookup['/resources/accounts/subresources/profile/methods/get/'], '/accounts/');
+  assert.equal(plan.lookup['/resources/accounts/subresources/profile/'], '/accounts/');
+  assert.equal(plan.lookup['/resources/$shared/'], '/');
   assert.deepEqual(plan.fallbacks.sort(), [
+    '/operations/profile-get/',
     '/resources/$shared/',
     '/resources/accounts/subresources/profile/',
     '/resources/accounts/subresources/profile/methods/get/',
+    '/resources/accounts/subresources/profile/models/profile/',
   ]);
 });
 
@@ -86,17 +88,17 @@ test('old model, operation and overview pages redirect too', () => {
     },
     site,
   );
-  assert.equal(plan.redirects['/resources/zones/models/zone/'], '/zones/');
-  assert.equal(plan.redirects['/operations/zones-get/'], '/zones/methods/list/');
-  assert.equal(plan.redirects['/operations/holds-get/'], '/zones/');
-  assert.equal(plan.redirects['/operations/gone/'], '/');
-  assert.equal(plan.redirects['/overview/'], '/');
+  assert.equal(plan.lookup['/resources/zones/models/zone/'], '/zones/');
+  assert.equal(plan.lookup['/operations/zones-get/'], '/zones/methods/list/');
+  assert.equal(plan.lookup['/operations/holds-get/'], '/zones/');
+  assert.equal(plan.lookup['/operations/gone/'], '/');
+  assert.equal(plan.lookup['/overview/'], '/');
 });
 
 test('the edge serves the shallowest pages up to its budget', () => {
   const plan = planStainlessRedirects(
     {
-      resources: ['/resources/zones/subresources/holds/', '/resources/zones/'],
+      resources: ['/resources/zones/subresources/models/', '/resources/zones/subresources/holds/', '/resources/zones/'],
       methods: {
         '/resources/zones/subresources/holds/methods/get/': 'holds-get',
         '/resources/zones/methods/list/': 'zones-get',
@@ -105,12 +107,13 @@ test('the edge serves the shallowest pages up to its budget', () => {
       operations: ['zones-get'],
     },
     site,
-    { staticRules: 3 },
+    { staticRules: 4 },
   );
   assert.deepEqual(plan.edge, {
     '/overview/': '/',
     '/resources/zones/': '/zones/',
     '/resources/zones/subresources/holds/': '/zones/',
+    '/resources/zones/subresources/models/': '/zones/',
   });
 });
 
@@ -119,6 +122,8 @@ test('the request-time lookup redirects every old page, its Markdown twin and it
     '/overview/': '/',
     '/resources/zones/': '/zones/',
     '/resources/zones/methods/list/': '/zones/methods/list/',
+    '/resources/zones/models/zone/': '/zones/',
+    '/resources/ai/subresources/models/': '/ai/models/',
     '/operations/zones-get/': '/zones/methods/list/',
   };
   const cases: [path: string, search: string, target: string | undefined][] = [
@@ -135,8 +140,12 @@ test('the request-time lookup redirects every old page, its Markdown twin and it
     ['/terraform/resources/zones/methods/list/', '?a=1', '/zones/methods/list/?a=1&lang=terraform'],
     ['/terraform/resources/zones/methods/list/index.md', '', '/zones/methods/list/index.md'],
     ['/terraform/resources/zones/models/zone/', '', '/zones/?lang=terraform'],
+    ['/resources/ai/subresources/models/', '', '/ai/models/'],
+    ['/resources/ai/subresources/models/index.md', '', '/ai/models/index.md'],
     ['/resources/nope/', '', undefined],
-    ['/resources/nope/models/zone/', '', undefined],
+    ['/resources/zones/models/nope/', '', undefined],
+    ['/operations/zones-get/index.md', '', undefined],
+    ['/terraform/operations/zones-get/', '', undefined],
     ['/resources/nope/index.md', '', undefined],
     ['/terraform/resources/nope/', '', undefined],
     ['/zones/', '', undefined],
@@ -149,12 +158,13 @@ test('the request-time lookup redirects every old page, its Markdown twin and it
   }
 });
 
-test('the request-time lookup holds the old resource, method, operation and overview pages', () => {
+test('the request-time lookup holds every old page', () => {
   const plan = planStainlessRedirects({ ...snapshot, models: ['/resources/zones/models/zone/'] }, site);
   assert.deepEqual(plan.lookup, {
     '/overview/': '/',
     '/resources/zones/': '/zones/',
     '/resources/zones/methods/list/': '/zones/methods/list/',
+    '/resources/zones/models/zone/': '/zones/',
     '/operations/zones-get/': '/zones/methods/list/',
   });
 });
@@ -180,5 +190,5 @@ test('an old resource whose methods moved to several products redirects within t
       sections: new Set(['/zones/', '/zones/holds/', '/observability/', '/observability/zones/']),
     },
   );
-  assert.equal(plan.redirects['/resources/zones/'], '/zones/');
+  assert.equal(plan.lookup['/resources/zones/'], '/zones/');
 });

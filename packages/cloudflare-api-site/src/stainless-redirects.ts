@@ -19,10 +19,8 @@ export interface ForgeSite {
 }
 
 export interface StainlessRedirectPlan {
-  /** The old resource, method, operation and overview pages → today's, for `stainlessRedirect`. */
+  /** Every old page → today's page, collection-relative, for `stainlessRedirect`. */
   lookup: Record<string, string>;
-  /** Every old HTML page → today's page, collection-relative. */
-  redirects: Record<string, string>;
   /** Old pages with no page of their own today, sent to an ancestor's instead. */
   fallbacks: string[];
   /** The highest-ranked old pages, for Astro's `redirects`, which the adapter writes to `_redirects`. */
@@ -35,75 +33,71 @@ export interface StainlessRedirectOptions {
 }
 
 /** Workers static assets apply at most 2,000 static `_redirects` rules and drop the rest silently. */
-export const STATIC_RULE_LIMIT = 2000;
+const STATIC_RULE_LIMIT = 2000;
 
-/** The edge takes the overview first, then resources, then methods, each shallowest first. */
-function rank(path: string): [kind: number, depth: number] {
-  const kind =
-    path === '/overview/'
-      ? 0
-      : path.includes('/methods/')
-        ? 2
-        : path.includes('/models/')
-          ? 3
-          : path.startsWith('/operations/')
-            ? 4
-            : 1;
-  return [kind, path.split('/subresources/').length];
-}
+/** The kinds of old page, in the order the edge takes them. */
+const KINDS = ['overview', 'resource', 'method', 'model', 'operation'] as const;
 
 export function planStainlessRedirects(
   snapshot: StainlessSnapshot,
   site: ForgeSite,
   { staticRules = STATIC_RULE_LIMIT }: StainlessRedirectOptions = {},
 ): StainlessRedirectPlan {
-  const table: Record<string, string> = { '/overview/': '/' };
+  const lookup: Record<string, string> = { '/overview/': '/' };
+  const kinds = new Map<string, (typeof KINDS)[number]>([['/overview/', 'overview']]);
+  const fallbacks = new Set<string>();
+  const fallBack = (path: string, to: string | undefined) => {
+    lookup[path] = to ?? '/';
+    fallbacks.add(path);
+  };
+
   /** The section each mapped old method's page lives in, as segments. */
   const methodSections: [path: string, segments: string[]][] = [];
   for (const [path, operationId] of Object.entries(snapshot.methods)) {
+    kinds.set(path, 'method');
     const slug = site.operations[operationId];
     if (!slug) continue;
-    table[path] = `/${slug}/`;
+    lookup[path] = `/${slug}/`;
     methodSections.push([path, slug.slice(0, slug.lastIndexOf('/methods/')).split('/')]);
   }
-  const fallbacks: string[] = [];
   // Parents first, so a resource can fall back to its parent's target.
-  const resources = [...snapshot.resources].sort((a, b) => a.length - b.length);
-  for (const resource of resources) {
+  for (const resource of [...snapshot.resources].sort((a, b) => a.length - b.length)) {
+    kinds.set(resource, 'resource');
     const held = methodSections.filter(([path]) => path.startsWith(resource)).map(([, segments]) => segments);
     const target = existingSection(commonPrefix(inLeadingProduct(held)), site.sections);
-    if (target) {
-      table[resource] = target;
-      continue;
-    }
-    table[resource] = table[parentResource(resource)] ?? '/';
-    fallbacks.push(resource);
+    if (target) lookup[resource] = target;
+    else fallBack(resource, lookup[parentResource(resource)]);
   }
   for (const path of Object.keys(snapshot.methods)) {
-    if (table[path]) continue;
-    table[path] = table[path.slice(0, path.lastIndexOf('methods/'))] ?? '/';
-    fallbacks.push(path);
+    if (!lookup[path]) fallBack(path, lookup[ownerResource(path, 'methods/')]);
   }
-  const redirects = { ...table };
   for (const model of snapshot.models) {
-    redirects[model] = table[model.slice(0, model.lastIndexOf('models/'))] ?? '/';
+    kinds.set(model, 'model');
+    const owner = ownerResource(model, 'models/');
+    if (fallbacks.has(owner)) fallBack(model, lookup[owner]);
+    else lookup[model] = lookup[owner] ?? '/';
   }
   const byOperation = new Map(Object.entries(snapshot.methods).map(([path, operationId]) => [operationId, path]));
-  const lookup = { ...table };
   for (const operationId of snapshot.operations) {
+    const path = `/operations/${operationId}/`;
+    kinds.set(path, 'operation');
     const slug = site.operations[operationId];
     const method = byOperation.get(operationId);
-    lookup[`/operations/${operationId}/`] = redirects[`/operations/${operationId}/`] = slug
-      ? `/${slug}/`
-      : ((method && table[method]) ?? '/');
+    if (slug) lookup[path] = `/${slug}/`;
+    else fallBack(path, method && lookup[method]);
   }
-  const ranked = Object.keys(redirects).sort((a, b) => {
-    const [kindA, depthA] = rank(a);
-    const [kindB, depthB] = rank(b);
-    return kindA - kindB || depthA - depthB || a.localeCompare(b);
-  });
-  const edge = Object.fromEntries(ranked.slice(0, staticRules).map((path) => [path, redirects[path]!]));
-  return { lookup, redirects, fallbacks, edge };
+
+  // The edge takes the overview, then resources, methods, models and operations, each shallowest first.
+  const rank = (path: string) => KINDS.indexOf(kinds.get(path)!);
+  const depth = (path: string) => path.split('/subresources/').length;
+  const ranked = Object.keys(lookup).sort((a, b) => rank(a) - rank(b) || depth(a) - depth(b) || a.localeCompare(b));
+  const edge = Object.fromEntries(ranked.slice(0, staticRules).map((path) => [path, lookup[path]!]));
+  return { lookup, fallbacks: [...fallbacks], edge };
+}
+
+/** The old resource page a method or model page belongs to: `/resources/a/methods/b/` → `/resources/a/`. */
+function ownerResource(path: string, segment: 'methods/' | 'models/'): string {
+  return path.slice(0, path.lastIndexOf(segment));
 }
 
 /** `/resources/a/subresources/b/` → `/resources/a/`; a top-level resource has none. */
@@ -143,10 +137,10 @@ function existingSection(segments: string[], sections: ReadonlySet<string>): str
 }
 
 /**
- * Where the middleware sends an old Stainless URL: its page, with a model page
- * standing for its resource; its Markdown twin; or, under `/terraform/`, the page
- * in its Terraform view (`?lang=terraform`). `path` is collection-relative;
- * `lookup` is the plan's.
+ * Where the middleware sends an old Stainless URL: its page; its Markdown twin;
+ * or, under `/terraform/`, the page in its Terraform view (`?lang=terraform`).
+ * `/operations/` pages had neither. `path` is collection-relative; `lookup` is
+ * the plan's.
  */
 export function stainlessRedirect(
   path: string,
@@ -157,8 +151,7 @@ export function stainlessRedirect(
   let page = terraform ? path.slice('/terraform'.length) : path;
   const markdown = page.endsWith('/index.md');
   if (markdown) page = page.slice(0, -'index.md'.length);
-  const model = page.lastIndexOf('/models/');
-  if (model !== -1) page = page.slice(0, model + 1);
+  if ((terraform || markdown) && page.startsWith('/operations/')) return undefined;
   // The old Terraform home is the only root that isn't this site's own.
   const target = page === '/' ? (terraform ? '/' : undefined) : lookup[page];
   if (!target) return undefined;
