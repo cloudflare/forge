@@ -34,8 +34,16 @@ is that every statement about Forge is checked against its source or its output.
 ## Deployment
 
 `pnpm --filter forge-docs deploy` runs `cf deploy`, which builds the site and uploads it as a Worker
-with no script, serving the pages as static assets. `cloudflare.config.ts` has no account or domain
-yet; add both when the site has a home, and build with `DOCS_SITE_URL` set to its origin.
+with no script, serving the pages as static assets. CI does this, as for the API site:
+
+- **Every pull request** that changes the site gets a Worker Preview, named after its branch
+  (`.github/workflows/preview-forge-docs.yml`). Its URL is in the job's log.
+- **Every push to `main`** that changes the site deploys it (`deploy-forge-docs.yml`).
+- **CI** builds it on every pull request, which checks every internal link, and lints the pages.
+
+The deploy builds with `DOCS_SITE_URL` from the `FORGE_DOCS_SITE_URL` repository variable; set it to
+the Worker's address once it exists, or canonicals and the sitemap point at localhost. Once the site
+has a domain, add it to `cloudflare.config.ts` with `workersDev: false`, and update the variable.
 
 `cf` builds an Astro site through the Cloudflare adapter, so `astro.config.ts` has it, although every
 page is prerendered. Images are optimized at build time and sessions are off, so the Worker has no

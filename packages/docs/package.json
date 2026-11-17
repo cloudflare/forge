@@ -11,7 +11,7 @@
   },
   "type": "module",
   "scripts": {
-    "dev": "astro dev",
+    "dev": "cf dev",
     "start": "astro dev",
     "build": "cf build",
     "preview": "astro preview",
@@ -20,7 +20,8 @@
     "lint:docs": "nimbus-docs lint",
     "lint:docs:fix": "nimbus-docs lint --fix",
     "astro": "astro",
-    "deploy": "cf deploy"
+    "deploy": "cf deploy",
+    "deploy:preview": "cf previews deploy"
   },
   "dependencies": {
     "@astrojs/cloudflare": "^15.0.0-beta.2",

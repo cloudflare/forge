@@ -10,7 +10,7 @@ const nimbusConfig = defineNimbusConfig({
   // The canonical origin: canonical URLs, absolute OG image URLs, robots.txt,
   // the sitemap and the links in /llms.txt. Set `DOCS_SITE_URL` for any build
   // that is deployed; the fallback is only good for local work.
-  site: process.env.DOCS_SITE_URL ?? 'http://localhost:4321',
+  site: process.env.DOCS_SITE_URL || 'http://localhost:4321',
   title: 'Forge',
   description:
     'A pluggable, schema-first code generator. Forge reads an OpenAPI document into one typed model and hands it to plugins that write SDKs, MCP tools, servers and docs.',
