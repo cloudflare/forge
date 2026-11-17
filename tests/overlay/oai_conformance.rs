@@ -8,67 +8,29 @@
 //!
 //! We invoke each as `forge overlay <trivial-spec> --overlay <test>` in
 //! Mode B. Mode B ignores `extends`, so tests whose `extends` URIs point at
-//! files we don't have still parse cleanly. For Mode-A-only documents (ones
-//! that only make sense when their `extends` resolves) this layer still
-//! verifies document-level schema conformance — apply-time semantics are
-//! covered by the hand-written tests elsewhere in this directory.
+//! files we don't have still parse cleanly.
 //!
-//! ## Forge is a RESTRICTED compatibility profile, not unrestricted conformance
+//! ## Forge's restricted security profile
 //!
 //! Forge intentionally refuses to issue any HTTP request. `$self` and
-//! `extends` MUST NOT use an `http://` or `https://` URI, in any mode or
-//! any Overlay minor. This is a security-profile deviation from the OAI
-//! spec: the OAI corpus ships some `pass/*.yaml` fixtures whose URIs use
-//! https. Rather than silently accepting those or editing vendored files,
-//! we maintain an explicit `POLICY_DEVIATIONS` manifest. For each listed
-//! fixture:
+//! `extends` MUST NOT use an `http://` or `https://` URI. The upstream
+//! `pass/*.yaml` corpus ships a small number of fixtures that put https
+//! URIs in those fields; `POLICY_DEVIATIONS` lists them so this runner
+//! treats them as expected rejections rather than conformance failures.
 //!
-//! - Forge MUST reject it (not accept it, not panic on it, not I/O-fail
-//!   on it, not pre-implementation-CLI-fail on it).
-//! - The rejection MUST name a scheme-policy marker
-//!   (`scheme`/`security`/`policy`/`network`/`forbidden`/`not allowed`).
-//! - The rejection MUST name at least ONE complete `(field, URI)` pair
-//!   from the fixture — a field (`$self` or `extends`) alongside the
-//!   exact URI it holds, so an operator can see which specific reference
-//!   tripped the policy. A valid validator may stop at the first forbidden
-//!   reference it finds; we do NOT require every reference in the fixture
-//!   to be reported.
+//! The deviation runner itself is deliberately thin: it asserts the
+//! fixture is rejected and the rejection isn't a panic, I/O error, or
+//! the pre-implementation CLI diagnostic. Full discrimination of the
+//! HTTP security rule (correct field named, URI shown, no network
+//! connection attempted) is proven exhaustively across versions and
+//! modes by the handwritten tests in `tests/overlay/validation.rs`.
+//! Duplicating that discrimination here would just enforce error-text
+//! vocabulary before any error text exists.
 //!
-//! The full manifest still lists every forbidden reference. That serves
-//! two purposes: documentation (readers see what is rejected and why),
-//! and fixture drift detection (the sanity test at the bottom asserts
-//! every listed `(field, URI)` pair matches the parsed YAML of the
-//! fixture, so an upstream rename or URI edit fails loudly).
-//!
-//! Dedicated handwritten tests in `tests/overlay/validation.rs`
-//! independently verify HTTP(S) rejection for BOTH `$self` and `extends`
-//! across every supported Overlay version and invocation mode — the
-//! policy-deviation path above is corpus-driven acceptance, not the
-//! sole proof of the security rule.
-//!
-//! An unlisted pass fixture that forge rejects is a bug — either in the
-//! implementation or in the deviations manifest.
-//!
-//! ## Discrimination of negative fixtures
-//!
-//! A rejection is only credit for the fixture if it is an overlay-level
-//! schema error. We require the stderr to:
-//!
-//! 1. NOT contain any of the generic pre-implementation CLI diagnostics
-//!    forge emits before `overlay` is a registered subcommand (identical
-//!    guard to `common::PRE_IMPL_MARKERS`, imported here rather than
-//!    duplicated).
-//! 2. NOT look like a target-OpenAPI parse error, a missing-file I/O
-//!    failure, or a panic — those don't demonstrate that the overlay was
-//!    rejected for the reason the fixture is about.
-//! 3. Contain at least one overlay-schema marker (`overlay`, `action`,
-//!    `target`, `$ref`, `extends`, `$self`, `fields`, `components`, or
-//!    `update` / `copy` / `remove`), so we know forge examined the overlay
-//!    itself rather than tripping on something else.
-//!
-//! When any of these conditions fails, we report the fixture name together
-//! with the complete stdout and stderr, so a regression in the official
-//! corpus is immediately debuggable.
+//! The deviation manifest still enumerates every `(field, URI)` pair in
+//! each fixture, consumed by the drift sanity test at the bottom: if
+//! upstream renames a URI or moves it to a different field, that test
+//! fails loudly instead of silently dropping coverage.
 
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -76,9 +38,9 @@ use std::path::{Path, PathBuf};
 use crate::common::{PRE_IMPL_MARKERS, SPEC, dir, overlay, text};
 
 /// Strings that indicate the error came from somewhere other than the
-/// overlay validator — a missing file, a target-spec parser, a panic. If
-/// one of these appears in a fixture's stderr we consider it a false
-/// negative/positive, not real conformance.
+/// overlay validator — a missing file, a target-spec parser, a panic.
+/// A fixture whose stderr matches one of these isn't real conformance
+/// evidence either way.
 const NON_OVERLAY_ERROR_MARKERS: &[&str] = &[
     "panicked at",
     "stack backtrace",
@@ -90,8 +52,9 @@ const NON_OVERLAY_ERROR_MARKERS: &[&str] = &[
     "invalid openapi",
 ];
 
-/// Overlay-schema markers. A real overlay-level rejection mentions at
-/// least one of these.
+/// Overlay-schema markers. A real overlay-level rejection of a `fail`
+/// fixture mentions at least one of these — otherwise we can't tell the
+/// overlay validator actually looked at the document.
 const OVERLAY_MARKERS: &[&str] = &[
     "overlay",
     "action",
@@ -111,23 +74,12 @@ const OVERLAY_MARKERS: &[&str] = &[
     "rfc 9535",
 ];
 
-/// Scheme-policy markers that must appear somewhere in a security-policy
-/// rejection — AFTER the forbidden URI has been redacted from stderr. The
-/// bare word `http` is deliberately absent: every deviation's URI starts
-/// with `http`/`https`, and that URI often appears verbatim in stderr, so
-/// including `http` here would make this check trivially true for any
-/// rejection that echoes the URL. `rejected` is also absent — too generic
-/// to prove the HTTP security policy fired rather than any other
-/// validation error.
-const SECURITY_POLICY_SCHEME_MARKERS: &[&str] =
-    &["scheme", "security", "policy", "network", "forbidden", "not allowed"];
-
-/// One forbidden (field, URI) pair inside a deviation fixture.
+/// One forbidden (field, URI) pair inside a deviation fixture. Stored
+/// exactly as it appears in the upstream fixture so the drift sanity
+/// test can verify the pair hasn't moved or been edited.
 #[derive(Clone, Copy)]
 struct ForbiddenRef {
-    /// Exact overlay field holding the URI (`$self` or `extends`).
     field: &'static str,
-    /// The complete forbidden URI as it appears in the fixture, verbatim.
     uri: &'static str,
 }
 
@@ -136,21 +88,15 @@ struct ForbiddenRef {
 struct PolicyDeviation {
     version: &'static str,
     file: &'static str,
-    /// Every forbidden reference in the fixture. Stored in full for
-    /// documentation and fixture-drift validation; the stderr-contents
-    /// check only requires AT LEAST ONE of these pairs to be named,
-    /// since a validator may legitimately stop at the first forbidden
-    /// reference it encounters.
     forbidden: &'static [ForbiddenRef],
 }
 
-/// Explicit list of OAI `pass/*.yaml` fixtures that Forge's security
-/// policy REJECTS. Each entry records every forbidden (field, URI) pair
-/// in the fixture verbatim; see the module docs for the exact contract.
+/// OAI `pass/*.yaml` fixtures that Forge's security profile REJECTS. The
+/// `forbidden` list documents every `(field, URI)` pair in the fixture;
+/// the runner only requires forge to reject the fixture, but the drift
+/// sanity test asserts each pair is still present verbatim in the
+/// upstream YAML.
 const POLICY_DEVIATIONS: &[PolicyDeviation] = &[
-    // $self AND extends both https — both forbidden refs MUST be named.
-    // The upstream fixture's intent (reusable identifier) cannot be
-    // honored without network access.
     PolicyDeviation {
         version: "v1.2-dev",
         file: "self-and-extends-identifier.yaml",
@@ -165,8 +111,6 @@ const POLICY_DEVIATIONS: &[PolicyDeviation] = &[
             },
         ],
     },
-    // $self is https (extends is a plain relative reference, which would
-    // otherwise be fine); Forge rejects for the $self scheme.
     PolicyDeviation {
         version: "v1.2-dev",
         file: "self-with-relative-extends.yaml",
@@ -199,22 +143,14 @@ fn spec_for(tag: &str) -> PathBuf {
     p
 }
 
-fn deviation_for(version: &str, name: &str) -> Option<&'static PolicyDeviation> {
-    POLICY_DEVIATIONS
-        .iter()
-        .find(|d| d.version == version && d.file == name)
-}
-
-fn stderr_has_any(lower: &str, markers: &[&str]) -> bool {
-    markers.iter().any(|m| lower.contains(&m.to_lowercase()))
+fn is_policy_deviation(version: &str, name: &str) -> bool {
+    POLICY_DEVIATIONS.iter().any(|d| d.version == version && d.file == name)
 }
 
 #[derive(Default)]
 struct PassReport {
+    unexpectedly_accepted: Vec<String>,
     unexpectedly_rejected: Vec<String>,
-    deviation_unexpectedly_accepted: Vec<String>,
-    deviation_missing_scheme_marker: Vec<String>,
-    deviation_missing_matching_pair: Vec<String>,
     pre_impl: Vec<String>,
     non_overlay_error: Vec<String>,
 }
@@ -230,69 +166,29 @@ fn run_pass(version: &str) {
         let stderr = text(&out.stderr).to_owned();
         let lower = stderr.to_lowercase();
 
-        if let Some(deviation) = deviation_for(version, &name) {
-            // Policy deviation: Forge MUST reject.
+        let is_deviation = is_policy_deviation(version, &name);
+        let failed_with_pre_impl = !out.status.success() && PRE_IMPL_MARKERS.iter().any(|m| stderr.contains(m));
+
+        if failed_with_pre_impl {
+            report.pre_impl.push(name);
+            continue;
+        }
+
+        if is_deviation {
             if out.status.success() {
                 report
-                    .deviation_unexpectedly_accepted
+                    .unexpectedly_accepted
                     .push(format!("{name}\n  stdout:\n{stdout}\n  stderr:\n{stderr}"));
-                continue;
-            }
-            if PRE_IMPL_MARKERS.iter().any(|m| stderr.contains(m)) {
-                report.pre_impl.push(name);
-                continue;
-            }
-            if NON_OVERLAY_ERROR_MARKERS.iter().any(|m| lower.contains(m)) {
+            } else if NON_OVERLAY_ERROR_MARKERS.iter().any(|m| lower.contains(m)) {
                 report.non_overlay_error.push(format!("{name}\n  stderr:\n{stderr}"));
-                continue;
             }
-            // Redact every forbidden URI from stderr before the scheme and
-            // field checks run. The URIs themselves start with `http`/`https`
-            // and contain their own path segments, so leaving them in would
-            // let any stderr that merely echoes the URL trivially satisfy
-            // these checks. The URI-verbatim side of the pair check below
-            // runs against the ORIGINAL stderr, where quoting IS the contract.
-            let mut redacted = stderr.clone();
-            for forbidden in deviation.forbidden {
-                redacted = redacted.replace(forbidden.uri, "");
-            }
-            let redacted_lower = redacted.to_lowercase();
-            // Require: a scheme-policy marker — in the URI-free stderr.
-            if !stderr_has_any(&redacted_lower, SECURITY_POLICY_SCHEME_MARKERS) {
-                report
-                    .deviation_missing_scheme_marker
-                    .push(format!("{name}\n  stderr:\n{stderr}"));
-                continue;
-            }
-            // Require: AT LEAST ONE complete (field, URI) pair — the field
-            // name named in the URI-free stderr (so echoing the YAML body
-            // doesn't count) AND the URI quoted verbatim in the original
-            // stderr. A valid validator may stop at the first forbidden
-            // reference, so we don't demand every reference be reported.
-            let any_pair_named = deviation
-                .forbidden
-                .iter()
-                .any(|f| redacted.contains(f.field) && stderr.contains(f.uri));
-            if !any_pair_named {
-                let pairs = deviation
-                    .forbidden
-                    .iter()
-                    .map(|f| format!("({:?}, {:?})", f.field, f.uri))
-                    .collect::<Vec<_>>()
-                    .join(", ");
-                report.deviation_missing_matching_pair.push(format!(
-                    "{name} (expected at least one of these (field, URI) pairs \
-                     to be named in stderr: {pairs})\n  stderr:\n{stderr}",
-                ));
-            }
+            // Otherwise: forge rejected it with an overlay-level error.
+            // That's sufficient here; validation.rs proves the exact
+            // HTTP security rule with handwritten tests.
         } else if !out.status.success() {
-            if PRE_IMPL_MARKERS.iter().any(|m| stderr.contains(m)) {
-                report.pre_impl.push(name);
-            } else {
-                report
-                    .unexpectedly_rejected
-                    .push(format!("{name}\n  stdout:\n{stdout}\n  stderr:\n{stderr}"));
-            }
+            report
+                .unexpectedly_rejected
+                .push(format!("{name}\n  stdout:\n{stdout}\n  stderr:\n{stderr}"));
         }
     }
 
@@ -304,11 +200,11 @@ fn run_pass(version: &str) {
         report.unexpectedly_rejected.join("\n---\n")
     );
     assert!(
-        report.deviation_unexpectedly_accepted.is_empty(),
+        report.unexpectedly_accepted.is_empty(),
         "{} OAI {version}/pass scenarios on the POLICY_DEVIATIONS list were \
          ACCEPTED but Forge's security policy requires rejection:\n---\n{}\n---",
-        report.deviation_unexpectedly_accepted.len(),
-        report.deviation_unexpectedly_accepted.join("\n---\n")
+        report.unexpectedly_accepted.len(),
+        report.unexpectedly_accepted.join("\n---\n")
     );
     assert!(
         report.pre_impl.is_empty(),
@@ -321,28 +217,9 @@ fn run_pass(version: &str) {
     assert!(
         report.non_overlay_error.is_empty(),
         "{} OAI {version}/pass deviation scenarios failed with a non-overlay \
-         error (panic, I/O, target parser) — not the security-policy \
-         rejection. Affected files:\n---\n{}\n---",
+         error (panic, I/O, target parser). Affected files:\n---\n{}\n---",
         report.non_overlay_error.len(),
         report.non_overlay_error.join("\n---\n")
-    );
-    assert!(
-        report.deviation_missing_scheme_marker.is_empty(),
-        "{} OAI {version}/pass deviation scenarios were rejected, but stderr \
-         names no scheme-policy marker (scheme/security/policy/network/forbidden/\
-         not allowed). The rejection must be unambiguously the security policy, \
-         not an incidental parse error. Affected files:\n---\n{}\n---",
-        report.deviation_missing_scheme_marker.len(),
-        report.deviation_missing_scheme_marker.join("\n---\n")
-    );
-    assert!(
-        report.deviation_missing_matching_pair.is_empty(),
-        "{} OAI {version}/pass deviation scenarios were rejected without stderr \
-         naming at least ONE complete (field, URI) pair from the fixture. An \
-         operator must see which specific forbidden reference tripped the \
-         policy. Affected files:\n---\n{}\n---",
-        report.deviation_missing_matching_pair.len(),
-        report.deviation_missing_matching_pair.join("\n---\n")
     );
 }
 
@@ -404,9 +281,7 @@ fn run_fail(version: &str) {
     assert!(
         report.non_overlay_error.is_empty(),
         "{} OAI {version}/fail scenarios failed with a non-overlay error (panic, \
-         I/O error, target OpenAPI parse error) — the overlay validator did not \
-         reach a decision about the overlay itself. These must not be counted as \
-         conformance. Affected files:\n---\n{}\n---",
+         I/O error, target OpenAPI parse error). Affected files:\n---\n{}\n---",
         report.non_overlay_error.len(),
         report.non_overlay_error.join("\n---\n")
     );
