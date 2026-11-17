@@ -13,13 +13,94 @@ use super::document::{Document, type_name};
 use super::parsed::Version;
 use super::path::{self, Path, Pointer, Segment};
 
-pub fn apply_action(doc: &mut Document, version: Version, target: &Path, fields: &Fields) -> Result<(), Err> {
+/// What one overlay action did when it ran.
+pub struct ActionReport {
+    pub verb: Verb,
+    pub target: String,
+    pub matched: usize,
+    pub mutated: usize,
+    pub copy_source: Option<String>,
+    pub ref_name: Option<String>,
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub enum Verb {
+    Update,
+    Remove,
+    Copy,
+    Noop,
+}
+
+impl Verb {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Verb::Update => "update",
+            Verb::Remove => "remove",
+            Verb::Copy => "copy",
+            Verb::Noop => "noop",
+        }
+    }
+}
+
+impl ActionReport {
+    /// The tail of an `--explain` line: "<verb> <target> — <result>",
+    /// prefixed when `ref_name` is set with "ref=<name> ".
+    pub fn format(&self) -> String {
+        let prefix = match &self.ref_name {
+            Some(n) => format!("ref={n} "),
+            None => String::new(),
+        };
+        let result = self.describe_result();
+        format!("{prefix}{} {} — {result}", self.verb.as_str(), self.target)
+    }
+
+    fn describe_result(&self) -> String {
+        if self.matched == 0 {
+            return "matched 0 nodes — no-op (zero-match actions are silent per spec)".to_owned();
+        }
+        let nodes = if self.mutated == 1 { "node" } else { "nodes" };
+        let matched_nodes = if self.matched == 1 { "node" } else { "nodes" };
+        match self.verb {
+            Verb::Update => {
+                if self.mutated == 0 {
+                    format!("matched {} {matched_nodes}, mutated 0 nodes", self.matched)
+                } else {
+                    format!("updated {} {nodes}", self.mutated)
+                }
+            }
+            Verb::Remove => format!("removed {} {nodes}", self.mutated),
+            Verb::Copy => {
+                let src = self.copy_source.as_deref().unwrap_or("?");
+                if self.mutated == 0 {
+                    format!(
+                        "matched {} {matched_nodes}, mutated 0 nodes (source {src})",
+                        self.matched
+                    )
+                } else {
+                    format!("copied {} {nodes} from {src} to {}", self.mutated, self.target)
+                }
+            }
+            Verb::Noop => format!("matched {} {matched_nodes}, action had no verb", self.matched),
+        }
+    }
+}
+
+pub fn apply_action(doc: &mut Document, version: Version, target: &Path, fields: &Fields) -> Result<ActionReport, Err> {
     // Resolve target nodelist against the current document state.
     let locations = target.select(doc.value());
+    let matched = locations.len();
 
     // Precedence: remove > update > copy (per spec).
     if fields.remove {
-        return apply_remove(doc, &locations);
+        let mutated = apply_remove(doc, &locations)?;
+        return Ok(ActionReport {
+            verb: Verb::Remove,
+            target: target.source().to_owned(),
+            matched,
+            mutated,
+            copy_source: None,
+            ref_name: None,
+        });
     }
 
     // If there is an update, copy is ignored.
@@ -27,23 +108,46 @@ pub fn apply_action(doc: &mut Document, version: Version, target: &Path, fields:
         if version != Version::V1_0 {
             enforce_homogeneous_category(doc.value(), &locations)?;
         }
-        return apply_update(doc, version, &locations, update_val);
+        let mutated = apply_update(doc, version, &locations, update_val)?;
+        return Ok(ActionReport {
+            verb: Verb::Update,
+            target: target.source().to_owned(),
+            matched,
+            mutated,
+            copy_source: None,
+            ref_name: None,
+        });
     }
 
     if let Some(copy_src) = &fields.copy {
         if version != Version::V1_0 {
             enforce_homogeneous_category(doc.value(), &locations)?;
         }
-        return apply_copy(doc, version, target, &locations, copy_src);
+        let mutated = apply_copy(doc, version, target, &locations, copy_src)?;
+        return Ok(ActionReport {
+            verb: Verb::Copy,
+            target: target.source().to_owned(),
+            matched,
+            mutated,
+            copy_source: Some(copy_src.source().to_owned()),
+            ref_name: None,
+        });
     }
 
     // No fields => no-op.
-    Ok(())
+    Ok(ActionReport {
+        verb: Verb::Noop,
+        target: target.source().to_owned(),
+        matched,
+        mutated: 0,
+        copy_source: None,
+        ref_name: None,
+    })
 }
 
-fn apply_remove(doc: &mut Document, locations: &[Pointer]) -> Result<(), Err> {
+fn apply_remove(doc: &mut Document, locations: &[Pointer]) -> Result<usize, Err> {
     if locations.is_empty() {
-        return Ok(());
+        return Ok(0);
     }
     // Sort: for every array parent, remove by descending index so earlier
     // indices stay valid. For object parents, order is irrelevant. Deepest
@@ -65,34 +169,35 @@ fn apply_remove(doc: &mut Document, locations: &[Pointer]) -> Result<(), Err> {
             o => o,
         }
     });
+    let mut removed = 0usize;
     for p in &sorted {
-        remove_at(doc.value_mut(), p)?;
-        doc.mark_mutated();
+        if remove_at(doc.value_mut(), p)? {
+            doc.mark_mutated();
+            removed += 1;
+        }
     }
-    Ok(())
+    Ok(removed)
 }
 
-fn remove_at(root: &mut Value, p: &Pointer) -> Result<(), Err> {
+fn remove_at(root: &mut Value, p: &Pointer) -> Result<bool, Err> {
     let Some((last, parent_segs)) = split_last(&p.0) else {
         // Root target removal: clear the root. For root-removal we replace
         // with an empty object (typical overlay use is "remove then
         // re-create").
         *root = Value::Object(serde_json::Map::new());
-        return Ok(());
+        return Ok(true);
     };
     let Some(parent) = path::resolve_mut(root, &Pointer(parent_segs.to_vec())) else {
-        return Ok(()); // Already gone.
+        return Ok(false); // Already gone.
     };
     match (parent, last) {
-        (Value::Object(map), Segment::Name(n)) => {
-            map.shift_remove(n);
-        }
+        (Value::Object(map), Segment::Name(n)) => Ok(map.shift_remove(n).is_some()),
         (Value::Array(arr), Segment::Index(i)) if *i < arr.len() => {
             arr.remove(*i);
+            Ok(true)
         }
-        _ => {}
+        _ => Ok(false),
     }
-    Ok(())
 }
 
 fn split_last<T>(segs: &[T]) -> Option<(&T, &[T])> {
@@ -103,9 +208,9 @@ fn split_last<T>(segs: &[T]) -> Option<(&T, &[T])> {
     Some((&segs[n - 1], &segs[..n - 1]))
 }
 
-fn apply_update(doc: &mut Document, version: Version, locations: &[Pointer], update: &Value) -> Result<(), Err> {
+fn apply_update(doc: &mut Document, version: Version, locations: &[Pointer], update: &Value) -> Result<usize, Err> {
     if locations.is_empty() {
-        return Ok(());
+        return Ok(0);
     }
     for p in locations {
         let cat = category_at(doc.value(), p);
@@ -162,6 +267,7 @@ fn apply_update(doc: &mut Document, version: Version, locations: &[Pointer], upd
         }
     }
 
+    let mut mutated = 0usize;
     for p in locations {
         let cat = category_at(doc.value(), p);
         // Resolve the parent so we can mutate in place for Primitive target
@@ -169,14 +275,18 @@ fn apply_update(doc: &mut Document, version: Version, locations: &[Pointer], upd
         let handle = path::resolve_mut(doc.value_mut(), p);
         match (cat, handle) {
             (Category::Primitive, Some(node)) => {
-                *node = update.clone();
-                doc.mark_mutated();
+                if *node != *update {
+                    *node = update.clone();
+                    doc.mark_mutated();
+                    mutated += 1;
+                }
             }
             (Category::Object, Some(Value::Object(map))) => {
                 if let Some(upd) = update.as_object()
                     && merge_object(map, upd, version)?
                 {
                     doc.mark_mutated();
+                    mutated += 1;
                 }
             }
             (Category::Array, Some(Value::Array(arr))) => {
@@ -191,12 +301,13 @@ fn apply_update(doc: &mut Document, version: Version, locations: &[Pointer], upd
                 }
                 if arr.len() != before_len {
                     doc.mark_mutated();
+                    mutated += 1;
                 }
             }
             _ => {}
         }
     }
-    Ok(())
+    Ok(mutated)
 }
 
 fn apply_copy(
@@ -205,7 +316,7 @@ fn apply_copy(
     target: &Path,
     locations: &[Pointer],
     source_path: &Path,
-) -> Result<(), Err> {
+) -> Result<usize, Err> {
     let source_matches = source_path.select(doc.value());
     // Zero-target is a no-op regardless of source cardinality.
     if locations.is_empty() {
@@ -234,10 +345,11 @@ fn apply_copy(
                 {
                     parent.insert(name, src_val);
                     doc.mark_mutated();
+                    return Ok(1);
                 }
             }
         }
-        return Ok(());
+        return Ok(0);
     }
     if source_matches.is_empty() {
         return Err(format!(
@@ -259,6 +371,7 @@ fn apply_copy(
         .expect("source matched above")
         .clone();
 
+    let mut mutated = 0usize;
     for p in locations {
         let cat = category_at(doc.value(), p);
         match cat {
@@ -268,6 +381,7 @@ fn apply_copy(
                     let src_clone = src.clone();
                     if merge_object(dst, &src_clone, version)? {
                         doc.mark_mutated();
+                        mutated += 1;
                     }
                 }
                 (Value::Array(_), _) => {
@@ -291,11 +405,13 @@ fn apply_copy(
                             }
                             if !src.is_empty() {
                                 doc.mark_mutated();
+                                mutated += 1;
                             }
                         }
                         other => {
                             dst.push(other.clone());
                             doc.mark_mutated();
+                            mutated += 1;
                         }
                     }
                 }
@@ -319,13 +435,14 @@ fn apply_copy(
                     {
                         *node = source_value.clone();
                         doc.mark_mutated();
+                        mutated += 1;
                     }
                 }
             },
             Category::Missing => {}
         }
     }
-    Ok(())
+    Ok(mutated)
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]

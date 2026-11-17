@@ -69,3 +69,54 @@ The normative baselines forge is tested against live in the repo:
   OAI compliant-sets corpus.
 - `tests/overlay/real_world/` — vendored `(spec, overlay, expected)` triples
   from real-world projects, as byte-stable regression gates.
+
+## Linting
+
+`forge overlay --check <overlay>...` validates one or more overlay documents
+without applying them. Each overlay is parsed through the full validator
+pipeline (required fields, allowed keys per version, RFC 9535 JSONPath
+parse of every `target`, `components.actions` shape, `$ref` validity,
+URI allow-list, action uniqueness, future-minor warnings). `extends` is
+NOT resolved — lint is about the overlay document itself, not the files
+it points at. `-` reads one overlay from standard input.
+
+```
+forge overlay --check overlays/*.yaml
+cat ov.yaml | forge overlay --check -
+```
+
+Exits 0 when every overlay is valid. On failure, each file's diagnostics
+are printed to stderr (prefixed with the file path) and the exit code is
+non-zero. All files are checked even when earlier ones fail, so CI gets
+every problem in one run. `--check` cannot be combined with `--overlay`
+or `--out`.
+
+## Diagnostics
+
+`--explain` prints one line to stderr per overlay action as it runs,
+naming the overlay path, action index, verb, target, and node counts.
+It is available on both the `forge overlay` subcommand and the top-level
+`forge` (where overlays are a preprocessing step before SDK generation).
+Stdout and generated files are unchanged.
+
+```
+forge overlay spec.yaml --overlay fix.yaml --explain
+forge spec.yaml --overlay fix.yaml --target ts --out sdk --explain
+```
+
+The line shape is:
+
+```
+<overlay-path>:<action-index> [ref=<name> ]<verb> <target> — <result>
+```
+
+Example results:
+
+- `matched 0 nodes — no-op (zero-match actions are silent per spec)`
+- `updated 1 node`
+- `matched 1 node, mutated 0 nodes` (target existed but update was a no-op)
+- `removed 2 nodes`
+- `copied 1 node from <source> to <target>`
+
+Reusable actions (1.2 `$ref` into `components.actions`) also include
+`ref=<component-name>` after the action index.

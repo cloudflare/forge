@@ -104,21 +104,27 @@ impl Overlay {
         }
     }
 
-    pub fn apply(&self, doc: &mut Document) -> Result<(), Err> {
+    pub fn apply(&self, doc: &mut Document) -> Result<Vec<super::apply::ActionReport>, Err> {
+        let mut reports = Vec::with_capacity(self.actions.len());
         for (i, action) in self.actions.iter().enumerate() {
-            let body = match &action.body {
-                ActionBody::Direct(f) => f,
-                ActionBody::Ref { name } => self.components_actions.get(name).ok_or_else(|| {
-                    format!(
-                        "action {i}: $ref #/components/actions/{name} does not resolve — \
+            let (body, ref_name) = match &action.body {
+                ActionBody::Direct(f) => (f, None),
+                ActionBody::Ref { name } => {
+                    let fields = self.components_actions.get(name).ok_or_else(|| {
+                        format!(
+                            "action {i}: $ref #/components/actions/{name} does not resolve — \
                              no such component in this overlay"
-                    )
-                })?,
+                        )
+                    })?;
+                    (fields, Some(name.clone()))
+                }
             };
-            super::apply::apply_action(doc, self.version, &action.target_path, body)
+            let mut report = super::apply::apply_action(doc, self.version, &action.target_path, body)
                 .map_err(|e| format!("action {i} (target {}): {e}", action.target_path.source()))?;
+            report.ref_name = ref_name;
+            reports.push(report);
         }
-        Ok(())
+        Ok(reports)
     }
 }
 

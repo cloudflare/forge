@@ -19,6 +19,10 @@ mod components;
 #[cfg(feature = "cli")]
 mod copy;
 #[cfg(feature = "cli")]
+mod explain;
+#[cfg(feature = "cli")]
+mod lint;
+#[cfg(feature = "cli")]
 mod oai_conformance;
 #[cfg(feature = "cli")]
 mod real_world;

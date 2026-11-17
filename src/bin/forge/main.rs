@@ -47,6 +47,12 @@ struct Args {
     /// Repeat to apply more overlays in order.
     #[arg(long = "overlay", value_name = "OVERLAY")]
     overlay: Vec<PathBuf>,
+    /// Print one line to stderr per overlay action as it runs: overlay path,
+    /// action index, verb, target, and node counts. Only meaningful when one
+    /// or more overlays are being applied (positional overlay or `--overlay`
+    /// flags). Stdout and generated files are unchanged.
+    #[arg(long)]
+    explain: bool,
 }
 
 /// What `forge` does other than generate an SDK.
@@ -134,6 +140,7 @@ enum Dispatch {
         overlays: Vec<PathBuf>,
         target: Target,
         out: PathBuf,
+        explain: bool,
     },
 }
 
@@ -148,7 +155,8 @@ fn run(args: Args) -> Result<(), Err> {
             overlays,
             target,
             out,
-        } => generate(&input, input_is_overlay, &overlays, target, &out),
+            explain,
+        } => generate(&input, input_is_overlay, &overlays, target, &out, explain),
     }
 }
 
@@ -196,6 +204,7 @@ fn dispatch(args: Args) -> Result<Dispatch, Err> {
         overlays: args.overlay,
         target,
         out,
+        explain: args.explain,
     })
 }
 
@@ -243,7 +252,14 @@ fn read_head(path: &Path, limit: usize) -> io::Result<Vec<u8>> {
 
 /// Generates the SDK for `input`, applying overlays beforehand when either
 /// the positional is overlay-shaped or `overlays` is non-empty.
-fn generate(input: &Path, input_is_overlay: bool, overlays: &[PathBuf], target: Target, out: &Path) -> Result<(), Err> {
+fn generate(
+    input: &Path,
+    input_is_overlay: bool,
+    overlays: &[PathBuf],
+    target: Target,
+    out: &Path,
+    explain: bool,
+) -> Result<(), Err> {
     // Fast path: no preprocessing needed. This is the historical shape
     // (`forge spec.json --target ts --out sdk`) plus the wasm-target rayon
     // parallelism.
@@ -255,9 +271,17 @@ fn generate(input: &Path, input_is_overlay: bool, overlays: &[PathBuf], target: 
     // read: overlay apply is fast enough that overlapping it with a wasm
     // plugin compile would complicate the code without a meaningful win.
     let value = if input_is_overlay {
-        overlay::apply_from_overlay_positional(input, overlays)?
+        let (v, reports) = overlay::apply_from_overlay_positional_explained(input, overlays)?;
+        if explain {
+            overlay::print_reports_public(&reports);
+        }
+        v
     } else {
-        overlay::apply_to_spec(input, overlays)?
+        let (v, reports) = overlay::apply_to_spec_explained(input, overlays)?;
+        if explain {
+            overlay::print_reports_public(&reports);
+        }
+        v
     };
     let forge = read_value(input, value)?;
     run_plugin_on(&forge, target, out)

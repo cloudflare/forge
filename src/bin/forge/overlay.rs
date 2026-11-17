@@ -2,7 +2,7 @@
 //! (v1.0, v1.1, v1.2) to an OpenAPI document.
 
 mod action;
-mod apply;
+pub mod apply;
 mod document;
 mod parsed;
 mod path;
@@ -17,33 +17,56 @@ use forge::Err;
 use document::{Document, Format};
 use parsed::Overlay;
 
+/// Per-overlay action reports, tagged with the overlay's source path. One
+/// entry per overlay that ran; each entry's `Vec` holds the reports in the
+/// order the actions ran.
+pub type TaggedReports = Vec<(PathBuf, Vec<apply::ActionReport>)>;
+
 /// Arguments to `forge overlay`.
 #[derive(clap::Args)]
 pub struct Args {
     /// In Mode A, the overlay document (its `extends` names the spec).
     /// In Mode B, the OpenAPI spec (or `-` for standard input). `--overlay`
-    /// turns on Mode B.
+    /// turns on Mode B. With `--check`, each positional is an overlay to
+    /// lint (or `-` for one overlay from standard input).
     inputs: Vec<PathBuf>,
     /// An overlay to apply, in order. Switches on Mode B: the positional
     /// is then the spec, not an overlay.
-    #[arg(long = "overlay", value_name = "OVERLAY")]
+    #[arg(long = "overlay", value_name = "OVERLAY", conflicts_with = "check")]
     overlays: Vec<PathBuf>,
     /// Write the overlaid result to PATH. Without this flag the result is
     /// printed to standard output. If PATH is the same file as the spec in
     /// Mode B, it is rewritten atomically (temp file + rename) and left
     /// byte-identical when no action mutated it.
-    #[arg(short = 'o', long = "out", value_name = "PATH")]
+    #[arg(short = 'o', long = "out", value_name = "PATH", conflicts_with = "check")]
     out: Option<PathBuf>,
+    /// Lint the given overlay documents (no `--overlay`, no `--out`). Each
+    /// positional is parsed and validated; nothing is applied, and `extends`
+    /// is NOT resolved to a file on disk. Exits 0 when every overlay is
+    /// valid; otherwise reports each file's diagnostics on stderr and exits
+    /// non-zero. All files are checked, even when earlier ones fail.
+    #[arg(long)]
+    check: bool,
+    /// Print one line to stderr per overlay action as it runs, naming the
+    /// overlay, action index, verb, target, and how many nodes matched and
+    /// mutated. Stdout (merged spec or generated SDK) is unchanged.
+    #[arg(long, conflicts_with = "check")]
+    explain: bool,
 }
 
 pub fn run(args: Args) -> Result<(), Err> {
+    if args.check {
+        return run_check(&args.inputs);
+    }
     if args.inputs.is_empty() {
         return Err("no input given; `forge overlay` requires an overlay or a spec. \
              Usage: forge overlay <overlay>   (Mode A: overlay drives the spec via its `extends`)\n\
-             \x20      forge overlay <spec> --overlay <overlay>...   (Mode B)"
+             \x20      forge overlay <spec> --overlay <overlay>...   (Mode B)\n\
+             \x20      forge overlay --check <overlay>...   (lint only)"
             .into());
     }
     let out = args.out.as_deref();
+    let explain = args.explain;
     if args.overlays.is_empty() {
         if args.inputs.len() > 1 {
             return Err(
@@ -52,24 +75,35 @@ pub fn run(args: Args) -> Result<(), Err> {
                     .into(),
             );
         }
-        run_mode_a_path(&args.inputs[0], out)
+        run_mode_a_path(&args.inputs[0], out, explain)
     } else {
         if args.inputs.len() > 1 {
             return Err("`forge overlay <spec> --overlay ...` takes exactly one positional spec".into());
         }
-        run_mode_b_paths(&args.inputs[0], &args.overlays, out)
+        run_mode_b_paths(&args.inputs[0], &args.overlays, out, explain)
     }
 }
 
 /// Mode A: `forge overlay <overlay>` — overlay drives the spec via `extends`.
-pub fn run_mode_a_path(overlay_path: &Path, out: Option<&Path>) -> Result<(), Err> {
-    let doc = apply_mode_a(overlay_path)?;
+pub fn run_mode_a_path(overlay_path: &Path, out: Option<&Path>, explain: bool) -> Result<(), Err> {
+    let (doc, reports) = apply_mode_a(overlay_path)?;
+    if explain {
+        print_reports(std::slice::from_ref(&(overlay_path.to_path_buf(), reports)));
+    }
     emit(&doc, out, None)
 }
 
 /// Mode B: `forge overlay <spec> --overlay <ov>...` — spec on CLI.
-pub fn run_mode_b_paths(spec_path: &Path, overlay_paths: &[PathBuf], out: Option<&Path>) -> Result<(), Err> {
-    let doc = apply_mode_b(spec_path, overlay_paths)?;
+pub fn run_mode_b_paths(
+    spec_path: &Path,
+    overlay_paths: &[PathBuf],
+    out: Option<&Path>,
+    explain: bool,
+) -> Result<(), Err> {
+    let (doc, reports) = apply_mode_b(spec_path, overlay_paths)?;
+    if explain {
+        print_reports(&reports);
+    }
     // In Mode B the spec file (when it is a real file, not stdin) is a
     // candidate for the in-place rewrite path. In Mode A there is no spec
     // file argument on the CLI to compare against.
@@ -79,29 +113,37 @@ pub fn run_mode_b_paths(spec_path: &Path, overlay_paths: &[PathBuf], out: Option
 
 /// Apply the positional overlay (resolving its `extends`) and then every file
 /// in `extra_overlays` in order, and return the merged document as a plain
-/// `Value`. Used by the top-level `forge` when the positional is an overlay
-/// that drives the spec via `extends`, with optional further `--overlay`
-/// flags stacked after it.
-pub fn apply_from_overlay_positional(
+/// `Value` plus per-overlay action reports tagged with their source path.
+/// Used by the top-level `forge` when the positional is an overlay that
+/// drives the spec via `extends`, with optional further `--overlay` flags
+/// stacked after it.
+pub fn apply_from_overlay_positional_explained(
     positional_overlay: &Path,
     extra_overlays: &[PathBuf],
-) -> Result<serde_json::Value, Err> {
-    let mut doc = apply_mode_a(positional_overlay)?;
-    apply_overlays_to_doc(&mut doc, extra_overlays)?;
-    Ok(doc.value().clone())
+) -> Result<(serde_json::Value, TaggedReports), Err> {
+    let (mut doc, mut reports) = apply_mode_a(positional_overlay)?;
+    let mut tagged: TaggedReports = vec![(positional_overlay.to_path_buf(), std::mem::take(&mut reports))];
+    let more = apply_overlays_to_doc(&mut doc, extra_overlays)?;
+    tagged.extend(more);
+    Ok((doc.value().clone(), tagged))
 }
 
 /// Apply `overlays` in order to the spec at `spec_path` and return the merged
-/// document as a plain `Value`. Used by the top-level `forge` when the
-/// positional is a plain spec plus one or more `--overlay` flags.
-pub fn apply_to_spec(spec_path: &Path, overlays: &[PathBuf]) -> Result<serde_json::Value, Err> {
-    let doc = apply_mode_b(spec_path, overlays)?;
-    Ok(doc.value().clone())
+/// document as a plain `Value` plus per-overlay action reports tagged with
+/// their source path. Used by the top-level `forge` when the positional is a
+/// plain spec plus one or more `--overlay` flags.
+pub fn apply_to_spec_explained(
+    spec_path: &Path,
+    overlays: &[PathBuf],
+) -> Result<(serde_json::Value, TaggedReports), Err> {
+    let (doc, reports) = apply_mode_b(spec_path, overlays)?;
+    Ok((doc.value().clone(), reports))
 }
 
 /// Shared Mode A core: load the overlay, resolve its `extends`, parse the
-/// spec it points at, and apply the overlay. Returns the merged `Document`.
-fn apply_mode_a(overlay_path: &Path) -> Result<Document, Err> {
+/// spec it points at, and apply the overlay. Returns the merged `Document`
+/// and the per-action reports from the overlay's apply.
+fn apply_mode_a(overlay_path: &Path) -> Result<(Document, Vec<apply::ActionReport>), Err> {
     let bytes = read_file(overlay_path)?;
     let format = Format::sniff(&bytes);
 
@@ -136,13 +178,13 @@ fn apply_mode_a(overlay_path: &Path) -> Result<Document, Err> {
     let spec_format = Format::sniff(&spec_bytes);
     let mut doc = Document::parse(&spec_bytes, spec_format).map_err(|e| format!("{}: {e}", spec_path.display()))?;
 
-    overlay.apply(&mut doc)?;
-    Ok(doc)
+    let reports = overlay.apply(&mut doc)?;
+    Ok((doc, reports))
 }
 
 /// Shared Mode B core: parse the spec and apply each overlay in order,
-/// returning the merged `Document`.
-fn apply_mode_b(spec_path: &Path, overlay_paths: &[PathBuf]) -> Result<Document, Err> {
+/// returning the merged `Document` and per-overlay action reports.
+fn apply_mode_b(spec_path: &Path, overlay_paths: &[PathBuf]) -> Result<(Document, TaggedReports), Err> {
     let spec_bytes = read_file(spec_path)?;
     let spec_format = Format::sniff(&spec_bytes);
     let display = if spec_path == Path::new("-") {
@@ -151,16 +193,17 @@ fn apply_mode_b(spec_path: &Path, overlay_paths: &[PathBuf]) -> Result<Document,
         spec_path.display().to_string()
     };
     let mut doc = Document::parse(&spec_bytes, spec_format).map_err(|e| format!("{display}: {e}"))?;
-    apply_overlays_to_doc(&mut doc, overlay_paths)?;
-    Ok(doc)
+    let reports = apply_overlays_to_doc(&mut doc, overlay_paths)?;
+    Ok((doc, reports))
 }
 
 /// Load, validate, and apply `overlay_paths` to `doc` in order. All overlays
 /// are parsed first so a bad one fails the chain before any mutation. The
 /// 1.2 `$self`/`extends` identity check is applied against the target doc's
 /// current `$self`, so it covers both Mode B and the top-level case where a
-/// Mode A result is further extended with extra overlays.
-fn apply_overlays_to_doc(doc: &mut Document, overlay_paths: &[PathBuf]) -> Result<(), Err> {
+/// Mode A result is further extended with extra overlays. Returns per-overlay
+/// action reports tagged with the originating overlay path.
+fn apply_overlays_to_doc(doc: &mut Document, overlay_paths: &[PathBuf]) -> Result<TaggedReports, Err> {
     // Load and parse all overlays first (transactional validation).
     let mut parsed = Vec::with_capacity(overlay_paths.len());
     for p in overlay_paths {
@@ -195,10 +238,12 @@ fn apply_overlays_to_doc(doc: &mut Document, overlay_paths: &[PathBuf]) -> Resul
     }
 
     // Apply in order; first failure stops the chain and nothing is written.
-    for ov in &parsed {
-        ov.apply(doc)?;
+    let mut tagged: TaggedReports = Vec::with_capacity(parsed.len());
+    for (ov, path) in parsed.iter().zip(overlay_paths.iter()) {
+        let reports = ov.apply(doc)?;
+        tagged.push((path.clone(), reports));
     }
-    Ok(())
+    Ok(tagged)
 }
 
 /// Routes the applied document to `--out <path>` or stdout. When `out_path`
@@ -320,4 +365,66 @@ fn disambiguation_error(path: &Path, is_spec: bool) -> Err {
         )
         .into()
     }
+}
+
+/// Lint each file in `inputs`: parse and validate without resolving `extends`
+/// or applying to a spec. Reports per-file diagnostics to stderr prefixed
+/// with the file path; continues through every file so CI gets every problem
+/// in one run. `-` reads one overlay from standard input.
+fn run_check(inputs: &[PathBuf]) -> Result<(), Err> {
+    if inputs.is_empty() {
+        return Err("--check requires at least one overlay file (or `-` for standard input)".into());
+    }
+    let mut failed = 0usize;
+    for path in inputs {
+        let display = if path == Path::new("-") {
+            "stdin".to_owned()
+        } else {
+            path.display().to_string()
+        };
+        let bytes = match read_file(path) {
+            Ok(b) => b,
+            Err(e) => {
+                eprintln!("{display}: {e}");
+                failed += 1;
+                continue;
+            }
+        };
+        let format = Format::sniff(&bytes);
+        match Overlay::parse(&bytes, format) {
+            Ok(ov) => {
+                ov.diagnose_warnings();
+            }
+            Err(e) => {
+                eprintln!("{display}: {e}");
+                failed += 1;
+            }
+        }
+    }
+    if failed > 0 {
+        let noun = if failed == 1 { "file" } else { "files" };
+        return Err(format!("{failed} overlay {noun} failed lint").into());
+    }
+    Ok(())
+}
+
+/// Print one line per overlay action to stderr. Used when `--explain` is
+/// given. Zero-match actions are still printed because that is the diagnostic
+/// signal — the author usually wants to know when a filter matched nothing.
+fn print_reports(tagged: &[(PathBuf, Vec<apply::ActionReport>)]) {
+    use std::io::Write;
+    let stderr = io::stderr();
+    let mut lock = stderr.lock();
+    for (path, reports) in tagged {
+        let shown = path.display();
+        for (i, r) in reports.iter().enumerate() {
+            let _ = writeln!(lock, "{shown}:{i} {}", r.format());
+        }
+    }
+    let _ = lock.flush();
+}
+
+/// Public alias for the top-level `forge` module.
+pub fn print_reports_public(tagged: &[(PathBuf, Vec<apply::ActionReport>)]) {
+    print_reports(tagged)
 }
