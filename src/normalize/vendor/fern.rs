@@ -2,7 +2,7 @@
 
 use super::{Group, Normalize, Source};
 
-pub struct Fern;
+pub(crate) struct Fern;
 
 impl Source for Fern {
     fn name(&self) -> &'static str {

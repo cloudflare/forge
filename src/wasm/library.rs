@@ -7,7 +7,8 @@
 //! part at a time, by id. An id the document never gave out traps.
 
 use super::records::records;
-use crate::{Forge, normalize};
+use crate::Forge;
+use crate::normalize::{Adapter, Options, normalize};
 
 /// Holds the bindings of the `library` world, which only this module uses.
 #[expect(
@@ -39,23 +40,23 @@ impl wit::Guest for Library {
 
 impl exports::Guest for Library {
     fn parse(json: String, adapters: Vec<String>) -> Result<wit::Forge, String> {
-        let sources = adapters
+        let adapters = adapters
             .iter()
             .map(|name| {
-                normalize::named(name)
+                Adapter::named(name)
                     .ok_or_else(|| format!("unknown adapter {name:?}; expected cloudflare, fern, or stainless"))
             })
             .collect::<Result<Vec<_>, _>>()?;
         // Without adapters, there is nothing to rewrite, so the document is
         // parsed as given.
-        let normalized: Option<Vec<u8>> = if sources.is_empty() {
+        let normalized: Option<Vec<u8>> = if adapters.is_empty() {
             None
         } else {
-            let options = normalize::Options {
+            let options = Options {
                 leave_old_extensions: false,
-                sources: &sources,
+                adapters: &adapters,
             };
-            normalize::normalize(json.as_bytes(), &options)
+            normalize(json.as_bytes(), &options)
                 .map_err(|err| err.to_string())?
                 .json
         };

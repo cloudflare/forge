@@ -9,7 +9,7 @@ use std::path::{Path, PathBuf};
 
 use forge::Err;
 
-use forge::normalize::{self as vendor, Normalized, Options, Report, Source, normalize};
+use forge::normalize::{Adapter, Normalized, Options, Report, normalize};
 
 /// What `forge normalize` is given, which says what it does in `main.rs`.
 #[derive(clap::Args)]
@@ -30,8 +30,8 @@ pub struct Args {
     leave_old_extensions: bool,
     /// Rewrite only keys from cloudflare, fern, or stainless. May be repeated.
     /// Without it, keys from every source are rewritten.
-    #[arg(long = "from", value_parser = source, value_name = "SOURCE")]
-    from: Vec<&'static dyn Source>,
+    #[arg(long = "from", value_parser = adapter, value_name = "SOURCE")]
+    from: Vec<Adapter>,
     /// Say what would be rewritten, and write nothing. It fails if there is
     /// anything to rewrite, to check that documents are normalized.
     #[arg(long)]
@@ -61,9 +61,14 @@ struct Say {
 }
 
 pub fn run(args: Args) -> Result<(), Err> {
+    let adapters: Vec<Adapter> = if args.from.is_empty() {
+        Adapter::all().collect()
+    } else {
+        args.from
+    };
     let options = Options {
         leave_old_extensions: args.leave_old_extensions,
-        sources: if args.from.is_empty() { vendor::ALL } else { &args.from },
+        adapters: &adapters,
     };
     let say = Say {
         check: args.check,
@@ -134,9 +139,9 @@ pub fn run(args: Args) -> Result<(), Err> {
     Ok(())
 }
 
-/// Returns the compatibility source called `name`.
-fn source(name: &str) -> Result<&'static dyn Source, String> {
-    vendor::named(name)
+/// Returns the adapter called `name`.
+fn adapter(name: &str) -> Result<Adapter, String> {
+    Adapter::named(name)
         .ok_or_else(|| format!("unknown compatibility source {name:?}; expected cloudflare, fern, or stainless"))
 }
 
