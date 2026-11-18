@@ -1,6 +1,7 @@
 ---
 title: WIT
-description: "The WebAssembly interface every Forge plugin is a component of: the forge interface it imports, and the plugin world it exports."
+description: The functions of the forge interface that a WebAssembly plugin imports, the plugin world it exports, and how their ids and records map to the model.
+content_type: reference
 sidebar:
   order: 5
 ---
@@ -8,9 +9,10 @@ sidebar:
 WebAssembly plugins are components of the `plugin` world in the `forge:plugin` package. It imports
 the `forge` interface, which reads the model the host keeps, and exports `generate`.
 
-Print it with `forge-plugin wit`, import it from `@cloudflare/forge/plugin/forge.wit`, or read
-`forge::wasm::WIT` in Rust. The meaning and order of every field are as the
-[Rust API](/reference/rust-api/) documents them; the WIT is the same model, flattened into ids and
+This page summarizes the interface: how to read it, its functions and the world. The complete file,
+with every record and its doc comments, is printed by `forge-plugin wit`, ships in the package as
+`@cloudflare/forge/plugin/forge.wit`, and is `forge::wasm::WIT` in Rust. The meaning and order of every field are as the
+[Rust API](/reference/rust-api/) documents them. The WIT is the same model, flattened into ids and
 records.
 
 ## How to read it
@@ -69,12 +71,17 @@ world plugin {
 }
 ```
 
-## The whole file
+## The complete file
 
-Every record the functions return, with its doc comments, is in the full WIT. Print the copy that
-matches your `forge` with:
+The copy that matches your `forge` is printed by:
 
 <PackageManagers type="exec" pkg="forge-plugin" args="wit" />
 
 It is also in the package, as `@cloudflare/forge/plugin/forge.wit`, and in the repository at
 [`packages/forge/plugin/forge.wit`](https://github.com/cloudflare/forge/blob/main/packages/forge/plugin/forge.wit).
+
+## Related resources
+
+- [Plugins in other languages](/plugins/other-languages/): what Forge expects of any component.
+- [Sandboxing](/concepts/sandbox/): what a WebAssembly plugin can reach.
+- [Write a plugin in Rust](/plugins/rust/): as a WebAssembly component, or with Forge as a library.

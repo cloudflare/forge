@@ -1,6 +1,7 @@
 ---
 title: TypeScript SDK
-description: What forge --target ts generates (clients per group, models, codecs, errors and a runtime) and how to use and customize it.
+description: What forge --target ts generates, with its files, clients, methods, models, codecs, errors, envelope hook, limitations and requirements.
+content_type: reference
 sidebar:
   order: 2
 ---
@@ -54,7 +55,7 @@ const pets = await client.pets.list({ limit: 10 });
 | ---------- | ---------------------------------------------------------------------- |
 | `token`    | Required. Sent as `Authorization: Bearer <token>`.                     |
 | `baseUrl`  | Required at the root. The URL the paths are relative to.               |
-| `fetch`    | The `fetch` to send requests with; the global one by default.          |
+| `fetch`    | The `fetch` to send requests with. The global one by default.          |
 | `headers`  | Headers sent with every request.                                       |
 | `query`    | Query parameters sent with every request, as `URLSearchParams`.        |
 
@@ -93,7 +94,7 @@ the union of every `2XX` body, or `void` when there is none.
 | Option       | Meaning                                                    |
 | ------------ | ---------------------------------------------------------- |
 | `signal`     | An `AbortSignal` to cancel the request.                    |
-| `headers`    | Headers for this call, replacing the client's.             |
+| `headers`    | Headers for this call, merged over the client's: a header set in both takes this call's value. |
 | `query`      | Query parameters appended after the client's.              |
 | `onResponse` | Called with the `Response` before its body is read.        |
 
@@ -141,7 +142,7 @@ export const PetCodec = object([
 ]);
 ```
 
-Codecs are internal; you work with the decoded values.
+Codecs are internal. You work with the decoded values.
 
 ## Errors
 
@@ -166,18 +167,35 @@ try {
 | `details`  | The body decoded as the error the API declares for the status, or the text, or undefined when empty. |
 | `response` | The `Response`, whose body has been read.                                  |
 
-## Customizing: the envelope hook
+## The envelope hook
 
 Some APIs wrap every payload, as in `{ "success": true, "result": { ... } }`. The runtime calls
-`unwrapEnvelope(response, body)` in `_/hooks/envelope.ts` on every `2XX` JSON body before decoding it.
-The generated one returns the body as it is; replace the file with one that returns the part your
-document's schemas describe.
+`unwrapEnvelope(response, body)` in `_/hooks/envelope.ts` on every `2XX` JSON body before decoding it,
+and decodes what it returns. The generated one returns the body as it is. A version that returns the
+part the document's schemas describe unwraps each JSON body passed to it.
 
-Forge writes `_/hooks/envelope.ts` again on every run, so keep your version somewhere else and copy
-it over after each run.
+Forge writes `_/hooks/envelope.ts` again on every run, so a changed version is overwritten unless it
+is copied back after each run.
+
+## Limitations
+
+The SDK only speaks JSON. A method whose request body, or any one of its success responses, has
+content but no JSON media type gets no function: a `multipart/form-data` upload, a raw download, or
+a method with one JSON and one non-JSON success response. The rest of its group is generated as
+usual.
 
 ## Requirements
 
 The SDK uses `fetch`, `URLSearchParams`, `AbortSignal` and `Temporal`, all as globals. Node.js 26
 has all of them. In runtimes without `Temporal`, load a polyfill that defines the global before using
 the SDK.
+
+To type-check it, TypeScript needs version 6 or later, which has `Temporal`, and both the `esnext`
+and `dom` libraries in `lib`, for `Temporal` and the `fetch` types.
+[Get started](/start/get-started/#3-check-the-sdk) has a configuration that works.
+
+## Related resources
+
+- [Target design](/plugins/designing-a-target/): the decisions every generator makes.
+- [Requests and responses](/concepts/requests-and-responses/): what a method takes and returns.
+- [Get started](/start/get-started/): generate a TypeScript SDK and MCP tools from a small document.

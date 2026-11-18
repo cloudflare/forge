@@ -1,12 +1,13 @@
 ---
 title: Rust API
-description: The public API of the forge crate at a glance (the model, types, plugins and the TypeScript printer) with pointers to the full rustdoc.
+description: The forge crate's public modules, types and functions, with what each is for, and links to the full rustdoc.
+content_type: reference
 sidebar:
   order: 2
 ---
 
 This page lists the public API of the `forge` crate. The rustdoc on each item is the complete
-reference, including every OpenAPI rule; build it with:
+reference, including every OpenAPI rule. Build it with:
 
 ```sh
 cargo doc --no-deps --features wasm --open
@@ -21,7 +22,7 @@ cargo doc --no-deps --features wasm --open
 
 ## Reading a document
 
-`Forge` implements `serde::Deserialize`. Linking happens during deserialization; a document with
+`Forge` implements `serde::Deserialize`. Linking happens during deserialization. A document with
 errors fails with every error, one per line, in the message.
 
 ```rust
@@ -220,7 +221,7 @@ pub fn write<F: File>(dir: impl AsRef<Path>, files: impl IntoIterator<Item = F>)
 ```
 
 Run a plugin with `forge::write(out, plugin.generate(&forge)?)`. `write` checks every path, renders
-every file in parallel, and only then writes; see [the pipeline](/concepts/pipeline/).
+every file in parallel, and only then writes. Refer to [The pipeline](/concepts/pipeline/).
 
 ## forge::wasm
 
@@ -238,5 +239,11 @@ impl WasmPlugin {               // implements Plugin
 ## forge::ts
 
 The TypeScript printer: `Module`, `Ident`, `File` (which implements `forge::File`), `Fragment`, the
-`Print` trait, `join`, `PREAMBLE`, and the `p!` and `frag!` macros. See
-[the TypeScript printer](/plugins/ts-printer/), whose JavaScript API mirrors it.
+`Print` trait, `join`, `PREAMBLE`, and the `p!` and `frag!` macros. Refer to the
+[TypeScript printer](/plugins/ts-printer/), whose JavaScript API mirrors it.
+
+## Related resources
+
+- [The model](/concepts/the-model/): the tree every plugin reads.
+- [Write a plugin in Rust](/plugins/rust/): as a WebAssembly component, or with Forge as a library.
+- [Contribute to Forge](/guides/contributing/): build Forge from source and run its tests.

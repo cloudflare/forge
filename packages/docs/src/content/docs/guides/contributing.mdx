@@ -1,6 +1,7 @@
 ---
-title: Contributing
+title: Contribute to Forge
 description: Build Forge from source, run its tests, and find your way around the repository.
+content_type: how-to
 sidebar:
   order: 3
 ---
@@ -65,7 +66,7 @@ packages/
 - **A change to the model.** In the Rust API first, then the WIT in `src/plugin/wasm.rs` and the
   host side of it, then the JavaScript library in `packages/forge/src/`, which fails to compile if it
   drifts from the WIT. Copy the new WIT into the package with
-  `pnpm --filter @cloudflare/forge wit`; packing refuses a stale copy. `tests/wasm.rs` dumps the model natively and through WebAssembly, and they
+  `pnpm --filter @cloudflare/forge wit`. Packing refuses a stale copy. `tests/wasm.rs` dumps the model natively and through WebAssembly, and they
   must match.
 - **A target.** In `src/bin/forge/`. The TypeScript runtime that is copied into every SDK is in
   `src/bin/forge/ts/lib/`, with its own tests.
@@ -79,4 +80,13 @@ pnpm --filter forge-docs dev      # http://localhost:4321
 pnpm --filter forge-docs build
 ```
 
-Every internal link is checked at build time, so a broken one fails the build.
+The build lints every page after building it, so a broken internal link fails it.
+
+## Related resources
+
+- [The pipeline](/concepts/pipeline/): how a document becomes files, step by step.
+- [Rust API](/reference/rust-api/): the forge crate's types and functions.
+
+## Next steps
+
+- [Write a plugin in TypeScript](/plugins/typescript/): `definePlugin`, building and errors.

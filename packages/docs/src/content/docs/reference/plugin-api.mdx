@@ -1,6 +1,7 @@
 ---
 title: Plugin API (TypeScript)
-description: Every type and function exported by @cloudflare/forge/plugin, for writing Forge plugins in TypeScript or JavaScript.
+description: Every type and function that @cloudflare/forge/plugin exports, with each one's fields and methods, for plugins in TypeScript or JavaScript.
+content_type: reference
 sidebar:
   order: 3
 ---
@@ -35,7 +36,7 @@ Export the result from the entry module, under this name:
 export const { generate } = definePlugin({ /* ... */ });
 ```
 
-Throw to fail; the error's `message` is printed.
+Throw to fail. The error's `message` is printed.
 
 ## The model
 
@@ -225,3 +226,9 @@ interface Name {
 ```
 
 Compare names with `equals`, not `===`: two names with the same words can be different objects.
+
+## Related resources
+
+- [The model](/concepts/the-model/): the tree every plugin reads.
+- [Write a plugin in TypeScript](/plugins/typescript/): `definePlugin`, building and errors.
+- [Get started with plugins](/plugins/get-started/): write, build and run a plugin in TypeScript.

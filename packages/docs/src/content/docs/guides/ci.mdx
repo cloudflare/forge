@@ -1,18 +1,19 @@
 ---
-title: Generating in CI
+title: Generate in CI
 description: Regenerate an SDK on every change to the OpenAPI document, fail the build when the committed output is stale, and pin the Forge version.
+content_type: how-to
 sidebar:
   order: 1
 ---
 
 Generated code is easiest to trust when CI regenerates it and checks the result. This guide sets up
-a check that fails when the committed SDK does not match the document, with GitHub Actions; the same
+a check that fails when the committed SDK does not match the document, with GitHub Actions. The same
 steps work in any CI.
 
-## Pin the version
+## 1. Pin the version
 
-`@cloudflare/forge` is installed from pkg.pr.new, by branch, pull request or commit. A branch moves;
-a commit does not. Pin a commit in `package.json`, so a new Forge changes your output only when you
+`@cloudflare/forge` is installed from pkg.pr.new, by branch, pull request or commit. A branch moves,
+but a commit does not. Pin a commit in `package.json`, so a new Forge changes your output only when you
 choose:
 
 ```json title="package.json"
@@ -29,7 +30,7 @@ choose:
 Remove the output first: Forge overwrites files but never deletes ones it no longer generates, so a
 removed group would otherwise leave its files behind.
 
-## Check the output
+## 2. Add the check
 
 Regenerate, then fail if anything changed:
 
@@ -52,7 +53,7 @@ jobs:
       - run: npx tsc --noEmit
 ```
 
-The last step type-checks the SDK with your project's `tsconfig.json`; the SDK writes none of its
+The last step type-checks the SDK with your project's `tsconfig.json`. The SDK writes none of its
 own.
 
 `git diff --exit-code` fails with the diff in the log when the document changed and the SDK was not
@@ -61,6 +62,18 @@ the diff too.
 
 The `timeout-minutes` matters for plugins: Forge does not time out a WebAssembly plugin, so one that
 loops would hold the job.
+
+## 3. Verify the check
+
+Push the workflow with an up-to-date SDK. The job passes: `git diff --exit-code` prints nothing and
+exits with status 0, and so does `tsc`.
+
+To see it catch a stale SDK, change a summary in the document without regenerating, and push. The
+job fails at the diff step with status 1, and the log shows the lines of the SDK that would change.
+
+Forge also exits with status 1 for any error in the document or a plugin, and prints every document
+error at once, so the log is a complete list of what to fix. Refer to
+[Troubleshooting OpenAPI documents](/openapi/errors/).
 
 ## Plugins in CI
 
@@ -88,7 +101,11 @@ Or point the npm launcher at any binary with `FORGE_BINARY`:
 FORGE_BINARY=/path/to/forge npx forge openapi.json --target ts --out sdk
 ```
 
-## Errors fail the job
+## Related resources
 
-Forge exits with status 1 for any error in the document or plugin, and prints every document error
-at once, so the log is a complete list of what to fix. See [errors](/openapi/errors/).
+- [The pipeline](/concepts/pipeline/): how a document becomes files, step by step.
+- [Troubleshooting OpenAPI documents](/openapi/errors/): each error, and its fix.
+
+## Next steps
+
+- [Test a plugin](/plugins/testing/): snapshot the output and check that it compiles.

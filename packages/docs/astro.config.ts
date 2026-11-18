@@ -58,7 +58,8 @@ export default defineConfig({
   integrations: [
     nimbus(nimbusConfig, {
       // Frontmatter has to validate for a page to render, and a broken
-      // internal link is a 404 for a reader: both fail the build.
+      // internal link is a 404 for a reader: both are errors. `nimbus-docs
+      // lint`, which the `build` script runs after building, reports them.
       rules: {
         'nimbus/frontmatter-shape': 'error',
         'nimbus/internal-link': 'error',

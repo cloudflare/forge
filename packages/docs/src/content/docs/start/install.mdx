@@ -1,6 +1,7 @@
 ---
-title: Installation
-description: Install Forge from npm, or build it from source.
+title: Install Forge
+description: Install Forge from npm, or build it from source, and check that it runs.
+content_type: how-to
 sidebar:
   order: 2
 ---
@@ -16,9 +17,11 @@ of `main` is:
 
 <PackageManagers pkg="https://pkg.pr.new/cloudflare/forge/@cloudflare/forge@main" dev />
 
-Then run it through your package manager:
+Check that it runs, through your package manager:
 
-<PackageManagers type="exec" pkg="forge" args="openapi.json --target ts --out sdk" />
+<PackageManagers type="exec" pkg="forge" args="--version" />
+
+It prints the version, such as `forge 0.1.0`.
 
 Every build can be installed in three ways, each a suffix on
 `https://pkg.pr.new/cloudflare/forge/@cloudflare/forge`:
@@ -60,16 +63,21 @@ installs the right one on first build.
 git clone https://github.com/cloudflare/forge.git
 cd forge
 cargo build --release --features wasm
-./target/release/forge --help
+./target/release/forge --version
 ```
 
+The last command prints the version, such as `forge 0.1.0`.
+
 The `wasm` feature is what lets the command run [WebAssembly plugins](/plugins/overview/). It adds
-[Wasmtime](https://wasmtime.dev) to the build, so it is off by default; without it,
+[Wasmtime](https://wasmtime.dev) to the build, so it is off by default. Without it,
 `--target wasm://...` fails with a message telling you to rebuild with `--features wasm`. The npm
 package's binaries are always built with it.
 
-## Next
+## Related resources
 
-- [Quickstart](/start/quickstart/): generate something.
-- [Writing plugins](/plugins/overview/): what plugin authors install, and Forge as a Rust library.
-- [CLI reference](/reference/cli/): every option and error.
+- [About Forge](/start/about/): what Forge is, and the model every output shares.
+- [CLI](/reference/cli/): every command and option.
+
+## Next steps
+
+- [Get started](/start/get-started/): generate a TypeScript SDK and MCP tools from a small document.

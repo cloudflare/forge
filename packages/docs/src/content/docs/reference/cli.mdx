@@ -1,9 +1,17 @@
 ---
 title: CLI
-description: "Reference for the forge and forge-plugin commands, and forge normalize: arguments, options, environment variables and exit status."
+description: The forge, forge normalize and forge-plugin commands, with each one's arguments, options, environment variables and exit status.
+content_type: reference
 sidebar:
   order: 1
 ---
+
+| Command | What it does |
+| --- | --- |
+| [`forge`](#forge) | Generates files from an OpenAPI document with a target. |
+| [`forge normalize`](#forge-normalize) | Rewrites other tools' extensions into Forge's own. |
+| [`forge-plugin build`](#build) | Builds a JavaScript or TypeScript plugin into a WebAssembly component. |
+| [`forge-plugin wit`](#wit) | Prints the WIT that plugins are built against. |
 
 ## forge
 
@@ -34,7 +42,7 @@ forge openapi.json --target wasm://plugin.wasm --out out
 ### Output
 
 Files are written under `--out`, creating directories as needed. Existing files with the same paths
-are overwritten; **other files are left alone**, so remove the directory first to regenerate from
+are overwritten. **Other files are left alone**, so remove the directory first to regenerate from
 scratch. A file with no content is not written. Nothing is written if the document, the plugin, or
 any file's content fails.
 
@@ -66,7 +74,7 @@ The npm package's binaries are built with it.
 
 ## forge normalize
 
-Rewrites other tools' extensions into the native `x-forge-*` ones; **Compatibility Modes** in the
+Rewrites other tools' extensions into the native `x-forge-*` ones. **Compatibility Modes** in the
 sidebar lists them. A native key is never replaced: when a document says the same thing
 twice, the native key is kept.
 
@@ -79,7 +87,7 @@ forge normalize [OPTIONS] <INPUTS>...
 | `<INPUTS>...`            | The OpenAPI JSON documents, as paths, or `-` to read one from standard input. |
 | `-w`, `--write`          | Rewrite the files in place, each only if there is something to rewrite in it. |
 | `--check`                | Say what would be rewritten, and write nothing. Fails if there is anything to rewrite. |
-| `--from <SOURCE>`        | Rewrite only keys from one source; `forge normalize --help` lists them. May be repeated. |
+| `--from <SOURCE>`        | Rewrite only keys from one source. `forge normalize --help` lists them. May be repeated. |
 | `--leave-old-extensions` | Keep each rewritten key beside the native one, for tools that still read it.  |
 | `-v`, `--verbose`        | Say how many times each key was rewritten.                                    |
 
@@ -132,4 +140,10 @@ Prints the WIT that plugins are built against to standard output:
 
 <PackageManagers type="exec" pkg="forge-plugin" args="wit > wit/forge.wit" />
 
-See the [WIT reference](/reference/wit/).
+Refer to the [WIT reference](/reference/wit/).
+
+## Related resources
+
+- [The pipeline](/concepts/pipeline/): how a document becomes files, step by step.
+- [Get started](/start/get-started/): generate a TypeScript SDK and MCP tools from a small document.
+- [Generate in CI](/guides/ci/): regenerate on every change, and fail on a stale SDK.

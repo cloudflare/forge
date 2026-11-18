@@ -1,6 +1,7 @@
 ---
 title: Types
-description: The seven kinds of type Forge builds from JSON Schema, how nulls, unions, intersections and discriminators are normalized, and what each scalar and number format means.
+description: Forge builds seven kinds of type from JSON Schema and normalizes nulls, unions, intersections and discriminators, so a plugin handles a small, fixed set of cases.
+content_type: concept
 sidebar:
   order: 5
 ---
@@ -19,7 +20,7 @@ every supported version of OpenAPI.
 | `Intersection` | `allOf`.                                                                | Members.                             |
 | `Model`        | A `$ref` to a schema in `components.schemas`.                           | The model.                           |
 
-In Rust, `Type` is an enum you `match`; in TypeScript it is a union you narrow with `switch
+In Rust, `Type` is an enum you `match`. In TypeScript it is a union you narrow with `switch
 (type.kind)`, so a `never` check turns a kind you missed into a compile error.
 
 ## Scalars
@@ -37,7 +38,7 @@ In Rust, `Type` is an enum you `match`; in TypeScript it is a union you narrow w
 | `Bytes`    | `format: byte`, or `contentEncoding: base64`.            | Bytes, sent as base64 text.            |
 | `Binary`   | `format: binary`.                                        | Raw bytes, as in a file upload.        |
 
-`Bytes` and `Binary` are different on purpose. `Bytes` is a JSON string holding base64; `Binary` is
+`Bytes` and `Binary` are different on purpose. `Bytes` is a JSON string holding base64. `Binary` is
 the bytes themselves, such as a part of `multipart/form-data` or a whole `application/octet-stream`
 body.
 
@@ -56,7 +57,7 @@ body.
 
 The format decides the size whatever the `type` says, so a `number` with `format: int32` is an
 `Int32`. `is_integer()` tells you whether it is anything but `Float` or `Double`. Decide what `Int`
-is in your language; it has no size because the document gave it none.
+is in your language. It has no size because the document gave it none.
 
 ## Nulls
 
@@ -106,7 +107,7 @@ Each field has:
 | `default`      | The schema's `default`, as written, unchecked.                                |
 
 A property whose schema is `false`, or that has `x-forge-skip: true`, is not a field. Fields are
-in an unspecified order, except in a method's request and headers; sort them if your output needs
+in an unspecified order, except in a method's request and headers. Sort them if your output needs
 an order.
 
 ## Unions
@@ -116,7 +117,7 @@ enums and flattens nested unions that have no discriminator of their own. A memb
 constrains the value (one with only `required`, or `not`) is left out.
 
 `is_exclusive()` says whether a value is at most one member. It is true for `oneOf`, for a list of
-types, and for a nullable type; it is false for `anyOf`.
+types, and for a nullable type. It is false for `anyOf`.
 
 ### Discriminators
 
@@ -134,12 +135,12 @@ value is, and each value of it:
 
 `allOf` is an intersection, normalized hard so that most of them are simple:
 
-- members that give no shape (`{}`, `true`, `{ type: object }`, a description only) are left out,
-  and a single member left is the type itself;
-- a member with only `required` makes those fields of the other members required (a model among
-  them becomes a copy of its object, so the model itself is unchanged);
-- a nested `allOf` adds its own members;
-- `properties` next to `allOf` is one more member.
+- Members that give no shape (`{}`, `true`, `{ type: object }`, a description only) are left out,
+  and a single member left is the type itself.
+- A member with only `required` makes those fields of the other members required (a model among
+  them becomes a copy of its object, so the model itself is unchanged).
+- A nested `allOf` adds its own members.
+- A `properties` keyword alongside `allOf` adds one more member.
 
 ## Models
 
@@ -153,7 +154,9 @@ In OpenAPI 3.0, keywords next to a `$ref` are ignored, except `x-forge-sensitive
 `description` keep the model, `nullable: true` makes it `Model | Null`, and anything else makes an
 intersection of the model and the rest.
 
-## Next
+## Related resources
 
 - [Models and placement](/concepts/models/): which file each model goes in.
 - [OpenAPI support](/openapi/support/): every keyword, and what is not covered yet.
+- [Plugin API (TypeScript)](/reference/plugin-api/): every type and function a TypeScript plugin uses.
+- [Write a plugin in TypeScript](/plugins/typescript/): `definePlugin`, building and errors.

@@ -1,20 +1,38 @@
 ---
 title: Extensions
 description: Every OpenAPI extension Forge reads, where it goes, what values it takes, and what it does.
+content_type: reference
 sidebar:
   order: 3
 ---
 
 Forge needs no extensions: methods are named by `operationId`, as
-[naming methods](/openapi/naming/) explains. The extensions below add what OpenAPI has no field for,
-such as names that differ from the document's, group descriptions and confirmation prompts. Any other `x-` key on an operation is passed to
-plugins, unread; any other `x-` key elsewhere is ignored.
+[Method names](/openapi/naming/) explains. The extensions below add what OpenAPI has no field for,
+such as names that differ from the document's, group descriptions and confirmation prompts. Any
+other `x-` key on an operation is passed to plugins, unread. Any other `x-` key elsewhere is
+ignored.
 
 Forge reads only these. A document annotated for another tool can have that tool's extensions
-rewritten into these with [`forge normalize`](/reference/cli/#forge-normalize); see **Compatibility
+rewritten into these with [`forge normalize`](/reference/cli/#forge-normalize). Refer to **Compatibility
 Modes** in the sidebar.
 
 A value of the wrong JSON type, such as a string where a boolean goes, is an error, wherever it is.
+
+| Extension | On | Value |
+| --- | --- | --- |
+| [`x-forge-method-name`](#x-forge-method-name-and-x-forge-group-name) | Operation, alias | String |
+| [`x-forge-group-name`](#x-forge-method-name-and-x-forge-group-name) | Operation, alias | Dotted string, or array of strings |
+| [`x-forge-skip`](#x-forge-skip) | Operation, alias | Boolean |
+| [`x-forge-availability`](#x-forge-availability) | Operation, alias | `alpha`, `beta`, `preview`, `generally-available` or `deprecated` |
+| [`x-forge-hidden`](#x-forge-hidden) | Operation, alias | Boolean |
+| [`x-forge-require-confirmation`](#x-forge-require-confirmation) | Operation, alias | String |
+| [`x-forge-aliases`](#x-forge-aliases) | Operation | Array of alias objects |
+| [`x-forge-parameter-name`](#x-forge-parameter-name) | Parameter | String |
+| [`x-forge-model-name`](#x-forge-model-name) | Schema in `components.schemas` | String |
+| [`x-forge-property-name`](#x-forge-property-name) | Property schema | String |
+| [`x-forge-sensitive`](#x-forge-sensitive) | Property schema | Boolean |
+| [`x-forge-skip`](#x-forge-skip-1) | Property schema | Boolean |
+| [`x-forge-commands`](#x-forge-commands) | Document root | Object of group descriptions |
 
 ## On operations
 
@@ -22,11 +40,12 @@ These go on an Operation Object, or on an alias in `x-forge-aliases`.
 
 ### x-forge-method-name and x-forge-group-name
 
-The method's name, and its group, instead of the `operationId`'s. The method name is a string; the
+The method's name, and its group, instead of the `operationId`'s. The method name is a string. The
 group is names separated by dots, top level first, or an array of names. They take effect together
-with `x-forge-method-name`: with it, the method is named by these two, and a method name with no group
-name is a method of the root group. Without it, `x-forge-group-name` is ignored, and both names come
-from the `operationId`. See [groups and methods](/concepts/groups-and-methods/).
+with a non-empty `x-forge-method-name`: with it, the method is named by these two, and a method name
+with no group name is a method of the root group. Without it, or with `""`, `x-forge-group-name` is
+ignored, and both names come from the `operationId`. Refer to
+[Groups and methods](/concepts/groups-and-methods/).
 
 ```json
 "x-forge-group-name": "accounts.members",
@@ -38,10 +57,13 @@ from the `operationId`. See [groups and methods](/concepts/groups-and-methods/).
 `true` to leave the operation out: it is not a method, and its parameters, body and responses are
 never built. A boolean.
 
+On an operation with [`x-forge-aliases`](#x-forge-aliases), only the aliases make methods, so the
+operation's own `x-forge-skip` stops none of them. Put it on each alias to leave out.
+
 ### x-forge-availability
 
 The method's stage: `alpha`, `beta`, `preview`, `generally-available` or `deprecated`. Separate from
-OpenAPI's `deprecated`; see [groups and methods](/concepts/groups-and-methods/).
+OpenAPI's `deprecated`. Refer to [Groups and methods](/concepts/groups-and-methods/).
 
 ### x-forge-hidden
 
@@ -123,7 +145,7 @@ The parameter's field name, instead of its `name`, which stays what is sent. A s
 ### x-forge-model-name
 
 The model's name, instead of the schema's name in `components.schemas`. A string, on the schema.
-See [models](/concepts/models/).
+Refer to [Models and placement](/concepts/models/).
 
 ### x-forge-property-name
 
@@ -161,9 +183,16 @@ top-level group, each with a `description` and nested `groups`:
 
 A key with dots is a path from where it is: `dns.records` at the root, or `records` under `dns`'s
 `groups`, describe the same group. Keys match groups when they are equal as names. Two entries for
-the same group are an error; entries for groups that do not exist are ignored.
+the same group are an error. Entries for groups that do not exist are ignored.
 
 ## Not read
 
 Other tools' extensions have no effect, such as `x-codeSamples`. `forge normalize` rewrites the ones
-with an equivalent here into it; **Compatibility Modes** in the sidebar lists them.
+with an equivalent here into it. **Compatibility Modes** in the sidebar lists them.
+
+## Related resources
+
+- [OpenAPI documents](/openapi/overview/): what Forge reads, and what each method needs.
+- [Method names](/openapi/naming/): how operationIds become groups and methods.
+- [Adopt Forge on an existing API](/guides/adopting/): a large document, a group at a time.
+- [Convert Fern extensions](/compatibility/fern/): rewrite Fern extensions into Forge's own.

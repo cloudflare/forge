@@ -13,11 +13,11 @@ This package is part of the repo pnpm workspace. Install once at the repo root:
 
 ```sh
 pnpm install
-pnpm --filter forge-docs dev      # http://localhost:4321
-pnpm --filter forge-docs build    # cf build: the Build Output in ./.cloudflare/output
-pnpm --filter forge-docs check    # astro check: types, content collections
+pnpm --filter forge-docs dev          # http://localhost:4321
+pnpm --filter forge-docs build        # cf build, then nimbus-docs lint; output in ./.cloudflare/output
+pnpm --filter forge-docs check        # astro check: types, content collections
 pnpm --filter forge-docs lint:docs
-pnpm --filter forge-docs deploy   # cf deploy
+pnpm --filter forge-docs run deploy   # build, then cf deploy
 ```
 
 The site deploys with the [`cf` CLI](https://developers.cloudflare.com/cf/), from
@@ -49,13 +49,14 @@ cloudflare.config.ts         # the Worker cf deploys: assets only
 
 ## Writing docs
 
-Frontmatter validates against Nimbus's `docsSchema`. `title` is required. Sidebar groups are declared
-in `astro.config.ts`; position within a group comes from `sidebar.order`:
+Frontmatter validates against Nimbus's `docsSchema`. `title` and `content_type` are required. Sidebar
+groups are declared in `astro.config.ts`; position within a group comes from `sidebar.order`:
 
 ```mdx
 ---
 title: My page
 description: One-line summary.
+content_type: concept
 sidebar:
   order: 3
 ---
@@ -65,12 +66,33 @@ Content here. The H1 comes from `title`; don't repeat it in the body.
 
 Rules:
 
+- **Follow the [Cloudflare docs style guide](https://developers.cloudflare.com/style-guide/).**
+  Every page has one of its
+  [content types](https://developers.cloudflare.com/style-guide/documentation-content-strategy/content-types/)
+  in `content_type`, and follows that type's rules for its title and shape:
+
+  | `content_type`    | Title                                | Shape                                                    |
+  | ----------------- | ------------------------------------ | -------------------------------------------------------- |
+  | `overview`        | The product's name                   | One orienting paragraph, then links onward               |
+  | `get-started`     | Get started                          | Prerequisites, numbered steps, a check of the result     |
+  | `how-to`          | An imperative verb phrase, no gerund | Steps, then how to verify the result                     |
+  | `concept`         | A noun phrase                        | Prose that explains; no steps                            |
+  | `reference`       | The surface's name                   | Every entry, uniformly; a table first if readers scan it |
+  | `troubleshooting` | Troubleshooting, then the area       | Each error or symptom, its cause and its fix             |
+
+  Every page but an overview ends with **Related resources**, linking the pages the style guide's
+  [cross-linking table](https://developers.cloudflare.com/style-guide/style-and-grammar/formatting/structure/links/#cross-linking-requirements)
+  asks for. Get-started and how-to pages then end with **Next steps**, for onward tasks only. In
+  prose: no contractions, no semicolons (split the sentence), and "refer to" rather than "see" before
+  a link.
+
 - **Every claim is checked against the source.** The pages describe Forge's behaviour precisely:
   which errors, which order, which defaults. Read the Rust doc comments (`src/lib.rs`,
   `src/types.rs`, `src/method.rs`, `src/link.rs`) or run `forge` on a small document before writing
   one. Output shown on a page is real output.
 - **Every internal link must resolve.** `nimbus/internal-link` is an error, so a broken link fails
-  the build. It does not check `#anchors`; check those against the built HTML.
+  `pnpm build`, which lints the pages after building them. It does not check `#anchors`; check
+  those against the built HTML.
 - **Quote a `description` that contains `: `.** YAML reads it as a mapping otherwise, and the build
   fails.
 - **Components must be PascalCase and registered in `src/components.ts`.**
@@ -105,7 +127,7 @@ internal work in generic terms.
 | New sidebar group    | A directory under `src/content/docs/` and an entry in `astro.config.ts`.                    |
 | UI from the registry | `pnpm exec nimbus-docs add <slug>`, then register it in `src/components.ts` if MDX uses it. |
 | OG card restyle      | `src/pages/og/_card.ts`.                                                                    |
-| Check it builds      | `pnpm exec nimbus-docs check --json`, then a build for link checking.                       |
+| Check it builds      | `pnpm build`: it builds the site, then lints every page, including its internal links.      |
 
 Files under `src/` outside `src/content/` are Nimbus's, byte for byte, except the changes listed
 in the README. To update Nimbus, copy the new starter over them and reapply those changes; Forge's

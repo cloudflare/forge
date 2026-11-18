@@ -1,8 +1,9 @@
 ---
-title: Rust plugins
+title: Write a plugin in Rust
 description: Write a Forge plugin in Rust, either as a WebAssembly component that any forge runs, or by depending on Forge as a library and implementing the Plugin trait.
+content_type: how-to
 sidebar:
-  order: 5
+  order: 6
 ---
 
 Rust gets two ways in:
@@ -143,7 +144,7 @@ shares.
 
 A record holds everything a part has, so fetch each part once and keep it. Since the WIT
 mirrors the Rust API, the [Rust API docs](/reference/rust-api/) give the meaning and order of every
-field; [the WIT reference](/reference/wit/) has the whole file.
+field. The [WIT reference](/reference/wit/) has the whole file.
 
 Standard error is passed through, so `eprintln!` and panic messages show up in your terminal while
 you debug.
@@ -155,7 +156,7 @@ output with a tool, a CLI of its own), depend on Forge and run it in your own bi
 
 ### Set up
 
-Forge is not on crates.io yet; depend on it from Git. Turn off the default `cli` feature, which only
+Forge is not on crates.io yet. Depend on it from Git. Turn off the default `cli` feature, which only
 the `forge` command needs:
 
 ```toml title="Cargo.toml"
@@ -262,3 +263,13 @@ not ship binaries for six platforms. Use the library when the generator is part 
 needs the file system or network.
 
 The two share the model, so moving between them is a change of plumbing, not of logic.
+
+## Related resources
+
+- [How plugins work](/plugins/how-plugins-work/): the ways to write one, and what a plugin does.
+- [Rust API](/reference/rust-api/): the forge crate's types and functions.
+- [WIT](/reference/wit/): a summary of the interface, and where the complete file is.
+
+## Next steps
+
+- [Test a plugin](/plugins/testing/): snapshot the output and check that it compiles.

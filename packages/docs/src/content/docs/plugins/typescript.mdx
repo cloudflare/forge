@@ -1,14 +1,15 @@
 ---
-title: TypeScript plugins
+title: Write a plugin in TypeScript
 description: Write a Forge plugin in TypeScript or JavaScript with definePlugin, build it into a WebAssembly component, and run it with forge --target wasm://.
+content_type: how-to
 sidebar:
-  order: 3
+  order: 4
 ---
 
 A TypeScript plugin is one module that exports `generate`, made by `definePlugin`. `forge-plugin build` bundles it with its dependencies and compiles it, with QuickJS
 inside, into a WebAssembly component that `forge` runs.
 
-## Set up
+## 1. Set up
 
 Install Forge and jco, the Bytecode Alliance's JavaScript component toolchain, which `forge-plugin
 build` uses. jco is large and only plugin authors need it, so it is an optional peer dependency
@@ -19,7 +20,7 @@ rather than a dependency:
   dev
 />
 
-## A first plugin
+## 2. Write the plugin
 
 This one writes a README, and a Markdown page per group with a table of its methods:
 
@@ -47,17 +48,34 @@ export const { generate } = definePlugin({
 });
 ```
 
-Build and run it:
+The export must be called `generate`, which is why the example destructures it. `generate` is
+called once per run, with the whole model.
+
+## 3. Build and run it
+
+Build the plugin into a WebAssembly component:
 
 <PackageManagers type="exec" pkg="forge-plugin" args="build plugin.ts --out plugin.wasm" />
 
+Building takes about a second, and the component is about 1.7 MB, most of it the JavaScript
+engine. `--out` defaults to `plugin.wasm`. Then run it on a document, such as the pet store document
+from [Get started](/start/get-started/#1-write-a-document):
+
 <PackageManagers type="exec" pkg="forge" args="openapi.json --target wasm://plugin.wasm --out docs" />
 
-Building takes about a second, and the component is about 1.7 MB, most of it the JavaScript
-engine. `--out` defaults to `plugin.wasm`.
+## 4. Check the result
 
-The export must be called `generate`, which is why the example destructures it. `generate` is
-called once per run, with the whole model.
+`docs/` has a README and one page, since only `pets` has methods:
+
+```md title="docs/pets.md"
+# Pets
+
+| Method | HTTP | Summary |
+| --- | --- | --- |
+| `create` | `POST /pets` | Add a pet |
+| `delete` | `DELETE /pets/{pet_id}` | Delete a pet |
+| `list` | `GET /pets` | List pets |
+```
 
 ## The API
 
@@ -93,27 +111,31 @@ import type { Type } from '@cloudflare/forge/plugin';
 function ts(type: Type): string {
   switch (type.kind) {
     case 'scalar':
-      return type.scalar === 'number' ? 'number' : type.scalar === 'null' ? 'null' : 'string';
+      // Dates, UUIDs and bytes are strings in JSON.
+      return ['number', 'boolean', 'null', 'unknown'].includes(type.scalar) ? type.scalar : 'string';
     case 'enum':
       return type.values.map((v) => JSON.stringify(v)).join(' | ');
     case 'array':
-      return `${ts(type.elem)}[]`;
+      return `(${ts(type.elem)})[]`;
     case 'object':
-      return `{ ${type.fields.map((f) => `${f.wireName}${f.required ? '' : '?'}: ${ts(f.type)}`).join('; ')} }`;
+      return `{ ${type.fields.map((f) => `${JSON.stringify(f.wireName)}${f.required ? '' : '?'}: ${ts(f.type)}`).join('; ')} }`;
     case 'union':
       return type.members.map(ts).join(' | ');
     case 'intersection':
-      return type.members.map(ts).join(' & ');
+      return type.members.map((m) => `(${ts(m)})`).join(' & ');
     case 'model':
       return type.model.name.pascal();
   }
 }
 ```
 
+It is a sketch: it ignores an object's additional properties (`type.extra`), and a real target also
+decides how to name and import models.
+
 A scalar's `scalar` is one of `unknown`, `null`, `boolean`, `string`, `number`, `date-time`, `date`,
-`bytes`, `binary` or `uuid`; a number also has `number`, its [format](/concepts/types/#numbers), such as
-`int64`. Names have `camel()`, `pascal()`, `snake()`, `kebab()`, `words` and `equals()`; see
-[names](/concepts/names/).
+`bytes`, `binary` or `uuid`. A number also has `number`, its [format](/concepts/types/#numbers), such as
+`int64`. Names have `camel()`, `pascal()`, `snake()`, `kebab()`, `words` and `equals()`. Refer to
+[Names](/concepts/names/).
 
 ### Reading lazily
 
@@ -170,9 +192,9 @@ I/O to await in the sandbox anyway.
 </Aside>
 
 - **One call, one instance.** `generate` runs once per run, in a fresh instance, so module state
-  starts empty every time. See [sandboxing](/concepts/sandbox/#instances).
+  starts empty every time. Refer to [Sandboxing](/concepts/sandbox/#instances).
 - **QuickJS, not Node.** The engine is QuickJS: modern JavaScript, but no Node or web APIs beyond
-  the language's own. `Date`, `Math`, `JSON`, `Map` and regular expressions are there; `fs`, `fetch`,
+  the language's own. `Date`, `Math`, `JSON`, `Map` and regular expressions are there. `fs`, `fetch`,
   `process`, `TextEncoder` and `console` are not.
 - **Dependencies are bundled.** Import npm packages that are plain JavaScript, such as a template
   engine or a casing library, and the build bundles them in. Packages that use Node APIs will not
@@ -184,8 +206,14 @@ I/O to await in the sandbox anyway.
   not found`. Every later build carries the same import. Reinstall the package to repair it.
 - **TypeScript is stripped, not checked.** Run `tsc --noEmit` yourself to type-check.
 
-## Next
+## Related resources
 
-- [The TypeScript printer](/plugins/ts-printer/): for plugins that write TypeScript.
-- [Testing plugins](/plugins/testing/).
-- [Plugin API reference](/reference/plugin-api/).
+- [How plugins work](/plugins/how-plugins-work/): the ways to write one, and what a plugin does.
+- [Plugin API (TypeScript)](/reference/plugin-api/): every type and function a TypeScript plugin uses.
+- [Sandboxing](/concepts/sandbox/): what a WebAssembly plugin can reach.
+- [TypeScript printer](/plugins/ts-printer/): write TypeScript files with their imports worked out.
+- [Troubleshooting OpenAPI documents](/openapi/errors/): each error, including a plugin's, and its fix.
+
+## Next steps
+
+- [Test a plugin](/plugins/testing/): snapshot the output and check that it compiles.

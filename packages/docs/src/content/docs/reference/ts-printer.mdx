@@ -1,12 +1,13 @@
 ---
-title: TypeScript printer
+title: TypeScript printer reference
 description: "Every export of @cloudflare/forge/ts, for plugins that generate TypeScript: modules, identifiers, files, fragments and join."
+content_type: reference
 sidebar:
   order: 4
 ---
 
 `@cloudflare/forge/ts` prints TypeScript files and works out their imports. The
-[guide](/plugins/ts-printer/) shows how to use it; this page lists the API.
+[guide](/plugins/ts-printer/) shows how to use it. This page lists the API.
 
 ## module
 
@@ -30,8 +31,8 @@ interface Module {
 }
 ```
 
-A generated module is imported by a relative specifier ending in `.js`; a package by its path
-unchanged.
+A generated module is imported by a relative specifier ending in `.js`. A package is imported by its
+path, unchanged.
 
 ## ident
 
@@ -108,7 +109,7 @@ function join(sep: string, parts: Iterable<Part>): Part[];
 const PREAMBLE: string;
 ```
 
-- Strings print as they are; numbers, booleans and bigints as `String` writes them.
+- Strings print as they are. Numbers, booleans and bigints print as `String` writes them.
 - An `Ident` prints as the name the file uses for it, and is imported if it is from another module.
 - A `Model` prints as `ident.model(model)`.
 - An array prints each part in turn, with nothing between.
@@ -125,11 +126,16 @@ with:
 ## Rendering rules
 
 - Imports: packages first, then generated files, a blank line between the two, each sorted by
-  specifier; one declaration per module.
+  specifier, with one declaration per module.
 - A module whose imported names are all types is imported with `import type`. A name used as both a
   type and a value is imported as a value.
-- A declaration that fits in 80 columns, or has one name, is on one line; otherwise one name per
-  line.
+- A declaration that fits in 80 columns, or has one name, is on one line. Otherwise, each name is
+  on its own line.
 - An imported name that clashes with one declared in the file, or an earlier import, gets `$`
   appended until it is unique.
 - A file with nothing printed renders as an empty string.
+
+## Related resources
+
+- [TypeScript printer](/plugins/ts-printer/): write TypeScript files with their imports worked out.
+- [Write a plugin in TypeScript](/plugins/typescript/): `definePlugin`, building and errors.

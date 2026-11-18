@@ -21,6 +21,7 @@ The site is a Nimbus site with as few changes as possible. Every file under `src
 | The page body's theme           | `src/styles/forge.css`, one import in `BaseLayout.astro` | Forge's own look, "Furnace": Nimbus's neutral surfaces on a white ground, a glow from the top and Space Grotesk headings in the content and its table of contents, with orange buttons in dark mode. Only `--nb-*` tokens scoped to those two regions. Two small rules outside them: a hovered sidebar row takes the current page's wash, and the contents mark the current section in Cloudflare's orange. |
 | The sidebar filter stays put    | `src/layouts/DocsLayout.astro`                           | The filter sits in a sticky bar at the top of the tree, so it is in reach however far the sidebar scrolls. Worth reporting upstream.                                                                                                                                                                                                                                                                        |
 | The "Updated" date              | `ui/page-actions/PageActions.astro`                      | Formatted in the site's locale and UTC, so a build doesn't depend on the machine it runs on.                                                                                                                                                                                                                                                                                                                |
+| A content type on every page    | `content_type` in `src/content.config.ts`                | Each page declares one of the Cloudflare docs style guide's content types, so the build rejects a page that has none.                                                                                                                                                                                                                                                                                       |
 | A minute of freshness for pages | `public/_headers`                                        | A hover-prefetched page can be reused on the click instead of fetched again.                                                                                                                                                                                                                                                                                                                                |
 
 Add a row before adding a change. A change Nimbus should make itself is better reported upstream.
@@ -29,20 +30,30 @@ Add a row before adding a change. A change Nimbus should make itself is better r
 
 Pages are in `src/content/docs/`, one directory per sidebar group: start, concepts, plugins,
 targets, openapi, compatibility, guides, reference. `AGENTS.md` has the rules for writing them; the most important
-is that every statement about Forge is checked against its source or its output.
+is that every statement about Forge is checked against its source or its output. Pages follow the
+[Cloudflare docs style guide](https://developers.cloudflare.com/style-guide/), and each declares its
+content type in `content_type`.
 
 ## Deployment
 
-`pnpm --filter forge-docs deploy` runs `cf deploy`, which builds the site and uploads it as a Worker
-with no script, serving the pages as static assets. CI does this, as for the API site:
+`pnpm --filter forge-docs build` runs `cf build`, then `nimbus-docs lint`, so a broken internal link
+fails it. `pnpm --filter forge-docs run deploy` runs that build and uploads it with `cf deploy`, as
+a Worker with no script, serving the pages as static assets. (`run` is needed because `pnpm deploy`
+is a built-in pnpm command.) CI does this, as for the API site:
 
-- **Every pull request** that changes the site gets a Worker Preview, named after its branch
-  (`.github/workflows/preview-forge-docs.yml`). Its URL is in the job's log.
+- **Every pull request into `main` from a branch of this repository** that changes the site gets a Worker
+  Preview, named after its branch (`.github/workflows/preview-forge-docs.yml`). Its URL is in the
+  job's log. Pull requests from forks get no secrets, so no preview.
 - **Every push to `main`** that changes the site deploys it (`deploy-forge-docs.yml`).
-- **CI** builds it on every pull request, which checks every internal link, and lints the pages.
+- **CI** builds it on every pull request.
 
-The deploy builds with `DOCS_SITE_URL` from the `FORGE_DOCS_SITE_URL` repository variable; set it to
-the Worker's address once it exists, or canonicals and the sitemap point at localhost. Once the site
+Both workflows use the `FORGE_DOCS_CLOUDFLARE_ACCOUNT_ID` and `FORGE_DOCS_CLOUDFLARE_API_TOKEN`
+secrets, not the API site's. Previews work only once the Worker exists, so the first production
+deploy has to come first.
+
+The deploy builds with `DOCS_SITE_URL` from the `FORGE_DOCS_SITE_URL` repository variable, and fails
+if it is not set, since canonicals and the sitemap would point at localhost. Set it to the Worker's
+full HTTPS origin, `https://forge-docs.<subdomain>.workers.dev`, before the first deploy. Once the site
 has a domain, add it to `cloudflare.config.ts` with `workersDev: false`, and update the variable.
 
 `cf` builds an Astro site through the Cloudflare adapter, so `astro.config.ts` has it, although every

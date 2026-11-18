@@ -1,7 +1,6 @@
 # Deploys each pull request's Forge docs site (`packages/docs`) as a Worker
-# Preview of the `forge-docs` Worker and comments the preview URL on the pull
-# request. The preview is named after the branch, so new pushes update the same
-# preview.
+# Preview of the `forge-docs` Worker. The preview is named after the branch, so
+# new pushes update the same preview. Its URL is in the job's log.
 #
 # Pull requests from forks are skipped: they get no repository secrets.
 # CI still builds them.
@@ -37,7 +36,9 @@ jobs:
 
       # Preview URLs come from `previewUrls` in cloudflare.config.ts, which a
       # production deploy must apply first.
+      # Bash runs with pipefail, so a failed deploy fails the step despite `tee`.
       - name: Deploy preview
+        shell: bash
         run: pnpm --filter forge-docs run deploy:preview | tee "$RUNNER_TEMP/preview.log"
         env:
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.FORGE_DOCS_CLOUDFLARE_ACCOUNT_ID }}

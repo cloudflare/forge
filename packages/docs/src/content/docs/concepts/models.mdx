@@ -1,6 +1,7 @@
 ---
 title: Models and placement
-description: Which schemas become models, which group each one is placed in, and how a plugin turns placement into files and imports.
+description: A model is a named schema that a method reaches, placed in the deepest group that every method using it shares, which decides the file a plugin writes it in.
+content_type: concept
 sidebar:
   order: 7
 ---
@@ -73,7 +74,7 @@ sdk/
 In a plugin, that is: for each group in `forge.groups`, the root included, write `group.models`.
 Every model is written exactly once, without any coordination.
 When writing a reference to a model, `model.group` tells you which file declares it, and so what to
-import. [The TypeScript printer](/plugins/ts-printer/) does that import for you.
+import. The [TypeScript printer](/plugins/ts-printer/) does that import for you.
 
 ## Names are not checked for collisions
 
@@ -87,4 +88,10 @@ qualify them, or report the collision itself.
 
 A `Type::Model` is a reference. A plugin that would rather inline a model, such as one that is only
 an enum or a primitive alias, can write `model.ty()` instead. A model that refers to itself, directly
-or through others, is fine as a reference; inlining it would never end, so check for that first.
+or through others, is fine as a reference. Inlining it would never end, so check for that first.
+
+## Related resources
+
+- [TypeScript printer](/plugins/ts-printer/): write TypeScript files with their imports worked out.
+- [Plugin API (TypeScript)](/reference/plugin-api/): every type and function a TypeScript plugin uses.
+- [Write a plugin in TypeScript](/plugins/typescript/): `definePlugin`, building and errors.
