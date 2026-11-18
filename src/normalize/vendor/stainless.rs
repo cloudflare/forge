@@ -2,7 +2,7 @@
 
 use super::{BoolOrTargets, Normalize, Source};
 
-pub struct Stainless;
+pub(crate) struct Stainless;
 
 impl Source for Stainless {
     fn name(&self) -> &'static str {

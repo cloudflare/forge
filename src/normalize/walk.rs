@@ -77,7 +77,7 @@ fn child(kind: Kind, key: &str, value: &Value) -> Option<Shape> {
 }
 
 /// Walks a document, which is changed, and returns what was done.
-pub fn walk(document: &mut Value, options: &Options) -> Report {
+pub(crate) fn walk(document: &mut Value, options: &Options) -> Report {
     let mut walk = Walk {
         options,
         report: Report::default(),
@@ -143,11 +143,11 @@ impl Walk<'_> {
             .keys()
             .filter(|key| key.starts_with("x-"))
             .filter_map(|key| {
-                // The first source with a normalizer for the key wins.
-                let normalizer = self.options.sources.iter().find_map(|source| match kind {
-                    Kind::Operation => source.definition(key),
-                    Kind::Parameter => source.parameter(key),
-                    Kind::Schema => source.schema(key),
+                // The first adapter with a normalizer for the key wins.
+                let normalizer = self.options.adapters.iter().find_map(|adapter| match kind {
+                    Kind::Operation => adapter.source().definition(key),
+                    Kind::Parameter => adapter.source().parameter(key),
+                    Kind::Schema => adapter.source().schema(key),
                     Kind::Document | Kind::Components | Kind::PathItem | Kind::Alias | Kind::Body | Kind::Media => None,
                 });
                 normalizer.map(|normalizer| (key.clone(), normalizer))

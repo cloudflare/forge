@@ -6,7 +6,8 @@
 //! same `forge` record plugins receive, backed by [`ForgeWasm`].
 
 use super::types::ForgeWasm;
-use crate::{Forge, normalize};
+use crate::Forge;
+use crate::normalize::{Adapter, Options, normalize};
 
 /// Private bindgen shim mapping WIT `forge` to [`ForgeWasm`].
 mod wit_forge {
@@ -39,23 +40,23 @@ struct Library;
 
 impl exports::Guest for Library {
     fn parse(json: String, adapters: Vec<String>) -> Result<ForgeWasm, String> {
-        let sources = adapters
+        let adapters = adapters
             .iter()
             .map(|name| {
-                normalize::named(name)
+                Adapter::named(name)
                     .ok_or_else(|| format!("unknown adapter {name:?}; expected cloudflare, fern, or stainless"))
             })
             .collect::<Result<Vec<_>, _>>()?;
         // Without adapters, there is nothing to rewrite, so the document is
         // parsed as given.
-        let normalized: Option<Vec<u8>> = if sources.is_empty() {
+        let normalized: Option<Vec<u8>> = if adapters.is_empty() {
             None
         } else {
-            let options = normalize::Options {
+            let options = Options {
                 leave_old_extensions: false,
-                sources: &sources,
+                adapters: &adapters,
             };
-            normalize::normalize(json.as_bytes(), &options)
+            normalize(json.as_bytes(), &options)
                 .map_err(|err| err.to_string())?
                 .json
         };
