@@ -42,7 +42,9 @@ stays in forge's memory until disposed. Declare it with `using`, or call
 reading a new part throws.
 
 Several documents can be parsed side by side, such as one per version of an
-API; each is a forge of its own.
+API. Each document runs in an instance of forge of its own. A document that
+makes forge fail leaves the others readable, and disposing a document frees
+its memory with its instance.
 
 ## Normalizing a document
 
@@ -464,8 +466,10 @@ It reads forge's `library` world, which the crate in `library/` exports.
 `build.mjs` compiles the crate with cargo for `wasm32-unknown-unknown`, the
 target `rust-toolchain.toml` installs, makes it a component with `jco new`,
 and turns the component into JavaScript in `plugin/component` with
-`jco transpile`. The plugin host and the library write a forge's parts as the
-WIT's records with the same code, in `src/plugin/records.rs`.
+`jco transpile`. `parse` instantiates the component once per document. The
+build embeds the component's core modules in `plugin/component/core.js`, so
+`parse` reads no files. The plugin host and the library write a forge's parts
+as the WIT's records with the same code, in `src/plugin/records.rs`.
 
 `@cloudflare/forge/ts` is `src/ts.ts`, built the same way. It reads the
 forge only through the library's types, so it needs no host, and `npm test`
