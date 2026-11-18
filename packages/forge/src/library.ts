@@ -1,8 +1,9 @@
 /**
  * Read OpenAPI documents with forge, in the same process.
  *
- * `parse` parses a document with forge compiled to WebAssembly, and returns
- * its forge: the same groups, methods, models and types a plugin reads.
+ * `parse` parses a document with forge compiled to WebAssembly. It returns
+ * the document's forge, with the same groups, methods, models and types a
+ * plugin reads.
  *
  * ```ts
  * import { parse } from "@cloudflare/forge";
@@ -22,8 +23,8 @@ import { type Forge, forgeOf } from './forge.js';
 export type * from './forge.js';
 
 /**
- * A parsed document's forge. It holds the document in forge's memory until
- * it is disposed: dispose it, or declare it with `using`, when done.
+ * Holds a parsed document's forge in forge's memory until disposed. Dispose
+ * it, or declare it with `using`, when done.
  */
 export interface Document extends Forge, Disposable {
   /**
@@ -34,9 +35,9 @@ export interface Document extends Forge, Disposable {
 }
 
 /**
- * Parses `json`, an OpenAPI JSON document, and returns its forge. Throws
- * with forge's message if forge doesn't read it, such as a document that is
- * not OpenAPI 3.x or two methods with the same name in a group.
+ * Parses the OpenAPI JSON document `json` and returns its forge. Throws with
+ * forge's message when forge doesn't read the document, such as one that is
+ * not OpenAPI 3.x, or one with two methods of the same name in a group.
  */
 export function parse(json: string): Document {
   let parsed: document.Document;
@@ -51,12 +52,12 @@ export function parse(json: string): Document {
 }
 
 /**
- * `Symbol.dispose`, which Node has from 18.18 and 20.4, or the symbol jco's
- * resources use without it.
+ * Holds `Symbol.dispose`. Node added it in 18.18 and 20.4, so older versions
+ * get the symbol jco's resources use instead.
  */
 const disposeSymbol: typeof Symbol.dispose = Symbol.dispose ?? (Symbol.for('dispose') as typeof Symbol.dispose);
 
-/** The string a component's error case carries, or what was thrown. */
+/** Returns the message of a component's error case, or of what was thrown. */
 function componentMessage(err: unknown): string {
   const payload = (err as { payload?: unknown } | null)?.payload;
   if (typeof payload === 'string') {

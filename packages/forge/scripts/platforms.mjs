@@ -62,7 +62,7 @@ export function findBinary(artifacts, platform) {
 /** The package's copy of the WIT that wasm plugins are built against. */
 export const witPath = join(npmDir, 'plugin', 'forge.wit');
 
-/** The WIT in src/plugin/forge.wit, which `forge::wasm::WIT` holds. */
+/** Returns the WIT in src/plugin/forge.wit, which `forge::wasm::WIT` also holds. */
 export function witSource() {
   return readFileSync(join(repoDir, 'src', 'plugin', 'forge.wit'), 'utf8');
 }
@@ -81,11 +81,11 @@ export function checkWit() {
 }
 
 /**
- * Builds the package's libraries into `out`, or plugin/, and throws if a
- * step fails: forge's library world, with `buildComponent`; the bindings of
- * plugin/forge.wit's `plugin` world, into src/wit; and src/index.ts,
- * src/library.ts and src/ts.ts, compiled against both into .js and .d.ts
- * files in `out`.
+ * Builds the package's libraries into `out`, plugin/ by default, and throws
+ * if a step fails. It builds forge's library world with `buildComponent`,
+ * generates the bindings of plugin/forge.wit's `plugin` world into src/wit,
+ * and compiles src/index.ts, src/library.ts and src/ts.ts against both into
+ * .js and .d.ts files in `out`.
  */
 export function buildPlugin(out = join(npmDir, 'plugin')) {
   buildComponent(out);
@@ -105,10 +105,11 @@ export function buildPlugin(out = join(npmDir, 'plugin')) {
 }
 
 /**
- * Builds forge's `library` world, which `parse` runs: library/, a member of
- * the root workspace, compiled to WebAssembly with cargo, made a component with jco and turned into
- * JavaScript in <out>/component. Its types are copied into src/component,
- * for the compiler.
+ * Builds forge's `library` world, which `parse` runs. It compiles library/,
+ * a member of the root workspace, to WebAssembly with cargo, makes it a
+ * component with jco, and turns the component into JavaScript in
+ * <out>/component. It copies the component's types into src/component, for
+ * the compiler.
  */
 function buildComponent(out) {
   const jco = devBin('@bytecodealliance/jco', 'jco');

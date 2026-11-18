@@ -37,9 +37,10 @@ use super::records::records;
 use crate::types::TypeData;
 use crate::{Err, File, Forge, Plugin};
 
-/// The WIT package of the `plugin` world that plugins are components of,
-/// and of the `library` world that runs forge in the same process as its
-/// caller. Plugins in other languages generate their bindings from it.
+/// Holds the WIT package that plugins and the library are built against.
+/// Plugins are components of its `plugin` world, and its `library` world
+/// runs forge in the caller's process. Plugins in other languages generate
+/// their bindings from it.
 pub const WIT: &str = include_str!("forge.wit");
 
 mod bindings {

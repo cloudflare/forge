@@ -1,17 +1,16 @@
-//! Forge as a library for other languages: the `library` world of the WIT,
-//! in which an OpenAPI document is parsed in the caller's own process and
-//! read as a plugin reads the forge its host runs it on.
+//! Implements the WIT's `library` world, which parses OpenAPI documents in
+//! the caller's own process.
 //!
-//! It is for a build of forge to WebAssembly, `packages/forge/library`, which
-//! `@cloudflare/forge` turns into JavaScript. A part is fetched by id, as
-//! through the `forge` interface, and an id the document never gave out
-//! traps.
+//! `packages/forge/library` builds this module to WebAssembly, and
+//! `@cloudflare/forge` turns the build into JavaScript. Callers read a parsed
+//! document a part at a time, by id, in the same way plugins read the `forge`
+//! interface. An id the document never gave out traps.
 
 use super::records::records;
 use crate::Forge;
 
-/// The bindings of the `library` world. `export_library!` exports an
-/// implementation of it from the crate that is built to WebAssembly.
+/// Holds the bindings of the `library` world. The crate built to WebAssembly
+/// exports [`Library`] with `export_library!`.
 #[doc(hidden)]
 #[expect(
     clippy::mem_forget,
@@ -30,21 +29,22 @@ pub mod bindings {
 use bindings::exports::forge::plugin::document::{self as exports, GuestDocument};
 use bindings::forge::plugin::forge as wit;
 
-/// The implementation of the `library` world. Export it with
-/// `forge::library::bindings::export_library!(Library);`, with `Library` in scope.
+/// Implements the `library` world. Export it from the crate built to
+/// WebAssembly with `forge::library::bindings::export_library!(Library);`,
+/// with `Library` in scope.
 pub struct Library;
 
 impl exports::Guest for Library {
     type Document = Document;
 }
 
-/// A parsed document.
+/// Holds one parsed document.
 pub struct Document {
     forge: Forge,
 }
 
-/// Returns item `id` of `items`, and traps if there is none, as an id the
-/// document never gave out does.
+/// Returns item `id` of `items`. Panics, and so traps, when the document
+/// never gave out `id`.
 fn get<'a, T>(items: &'a [T], id: u32, what: &str) -> &'a T {
     match items.get(id as usize) {
         Some(item) => item,

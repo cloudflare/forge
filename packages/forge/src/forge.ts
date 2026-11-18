@@ -1,11 +1,11 @@
 /**
- * The API of a forge, which plugins read and `parse` returns: its groups,
- * methods, models and types, as forge's Rust API has them.
+ * Reads a forge's groups, methods, models and types, as forge's Rust API
+ * has them. Plugins read this API, and `parse` returns it.
  *
- * Both read the same records, which the WIT's `forge` interface types: a
- * plugin from the host it runs in, and `parse` from forge compiled to
- * WebAssembly in the same process. Each part is fetched the first time it
- * is read, and kept, so the same part is always the same object.
+ * A plugin reads the records from the host it runs in, and `parse` reads
+ * them from forge compiled to WebAssembly in the same process. The WIT's
+ * `forge` interface types both. Each part is fetched the first time it is
+ * read, and kept, so reading a part again returns the same object.
  *
  * @module
  */
@@ -426,9 +426,9 @@ function upperFirst(word: string): string {
 }
 
 /**
- * Where a forge's records come from: the functions of the WIT's `forge`
- * interface, which a plugin imports from its host, and which a parsed
- * document has as methods.
+ * Supplies a forge's records. A plugin imports the functions of the WIT's
+ * `forge` interface from its host, and a parsed document has the same
+ * functions as methods.
  *
  * @internal
  */
@@ -438,7 +438,7 @@ export type Source = Pick<
 >;
 
 /**
- * Returns the forge whose records come from `source`.
+ * Returns the forge that reads its records from `source`.
  *
  * @internal
  */

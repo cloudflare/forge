@@ -221,10 +221,9 @@ world plugin {
     export generate: func() -> result<list<file>, string>;
 }
 
-/// An OpenAPI document parsed into a forge in the caller's own process,
-/// rather than by a host running a plugin. A document reads as the `forge`
-/// interface reads the forge a plugin runs on, with the same ids, orders and
-/// meanings.
+/// Parses OpenAPI documents in the caller's own process, without a host. A
+/// parsed document answers the same reads as the `forge` interface, with the
+/// same ids, orders and meanings.
 interface document {
     use forge.{
         group-id, method-id, model-id, type-id, forge-info, forge-counts, group-info, method-info, model-info,
@@ -232,8 +231,8 @@ interface document {
     };
 
     resource document {
-        /// Parses `json`, an OpenAPI JSON document, or fails with why, as
-        /// the `forge` command says it.
+        /// Parses the OpenAPI JSON document `json`. Fails with the message
+        /// the `forge` command prints for the same document.
         parse: static func(json: string) -> result<document, string>;
 
         info: func() -> forge-info;
@@ -250,8 +249,8 @@ interface document {
     }
 }
 
-/// Forge as a library: what `@cloudflare/forge` runs to parse documents in
-/// JavaScript, with no host.
+/// Runs forge as a library. `@cloudflare/forge` uses this world to parse
+/// documents in JavaScript.
 world library {
     export document;
 }

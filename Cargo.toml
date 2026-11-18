@@ -1,8 +1,8 @@
 [workspace]
 resolver = "3"
-# forge as a library for JavaScript, built for wasm32-unknown-unknown by
-# packages/forge/scripts/build.mjs. A member so it shares Cargo.lock; plain
-# `cargo` commands at the root still build and test only forge.
+# packages/forge/library builds forge as a library for JavaScript, for
+# wasm32-unknown-unknown. It is a member so it shares Cargo.lock. Plain
+# `cargo` commands at the root build and test only forge.
 members = ["packages/forge/library"]
 
 [package]
@@ -35,8 +35,8 @@ default = ["cli"]
 cli = ["dep:clap", "dep:serde_json", "dep:strum"]
 # `forge::wasm`, which runs plugins compiled to WebAssembly components.
 wasm = ["dep:wasmtime", "dep:wasmtime-wasi"]
-# `forge::library`, the `library` world of the WIT, for a WebAssembly build
-# of forge that `@cloudflare/forge` parses documents with in JavaScript.
+# `forge::library` implements the WIT's `library` world. `@cloudflare/forge`
+# builds forge with it to WebAssembly to parse documents in JavaScript.
 library = ["dep:serde_json", "dep:wit-bindgen"]
 
 [profile.release]

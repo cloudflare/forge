@@ -1,13 +1,15 @@
-//! How a forge's parts are written as the records of the WIT, for both the
-//! host that runs plugins ([`super::wasm`]) and the library
-//! ([`super::library`]). Each generates its own bindings of the WIT, so the
-//! functions are a macro, expanded where `wit` names that side's bindings of
-//! the `forge` interface. Looking an id up, and failing on one never given
-//! out, is left to each side.
+//! Writes a forge's parts as the records of the WIT. The host that runs
+//! plugins ([`super::wasm`]) and the library ([`super::library`]) share this
+//! code.
+//!
+//! Each side generates its own bindings of the WIT, so the functions are a
+//! macro. Expand it where `wit` names that side's bindings of the `forge`
+//! interface. Each side looks ids up itself, and decides how to fail on an
+//! id it never gave out.
 
 macro_rules! records {
     () => {
-        /// The records of a forge's parts, as this side's bindings type them.
+        /// Writes a forge's parts as the records of this side's bindings.
         mod wit_records {
             use super::wit;
             use crate::arena::Str;
@@ -35,7 +37,7 @@ macro_rules! records {
                 }
             }
 
-            /// Every group, depth first, starting with the root.
+            /// Returns every group, depth first, starting with the root.
             pub(super) fn group_ids(forge: &Forge) -> Vec<u32> {
                 forge.groups().map(|group| group.id.0).collect()
             }
@@ -195,9 +197,10 @@ macro_rules! records {
                 }
             }
 
-            /// Where `method` sends `field`, or `None` if it is not one of
-            /// its parameters: as in `Method::location`, the field must be
-            /// one of the parameters themselves, not a field like them.
+            /// Returns where `method` sends `field`, or `None` when `field`
+            /// is not one of its parameters. A field from another object
+            /// with the same name returns `None`, because only the
+            /// parameters themselves match.
             pub(super) fn location(forge: &Forge, method: &MethodData, field: &FieldData) -> Option<wit::Location> {
                 let Some(TypeData::Object(params)) = method.params.map(|id| &forge.types[id.index()]) else {
                     return None;

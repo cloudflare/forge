@@ -18,10 +18,10 @@ Pass `-` instead of a path to read the document from standard input. Run
 
 ## Reading a document in JavaScript
 
-`parse` reads an OpenAPI document with forge, in the same process, and
-returns its forge: the groups, methods, models and types a plugin reads, with
-the same API as `@cloudflare/forge/plugin`. It runs forge compiled to
-WebAssembly, so it needs no binary and no plugin.
+`parse` reads an OpenAPI document with forge in the same process. It returns
+the document's forge, with the groups, methods, models and types a plugin
+reads and the same API as `@cloudflare/forge/plugin`. It runs forge compiled
+to WebAssembly, so it needs no binary and no plugin.
 
 ```ts
 import { readFile } from 'node:fs/promises';
@@ -35,11 +35,11 @@ for (const group of forge.groups) {
 }
 ```
 
-A document forge doesn't read, such as one that is not OpenAPI 3.x, throws
-with the message `forge` would print. The parsed document stays in forge's
-memory until it is disposed: declare it with `using`, or call `dispose()`
-when done. A part already read stays readable after that; reading one for
-the first time throws.
+`parse` throws when forge doesn't read the document, such as one that is not
+OpenAPI 3.x, with the message the `forge` command prints. The parsed document
+stays in forge's memory until disposed. Declare it with `using`, or call
+`dispose()` when done. Parts already read stay readable after that, and
+reading a new part throws.
 
 Several documents can be parsed side by side, such as one per version of an
 API; each is a forge of its own.
@@ -425,12 +425,12 @@ the package can't be packed. Its exports are interfaces and the classes
 behind them are private, so the bindings never appear in its declarations.
 
 `parse`, the package's main export, is `src/library.ts`, over the same API.
-It reads forge's `library` world: `library/` is a crate that exports it,
-which `build.mjs` compiles with cargo for `wasm32-unknown-unknown`, the
-target `rust-toolchain.toml` installs, makes a component with `jco new`, and
-turns into JavaScript in `plugin/component` with `jco transpile`. The plugin
-host and the library write a forge's parts as the WIT's records with the
-same code, in `src/plugin/records.rs`.
+It reads forge's `library` world, which the crate in `library/` exports.
+`build.mjs` compiles the crate with cargo for `wasm32-unknown-unknown`, the
+target `rust-toolchain.toml` installs, makes it a component with `jco new`,
+and turns the component into JavaScript in `plugin/component` with
+`jco transpile`. The plugin host and the library write a forge's parts as the
+WIT's records with the same code, in `src/plugin/records.rs`.
 
 `@cloudflare/forge/ts` is `src/ts.ts`, built the same way. It reads the
 forge only through the library's types, so it needs no host, and `npm test`
