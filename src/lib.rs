@@ -224,12 +224,14 @@ impl std::fmt::Debug for Group<'_> {
 /// A named operation in a [`Forge`]: one OpenAPI operation that an SDK
 /// exposes as a function.
 ///
-/// An operation can instead be exposed as several methods, each under its
-/// own group and name, with the `x-forge-aliases` extension: an array of
-/// objects, each an alias that is a method of the operation. The
-/// operation's own group and name then make no method, and its own
-/// `x-forge-skip` does not stop its aliases. An empty array makes no
-/// method, an element that is not an object is ignored, and a value that
+/// An operation can also be exposed as more methods, each under its own
+/// group and name, with the `x-forge-aliases` extension: an array of
+/// objects, each an alias that is a method of the operation, beside the
+/// operation's own. [`alias_of`](Method::alias_of) links each alias to the
+/// operation's own method, and [`aliases`](Method::aliases) lists them. An
+/// operation with `x-forge-skip: true` makes no method, aliases included;
+/// to drop one address, skip that alias. An empty array makes no more
+/// methods, an element that is not an object is ignored, and a value that
 /// is not an array is an error. Aliases do not nest: an `x-forge-aliases`
 /// in an alias is ignored, as are its keys that are neither extensions nor
 /// `operationId`.
@@ -541,6 +543,22 @@ impl<'f> Method<'f> {
     pub fn extensions(self) -> impl ExactSizeIterator<Item = (&'f str, &'f Json)> {
         let extensions = self.forge.extensions.get(self.data().extensions);
         extensions.iter().map(|(name, value)| (name.as_str(), value))
+    }
+
+    /// Returns the method of the operation this method is an alias of, at
+    /// the operation's own group and name, or `None` if this method is not
+    /// an alias, or is an alias of an operation that is no method of its
+    /// own, as one without a name is not.
+    pub fn alias_of(self) -> Option<Method<'f>> {
+        Some(self.forge.method(self.data().alias_of?))
+    }
+
+    /// Returns the methods that are aliases of this one, the methods of its
+    /// operation's `x-forge-aliases`, in the order they are listed. It is
+    /// empty for an alias, and for a method whose operation has none.
+    pub fn aliases(self) -> impl ExactSizeIterator<Item = Method<'f>> {
+        let forge = self.forge;
+        self.data().aliases.iter().map(move |&id| forge.method(id))
     }
 
     fn data(self) -> &'f MethodData {
@@ -863,6 +881,11 @@ struct MethodData {
     /// The extensions of the operation that are not read, in
     /// `Forge::extensions`.
     extensions: Span<(String, Json)>,
+    /// The method of the operation's own, for a method from an alias.
+    alias_of: Option<MethodId>,
+    /// The methods from the aliases of the operation, for the method of its
+    /// own, in the order `x-forge-aliases` lists them.
+    aliases: Vec<MethodId>,
 }
 
 /// The index of a model's data in its `Forge`.

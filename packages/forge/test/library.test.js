@@ -196,3 +196,32 @@ test('the fern adapter reads Fern’s extensions as Forge’s own', () => {
 test('an adapter forge has not is an error', () => {
   assert.throws(() => parse(JSON.stringify(fern), { adapters: ['swagger'] }), /unknown adapter "swagger"/);
 });
+
+test('an aliased operation is a method, and its aliases link to it', () => {
+  using forge = parse(
+    JSON.stringify({
+      openapi: '3.1.0',
+      info: { title: 'Observability', version: '1' },
+      paths: {
+        '/destinations': {
+          get: {
+            'x-forge-group-name': 'observability.destinations',
+            'x-forge-method-name': 'list',
+            'x-forge-aliases': [{ 'x-forge-group-name': 'o11y.destinations', 'x-forge-method-name': 'list' }],
+            responses: { 200: { description: 'ok' } },
+          },
+        },
+      },
+    }),
+  );
+  const address = (m) => [...m.group.path.map((name) => name.kebab()), m.name.kebab()].join('.');
+  const [own, alias] = ['observability', 'o11y'].map((top) =>
+    forge.groups.flatMap((g) => g.methods).find((m) => m.group.path[0]?.kebab() === top),
+  );
+
+  assert.equal(address(own), 'observability.destinations.list');
+  assert.equal(own.aliasOf, undefined);
+  assert.deepEqual(own.aliases.map(address), ['o11y.destinations.list']);
+  assert.equal(alias.aliasOf, own);
+  assert.deepEqual(alias.aliases, []);
+});

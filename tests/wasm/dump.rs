@@ -28,6 +28,11 @@ fn name(name: &Name) -> String {
     name.words().join(" ")
 }
 
+/// The group path and name of `method`, which say which method it is.
+fn address(method: Method<'_>) -> (Vec<String>, String) {
+    (method.group().path().map(name).collect(), name(method.name()))
+}
+
 fn group(o: &mut String, group: Group<'_>) {
     let path: Vec<String> = group.path().map(name).collect();
     line(o, 0, format_args!("group {path:?} {:?}", group.description()));
@@ -89,6 +94,15 @@ fn method(o: &mut String, method: Method<'_>) {
             method.availability().map(|a| a.as_str()),
             method.is_hidden(),
             method.confirmation(),
+        ),
+    );
+    line(
+        o,
+        2,
+        format_args!(
+            "alias of {:?} aliases {:?}",
+            method.alias_of().map(address),
+            method.aliases().map(address).collect::<Vec<_>>(),
         ),
     );
     for (key, value) in method.extensions() {
