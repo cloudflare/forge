@@ -23,23 +23,23 @@ use super::Adapter;
 use super::vendor::{Change, Detail};
 use super::walk;
 
-/// What [`normalize`] does.
+/// Says what [`normalize`] rewrites.
 #[derive(Clone, Copy, Debug)]
 pub struct Options<'a> {
-    /// Keeps each key that is rewritten, beside the native key that replaces
-    /// it, for what still reads the old one. Without it, the old key is
-    /// removed.
+    /// Keeps each rewritten key beside the native key that replaces it, for
+    /// tools that still read the old key. When false, `normalize` removes
+    /// the old key.
     pub leave_old_extensions: bool,
-    /// The tools whose keys are rewritten. A key two of them know is
-    /// rewritten as the first one in the list says.
+    /// Lists the tools to rewrite keys for. When two adapters know a key,
+    /// the first one in the list rewrites it.
     pub adapters: &'a [Adapter],
 }
 
-/// What [`normalize`] did.
+/// Counts what [`normalize`] rewrote.
 #[derive(Debug, Default)]
 pub struct Report {
-    /// How many times each key was rewritten, or removed because a native key
-    /// already said the same thing, by the key as it was written.
+    /// Counts each key, as written, by how many times `normalize` rewrote it
+    /// or removed it because a native key already said the same thing.
     pub migrated: BTreeMap<String, usize>,
     details: BTreeMap<Detail, usize>,
 }
@@ -50,9 +50,10 @@ impl Report {
         !self.migrated.is_empty()
     }
 
-    /// Returns what was done beyond renaming a key, such as an array of group
-    /// names written as a dotted string, each described as it happened once
-    /// or several times, with how many times it did.
+    /// Returns the changes beyond renaming a key, each with how many times it
+    /// happened. Writing an array of group names as a dotted string is one
+    /// such change. Each description reads in the singular or the plural, to
+    /// match its count.
     pub fn details(&self) -> impl Iterator<Item = (usize, &'static str)> + '_ {
         self.details.iter().map(|(detail, count)| {
             let description = if *count == 1 { detail.one } else { detail.many };
@@ -68,23 +69,24 @@ impl Report {
     }
 }
 
-/// A document after [`normalize`].
+/// Holds a document after [`normalize`].
 #[derive(Debug)]
 pub struct Normalized {
-    /// The document, written again, or `None` if nothing was rewritten and
-    /// it is as it was read.
+    /// Holds the document, written again, or `None` when nothing was
+    /// rewritten and the document is unchanged.
     pub json: Option<Vec<u8>>,
-    /// What was done to it.
+    /// Counts what was rewritten.
     pub report: Report,
 }
 
-/// Rewrites the keys of the document `json` that the native keys of the
-/// [`Options::adapters`] replace.
+/// Rewrites the keys of the document `json` that [`Options::adapters`]
+/// know into Forge's native keys.
 ///
-/// The document is read and written again, its keys in the order they were
-/// in, indented as its first indented line is, on one line if it was, and
-/// ending with a newline if it did. It is not a minimal edit: escapes are
-/// written as the characters, and numbers as Rust writes them.
+/// `normalize` reads the document and writes it again. The keys stay in
+/// their order, and the document keeps the indentation of its first indented
+/// line, stays on one line if it was on one, and ends with a newline if it
+/// did. The result is not a minimal edit, because escapes are written as the
+/// characters and numbers as Rust writes them.
 ///
 /// # Errors
 ///
@@ -104,7 +106,7 @@ pub struct Normalized {
 ///     String::from_utf8(normalized.json.unwrap()).unwrap(),
 ///     r#"{"paths":{"/pets":{"get":{"x-forge-group-name":"pets.owners"}}}}"#,
 /// );
-/// // The array of group names became a dotted string, which the report tells.
+/// // The report says the array of group names became a dotted string.
 /// assert_eq!(
 ///     normalized.report.details().collect::<Vec<_>>(),
 ///     [(1, "group path written as a dotted string")],
