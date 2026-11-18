@@ -24,39 +24,39 @@ use super::walk;
 
 /// What [`normalize`] does.
 #[derive(Clone, Copy)]
-pub(super) struct Options<'a> {
+pub struct Options<'a> {
     /// Keeps each key that is rewritten, beside the native key that replaces
     /// it, for what still reads the old one.
-    pub(super) leave_old_extensions: bool,
+    pub leave_old_extensions: bool,
     /// The compatibility sources whose keys are rewritten.
-    pub(super) sources: &'a [&'static dyn Source],
+    pub sources: &'a [&'static dyn Source],
 }
 
 /// What [`normalize`] did.
 #[derive(Debug, Default)]
-pub(super) struct Report {
+pub struct Report {
     /// How many times each key was rewritten, or removed because a native key
     /// already said the same thing.
-    pub(super) migrated: BTreeMap<String, usize>,
+    pub migrated: BTreeMap<String, usize>,
     details: BTreeMap<Detail, usize>,
 }
 
 impl Report {
     /// Returns whether the document is different from what it was.
-    pub(super) fn changed(&self) -> bool {
+    pub fn changed(&self) -> bool {
         !self.migrated.is_empty()
     }
 
     /// Returns the additional descriptions of changes, and how many times
     /// each happened.
-    pub(super) fn details(&self) -> impl Iterator<Item = (usize, &'static str)> + '_ {
+    pub fn details(&self) -> impl Iterator<Item = (usize, &'static str)> + '_ {
         self.details.iter().map(|(detail, count)| {
             let description = if *count == 1 { detail.one } else { detail.many };
             (*count, description)
         })
     }
 
-    pub(super) fn record(&mut self, original: &str, change: Change) {
+    pub fn record(&mut self, original: &str, change: Change) {
         *self.migrated.entry(original.to_owned()).or_insert(0) += 1;
         if let Some(detail) = change.detail {
             *self.details.entry(detail).or_insert(0) += 1;
@@ -66,15 +66,15 @@ impl Report {
 
 /// A document after [`normalize`].
 #[derive(Debug)]
-pub(super) struct Normalized {
+pub struct Normalized {
     /// The document, if it is different from what was read.
-    pub(super) json: Option<Vec<u8>>,
+    pub json: Option<Vec<u8>>,
     /// What was done to it.
-    pub(super) report: Report,
+    pub report: Report,
 }
 
 /// Rewrites the keys of the document `json` that a native key replaces.
-pub(super) fn normalize(json: &[u8], options: &Options) -> Result<Normalized, serde_json::Error> {
+pub fn normalize(json: &[u8], options: &Options) -> Result<Normalized, serde_json::Error> {
     let mut document: Value = serde_json::from_slice(json)?;
     let report = walk::walk(&mut document, options);
     if !report.changed() {
