@@ -21,5 +21,12 @@
     "outDir": "plugin",
     "newLine": "lf"
   },
-  "include": ["src/index.ts", "src/plugin.ts", "src/ts.ts", "src/wit/**/*.d.ts", "src/component/**/*.d.ts"]
+  "include": [
+    "src/index.ts",
+    "src/plugin.ts",
+    "src/ts.ts",
+    "src/webassembly.d.ts",
+    "src/wit/**/*.d.ts",
+    "src/component/**/*.d.ts"
+  ]
 }
