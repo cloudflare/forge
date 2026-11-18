@@ -150,7 +150,7 @@ function buildComponent(out) {
 
   const types = join(npmDir, 'src', 'component');
   rmSync(types, { recursive: true, force: true });
-  cpSync(transpiled, types, { recursive: true, filter: (path) => !/\.js$/.test(path) });
+  cpSync(transpiled, types, { recursive: true, filter: (path) => !path.endsWith('.js') });
 }
 
 /**
