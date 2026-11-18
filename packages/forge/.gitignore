@@ -7,7 +7,11 @@
 # Dev dependencies, which build the plugin library.
 /node_modules
 
-# What scripts/build.mjs generates: the WIT's bindings, and the library.
+# What scripts/build.mjs generates: the WIT's bindings, forge's library
+# world as a component and its types, and the libraries.
 /src/wit
+/src/component
+/library/target
+/plugin/component
 /plugin/*.js
 /plugin/*.d.ts

@@ -19,6 +19,17 @@ jobs:
 
       - uses: ./.github/actions/setup-workspace
 
+      # @cloudflare/forge's build compiles forge's library world with cargo
+      # for wasm32-unknown-unknown, the channel and target pinned in
+      # rust-toolchain.toml.
+      - name: Install Rust toolchain
+        uses: moonrepo/setup-rust@abb2d32350334249b178c401e5ec5836e0cd88d3 # v1.3.0
+        with:
+          targets: wasm32-unknown-unknown
+          cache: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Lint and format check
         run: pnpm check
 

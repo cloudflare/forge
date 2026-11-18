@@ -12,6 +12,8 @@ mod types;
 pub use json::Json;
 pub use method::{Body, Content, Location, Response};
 pub use name::Name;
+#[cfg(feature = "library")]
+pub use plugin::library;
 #[cfg(feature = "wasm")]
 pub use plugin::wasm;
 pub use plugin::{Err, File, Plugin, ts, write};

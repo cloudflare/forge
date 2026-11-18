@@ -16,6 +16,34 @@ npx @cloudflare/forge generate openapi.json --target ts --out sdk
 Pass `-` instead of a path to read the document from standard input. Run
 `forge --help` for every option.
 
+## Reading a document in JavaScript
+
+`parse` reads an OpenAPI document with forge, in the same process, and
+returns its forge: the groups, methods, models and types a plugin reads, with
+the same API as `@cloudflare/forge/plugin`. It runs forge compiled to
+WebAssembly, so it needs no binary and no plugin.
+
+```ts
+import { readFile } from 'node:fs/promises';
+import { parse } from '@cloudflare/forge';
+
+using forge = parse(await readFile('openapi.json', 'utf8'));
+for (const group of forge.groups) {
+  for (const method of group.methods) {
+    console.log(method.httpMethod, method.path, method.name.camel());
+  }
+}
+```
+
+A document forge doesn't read, such as one that is not OpenAPI 3.x, throws
+with the message `forge` would print. The parsed document stays in forge's
+memory until it is disposed: declare it with `using`, or call `dispose()`
+when done. A part already read stays readable after that; reading one for
+the first time throws.
+
+Several documents can be parsed side by side, such as one per version of an
+API; each is a forge of its own.
+
 ## Normalizing a document
 
 `forge normalize` rewrites metadata extensions from other tools into Forge's
@@ -369,7 +397,7 @@ From the root of the forge repository, with [just](https://just.systems) install
 ```sh
 pnpm install                            # the dev dependencies, which build the plugin library
 node packages/forge/scripts/version.mjs # after bumping the version in Cargo.toml
-node packages/forge/scripts/wit.mjs     # after changing the WIT in src/plugin/wasm.rs
+node packages/forge/scripts/wit.mjs     # after changing src/plugin/forge.wit
 just build-all                          # builds all six binaries into target/binaries/ (or: just fetch <run-id>)
 just pack                               # packs them into packages/forge/dist/cloudflare-forge-<version>.tgz
 ```
@@ -384,19 +412,25 @@ binaries of its own.
 
 The binaries are built with the `wasm` feature, which runs plugins. The
 package carries forge's copy of the WIT in `plugin/forge.wit`, and
-`archive.mjs` refuses to pack it if it isn't the WIT in
-`src/plugin/wasm.rs`.
+`archive.mjs` refuses to pack it if it isn't `src/plugin/forge.wit`.
 
 The library plugins are written with, `@cloudflare/forge/plugin`, is
-`src/index.ts`. `archive.mjs` builds it into the package, and
-`node scripts/build.mjs` builds it into `plugin/` to try it out: jco
-generates the TypeScript bindings of `plugin/forge.wit` into `src/wit`, and
-`tsc` compiles the library against them into `plugin/index.js` and
-`plugin/index.d.ts`. So when the WIT changes in a way the library doesn't
-follow, such as a new kind of type, a new scalar or a renamed field, the
-library fails to compile, and the package can't be packed. Its exports are
-interfaces and the classes behind them are private, so the bindings never
-appear in `index.d.ts`.
+`src/index.ts`, over the API in `src/forge.ts`. `archive.mjs` builds it into
+the package, and `node scripts/build.mjs` builds it into `plugin/` to try it
+out: jco generates the TypeScript bindings of `plugin/forge.wit` into
+`src/wit`, and `tsc` compiles the library against them into `plugin/`. So
+when the WIT changes in a way the library doesn't follow, such as a new kind
+of type, a new scalar or a renamed field, the library fails to compile, and
+the package can't be packed. Its exports are interfaces and the classes
+behind them are private, so the bindings never appear in its declarations.
+
+`parse`, the package's main export, is `src/library.ts`, over the same API.
+It reads forge's `library` world: `library/` is a crate that exports it,
+which `build.mjs` compiles with cargo for `wasm32-unknown-unknown`, the
+target `rust-toolchain.toml` installs, makes a component with `jco new`, and
+turns into JavaScript in `plugin/component` with `jco transpile`. The plugin
+host and the library write a forge's parts as the WIT's records with the
+same code, in `src/plugin/records.rs`.
 
 `@cloudflare/forge/ts` is `src/ts.ts`, built the same way. It reads the
 forge only through the library's types, so it needs no host, and `npm test`

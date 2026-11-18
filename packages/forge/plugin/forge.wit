@@ -1,4 +1,3 @@
-
 package forge:plugin@0.4.0;
 
 /// Read-only access to the forge a plugin runs on, which the host keeps.
@@ -220,4 +219,39 @@ world plugin {
     /// Generates every file for the forge, in a fresh instance. Called
     /// exactly once.
     export generate: func() -> result<list<file>, string>;
+}
+
+/// An OpenAPI document parsed into a forge in the caller's own process,
+/// rather than by a host running a plugin. A document reads as the `forge`
+/// interface reads the forge a plugin runs on, with the same ids, orders and
+/// meanings.
+interface document {
+    use forge.{
+        group-id, method-id, model-id, type-id, forge-info, forge-counts, group-info, method-info, model-info,
+        type-info, location,
+    };
+
+    resource document {
+        /// Parses `json`, an OpenAPI JSON document, or fails with why, as
+        /// the `forge` command says it.
+        parse: static func(json: string) -> result<document, string>;
+
+        info: func() -> forge-info;
+        counts: func() -> forge-counts;
+        /// Every group, depth first, starting with the root.
+        groups: func() -> list<group-id>;
+        get-group: func(id: group-id) -> group-info;
+        get-method: func(id: method-id) -> method-info;
+        get-model: func(id: model-id) -> model-info;
+        get-type: func(id: type-id) -> type-info;
+        /// Where method `id` sends field `index` of the object type `object`,
+        /// or none if it is not one of its parameters.
+        get-location: func(id: method-id, object: type-id, index: u32) -> option<location>;
+    }
+}
+
+/// Forge as a library: what `@cloudflare/forge` runs to parse documents in
+/// JavaScript, with no host.
+world library {
+    export document;
 }

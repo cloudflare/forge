@@ -1,21 +1,25 @@
 {
   // Compiles src/index.ts and src/ts.ts, the libraries plugins are written
-  // with, into .js and .d.ts files in plugin/. scripts/build.mjs runs it, after
-  // generating the bindings of plugin/forge.wit into src/wit.
+  // with, and src/library.ts, which parses documents in the same process,
+  // into .js and .d.ts files in plugin/. scripts/build.mjs runs it, after
+  // generating the bindings of plugin/forge.wit into src/wit and building
+  // forge's library world into plugin/component, with its types in
+  // src/component. Declarations leave out what is marked @internal.
   "compilerOptions": {
     "strict": true,
     "noUncheckedIndexedAccess": true,
     "noImplicitReturns": true,
     "noFallthroughCasesInSwitch": true,
     "target": "es2022",
-    "lib": ["es2022"],
+    "lib": ["es2022", "esnext.disposable"],
     "types": [],
     "module": "nodenext",
     "moduleResolution": "nodenext",
     "declaration": true,
+    "stripInternal": true,
     "rootDir": "src",
     "outDir": "plugin",
     "newLine": "lf"
   },
-  "include": ["src/index.ts", "src/ts.ts", "src/wit/**/*.d.ts"]
+  "include": ["src/index.ts", "src/library.ts", "src/ts.ts", "src/wit/**/*.d.ts", "src/component/**/*.d.ts"]
 }

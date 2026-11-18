@@ -1,0 +1,27 @@
+# Forge as a library, compiled to a WebAssembly component of the `library`
+# world, which `@cloudflare/forge` turns into JavaScript to parse documents
+# in the caller's process. scripts/build.mjs builds it with:
+#
+#     cargo build --release --target wasm32-unknown-unknown
+#
+# Its own workspace, so it builds apart from forge, for another target.
+[workspace]
+
+[package]
+name = "forge-library"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+forge = { path = "../../..", default-features = false, features = ["library"] }
+
+[profile.release]
+opt-level = 3
+lto = "fat"
+codegen-units = 1
+strip = true
+panic = "abort"
