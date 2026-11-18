@@ -239,6 +239,8 @@ fn convert_method(m: host::MethodInfo) -> MethodData {
             .into_iter()
             .map(|(name, value)| (name, Json::parse(&value)))
             .collect(),
+        alias_of: m.alias_of,
+        aliases: m.aliases,
     }
 }
 
@@ -376,6 +378,8 @@ struct MethodData {
     responses: Vec<ResponseData>,
     errors: Vec<ResponseData>,
     extensions: Vec<(String, Json)>,
+    alias_of: Option<u32>,
+    aliases: Vec<u32>,
 }
 
 struct BodyData {
@@ -578,6 +582,18 @@ impl<'f> Method<'f> {
 
     pub fn confirmation(self) -> Option<&'f str> {
         self.data().confirmation.as_deref()
+    }
+
+    pub fn alias_of(self) -> Option<Method<'f>> {
+        Some(Method {
+            forge: self.forge,
+            id: self.data().alias_of?,
+        })
+    }
+
+    pub fn aliases(self) -> impl ExactSizeIterator<Item = Method<'f>> {
+        let forge = self.forge;
+        self.data().aliases.iter().map(move |&id| Method { forge, id })
     }
 
     pub fn request(self) -> Option<Type<'f>> {

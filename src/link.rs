@@ -520,9 +520,10 @@ impl<'d> Builder<'d> {
     }
 
     /// Adds the methods of `operation`, of the path item `item` at `path`:
-    /// one for each of its aliases if it has `x-forge-aliases`, and else
-    /// one for the operation itself, if it is one. `method` is
-    /// `http_method` as a request sends it.
+    /// one for the operation itself, if it is one, and one for each of its
+    /// aliases, each linked to the operation's own. A skipped operation has
+    /// none, aliases included. `method` is `http_method` as a request sends
+    /// it.
     fn add_operation(
         &mut self,
         path: &'d str,
@@ -532,22 +533,28 @@ impl<'d> Builder<'d> {
         method: &'d str,
     ) {
         let doc = self.doc;
+        if operation.definition.skip {
+            return;
+        }
+        self.context = Context::Operation(method, path);
+        let own = self.add_method(path, item, operation, &operation.definition, http_method.clone(), None);
         let Some(aliases) = operation.aliases else {
-            self.context = Context::Operation(method, path);
-            self.add_method(path, item, operation, &operation.definition, http_method);
             return;
         };
-        // The operation's own definition makes no method, so its
-        // `x-forge-skip` does not stop its aliases.
         for (i, alias) in doc.list(aliases).iter().enumerate() {
             self.context = Context::Alias(method, path, i);
-            self.add_method(path, item, operation, alias, http_method.clone());
+            let alias = self.add_method(path, item, operation, alias, http_method.clone(), own);
+            if let (Some(own), Some(alias)) = (own, alias) {
+                self.methods[own.index()].aliases.push(alias);
+            }
         }
     }
 
     /// Adds the method `definition` makes of `operation`, of the path item
-    /// `item` at `path`, if it makes one. `definition` is the operation's
-    /// own or one of its aliases, which the context names.
+    /// `item` at `path`, if it makes one, and returns its id. `definition`
+    /// is the operation's own or one of its aliases, which the context
+    /// names, and `alias_of` the method of the operation's own, for an
+    /// alias.
     fn add_method(
         &mut self,
         path: &'d str,
@@ -555,10 +562,11 @@ impl<'d> Builder<'d> {
         operation: &'d Operation,
         definition: &'d Definition,
         http_method: HttpMethod,
-    ) {
+        alias_of: Option<MethodId>,
+    ) -> Option<MethodId> {
         let doc = self.doc;
         if definition.skip {
-            return;
+            return None;
         }
         // `x-forge-method-name` names the method, with `x-forge-group-name`
         // as its group path, or else an `operationId` does, as the group path
@@ -588,15 +596,15 @@ impl<'d> Builder<'d> {
                     "operationId has a method name with no letters or digits",
                 )
             } else {
-                return;
+                return None;
             };
         if group_names.iter().any(Name::is_empty) {
             self.error(group_error);
-            return;
+            return None;
         }
         if name.is_empty() {
             self.error(name_error);
-            return;
+            return None;
         }
         let mut availability = None;
         if let Some(value) = definition.availability {
@@ -624,7 +632,7 @@ impl<'d> Builder<'d> {
                     self.strings.get(other.path)
                 );
                 self.error(message);
-                return;
+                return None;
             }
             // The method is added below, with this ID.
             Entry::Vacant(entry) => {
@@ -704,7 +712,10 @@ impl<'d> Builder<'d> {
             responses,
             errors,
             extensions: definition.extensions,
+            alias_of,
+            aliases: Vec::new(),
         });
+        Some(id)
     }
 
     /// Returns the group `name` inside `parent`, adding it if it is
