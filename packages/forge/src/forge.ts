@@ -134,15 +134,14 @@ export interface Method {
    */
   readonly extensions: readonly (readonly [string, Json])[];
   /**
-   * The method of the operation this method is an alias of, from the
-   * operation's `x-forge-aliases`, or undefined if it is not an alias, or
-   * its operation is no method of its own.
+   * The operation's own method, when this method is one of the operation's
+   * `x-forge-aliases`. Undefined when this method is not an alias, or when
+   * the operation makes no method of its own.
    */
   readonly aliasOf: Method | undefined;
   /**
-   * The methods that are aliases of this one, in the order
-   * `x-forge-aliases` lists them: empty for an alias, and for a method
-   * whose operation has none.
+   * The aliases of this method, in the order `x-forge-aliases` lists them.
+   * Empty for an alias, and for a method of an operation without aliases.
    */
   readonly aliases: readonly Method[];
   /** The value of the extension `name`, such as `x-forge-params`, or undefined if there is none. */

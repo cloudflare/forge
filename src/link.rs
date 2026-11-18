@@ -519,10 +519,10 @@ impl<'d> Builder<'d> {
         }
     }
 
-    /// Adds the methods of `operation`, of the path item `item` at `path`:
-    /// one for the operation itself, if it is one, and one for each of its
-    /// aliases, each linked to the operation's own. A skipped operation has
-    /// none, aliases included. `method` is `http_method` as a request sends
+    /// Adds a method for `operation`, of the path item `item` at `path`, if
+    /// the operation has a name, and one method for each of its aliases. Each
+    /// alias links to the operation's own method. A skipped operation adds no
+    /// method, aliases included. `method` is `http_method` as a request sends
     /// it.
     fn add_operation(
         &mut self,
@@ -551,10 +551,10 @@ impl<'d> Builder<'d> {
     }
 
     /// Adds the method `definition` makes of `operation`, of the path item
-    /// `item` at `path`, if it makes one, and returns its id. `definition`
-    /// is the operation's own or one of its aliases, which the context
-    /// names, and `alias_of` the method of the operation's own, for an
-    /// alias.
+    /// `item` at `path`, and returns its id, or `None` when `definition`
+    /// makes no method. `definition` is the operation's own or one of its
+    /// aliases, as the context names it. For an alias, `alias_of` is the
+    /// operation's own method.
     fn add_method(
         &mut self,
         path: &'d str,

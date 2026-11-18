@@ -28,7 +28,7 @@ fn name(name: &Name) -> String {
     name.words().join(" ")
 }
 
-/// The group path and name of `method`, which say which method it is.
+/// Returns the group path and name of `method`, which identify it.
 fn address(method: Method<'_>) -> (Vec<String>, String) {
     (method.group().path().map(name).collect(), name(method.name()))
 }
