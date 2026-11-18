@@ -1,6 +1,7 @@
 ---
 title: Requests and responses
-description: How a method's parameters and body become one request type, where each field is sent, and how responses, errors and media types are exposed.
+description: A method that takes anything has one request type that merges its parameters and body, and a plugin sends each field where its location says, then reads responses and errors by status and media type.
+content_type: concept
 sidebar:
   order: 4
 ---
@@ -87,7 +88,7 @@ parameters in the order they are declared, the path item's before the operation'
 - A field is named after the parameter's name, unless `x-forge-parameter-name` renames it. Its description is
   the parameter's, or else its schema's.
 - An operation's parameter replaces the path item's parameter with the same name and location.
-- A placeholder in the path template that no parameter declares is a required string; a declared path
+- A placeholder in the path template that no parameter declares is a required string. A declared path
   parameter that is not in the template is left out.
 - Path parameters are always required.
 - Only the default styles are covered: `simple` for the path, `form` for the query. Other styles,
@@ -103,7 +104,7 @@ no `location`.
 
 They are apart because SDKs treat them differently. Many generated clients set headers from client
 options rather than per call, and a target that sets `Accept`, `Content-Type` or `Authorization`
-itself can ignore those; Forge keeps them because APIs declare them for callers to set, such as the
+itself can ignore those. Forge keeps them because APIs declare them for callers to set, such as the
 content type of a raw upload. Operation headers replace path item headers case-insensitively.
 
 ## The body
@@ -119,7 +120,7 @@ content type of a raw upload. Operation headers replace path item headers case-i
 
 Each `Content` has a `media_type`, an `is_json` flag, a `description`, and a `ty`. Every media type
 is typed, JSON or not, so a plugin that supports `multipart/form-data` can read its parts. The
-request type only ever uses the JSON content; a body with no JSON content is `unknown` there.
+request type only ever uses the JSON content. A body with no JSON content is `unknown` there.
 
 ## Responses and errors
 
@@ -130,7 +131,7 @@ sorted by status, with `default` last. Each has:
 | ------------- | -------------------------------------------------------------- |
 | `status`      | A code such as `200`, a range such as `4XX`, or `default`.     |
 | `description` | The response's description.                                    |
-| `contents`    | One `Content` per media type; none when it has no body.        |
+| `contents`    | One `Content` per media type. None when it has no body.        |
 | `json`        | Its JSON content, chosen as for the body.                      |
 
 A method usually has one success response, but nothing requires it. The TypeScript target, for
@@ -142,9 +143,11 @@ Response headers are not read.
 
 A model is the same object in requests and responses, so the body keeps fields marked `readOnly`.
 `field.is_read_only()` reports them, and a target leaves them out of what a client sends. The MCP
-target does; the TypeScript target keeps one interface for both.
+target does. The TypeScript target keeps one interface for both.
 
-## Next
+## Related resources
 
-- [Types](/concepts/types/): what `ty()` gives you.
-- [Naming methods](/openapi/naming/): where a method's group and name come from.
+- [Types](/concepts/types/): the kinds of type, and how Forge normalizes them.
+- [Method names](/openapi/naming/): how operationIds become groups and methods.
+- [Plugin API (TypeScript)](/reference/plugin-api/): every type and function a TypeScript plugin uses.
+- [Write a plugin in TypeScript](/plugins/typescript/): `definePlugin`, building and errors.

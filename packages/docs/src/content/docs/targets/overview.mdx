@@ -1,58 +1,30 @@
 ---
 title: Targets
-description: "The outputs Forge can produce today: the built-in TypeScript SDK, Cap'n Web server and MCP tools, and any plugin. How to pick one with --target."
+description: "Pick what Forge generates from an OpenAPI document with --target: a TypeScript SDK, a Cap'n Web server, MCP tools, or any plugin."
+content_type: overview
 sidebar:
   order: 1
   label: Overview
 ---
 
-A target is what Forge generates. You pick one per run with `--target`:
+A target is what Forge generates from an OpenAPI document. You pick one per run with `--target`, and
+every target reads the same document, so its group and method names shape the TypeScript client,
+the MCP tool names and your own plugin's output alike. Three targets are built in, and a
+[plugin](/plugins/overview/) can generate anything else:
 
-| `--target`         | Generates                                              | Written in |
-| ------------------ | ------------------------------------------------------ | ---------- |
-| `ts`               | A [TypeScript SDK](/targets/typescript/): typed client, models, codecs and a small runtime. | Rust, built in |
-| `capnweb`          | A [Cap'n Web](https://github.com/cloudflare/capnweb) server over the TypeScript SDK, with an `RpcTarget` per group. | Rust, built in |
-| `mcp`              | The [tools of an MCP server](/targets/mcp/), in TypeScript, with a tool per method. | Rust, built in |
-| `wasm://PATH`      | Whatever the [plugin](/plugins/overview/) at `PATH` generates. | Anything |
+| `--target`    | Generates                                                                                                                  |
+| ------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| `ts`          | A [TypeScript SDK](/targets/typescript/): a typed client, models, codecs and a small runtime.                              |
+| `capnweb`     | A [Cap'n Web](https://github.com/cloudflare/capnweb) server over the TypeScript SDK, with an `RpcTarget` per group.        |
+| `mcp`         | The [tools of an MCP server](/targets/mcp/), in TypeScript, with a tool per method.                                        |
+| `wasm://PATH` | Whatever the [plugin](/plugins/overview/) at `PATH` generates.                                                             |
 
-```sh
-forge openapi.json --target ts --out sdk
-forge openapi.json --target capnweb --out server
-forge openapi.json --target mcp --out tools
-forge openapi.json --target wasm://plugins/zod.wasm --out schemas
-```
-
-## Built in is not special
-
-`ts`, `capnweb` and `mcp` are implementations of the same `Plugin` trait a library plugin implements, and read
-the same model a WebAssembly plugin reads. Forge's own test suite compiles the TypeScript target to
-WebAssembly and checks that it writes exactly the same files as the native build.
-
-So if a built-in target is close to what you want but not quite, you have two routes: write your
-own target from scratch, or start from the built-in one's source and change it. Neither needs a
-change to Forge.
-
-## Choosing
-
-- For a **typed client** in TypeScript, use `ts`.
+- For a **typed client** in TypeScript, use `ts`. Start with [Get started](/start/get-started/).
 - For a **Cap'n Web** API, such as one a Worker serves, use `capnweb` on top of `ts`.
 - For **agents**, use `mcp`, which turns each method into a tool with JSON Schema input and
   behaviour hints, for an MCP server to register.
-- For anything else (another language, a CLI, API reference pages, validators, mocks, route tables),
-  [write a plugin](/plugins/overview/). [Designing a target](/plugins/designing-a-target/) collects
-  the decisions you will need to make.
+- For anything else, such as another language, a CLI, API reference pages, validators, mocks or
+  route tables, [write a plugin](/plugins/overview/).
 
-## One document, many targets
-
-Every target reads the same document, so annotations pay off across all of them. Group and method
-names drive the TypeScript client's shape, the MCP tool names, and your plugin's layout at once. A
-`x-forge-require-confirmation` makes an MCP tool destructive, and is there for your CLI plugin to
-prompt with.
-
-Running several targets is several runs:
-
-```sh
-forge openapi.json --target ts --out packages/sdk/src
-forge openapi.json --target mcp --out packages/mcp
-forge openapi.json --target wasm://tools/docs.wasm --out site/src/content/api
-```
+To generate several targets, run Forge once per target. The [CLI reference](/reference/cli/#forge)
+has every option.

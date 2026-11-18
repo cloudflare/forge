@@ -1,6 +1,7 @@
 ---
 title: The model
 description: "The language-neutral tree every plugin reads: the forge, its groups, methods and models, and the types under them."
+content_type: concept
 sidebar:
   order: 2
 ---
@@ -57,7 +58,7 @@ hold nothing except other groups. The root is always there, even with nothing in
 | Member           | What it is                                                                     |
 | ---------------- | ------------------------------------------------------------------------------ |
 | `name`           | The group's own name, empty for the root.                                      |
-| `path`           | The names from the top level down, ending with this group's; empty for the root. |
+| `path`           | The names from the top level down, ending with this group's. Empty for the root. |
 | `description`    | From the root `x-forge-commands`, or empty.                                    |
 | `parent`         | The group this one is in, the root for a top-level group, or none for the root. |
 | `children`       | The groups directly inside, sorted by name.                                    |
@@ -121,8 +122,11 @@ WebAssembly interface, its [WIT](/reference/wit/), carries everything the Rust A
 repository tests that: a dump of the model taken through WebAssembly must equal the dump taken
 natively, byte for byte.
 
-## Next
+## Related resources
 
-- [Groups and methods](/concepts/groups-and-methods/)
-- [Requests and responses](/concepts/requests-and-responses/)
-- [Types](/concepts/types/)
+- [Groups and methods](/concepts/groups-and-methods/): how operations become methods, and the metadata they carry.
+- [Requests and responses](/concepts/requests-and-responses/): what a method takes and returns.
+- [Types](/concepts/types/): the kinds of type, and how Forge normalizes them.
+- [Plugin API (TypeScript)](/reference/plugin-api/): every type and function a TypeScript plugin uses.
+- [Rust API](/reference/rust-api/): the forge crate's types and functions.
+- [Get started with plugins](/plugins/get-started/): write, build and run a plugin in TypeScript.

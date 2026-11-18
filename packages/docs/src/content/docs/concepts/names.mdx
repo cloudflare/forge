@@ -1,6 +1,7 @@
 ---
 title: Names
 description: Every name in the model is a list of lower-case words, so a plugin spells it in its own language's casing, and two spellings of one name are equal.
+content_type: concept
 sidebar:
   order: 6
 ---
@@ -57,7 +58,7 @@ The same goes for methods in a group. Groups with equal names merge into one.
 ## Empty names
 
 A name with no letters or digits, such as `-`, has no words. `is_empty()` reports it. Group and
-method names cannot be empty; that is an error. Field and model names can be, in principle, for a
+method names cannot be empty. That is an error. Field and model names can be, in principle, for a
 property named `$`: a plugin that writes identifiers should handle that, for example by falling back
 to a quoted wire name.
 
@@ -70,3 +71,10 @@ escape them: a method named `delete` is `delete` in every casing. Escaping (`del
 The [TypeScript printer](/plugins/ts-printer/) does two smaller things: the identifiers it makes for
 groups and models get a `_` in front when they start with a digit (`2fa` becomes `_2fa`), and an
 import whose name clashes with one in the file gets a `$` appended.
+
+## Related resources
+
+- [Method names](/openapi/naming/): how operationIds become groups and methods.
+- [Plugin API (TypeScript)](/reference/plugin-api/): every type and function a TypeScript plugin uses.
+- [Rust API](/reference/rust-api/): the forge crate's types and functions.
+- [Write a plugin in TypeScript](/plugins/typescript/): `definePlugin`, building and errors.

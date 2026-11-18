@@ -1,6 +1,7 @@
 ---
-title: Introduction
-description: What Forge is, the problem it solves, the OpenAPI it reads, and what it generates today.
+title: About Forge
+description: Forge is an OpenAPI code generator that reads a document into one checked model and hands it to plugins, so every SDK, tool and server it generates agrees on names and types.
+content_type: concept
 sidebar:
   order: 1
 ---
@@ -40,9 +41,9 @@ You can write a plugin two ways:
   `forge-plugin build` does it for you. You run it with `--target wasm://plugin.wasm`.
 - **In Rust, against Forge as a library**, in a binary of your own.
 
-A WebAssembly plugin can't read files, reach the network or see the environment. It gets the model
-and returns files, and Forge writes them, only under `--out`. See
-[writing plugins](/plugins/overview/).
+A WebAssembly plugin cannot read files, reach the network or see the environment. It gets the model
+and returns files, and Forge writes them, only under `--out`. Refer to
+[Plugins](/plugins/overview/).
 
 ## OpenAPI 3.0, 3.1 and 3.2
 
@@ -72,9 +73,13 @@ Today:
 - **Plugins:** WebAssembly components against a published WIT, with first-class libraries for
   TypeScript authors, and native plugins in Rust.
 
-## Next
+## Related resources
 
-- [Installation](/start/installation/): the npm package, or a build from source.
-- [Quickstart](/start/quickstart/): generate a TypeScript SDK and MCP tools.
-- [The pipeline](/concepts/pipeline/): how a document becomes files.
-- [Writing plugins](/plugins/overview/): the part that makes Forge yours.
+- [The pipeline](/concepts/pipeline/): how a document becomes files, step by step.
+- [Plugins](/plugins/overview/): every way to extend Forge.
+- [CLI](/reference/cli/): every command and option.
+
+## Next steps
+
+- [Install Forge](/start/install/): the npm package, or a build from source.
+- [Get started](/start/get-started/): generate a TypeScript SDK and MCP tools from a small document.

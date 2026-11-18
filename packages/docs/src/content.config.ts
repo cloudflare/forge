@@ -11,6 +11,16 @@ export const collections = {
         // Nimbus docs are agent-friendly by default. Set `audience: human`
         // to flag a page that's written primarily for human readers.
         audience: z.literal("human").optional(),
+        // What kind of page this is, from the Cloudflare docs style guide's
+        // content types: https://developers.cloudflare.com/style-guide/documentation-content-strategy/content-types/
+        content_type: z.enum([
+          "overview",
+          "get-started",
+          "how-to",
+          "concept",
+          "reference",
+          "troubleshooting",
+        ]),
       },
     }),
   ),

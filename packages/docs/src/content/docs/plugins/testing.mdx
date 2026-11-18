@@ -1,8 +1,9 @@
 ---
-title: Testing plugins
+title: Test a plugin
 description: Test a Forge plugin by running it on small documents, snapshotting the output, and compiling what it generates.
+content_type: how-to
 sidebar:
-  order: 7
+  order: 8
 ---
 
 A plugin is a function from a model to files, which makes it easy to test: feed it a document,
@@ -30,7 +31,7 @@ forge test/fixtures/unions.json --target wasm://plugin.wasm --out test/out/union
 ## 2. Snapshots
 
 Commit the generated output, and fail the test when it changes. `git diff --exit-code` after
-regenerating does it; `git add --intent-to-add` first puts new files in the diff too:
+regenerating does it. `git add --intent-to-add` first puts new files in the diff too:
 
 ```sh
 rm -rf test/out && for spec in test/fixtures/*.json; do
@@ -90,3 +91,12 @@ a plugin that walks it returns files in a stable order.
 A `WasmPlugin` is a `Plugin` too, so the same test can load a component with
 `forge::wasm::WasmPlugin::from_file` and check that a WebAssembly build of a plugin matches the
 native one. That is how Forge tests that its WIT carries the whole model.
+
+## Related resources
+
+- [How plugins work](/plugins/how-plugins-work/): the ways to write one, and what a plugin does.
+- [Troubleshooting OpenAPI documents](/openapi/errors/): each error, and its fix.
+
+## Next steps
+
+- [Generate in CI](/guides/ci/): regenerate on every change, and fail on a stale SDK.

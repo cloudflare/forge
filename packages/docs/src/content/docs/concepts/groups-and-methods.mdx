@@ -1,6 +1,7 @@
 ---
 title: Groups and methods
-description: How operations become methods, how methods are grouped, and the metadata a method carries for SDKs, CLIs and agents.
+description: A method is one callable operation, grouped by the dotted path of its name, and it carries the metadata SDKs, CLIs and agents use to call it safely.
+content_type: concept
 sidebar:
   order: 3
 ---
@@ -70,7 +71,7 @@ Groups have no operation of their own to describe them, so their descriptions co
 
 A dotted key reaches into nested groups from anywhere above them: `"accounts.members"` at the root
 describes the same group as `members` under `accounts`. Entries for groups that do not exist are
-ignored; two entries for the same group are an error.
+ignored. Two entries for the same group are an error.
 
 ## Aliases: one operation, several methods
 
@@ -88,7 +89,7 @@ own `operationId` or `x-forge-method-name`.
 }
 ```
 
-With aliases, the operation's own `operationId` makes no method; only the aliases do. Each alias
+With aliases, the operation's own `operationId` makes no method. Only the aliases do. Each alias
 says, as an operation would, its name, availability, hidden flag, confirmation and other extensions,
 and inherits **none** of them from the operation. Everything about the request and
 response (the HTTP method, path, parameters, body and responses) is the operation's, shared by every
@@ -126,7 +127,9 @@ to know about it:
 A plugin reads it with `method.extension("x-my-cli")`, which returns the JSON value, or nothing.
 Extensions on path items, parameters, responses and schemas are not passed through.
 
-## Next
+## Related resources
 
 - [Requests and responses](/concepts/requests-and-responses/): what a method takes and returns.
-- [Extensions reference](/openapi/extensions/): every extension, with its exact rules.
+- [Method names](/openapi/naming/): how operationIds become groups and methods.
+- [Extensions](/openapi/extensions/): every extension Forge reads.
+- [Get started](/start/get-started/): generate a TypeScript SDK and MCP tools from a small document.

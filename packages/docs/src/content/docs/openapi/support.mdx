@@ -1,6 +1,7 @@
 ---
 title: OpenAPI support
 description: Which parts of OpenAPI 3.0, 3.1 and 3.2 and of JSON Schema Forge reads, which it ignores, and which are not covered yet.
+content_type: reference
 sidebar:
   order: 4
 ---
@@ -18,14 +19,14 @@ Forge sorts every part of OpenAPI into one of three:
 | --- | --- |
 | Versions | 3.0, 3.1 and 3.2. Swagger 2.0 and other versions are errors. |
 | Format | JSON. The library reads any format Serde can, but the CLI reads JSON. |
-| `info` | `title`, `summary` and `description` become `forge.description`; `version` is `forge.version`. |
+| `info` | `title`, `summary` and `description` become `forge.description`. `version` is `forge.version`. |
 | `servers` | The first server's `url`, with variables replaced by their defaults, is the base URL. A variable it does not define is an error. |
 | `paths` | Read. |
 | `components` | `schemas`, `parameters`, `requestBodies`, `responses` and `pathItems` are read. |
 | `webhooks` | Ignored. |
 | `security`, `securitySchemes` | Ignored. |
 | `tags`, `externalDocs` | Ignored. |
-| `x-forge-commands` | Read; see [extensions](/openapi/extensions/#x-forge-commands). |
+| `x-forge-commands` | Read. Refer to [Extensions](/openapi/extensions/#x-forge-commands). |
 | `$ref` to another document | Not covered yet. Bundle the document first. |
 
 ## Path items and operations
@@ -34,10 +35,10 @@ Forge sorts every part of OpenAPI into one of three:
 | --- | --- |
 | `get`, `put`, `post`, `delete`, `options`, `head`, `patch`, `trace` | Read. |
 | `query` (3.2) | Read. |
-| `additionalOperations` (3.2) | Read; a key that is the name of a fixed method, such as `GET`, is that method, and is ignored when the path item also has it. |
+| `additionalOperations` (3.2) | Read. A key that is the name of a fixed method, such as `GET`, is that method, and is ignored when the path item also has it. |
 | `connect` | Read. |
 | `$ref` on a path item | Read, to `components.pathItems`. |
-| `parameters` on a path item | Read; an operation's parameter replaces one with the same name and location. |
+| `parameters` on a path item | Read. An operation's parameter replaces one with the same name and location. |
 | `summary`, `description`, `deprecated` on an operation | Read. |
 | `operationId` | Read: it names the method, as [`<group>.<method>`](/openapi/naming/). |
 | `tags` | Ignored. |
@@ -48,8 +49,8 @@ Forge sorts every part of OpenAPI into one of three:
 
 | | |
 | --- | --- |
-| `in: path` | Read. Always required. Style `simple` only; `label` and `matrix` are not covered. |
-| `in: query` | Read. Style `form` only, with `explode`; `spaceDelimited`, `pipeDelimited` and `deepObject` are not covered. |
+| `in: path` | Read. Always required. Style `simple` only. `label` and `matrix` are not covered. |
+| `in: query` | Read. Style `form` only, with `explode`. `spaceDelimited`, `pipeDelimited` and `deepObject` are not covered. |
 | `in: querystring` (3.2) | Read: its object's properties are query parameters. At most one, and not with `in: query` parameters. |
 | `in: header` | Read, into [`headers`](/concepts/requests-and-responses/#headers). Style `simple` only. |
 | `in: cookie` | Ignored. |
@@ -81,7 +82,7 @@ parameters.
 | Keyword | |
 | --- | --- |
 | `type`, including a list of types | Read. |
-| `format` | Read for `date-time`, `date`, `uuid`, `byte`, `binary`, and the [number formats](/concepts/types/#numbers); others are strings. |
+| `format` | Read for `date-time`, `date`, `uuid`, `byte`, `binary`, and the [number formats](/concepts/types/#numbers). Others are strings. |
 | `contentEncoding: base64` | Read, as bytes. |
 | `nullable` | Read, in every version. |
 | `enum`, `const` | Read. An `enum` with an object or array value is unknown. |
@@ -107,9 +108,16 @@ parameters.
 
 In 3.0, keywords next to a `$ref` are ignored, as the specification says, except
 `x-forge-sensitive`, which counts in every version. From 3.1, they are read:
-see [types](/concepts/types/#models).
+refer to [Types](/concepts/types/#models).
 
 ## Extensions
 
-See the [extensions reference](/openapi/extensions/). Unknown extensions are ignored, except on
+Refer to the [extensions reference](/openapi/extensions/). Unknown extensions are ignored, except on
 operations, where they are passed to plugins.
+
+## Related resources
+
+- [OpenAPI documents](/openapi/overview/): what Forge reads, and what each method needs.
+- [Types](/concepts/types/): the kinds of type, and how Forge normalizes them.
+- [Troubleshooting OpenAPI documents](/openapi/errors/): each error, and its fix.
+- [Adopt Forge on an existing API](/guides/adopting/): leave out what is not covered yet, and grow from there.

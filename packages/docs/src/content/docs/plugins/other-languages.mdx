@@ -1,8 +1,9 @@
 ---
-title: Other languages
-description: Any language that can build a WebAssembly component of Forge's plugin world can be a Forge plugin. What the host expects, and notes on Go, Python and C.
+title: Plugins in other languages
+description: Any language whose toolchain builds a WebAssembly component of Forge's plugin world can write a Forge plugin. What Forge expects of the component, and what that means for Go, Python and C.
+content_type: concept
 sidebar:
-  order: 6
+  order: 7
 ---
 
 Forge does not know what language a WebAssembly plugin was written in. It loads a component, checks
@@ -13,10 +14,11 @@ question for any language is only: can its toolchain build that component?
 
 - **A component, not a core module.** The file passed to `wasm://` must be a WebAssembly component
   (component model), such as what `wasm32-wasip2` toolchains produce.
-- **The `plugin` world.** It exports `generate`, and imports the `forge` interface. Get the WIT with `npx forge-plugin wit`, or from the `forge::wasm::WIT` constant.
+- **The `plugin` world.** It exports `generate`, and imports the `forge` interface,
+  both defined in [Forge's WIT](#the-wit).
 - **WASI preview 2, synchronously.** The host links the WASI 0.2 interfaces, so a component built by
   a standard toolchain, which imports `wasi:cli`, `wasi:io` and friends, instantiates fine. Exports
-  are called without the async ABI; a component that requires it will not run.
+  are called without the async ABI. A component that requires it will not run.
 - **No other imports.** A component that imports an interface the host does not provide fails to
   instantiate.
 
@@ -25,16 +27,15 @@ clock and random numbers, and nothing else.
 
 ## The shape of every plugin
 
-Whatever the bindings generator calls things, a plugin does the same steps:
+Whatever its language, a plugin has the same parts:
 
-1. Generate bindings for the `plugin` world from the WIT.
-2. Implement `generate() -> result<list<file>, string>`.
-3. Walk the model with `groups()`, `get-group`, `get-method`, `get-model` and `get-type`.
-4. Return files: a path with `/` separators, and the content as bytes.
-5. Build a component.
+- Bindings for the `plugin` world, generated from the WIT.
+- An implementation of `generate() -> result<list<file>, string>`.
+- Code that walks the model with `groups()`, `get-group`, `get-method`, `get-model` and `get-type`.
+- The files it returns: each a path with `/` separators, and the content as bytes.
 
-[The Rust example](/plugins/rust/#as-a-webassembly-component) shows all five in about 50 lines;
-it is a good template to port.
+[The Rust example](/plugins/rust/#as-a-webassembly-component) has all of them in about 50 lines,
+built into a component, and is a good template to port.
 
 ## Notes by language
 
@@ -54,10 +55,10 @@ parallelize inside the call, since the call is single-threaded.
 
 `componentize-py` builds a component from Python source and a WIT world, with the interpreter
 inside. Components are large, often tens of megabytes, and the first instantiation is slower than
-for compiled languages; Forge makes one instance per run, so that cost is
+for compiled languages. Forge makes one instance per run, so that cost is
 paid once.
 
-Pure-Python dependencies can be bundled; packages with native extensions generally cannot.
+Pure-Python dependencies can be bundled. Packages with native extensions generally cannot.
 
 ### C and C++
 
@@ -70,9 +71,9 @@ Use [`forge-plugin build`](/plugins/typescript/), which wraps jco's `componentiz
 world and options. You can run jco yourself, but pass `--backend-qjs-disable-async`: Forge calls
 exports synchronously.
 
-## Getting the WIT
+## The WIT
 
-Every route to bindings starts from the WIT file, which `forge-plugin` prints:
+Every route to bindings starts from the WIT file, which `forge-plugin wit` prints:
 
 <PackageManagers type="exec" pkg="forge-plugin" args="wit > wit/forge.wit" />
 
@@ -80,3 +81,10 @@ The package also exports it as `@cloudflare/forge/plugin/forge.wit`, and Rust co
 `forge::wasm::WIT` with the `wasm` feature. The WIT is versioned (`0.4.0` today). A plugin imports
 the version it was built against, and a `forge` with an incompatible version fails to instantiate it,
 so rebuild plugins against the WIT of the `forge` you run.
+
+## Related resources
+
+- [WIT](/reference/wit/): a summary of the interface, and where the complete file is.
+- [Sandboxing](/concepts/sandbox/): what a WebAssembly plugin can reach.
+- [Write a plugin in Rust](/plugins/rust/): as a WebAssembly component, or with Forge as a library.
+- [Test a plugin](/plugins/testing/): snapshot the output and check that it compiles.

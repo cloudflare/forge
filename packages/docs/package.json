@@ -13,15 +13,15 @@
   "scripts": {
     "dev": "cf dev",
     "start": "astro dev",
-    "build": "cf build",
+    "build": "cf build && nimbus-docs lint",
     "preview": "astro preview",
     "check": "astro check",
     "typecheck": "astro check",
     "lint:docs": "nimbus-docs lint",
     "lint:docs:fix": "nimbus-docs lint --fix",
     "astro": "astro",
-    "deploy": "cf deploy",
-    "deploy:preview": "cf previews deploy"
+    "deploy": "pnpm run build && cf deploy --prebuilt",
+    "deploy:preview": "CLOUDFLARE_PREVIEW_BUILD=true pnpm run build && cf previews deploy --prebuilt"
   },
   "dependencies": {
     "@astrojs/cloudflare": "^15.0.0-beta.2",

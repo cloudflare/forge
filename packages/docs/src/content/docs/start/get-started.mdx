@@ -1,13 +1,18 @@
 ---
-title: Quickstart
-description: Write a small OpenAPI document, and generate a TypeScript SDK and MCP tools from it.
+title: Get started
+description: Generate a TypeScript SDK and MCP tools with Forge from a small OpenAPI document, and type-check the SDK. Needs Forge installed, and Node.js.
+content_type: get-started
 sidebar:
   order: 3
 ---
 
 This page takes one small document through Forge's built-in targets: the TypeScript SDK and the MCP
-tools. To write a target of your own, see the [plugin quickstart](/plugins/quickstart/). It assumes Forge is
-[installed](/start/installation/) and on your path as `forge`, through `npx forge` or a local build.
+tools. To write a target of your own, refer to [Get started with plugins](/plugins/get-started/).
+
+## Prerequisites
+
+- Forge, [installed](/start/install/) in a project from npm or built from source.
+- Node.js. Code that runs the generated SDK needs Node.js 26 or later, which has `Temporal`.
 
 ## 1. Write a document
 
@@ -97,9 +102,7 @@ confirmation, which the MCP target turns into a destructive hint.
 
 Run the `ts` target:
 
-```sh
-forge openapi.json --target ts --out sdk
-```
+<PackageManagers type="exec" pkg="forge" args="openapi.json --target ts --out sdk" />
 
 Forge writes a directory per group, and a small runtime in `_/`. The root `client.ts` has a
 property per top-level group, `pets/client.ts` has `list`, `create` and `delete`, and
@@ -131,7 +134,11 @@ export interface Pet {
 }
 ```
 
-Use it by creating a client and calling a method through its group:
+## 3. Check the SDK
+
+Write a script that uses it: create a client, and call a method through its group. The client sends
+each call to `baseUrl`, so in your own code that is your API. The script uses top-level `await`, so
+the project is an ES module, with `"type": "module"` in its `package.json`:
 
 ```ts title="main.ts"
 import { ApiError, createClient } from './sdk/index.js';
@@ -148,67 +155,90 @@ try {
 }
 ```
 
-The SDK needs a runtime with `fetch` and `Temporal`, such as Node.js 26. The
-[TypeScript target](/targets/typescript/) page covers everything it generates.
+Type-check the script and the SDK together. Install TypeScript, with Node.js's types for
+`process`:
 
-## 3. Generate MCP tools
+<PackageManagers pkg="typescript @types/node" dev />
+
+The SDK uses `Temporal`, which TypeScript has from version 6, and the web's `fetch` types, so the
+configuration needs both libraries:
+
+```json title="tsconfig.json"
+{
+  "compilerOptions": {
+    "target": "esnext",
+    "module": "nodenext",
+    "lib": ["esnext", "dom"],
+    "types": ["node"],
+    "strict": true,
+    "noEmit": true
+  },
+  "include": ["main.ts"]
+}
+```
+
+`include` names only the script. The compiler follows its imports into the SDK, and leaves out
+anything else Forge generates, such as the MCP tools in the next step.
+
+Then run the compiler:
+
+<PackageManagers type="exec" pkg="tsc" />
+
+It prints nothing and exits with status 0: the SDK compiles, and every call in `main.ts` matches the
+document.
+
+## 4. Generate MCP tools
 
 The `mcp` target writes the tools of a [Model Context Protocol](https://modelcontextprotocol.io)
 server in TypeScript, one tool per method, for the official MCP TypeScript SDK:
 
-```sh
-forge openapi.json --target mcp --out tools
-```
+<PackageManagers type="exec" pkg="forge" args="openapi.json --target mcp --out tools" />
 
-Forge generates the tools, not the server, since every server differs in how it authenticates and
-what else it serves. Install the SDK:
+Forge writes the tools, and you write the server around them:
 
-<PackageManagers pkg="@modelcontextprotocol/server" />
+<FileTree>
+- tools/
+  - _/
+    - tool.ts
+  - index.ts
+  - pets/
+    - outputs.ts
+    - schemas.ts
+    - **tools.ts**
+</FileTree>
 
-Then serve the tools over standard input and output. `registerTools` sends each call to the API
-through the `fetch` you give it, which here adds the token:
+`tools/pets/tools.ts` has three tools, `pets_create`, `pets_delete` and `pets_list`. The confirmation
+on `delete` makes its tool destructive, and adds the sentence to its description:
 
-```ts title="server.ts"
-import { McpServer } from '@modelcontextprotocol/server';
-import { StdioServerTransport } from '@modelcontextprotocol/server/stdio';
-import { api, registerTools, tools } from './tools/index.js';
-
-const server = new McpServer({ name: 'pet-store', version: api.version });
-
-registerTools(server, tools, {
-  baseUrl: process.env.API_BASE_URL ?? api.baseUrl,
-  fetch: (input, init) => {
-    const request = new Request(input, init);
-    request.headers.set('authorization', `Bearer ${process.env.API_TOKEN}`);
-    return fetch(request);
-  },
-});
-
-await server.connect(new StdioServerTransport());
-```
-
-Register it with an MCP client. The generated files import each other as `.js`, so run them with
-[tsx](https://tsx.is) or compile them first:
-
-```json title="mcp.json"
+```ts title="tools/pets/tools.ts (excerpt)"
 {
-  "mcpServers": {
-    "pet-store": {
-      "command": "npx",
-      "args": ["tsx", "/path/to/server.ts"],
-      "env": { "API_TOKEN": "..." }
-    }
-  }
+  name: "pets_delete",
+  title: "Delete a pet",
+  description: "Delete a pet\n\nConfirm with the user before calling this tool. This deletes the pet.\n\nDELETE /pets/{pet_id}",
+  // ...
+  annotations: {
+    "destructiveHint": true,
+    "idempotentHint": true,
+    "openWorldHint": true,
+    "readOnlyHint": false,
+    "title": "Delete a pet"
+  },
 }
 ```
 
-Its tools are `pets_list`, `pets_create` and `pets_delete`. `pets_list` is marked read-only, and
-`pets_delete` is marked destructive, with "This deletes the pet." in its description. See the
-[MCP target](/targets/mcp/).
+To serve them, refer to [`registerTools`](/targets/mcp/#registertools).
 
-## Next
+## Related resources
 
-- [The TypeScript SDK](/targets/typescript/) and [MCP tools](/targets/mcp/): everything each target writes.
-- [Naming methods](/openapi/naming/): how operationIds become groups and methods.
-- [Extensions](/openapi/extensions/): the optional extensions Forge reads.
-- [Plugin quickstart](/plugins/quickstart/): write a target of your own.
+- [Forge](/): what Forge is for, and where to start.
+- [About Forge](/start/about/): what Forge is, and the model every output shares.
+- [TypeScript SDK](/targets/typescript/): everything `--target ts` generates.
+- [MCP tools](/targets/mcp/): everything `--target mcp` generates, and how to serve the tools.
+- [Method names](/openapi/naming/): how operationIds become groups and methods.
+- [Troubleshooting OpenAPI documents](/openapi/errors/): each error, and its fix.
+
+## Next steps
+
+- [Adopt Forge on an existing API](/guides/adopting/): bring in a large document a group at a time.
+- [Generate in CI](/guides/ci/): regenerate on every change, and fail on a stale SDK.
+- [Get started with plugins](/plugins/get-started/): write a target of your own.

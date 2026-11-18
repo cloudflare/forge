@@ -1,14 +1,15 @@
 ---
-title: Fern
+title: Convert Fern extensions
 description: Rewrite the Fern extensions that Forge has an equivalent of into Forge's own, with forge normalize.
+content_type: how-to
 sidebar:
   order: 1
 ---
 
-Forge doesn't read the OpenAPI extensions of [Fern](https://buildwithfern.com), another SDK
+Forge does not read the OpenAPI extensions of [Fern](https://buildwithfern.com), another SDK
 generator. Seven of them name methods, groups, models, fields and parameters, or leave operations out,
 and Forge has an extension of its own for each. `forge normalize --from fern` rewrites those seven
-into Forge's; it leaves every other Fern extension as it is.
+into Forge's. It leaves every other Fern extension as it is.
 
 ## Rewrite a document
 
@@ -27,6 +28,21 @@ Then rewrite the file in place:
 
 ```sh
 forge normalize --from fern --write openapi.json
+```
+
+```text
+openapi.json: rewrote 7 keys
+forge: 1 file: 1 rewritten, 0 unchanged
+```
+
+Run the check again. It now passes, with status 0:
+
+```sh
+forge normalize --from fern --check openapi.json
+```
+
+```text
+forge: 1 file checked, none would be rewritten
 ```
 
 Without `--write`, the rewritten document is printed instead. An operation written for Fern:
@@ -64,7 +80,7 @@ beside the new ones with `--leave-old-extensions`.
 
 | Fern extension           | On               | Becomes                                                       |
 | ------------------------ | ---------------- | ------------------------------------------------------------- |
-| `x-fern-sdk-group-name`  | Operation, alias | [`x-forge-group-name`](/openapi/extensions/#x-forge-method-name-and-x-forge-group-name); a list of names becomes a dotted string, unless a name is empty or has a dot in it, when the list is kept |
+| `x-fern-sdk-group-name`  | Operation, alias | [`x-forge-group-name`](/openapi/extensions/#x-forge-method-name-and-x-forge-group-name). A list of names becomes a dotted string, unless a name is empty or has a dot in it, when the list is kept |
 | `x-fern-sdk-method-name` | Operation, alias | [`x-forge-method-name`](/openapi/extensions/#x-forge-method-name-and-x-forge-group-name) |
 | `x-fern-ignore`          | Operation, alias | [`x-forge-skip`](/openapi/extensions/#x-forge-skip)           |
 | `x-fern-availability`    | Operation, alias | [`x-forge-availability`](/openapi/extensions/#x-forge-availability) |
@@ -72,11 +88,20 @@ beside the new ones with `--leave-old-extensions`.
 | `x-fern-type-name`       | Schema           | [`x-forge-model-name`](/openapi/extensions/#x-forge-model-name) |
 | `x-fern-property-name`   | Property schema  | [`x-forge-property-name`](/openapi/extensions/#x-forge-property-name) |
 
-A key is rewritten only where Forge reads its replacement; the same key anywhere else is left alone.
+A key is rewritten only where Forge reads its replacement. The same key anywhere else is left alone.
 If a document already has the Forge key, it is kept and the Fern one is dropped.
 
 ## Everything else
 
 Other Fern extensions, such as `x-fern-pagination` and `x-fern-examples`, are left in the document,
-and Forge doesn't read them. On an operation they are passed to plugins, like any extension Forge
-doesn't read, so a plugin can use one.
+and Forge does not read them. On an operation they are passed to plugins, like any extension Forge
+does not read, so a plugin can use one.
+
+## Related resources
+
+- [Extensions](/openapi/extensions/): every extension Forge reads.
+- [Troubleshooting OpenAPI documents](/openapi/errors/): each error, and its fix.
+
+## Next steps
+
+- [Adopt Forge on an existing API](/guides/adopting/): a large document, a group at a time.

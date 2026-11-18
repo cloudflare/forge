@@ -1,14 +1,20 @@
 ---
-title: Plugin quickstart
-description: Write a plugin in TypeScript, build it into a WebAssembly component, and run it on a document.
+title: Get started with plugins
+description: Write a Forge plugin in TypeScript, build it into a WebAssembly component, and run it on a document. Needs Node.js and the document from Get started.
+content_type: get-started
 sidebar:
   order: 2
-  label: Quickstart
 ---
 
 Forge's built-in targets are plugins, and writing your own takes one file. This page writes one in
-TypeScript, runs it on the pet store document from the [quickstart](/start/quickstart/#1-write-a-document),
-and shows what it writes. Save that document as `openapi.json` first.
+TypeScript, runs it on the pet store document from [Get started](/start/get-started/#1-write-a-document),
+and shows what it writes.
+
+## Prerequisites
+
+- The pet store document from [Get started](/start/get-started/#1-write-a-document), saved as
+  `openapi.json`.
+- Node.js, to build the plugin.
 
 ## Write the plugin
 
@@ -32,7 +38,7 @@ export const { generate } = definePlugin({
 ```
 
 `forge.groups` has every group, including the root, whose path is empty, so its table goes in
-`index.md`; the filter leaves out groups with no methods.
+`index.md`. The filter leaves out groups with no methods.
 
 ## Build and run it
 
@@ -45,9 +51,7 @@ Build the plugin into a WebAssembly component, and run it:
 
 <PackageManagers type="exec" pkg="forge-plugin" args="build plugin.ts --out plugin.wasm" />
 
-```sh
-forge openapi.json --target wasm://plugin.wasm --out docs
-```
+<PackageManagers type="exec" pkg="forge" args="openapi.json --target wasm://plugin.wasm --out docs" />
 
 `docs/pets.md` now has a table of the three methods:
 
@@ -60,12 +64,16 @@ forge openapi.json --target wasm://plugin.wasm --out docs
 ```
 
 The plugin ran sandboxed: it read the document's model, and returned files for Forge to write. It
-could not read files, reach the network or see the environment; see
-[the sandbox](/concepts/sandbox/) for exactly what it has.
+could not read files, reach the network or see the environment. Refer to
+[Sandboxing](/concepts/sandbox/) for exactly what it has.
 
-## Next
+## Related resources
 
-- [The model](/concepts/the-model/): what `group`, `method` and `type` give you.
-- [TypeScript plugins](/plugins/typescript/): the full guide, including the printer that writes
-  imports for you.
-- [Rust plugins](/plugins/rust/): native or compiled to WebAssembly.
+- [Plugins](/plugins/overview/): every way to extend Forge.
+- [How plugins work](/plugins/how-plugins-work/): the ways to write one, and what a plugin does.
+- [The model](/concepts/the-model/): the tree every plugin reads.
+
+## Next steps
+
+- [Write a plugin in TypeScript](/plugins/typescript/): `definePlugin`, building and errors.
+- [Write a plugin in Rust](/plugins/rust/): as a WebAssembly component, or with Forge as a library.

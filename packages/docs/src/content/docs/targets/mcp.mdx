@@ -1,6 +1,7 @@
 ---
 title: MCP tools
-description: What forge --target mcp generates, the tools of a Model Context Protocol server in TypeScript, and how their names, arguments, hints and requests are derived.
+description: What forge --target mcp generates, with its files, which methods get a tool, and how tool names, arguments, schemas, hints and requests are derived.
+content_type: reference
 sidebar:
   order: 3
 ---
@@ -16,10 +17,12 @@ forge openapi.json --target mcp --out tools
 Forge generates the tools, not a server. Servers differ in how they authenticate, what else they
 serve and how they handle errors, so the output is data, with one function that serves it.
 
-## Serve the tools
+## registerTools
 
-`registerTools` registers every tool on an `McpServer`. Each call builds the HTTP request and
-sends it with the `fetch` you pass, which is where a server adds its credential:
+`registerTools(server, tools, options)` registers every tool on an `McpServer` from the official MCP
+TypeScript SDK, `@modelcontextprotocol/server`. Each call builds the HTTP request and sends it to
+`options.baseUrl` with `options.fetch`, the global `fetch` by default, which is where a server adds
+its credential. This server serves the tools over standard input and output:
 
 ```ts title="server.ts"
 import { McpServer } from '@modelcontextprotocol/server';
@@ -40,7 +43,20 @@ registerTools(server, tools, {
 await server.connect(new StdioServerTransport());
 ```
 
-The [quickstart](/start/quickstart/) runs this server. Any transport the SDK has works the same way.
+Any transport the SDK has works the same way. The generated files import each other as `.js`, so a
+client runs the server with [tsx](https://tsx.is), or after compiling it:
+
+```json title="mcp.json"
+{
+  "mcpServers": {
+    "pet-store": {
+      "command": "npx",
+      "args": ["tsx", "/path/to/server.ts"],
+      "env": { "API_TOKEN": "..." }
+    }
+  }
+}
+```
 
 ## What it writes
 
@@ -64,7 +80,8 @@ Every method gets a tool, hidden ones included, except:
 |---|---|
 | Deprecated (`deprecated: true`) | The API discourages new calls to it. |
 | A tool name over 128 characters | MCP's limit. |
-| A tool name another method of its group already has | Names must be unique; the first method by name keeps it. |
+| A tool name another method of its group already has | Names must be unique. The first method by name keeps it. |
+| A path parameter in its path that its request has no field for | The tool cannot fill in the path. |
 
 An operation with `x-forge-skip` is not a method, so it gets no tool.
 
@@ -78,7 +95,7 @@ A tool is named after its groups and its method, each in camelCase, joined by `_
 | `pet_stores.inventory.items` | `bulk_edit` | `petStores_inventory_items_bulkEdit` |
 | the root | `health` | `health` |
 
-Model providers accept only `[a-zA-Z0-9_-]` in tool names, so `.` can't separate them. Forge treats
+Model providers accept only `[a-zA-Z0-9_-]` in tool names, so `.` cannot separate them. Forge treats
 `_` inside a name as a word break, so camelCase keeps `a.b` + `c` and `a` + `b_c` apart.
 
 ## Arguments
@@ -102,11 +119,11 @@ before the call reaches the tool. The body's own objects keep what their schemas
 
 Schemas are JSON Schema 2020-12, built from Forge's [model](/concepts/the-model/) rather than
 copied from the document, so every target agrees on each type. A model that is only a scalar or an
-enum is written inline; any other is a `$ref` into the tool's own `$defs`, which holds only the
+enum is written inline. Any other is a `$ref` into the tool's own `$defs`, which holds only the
 models it reaches.
 
 Arguments and responses use different schemas. Argument schemas leave out read-only fields, which a
-client doesn't send, and keep descriptions and defaults for the model choosing arguments. Response
+client does not send, and keep descriptions and defaults for the model choosing arguments. Response
 schemas keep read-only fields and leave out the prose.
 
 `outputSchema` is the JSON body of the successful responses. A method with a successful response
@@ -116,10 +133,10 @@ that has no JSON body has none.
 
 `title` is the method's summary. `description` is its description or summary, then:
 
-- "This method is alpha." (or beta, in preview, deprecated) from `x-forge-availability`;
+- "This method is alpha." (or beta, in preview, deprecated) from `x-forge-availability`.
 - "Confirm with the user before calling this tool." and the sentence from
-  `x-forge-require-confirmation`;
-- the method and path, such as `DELETE /pets/{pet_id}`.
+  `x-forge-require-confirmation`.
+- The method and path, such as `DELETE /pets/{pet_id}`.
 
 The annotations come from the HTTP method:
 
@@ -130,27 +147,27 @@ The annotations come from the HTTP method:
 | `PUT`, `DELETE` | false | true | true |
 | any, with `x-forge-require-confirmation` | false | true | as above |
 
-`openWorldHint` is always true, since every tool calls an API. The hints describe the method; they
+`openWorldHint` is always true, since every tool calls an API. The hints describe the method. They
 authorize nothing.
 
 ## Calls
 
 `registerTools` builds each request from the tool's operation and the call's arguments:
 
-- path parameters are filled in and percent-encoded; an empty one is an error result;
-- query parameters use OpenAPI's default `form` style (`a=1&a=2` exploded, `a=1,2` not), and
-  `undefined` or `null` values are left out;
-- the body is encoded as `fetch` would, in the media type `content-type` names or the one its value
-  fits;
+- Path parameters are filled in and percent-encoded. An empty one is an error result.
+- Query parameters use OpenAPI's default `form` style (`a=1&a=2` exploded, `a=1,2` not), and
+  `undefined` or `null` values are left out.
+- The body is encoded as `fetch` would, in the media type `content-type` names or the one its value
+  fits.
 - `Accept: application/json` is sent.
 
 The result is the response body as text, and a successful JSON body is also `structuredContent`. A
-response that isn't 2xx is an error result that starts with the status, so the model reads what
+response that is not 2xx is an error result that starts with the status, so the model reads what
 the API said.
 
 ## Example
 
-From the quickstart document, `tools/pets/tools.ts` has this tool:
+From the pet store document in [Get started](/start/get-started/), `tools/pets/tools.ts` has this tool:
 
 ```ts title="tools/pets/tools.ts"
 {
@@ -190,9 +207,14 @@ From the quickstart document, `tools/pets/tools.ts` has this tool:
 
 A tool is plain data, so a server can change one before registering it: a spread such as
 `{ ...tool, inputSchema }` keeps its operation. `operation(tool)` returns the API method a tool
-calls, with the `x-` extensions Forge doesn't read and a schema for every response, for a server
+calls, with the `x-` extensions Forge does not read and a schema for every response, for a server
 that writes its own `tools/call`.
 
 To change what is generated, such as how tools are named, write a [plugin](/plugins/overview/)
-that reads the same model; [designing a target](/plugins/designing-a-target/) shows the decisions
+that reads the same model. [Target design](/plugins/designing-a-target/) shows the decisions
 this one makes.
+
+## Related resources
+
+- [Groups and methods](/concepts/groups-and-methods/): how operations become methods, and the metadata they carry.
+- [Get started](/start/get-started/): generate a TypeScript SDK and MCP tools from a small document.

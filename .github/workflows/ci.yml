@@ -99,10 +99,7 @@ jobs:
 
       - uses: ./.github/actions/setup-workspace
 
-      # Every internal link is checked as the site builds, so a broken one
-      # fails here.
+      # The build lints every page after building it, so a broken internal
+      # link fails here.
       - name: Build
         run: pnpm --filter forge-docs build
-
-      - name: Lint pages
-        run: pnpm --filter forge-docs lint:docs
