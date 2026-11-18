@@ -1,21 +1,22 @@
 //! Rewrites the metadata extensions other tools write into Forge's native
-//! `x-forge-*` vocabulary, which is all a [`Forge`](crate::Forge) reads.
+//! `x-forge-*` extensions. A [`Forge`](crate::Forge) reads only the native
+//! ones.
 //!
-//! A document written for another tool, such as Fern, names its groups and
-//! methods with that tool's extensions, `x-fern-sdk-group-name` and
-//! `x-fern-sdk-method-name`. Forge gives those keys no meaning until they are
-//! rewritten into the native ones, `x-forge-group-name` and
-//! `x-forge-method-name`. Each tool is an [`Adapter`], and [`normalize`]
-//! rewrites the keys of the adapters it is given. `forge normalize` rewrites
-//! files with it, and `@cloudflare/forge`'s `parse` reads documents through
-//! it.
+//! A document written for Fern, for example, names its groups and methods
+//! with `x-fern-sdk-group-name` and `x-fern-sdk-method-name`. Forge gives
+//! those keys no meaning until [`normalize`] rewrites them into
+//! `x-forge-group-name` and `x-forge-method-name`. Each tool is an
+//! [`Adapter`], and `normalize` rewrites only the keys of the adapters it is
+//! given. `forge normalize` rewrites files with this module, and
+//! `@cloudflare/forge`'s `parse` reads documents through it.
 //!
-//! A key is rewritten only at the kind of OpenAPI object where Forge reads
-//! its native replacement: an operation's group name on an operation, not on
-//! a schema. A native key is never replaced: when a document says the same
-//! thing with a native key and another, the native one is kept and the other
-//! removed. Adapters introduce no meaning of their own; each key they rewrite
-//! has a native key that already says the same.
+//! `normalize` rewrites a key only at the kind of OpenAPI object where Forge
+//! reads the native replacement, so an operation's group name is rewritten on
+//! an operation and left alone on a schema. A native key always wins. When a
+//! document says the same thing with a native key and another, `normalize`
+//! keeps the native key and removes the other. Adapters add no meaning of
+//! their own, because each key they rewrite has a native key that already
+//! says the same.
 //!
 //! # Examples
 //!
@@ -48,8 +49,8 @@
 //! ```
 //!
 //! Keep the old keys beside the native ones, for tools that still read them.
-//! Each native key is written in the place of the key it replaces, and the
-//! old key after it:
+//! Each native key takes the place of the key it replaces, and the old key
+//! follows it.
 //!
 //! ```
 //! use forge::normalize::{normalize, Adapter, Options};
@@ -75,9 +76,9 @@ use std::fmt;
 
 pub use json::{Normalized, Options, Report, normalize};
 
-/// A tool whose metadata extensions [`normalize`] rewrites into Forge's
-/// native ones: `cloudflare`, `fern` or `stainless`, as `forge normalize
-/// --from` names them.
+/// Rewrites one tool's metadata extensions into Forge's native ones, with
+/// [`normalize`]. The adapters are `cloudflare`, `fern` and `stainless`, the
+/// names `forge normalize --from` takes.
 ///
 /// ```
 /// use forge::normalize::Adapter;
@@ -92,8 +93,8 @@ pub use json::{Normalized, Options, Report, normalize};
 pub struct Adapter(&'static dyn vendor::Source);
 
 impl Adapter {
-    /// Returns the adapter called `name`, or `None` if Forge has none by
-    /// that name. Names are lower case, as [`Adapter::name`] gives them.
+    /// Returns the adapter called `name`, or `None` if Forge has no adapter
+    /// by that name. Names are lower case, such as `fern`.
     pub fn named(name: &str) -> Option<Adapter> {
         vendor::named(name).map(Adapter)
     }
