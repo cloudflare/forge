@@ -6,8 +6,8 @@ _default:
 alias f := fmt
 alias l := lint
 
-# The wasm guest and the library crate are workspaces of their own, so the
-# root `cargo fmt` skips them and they get their own runs.
+# The wasm guest is a workspace of its own, and the library crate a member
+# the root `cargo fmt` skips, so both get their own runs.
 
 # Format the code, including the wasm guest and the library crate
 fmt:

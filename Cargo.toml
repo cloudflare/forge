@@ -1,5 +1,9 @@
 [workspace]
 resolver = "3"
+# forge as a library for JavaScript, built for wasm32-unknown-unknown by
+# packages/forge/scripts/build.mjs. A member so it shares Cargo.lock; plain
+# `cargo` commands at the root still build and test only forge.
+members = ["packages/forge/library"]
 
 [package]
 name = "forge"

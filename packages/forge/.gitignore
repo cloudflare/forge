@@ -11,7 +11,6 @@
 # world as a component and its types, and the libraries.
 /src/wit
 /src/component
-/library/target
 /plugin/component
 /plugin/*.js
 /plugin/*.d.ts

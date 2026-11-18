@@ -105,16 +105,19 @@ export function buildPlugin(out = join(npmDir, 'plugin')) {
 }
 
 /**
- * Builds forge's `library` world, which `parse` runs: library/ compiled to
- * WebAssembly with cargo, made a component with jco and turned into
+ * Builds forge's `library` world, which `parse` runs: library/, a member of
+ * the root workspace, compiled to WebAssembly with cargo, made a component with jco and turned into
  * JavaScript in <out>/component. Its types are copied into src/component,
  * for the compiler.
  */
 function buildComponent(out) {
   const jco = devBin('@bytecodealliance/jco', 'jco');
-  const crate = join(npmDir, 'library');
-  run('cargo', ['build', '--release', '--locked', '--target', 'wasm32-unknown-unknown'], crate);
-  const release = join(crate, 'target', 'wasm32-unknown-unknown', 'release');
+  run(
+    'cargo',
+    ['build', '--release', '--locked', '--target', 'wasm32-unknown-unknown', '-p', 'forge-library'],
+    repoDir,
+  );
+  const release = join(repoDir, 'target', 'wasm32-unknown-unknown', 'release');
   const component = join(release, 'forge.component.wasm');
   node(jco, ['new', join(release, 'forge_library.wasm'), '-o', component]);
   const transpiled = join(out, 'component');
