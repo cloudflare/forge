@@ -7,6 +7,8 @@ mod json;
 mod link;
 mod method;
 mod name;
+#[cfg(feature = "normalize")]
+pub mod normalize;
 mod plugin;
 mod types;
 #[cfg(feature = "wasm")]

@@ -77,7 +77,7 @@ fn child(kind: Kind, key: &str, value: &Value) -> Option<Shape> {
 }
 
 /// Walks a document, which is changed, and returns what was done.
-pub(super) fn walk(document: &mut Value, options: &Options) -> Report {
+pub fn walk(document: &mut Value, options: &Options) -> Report {
     let mut walk = Walk {
         options,
         report: Report::default(),

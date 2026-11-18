@@ -32,12 +32,15 @@ harness = false
 default = ["cli"]
 # The `forge` command. Library users can turn it off with
 # `default-features = false`.
-cli = ["dep:clap", "dep:serde_json", "dep:strum"]
+cli = ["dep:clap", "dep:strum", "normalize"]
 # `forge::wasm`, which runs plugins compiled to WebAssembly components.
 wasm = ["dep:wasmtime", "dep:wasmtime-wasi"]
+# `forge::normalize` rewrites other tools' extensions into the native
+# `x-forge-*` ones. `forge normalize` and `forge::library` use it.
+normalize = ["dep:serde_json"]
 # `forge::library` implements the WIT's `library` world. `@cloudflare/forge`
 # builds forge with it to WebAssembly to parse documents in JavaScript.
-library = ["dep:serde_json", "dep:wit-bindgen"]
+library = ["dep:wit-bindgen", "normalize"]
 
 [profile.release]
 strip = true # Drop symbols and debug info from the binary, which the npm packages ship.

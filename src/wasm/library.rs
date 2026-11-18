@@ -6,7 +6,7 @@
 //! same `forge` record plugins receive, backed by [`ForgeWasm`].
 
 use super::types::ForgeWasm;
-use crate::Forge;
+use crate::{Forge, normalize};
 
 /// Private bindgen shim mapping WIT `forge` to [`ForgeWasm`].
 mod wit_forge {
@@ -38,8 +38,32 @@ bindings::export!(Library with_types_in bindings);
 struct Library;
 
 impl exports::Guest for Library {
-    fn parse(json: String) -> Result<ForgeWasm, String> {
-        let forge: Forge = serde_json::from_str(&json).map_err(|err| err.to_string())?;
+    fn parse(json: String, adapters: Vec<String>) -> Result<ForgeWasm, String> {
+        let sources = adapters
+            .iter()
+            .map(|name| {
+                normalize::named(name)
+                    .ok_or_else(|| format!("unknown adapter {name:?}; expected cloudflare, fern, or stainless"))
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+        // Without adapters, there is nothing to rewrite, so the document is
+        // parsed as given.
+        let normalized: Option<Vec<u8>> = if sources.is_empty() {
+            None
+        } else {
+            let options = normalize::Options {
+                leave_old_extensions: false,
+                sources: &sources,
+            };
+            normalize::normalize(json.as_bytes(), &options)
+                .map_err(|err| err.to_string())?
+                .json
+        };
+        let forge: Forge = match &normalized {
+            Some(normalized) => serde_json::from_slice(normalized),
+            None => serde_json::from_str(&json),
+        }
+        .map_err(|err| err.to_string())?;
         Ok(ForgeWasm::from(&forge))
     }
 }

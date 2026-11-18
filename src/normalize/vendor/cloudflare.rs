@@ -2,7 +2,7 @@
 
 use super::{Normalize, Source};
 
-pub(super) struct Cloudflare;
+pub struct Cloudflare;
 
 impl Source for Cloudflare {
     fn name(&self) -> &'static str {

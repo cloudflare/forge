@@ -1,10 +1,6 @@
 //! `forge normalize`, which rewrites the extensions other tools' metadata is
 //! written with into the native ones, in the files it is given. How one
-//! document is rewritten is in [`json`].
-
-mod json;
-mod vendor;
-mod walk;
+//! document is rewritten is in [`forge::normalize`].
 
 use std::collections::HashSet;
 use std::fs;
@@ -13,8 +9,7 @@ use std::path::{Path, PathBuf};
 
 use forge::Err;
 
-use json::{Normalized, Options, Report, normalize};
-use vendor::Source;
+use forge::normalize::{self as vendor, Normalized, Options, Report, Source, normalize};
 
 /// What `forge normalize` is given, which says what it does in `main.rs`.
 #[derive(clap::Args)]

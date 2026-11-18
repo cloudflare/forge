@@ -151,3 +151,38 @@ test('documents parsed side by side stay apart', () => {
   assert.deepEqual([a.version, a.groups[1].name.kebab()], ['1', 'alpha']);
   assert.deepEqual([b.version, b.groups[1].name.kebab()], ['2', 'beta']);
 });
+
+/** A document that names its method only with Fern's extensions. */
+const fern = {
+  openapi: '3.1.0',
+  info: { title: 'Pets', version: '1' },
+  paths: {
+    '/pets': {
+      get: {
+        'x-fern-sdk-group-name': ['pets'],
+        'x-fern-sdk-method-name': 'list',
+        'x-fern-availability': 'beta',
+        responses: { 200: { description: 'ok' } },
+      },
+    },
+  },
+};
+
+test('the fern adapter reads Fern’s extensions as Forge’s own', () => {
+  const plain = parse(JSON.stringify(fern));
+  assert.deepEqual(
+    plain.groups.flatMap((group) => group.methods),
+    [],
+  );
+
+  const adapted = parse(JSON.stringify(fern), { adapters: ['fern'] });
+  const methods = adapted.groups.flatMap((group) => group.methods);
+  assert.deepEqual(
+    methods.map((m) => [m.group.path.map((name) => name.kebab()).join('.'), m.name.camel(), m.availability]),
+    [['pets', 'list', 'beta']],
+  );
+});
+
+test('an adapter forge has not is an error', () => {
+  assert.throws(() => parse(JSON.stringify(fern), { adapters: ['swagger'] }), /unknown adapter "swagger"/);
+});
