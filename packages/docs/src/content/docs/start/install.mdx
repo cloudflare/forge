@@ -1,17 +1,17 @@
 ---
 title: Install Forge
-description: Install Forge from npm, or build it from source, and check that it runs.
+description: Install Forge with your package manager, or build it from source, and check that it runs.
 content_type: how-to
 sidebar:
   order: 2
 ---
 
-Forge is one native binary. Install it from npm, or build it from source.
+Forge is one native binary. Install it with your package manager, or build it from source.
 
-## From npm
+## With a package manager
 
 The `@cloudflare/forge` package carries prebuilt binaries for six platforms, and a small launcher
-that picks the right one. It is not on the npm registry yet: builds are published to
+that picks the right one. It is not on a package registry yet: builds are published to
 [pkg.pr.new](https://pkg.pr.new) from the repository, and you install one by URL. The newest build
 of `main` is:
 
@@ -70,7 +70,7 @@ The last command prints the version, such as `forge 0.1.0`.
 
 The `wasm` feature is what lets the command run [WebAssembly plugins](/plugins/overview/). It adds
 [Wasmtime](https://wasmtime.dev) to the build, so it is off by default. Without it,
-`--target wasm://...` fails with a message telling you to rebuild with `--features wasm`. The npm
+`--target wasm://...` fails with a message telling you to rebuild with `--features wasm`. The
 package's binaries are always built with it.
 
 ## Related resources
