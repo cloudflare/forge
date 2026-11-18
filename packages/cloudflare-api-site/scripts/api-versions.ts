@@ -287,8 +287,10 @@ async function githubJson<T>(path: string): Promise<T> {
 
 const execFileAsync = promisify(execFile);
 
-async function lsRemote(repository: string, args: string[]): Promise<string> {
-  const { stdout } = await execFileAsync('git', ['ls-remote', ...args, `https://github.com/${repository}.git`], {
+/** `git ls-remote [options] <repository> [patterns]`: options go before the repository, patterns after. */
+async function lsRemote(repository: string, options: string[], patterns: string[] = []): Promise<string> {
+  const url = `https://github.com/${repository}.git`;
+  const { stdout } = await execFileAsync('git', ['ls-remote', ...options, url, ...patterns], {
     maxBuffer: 64 * 1024 * 1024,
   });
   return stdout;
@@ -341,7 +343,7 @@ async function listUpstreamReleases(repository: string): Promise<UpstreamRelease
 async function resolveBranch(manifest: ApiVersionsManifest): Promise<string> {
   const { repository, branch } = manifest.source;
   const ref = `refs/heads/${branch}`;
-  const commit = (await lsRemote(repository, [ref]))
+  const commit = (await lsRemote(repository, [], [ref]))
     .split('\n')
     .find((line) => line.endsWith(`\t${ref}`))
     ?.split('\t')[0];
