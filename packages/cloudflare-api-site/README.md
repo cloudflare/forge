@@ -1,12 +1,13 @@
 # cloudflare-api-site
 
 Cloudflare's deployable API reference, built with Astro,
-[Nimbus](https://nimbus-docs.com), and `astro-fern`.
+[Nimbus](https://nimbus-docs.com), and Forge.
 
-Nimbus renders the API pages, their Markdown twins, and `llms.txt`. `astro-fern`
-reads the Forge OpenAPI spec at build time and decides products, resources, and
-operation URLs. `src/forge-api.ts` translates one into the other; it adds
-Cloudflare data to the spec and never renders anything itself.
+Nimbus renders the API pages, their Markdown twins, and `llms.txt`. Forge,
+through `@cloudflare/forge`, reads the OpenAPI spec at build time and decides
+products, resources, and operation URLs. `src/forge-api.ts` applies what Forge
+read to the spec Nimbus renders. It adds Cloudflare data to the spec and never
+renders anything itself.
 
 ## Data flow
 
@@ -14,8 +15,8 @@ Cloudflare data to the spec and never renders anything itself.
 openapi.forge.json (latest stable Forge release)
                  |
                  v
-   astro-fern buildFernContent
-   products, resources, routes, Terraform data
+   readContent (src/forge-content.ts), with Forge
+   products, resources, routes, aliases, samples, Terraform data
                  |
                  v
    prepareForgeApi (src/forge-api.ts)
@@ -30,8 +31,10 @@ openapi.forge.json (latest stable Forge release)
 ```
 
 The spec is the `openapi.forge.json` asset on the latest stable Forge GitHub
-release, loaded by `src/openapi-source.ts`. Fern SDK group and method metadata defines each public product,
-resource hierarchy, and method route. OpenAPI tags remain internal ownership
+release, loaded by `src/openapi-source.ts`. Forge reads its Fern SDK group and
+method metadata through its `fern` adapter: a top-level group is a product, the
+groups below it are the resource hierarchy, and the method's name ends the
+route. OpenAPI tags remain internal ownership
 metadata and do not appear in URLs.
 
 `prepareForgeApi` writes three files to the git-ignored `.forge/` directory:
@@ -43,21 +46,21 @@ metadata and do not appear in URLs.
 - `redirects.json`: old section, alias-operation, and moved-product URLs, read by
   `src/middleware.ts`.
 
-Operations with removed Forge metadata are left out with a build warning.
-Operations `astro-fern` gives no URL are left out silently.
+Operations with removed Forge metadata (`x-forge-sunset`, or an `x-forge-params`
+override with a `flagName`) are left out. Operations Forge makes no method of,
+and methods without an `operationId`, are left out too. Each alias of an
+operation redirects to the operation's page.
 
-Until upstream SDK addresses distinguish account and zone operations that share
-one route, equal-priority collisions prefer the account-scoped operation
-(`cloudflareOperationRoutingPreference` in `src/cloudflare.ts`). Forge approval
-metadata remains authoritative, so a hidden account mapping still loses to an
-approved zone mapping.
+Forge rejects a spec in which two methods share a group and a name, and the
+build fails with its message. Such a collision is a bug in the spec.
 
 ## Project ownership
 
 - `astro.config.mjs` installs Nimbus with the API entry from `forgeApi()` and the
   Cloudflare adapter. API pages render on request. It lists the icons the site
   uses, so only those reach the Worker; add an icon there before using it.
-- `src/forge-api.ts` builds the `astro-fern` content and prepares the spec, as
+- `src/forge-content.ts` reads the spec with Forge, and `src/forge-api.ts`
+  prepares the spec from what it read, as
   above. `src/cloudflare.ts` holds the execution targets, snippets, and routing
   preferences it uses, and `src/version.ts` the API version.
 - `src/content.config.ts` registers Nimbus's `api` collection and the `cf`
@@ -112,8 +115,8 @@ run from the repository root, writes with the generator from the
 
 The site renders it with:
 
-- `src/terraform-extension.ts`: the `astro-fern` extension that attaches
-  declarations to operations and renders their Markdown descriptions with
+- `src/terraform-extension.ts`: looks up each operation's declarations by HTTP
+  method and path, and renders their Markdown descriptions with
   `src/description-markdown.ts`;
 - `src/terraform.ts`: operation data, endpoint matching, and declaration labels;
 - `src/forge-api.ts`: copies the data to `x-cloudflare-terraform` and turns each
@@ -181,9 +184,12 @@ Agent routes:
 
 ## Run it
 
-From the repository root after `pnpm install`:
+From the repository root after `pnpm install`, build `@cloudflare/forge`,
+which the site reads the spec with. Its build compiles forge to WebAssembly,
+so it needs the Rust toolchain that `rust-toolchain.toml` pins:
 
 ```bash
+pnpm --filter @cloudflare/forge build
 pnpm --filter cloudflare-api-site dev             # cf dev
 pnpm --filter cloudflare-api-site check
 pnpm --filter cloudflare-api-site test            # unit tests

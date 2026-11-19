@@ -1,20 +1,16 @@
 /**
- * Cloudflare-specific documentation policy for the Fern docs site.
+ * Holds the site's Cloudflare-specific documentation policy: the
+ * acronym-aware label formatter, the API base URL and auth header, the
+ * execution targets, and the `result` response envelope. `forge-api.ts`
+ * applies it to what Forge reads from the spec.
  *
- * astro-fern is product-agnostic: it knows how to resolve, route and render an
- * OpenAPI spec, but ships no Cloudflare knowledge. Everything Cloudflare-shaped
- * — the acronym-aware label formatter, the API base URL / auth header, the
- * execution-target set, and the `result` response envelope
- * — lives here and is passed to the content recipe in `content.config.ts`.
- *
- * This module has no Astro/runtime dependencies, so its behaviour is unit-tested
- * with `node --experimental-strip-types --test` (see `cloudflare.test.ts`).
+ * This module has no Astro or runtime dependencies, so its behaviour is
+ * unit-tested with `node --experimental-strip-types --test` (see
+ * `cloudflare.test.ts`).
  */
 import { cliCommandFor } from './cli-arguments.ts';
 import {
   createSnippetProvider,
-  type FernOperationRoutingPreferenceContext,
-  type FernTargetConfig,
   interpolatePath,
   isJsonMediaType,
   placeholderValue,
@@ -25,7 +21,15 @@ import {
   type SnippetRequestRepresentation,
   type SnippetRenderer,
   toEnvVar,
-} from 'astro-fern';
+} from './snippets.ts';
+
+/** Describes one execution target: a tab of code samples. */
+export interface TargetConfig {
+  id: string;
+  kind: 'http' | 'cli' | 'sdk' | 'tool';
+  label: string;
+  language: string;
+}
 
 //#region Label formatter (acronym-aware)
 
@@ -82,7 +86,7 @@ function humanizeWord(word: string): string {
   return word.charAt(0).toUpperCase() + word.slice(1);
 }
 
-/** Acronym-aware identifier → display-label formatter for Fern content. */
+/** Returns `identifier` as a display label, upper-casing Cloudflare's acronyms, such as `DNS Records` for `dns-records`. */
 export function cloudflareFormatIdentifier(identifier: string): string {
   return identifier.split(/[-_]+/).filter(Boolean).map(humanizeWord).join(' ');
 }
@@ -95,7 +99,7 @@ export function cloudflareFormatIdentifier(identifier: string): string {
  * Cloudflare's execution targets, in tab order. Target ids match renderer keys.
  * The first target is the default when no `?lang=` is selected.
  */
-export const CLOUDFLARE_TARGETS: FernTargetConfig[] = [
+export const CLOUDFLARE_TARGETS: TargetConfig[] = [
   { id: 'cf', kind: 'cli', label: 'cf CLI', language: 'bash' },
   { id: 'curl', kind: 'http', label: 'curl', language: 'bash' },
   { id: 'terraform', kind: 'tool', label: 'Terraform', language: 'hcl' },
@@ -104,15 +108,6 @@ export const CLOUDFLARE_TARGETS: FernTargetConfig[] = [
 /** Cloudflare's REST base URL and the response envelope key it wraps payloads in. */
 export const CLOUDFLARE_API_BASE = 'https://api.cloudflare.com/client/v4';
 export const CLOUDFLARE_RESPONSE_PAYLOAD_KEY = 'result';
-
-/** Prefers account-scoped operations when approved SDK mappings share one documentation route. */
-export function cloudflareOperationRoutingPreference({
-  path,
-  routingPriority,
-}: Pick<FernOperationRoutingPreferenceContext, 'path' | 'routingPriority'>): number {
-  // TODO: Remove this temporary account preference once the upstream API SDK addresses distinguish account and zone operations.
-  return routingPriority >= 0 && /^\/accounts(?:\/|$)/.test(path) ? 1 : 0;
-}
 
 function isMultipartMediaType(mediaType: string): boolean {
   return mediaType.split(';', 1)[0]?.trim().toLowerCase().startsWith('multipart/') === true;
@@ -203,7 +198,7 @@ const comingSoon: SnippetRenderer = () => null;
 // imply unsupported behavior. Keep the user-facing notice in CodeSample.astro in
 // sync until every renderer can apply SnippetInput.snapshotId faithfully.
 // TODO(versioning): Apply SnippetInput.snapshotId once upstream enforcement exists.
-/** Cloudflare's per-operation snippet provider for Fern content. */
+/** Renders Cloudflare's code samples for one operation: cf, curl and Terraform. */
 export const cloudflareSnippets: SnippetProvider = createSnippetProvider(
   {
     cf: { label: 'cf CLI', syntax: 'bash', render: renderCf },
