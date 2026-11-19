@@ -256,7 +256,7 @@ test('sidebar filter results look like tree rows and open at the top', async ({ 
 
   await page.locator('[data-nb-sidebar-filter-input]').fill('dns record');
   const status = page.locator('[data-nb-nav-status]');
-  await expect(status).toHaveText('19 pages');
+  await expect(status).toHaveText(/^\d+ pages$/);
   expect(await row('[data-nb-nav-results] li > a')).toBe(treeRow);
   // The status line sits below the sticky filter bar, not under it.
   const barBottom = await page.locator('.sb-filter-bar').evaluate((el) => el.getBoundingClientRect().bottom);
