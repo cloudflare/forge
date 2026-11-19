@@ -2,7 +2,7 @@ import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import type { ApiSpec, ApiVersionSpec } from '@cloudflare/nimbus-docs/types';
 import { sample } from 'openapi-sampler';
 import { CLOUDFLARE_TARGETS } from './cloudflare.ts';
-import { type Content, type ContentOperation, readContent } from './forge-content.ts';
+import { type ContentOperation, readContent } from './forge-content.ts';
 import { assertToolingRouteNamespace } from './command-reference/routing.ts';
 import { planStainlessRedirects, type StainlessSnapshot } from './stainless-redirects.ts';
 import {
@@ -13,7 +13,7 @@ import {
   stainlessSnippetsFileSchema,
 } from './stainless-snippets.ts';
 import type { TerraformOperationData } from './terraform.ts';
-import { cloudflareTerraform } from './terraform-extension.ts';
+import { loadTerraform, type TerraformIndex, terraformLookup } from './terraform-extension.ts';
 import { parseCloudflareApiVersion } from './version.ts';
 
 export const TERRAFORM_EXTENSION = 'x-cloudflare-terraform';
@@ -99,13 +99,18 @@ const SCHEMA_TITLES: Record<string, string> = {
   'dns-records_dns-record-with-data': 'Data records',
 };
 
-/** Rewrites the spec into the one Nimbus draws, driven by what Forge read of it (`content`). */
+/**
+ * Rewrites the spec `source` into the one Nimbus draws, driven by what Forge
+ * reads of it. `terraform` holds the provider's declarations, which the
+ * spec's operations show as samples and data.
+ */
 export function prepareForgeApi(
   source: Record<string, unknown>,
-  content: Content,
+  terraform: TerraformIndex,
   /** `operationId` → the retired Stainless site's SDK snippets; see `snippetsByOperation`. */
   sdkSnippets: ReadonlyMap<string, SdkSnippets> = new Map(),
 ): PreparedForgeApi {
+  const content = readContent(source, terraformLookup(terraform, source));
   const document = structuredClone(source);
   document.info = { ...(document.info as Record<string, unknown>), title: API_TITLE };
   // Only the IDs derived for operations without an operationId are renamed for Nimbus; an
@@ -168,24 +173,19 @@ export function prepareForgeApi(
 
   for (const operation of byId.values()) {
     const { product } = operation;
-    let leaf = product.slug;
     let path = sectionPath(product.slug);
-    if (operation.resourcePath) {
-      let parent = product.slug;
-      const ids: string[] = [];
-      const slugs: string[] = [];
-      for (const segment of operation.resourcePath) {
-        ids.push(segment.id);
-        slugs.push(segment.slug);
-        const name = `${product.slug}-${slugs.join('-')}`;
-        defineTag({ name, 'x-displayName': segment.title, parent }, `${product.id}:${ids.join('/')}`);
-        path = section(product.slug, slugs);
-        parent = name;
-      }
-      leaf = parent;
-    } else {
-      redirects[`/${product.slug}/sections/${operation.sectionId}/`] = path;
+    let parent = product.slug;
+    const ids: string[] = [];
+    const slugs: string[] = [];
+    for (const segment of operation.resourcePath) {
+      ids.push(segment.id);
+      slugs.push(segment.slug);
+      const name = `${product.slug}-${slugs.join('-')}`;
+      defineTag({ name, 'x-displayName': segment.title, parent }, `${product.id}:${ids.join('/')}`);
+      path = section(product.slug, slugs);
+      parent = name;
     }
+    const leaf = parent;
     leafTag.set(operation.operationId, leaf);
     leafPath.set(operation.operationId, path);
 
@@ -214,7 +214,7 @@ export function prepareForgeApi(
       throw new Error(`cloudflare-api-site: alias of "${operation.operationId}" has no primary page`);
     }
     redirects[`/${product.slug}/${operation.slug}/`] = `/${primarySlug}/`;
-    const slugs = operation.resourcePath?.map((segment) => segment.slug) ?? [];
+    const slugs = operation.resourcePath.map((segment) => segment.slug);
     for (let depth = 0; depth <= slugs.length; depth++) {
       const from = `/${[product.slug, ...slugs.slice(0, depth)].join('/')}/`;
       if (sections.has(from)) continue;
@@ -329,11 +329,7 @@ function terraformSample(terraform: TerraformOperationData | undefined): string 
  */
 export function prepareForgeSpec(source: Record<string, unknown>): Record<string, unknown> {
   const snapshot = readStainlessSnapshot();
-  const prepared = prepareForgeApi(
-    source,
-    readContent(source, cloudflareTerraform(source)),
-    readStainlessSnippets(snapshot),
-  );
+  const prepared = prepareForgeApi(source, loadTerraform(), readStainlessSnippets(snapshot));
   assertToolingRouteNamespace(prepared.products, Object.values(prepared.operations));
 
   const dir = new URL('../.forge/', import.meta.url);

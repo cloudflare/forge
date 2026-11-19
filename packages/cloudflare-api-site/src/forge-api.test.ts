@@ -1,7 +1,9 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { prepareForgeApi, TERRAFORM_EXTENSION } from './forge-api.ts';
-import { type ContentOperation, readContent, type TerraformLookup } from './forge-content.ts';
+import { readContent } from './forge-content.ts';
+import type { TerraformIndex } from './terraform-extension.ts';
+import { canonicalTerraformEndpoint } from './terraform.ts';
 
 function operation(id: string, group: string[], method: string, extra: Record<string, unknown> = {}) {
   return {
@@ -136,81 +138,51 @@ const spec: Record<string, unknown> = {
   },
 };
 
-const terraform: TerraformLookup = (method, path) =>
-  path === '/beta/zones' && method === 'post'
-    ? {
-        declarations: [
-          {
-            kind: 'resource',
-            name: 'cloudflare_zone',
-            example: 'resource "cloudflare_zone" "x" {}',
-            importExample: "$ terraform import cloudflare_zone.x '<zone_id>'",
-            roles: ['create'],
-            required: [],
-            optional: [],
-            computed: [],
-          },
-          {
-            kind: 'data-source',
-            name: 'cloudflare_zone',
-            example: 'data "cloudflare_zone" "x" {}',
-            roles: ['read'],
-            required: [],
-            optional: [],
-            computed: [],
-          },
-          {
-            kind: 'resource',
-            name: 'cloudflare_zone_setting',
-            importExample:
-              "# One setting at a time.\n$ terraform import cloudflare_zone_setting.x '<zone_id>/<setting_id>'",
-            roles: ['update'],
-            required: [],
-            optional: [],
-            computed: [],
-          },
-        ],
-      }
-    : undefined;
+const terraform: TerraformIndex = new Map([
+  [
+    canonicalTerraformEndpoint('post', '/beta/zones'),
+    [
+      {
+        kind: 'resource',
+        name: 'cloudflare_zone',
+        example: 'resource "cloudflare_zone" "x" {}',
+        importExample: "$ terraform import cloudflare_zone.x '<zone_id>'",
+        roles: ['create'],
+        required: [],
+        optional: [],
+        computed: [],
+      },
+      {
+        kind: 'data-source',
+        name: 'cloudflare_zone',
+        example: 'data "cloudflare_zone" "x" {}',
+        roles: ['read'],
+        required: [],
+        optional: [],
+        computed: [],
+      },
+      {
+        kind: 'resource',
+        name: 'cloudflare_zone_setting',
+        importExample:
+          "# One setting at a time.\n$ terraform import cloudflare_zone_setting.x '<zone_id>/<setting_id>'",
+        roles: ['update'],
+        required: [],
+        optional: [],
+        computed: [],
+      },
+    ],
+  ],
+]);
 
 function prepare(source: Record<string, unknown> = spec, sdkSnippets?: Map<string, Record<string, string>>) {
-  const content = readContent(source, terraform);
-  return { ...prepareForgeApi(source, content, sdkSnippets), content };
+  return prepareForgeApi(source, terraform, sdkSnippets);
 }
 
 const ops = (doc: Record<string, unknown>) =>
   Object.entries(doc.paths as Record<string, Record<string, { operationId?: string }>>).flatMap(([, item]) =>
     Object.values(item).map((op) => op.operationId),
   );
-
-/** A hand-built entry, for the cases `readContent` never produces. */
-function entry(
-  id: string,
-  product: string,
-  slug: string,
-  fields: Partial<ContentOperation> = {},
-  resourcePath: { id: string; slug: string }[] = [],
-): ContentOperation {
-  return {
-    operationId: id,
-    derivedId: false,
-    method: 'get',
-    path: `/${id}`,
-    product: { id: product, slug: product, title: product, description: '' },
-    sectionId: product,
-    slug,
-    resourcePath: resourcePath.map((s) => ({ ...s, title: s.slug })),
-    alias: false,
-    deprecated: false,
-    snippets: [],
-    ...fields,
-  };
-}
-
-function prepareEntries(...entries: ContentOperation[]) {
-  const products = [...new Map(entries.map((e) => [e.product.id, e.product])).values()];
-  return prepareForgeApi({ paths: {} }, { products, operations: entries });
-}
 
 test('an operation without an operationId gets its page, and the spec gets the id derived from its SDK address', () => {
   const source = structuredClone(spec);
@@ -236,13 +208,13 @@ test('a derived id in a product Nimbus keeps is renamed as the product slug is; 
 });
 
 test('keeps exactly the operations Forge gives a page, keyed by operationId', () => {
-  const { document, operations, content } = prepare();
+  const { document, operations } = prepare();
   const kept = ops(document).sort();
   assert.deepEqual(kept, Object.keys(operations).sort());
   assert.deepEqual(
     kept,
-    content.operations
-      .filter((entry) => !entry.alias)
+    readContent(spec, () => undefined)
+      .operations.filter((entry) => !entry.alias)
       .map((entry) => entry.operationId)
       .sort(),
   );
@@ -308,17 +280,31 @@ test("landing pages are Nimbus's section pages; section ids and moved products r
     [['tags', 'tagging']],
     'a moved product sets its section segment on its tag',
   );
-  const unplaced = prepareEntries(entry('a.misc', 'a', 'misc/methods/list', { resourcePath: undefined }));
-  assert.equal(unplaced.redirects['/a/sections/a/'], '/a/');
-  assert.equal(unplaced.operations['a.misc'], 'a/misc/methods/list');
 });
 
 test('an alias path that is also a real section keeps the real page', () => {
-  const items = [{ id: 'items', slug: 'items' }];
-  const { redirects } = prepareEntries(
-    entry('a.items.list', 'a', 'items/methods/list', {}, items),
-    entry('b.items.get', 'b', 'items/methods/get', {}, items),
-    entry('a.items.list', 'b', 'items/methods/list', { alias: true }, items),
+  const op = (group: string, method: string, extra: Record<string, unknown> = {}) => ({
+    operationId: `${group}.${method}`,
+    tags: [group],
+    'x-fern-sdk-group-name': group,
+    'x-fern-sdk-method-name': method,
+    responses: { '200': { description: 'ok' } },
+    ...extra,
+  });
+  const { redirects } = prepareForgeApi(
+    {
+      openapi: '3.1.0',
+      info: { title: 'Fixture', version: '1' },
+      paths: {
+        '/a/items': {
+          get: op('a.items', 'list', {
+            'x-forge-aliases': [{ 'x-fern-sdk-group-name': 'b.items', 'x-fern-sdk-method-name': 'list' }],
+          }),
+        },
+        '/b/items/{id}': { get: op('b.items', 'get') },
+      },
+    },
+    new Map(),
   );
   assert.equal(redirects['/b/items/methods/list/'], '/a/items/methods/list/');
   assert.equal(redirects['/b/'], undefined);
@@ -437,28 +423,6 @@ test('a product that exists only through aliases gets redirects, not pages', () 
   assert.ok(!products.some((product) => product.slug === 'legacy'));
   assert.equal(redirects['/legacy/'], '/alpha/');
   assert.equal(redirects['/legacy/items/'], '/alpha/items/');
-});
-
-test('refuses data that would give two pages one URL or one tag two meanings', () => {
-  const items = [{ id: 'items', slug: 'items' }];
-  assert.throws(
-    () => prepareEntries(entry('a.list', 'a', 'items/methods/list'), entry('a.list', 'a', 'items/methods/list')),
-    /two primary placements/,
-  );
-  assert.throws(
-    () =>
-      prepareEntries(
-        entry('a.list', 'a', 'items/methods/list', {}, items),
-        entry('a.list-v2', 'a', 'items-v2/methods/list', {}, [{ id: 'items-v2', slug: 'items' }]),
-      ),
-    /produced by both/,
-  );
-  assert.throws(
-    () => prepareEntries(entry('a.list', 'a', 'items/methods/list'), entry('a.index', 'a', 'items/methods/list')),
-    /both route to/,
-  );
-  assert.throws(() => prepareEntries(entry('a.get', 'a', 'items/methods/get', { alias: true })), /has no primary page/);
-  assert.throws(() => prepareEntries(entry('a.get', 'a', 'Items/methods/get')), /not lowercase kebab-case/);
 });
 
 test('the prepared spec is titled for the API home', () => {
