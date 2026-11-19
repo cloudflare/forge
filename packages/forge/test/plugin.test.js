@@ -1,22 +1,12 @@
 import assert from 'node:assert/strict';
-import { registerHooks } from 'node:module';
 import { test } from 'node:test';
 
-// Supply the imported host interface while using the built plugin library
-// unchanged, just as a component receives that interface from Forge.
-const hooks = registerHooks({
-  resolve(specifier, context, nextResolve) {
-    return nextResolve(
-      specifier === 'forge:plugin/forge@0.4.0'
-        ? new URL('./fixtures/metadata-host.js', import.meta.url).href
-        : specifier,
-      context,
-    );
-  },
-});
-const { definePlugin } = await import('../plugin/index.js');
-hooks.deregister();
+import { definePlugin } from '../plugin/plugin.js';
+import * as host from './fixtures/metadata-host.js';
 
+// The fixture's functions stand in for the methods of the `forge` resource
+// the host passes to `generate`, so the built plugin library reads it as it
+// reads a component's.
 test('array bounds distinguish absent, zero and one through the plugin API', () => {
   definePlugin({
     generate(forge) {
@@ -31,7 +21,7 @@ test('array bounds distinguish absent, zero and one through the plugin API', () 
       assert.equal(one.elem.scalar, 'uuid');
       return [];
     },
-  }).generate();
+  }).generate(host);
 });
 
 test('UUIDs are a distinct scalar through the plugin API', () => {
@@ -49,7 +39,7 @@ test('UUIDs are a distinct scalar through the plugin API', () => {
       );
       return [];
     },
-  }).generate();
+  }).generate(host);
 });
 
 test('every group is inside the root, which comes first', () => {
@@ -65,5 +55,5 @@ test('every group is inside the root, which comes first', () => {
       assert.ok(root.models.every((model) => model.group === root));
       return [];
     },
-  }).generate();
+  }).generate(host);
 });

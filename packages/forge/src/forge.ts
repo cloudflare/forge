@@ -426,14 +426,14 @@ function upperFirst(word: string): string {
 }
 
 /**
- * Supplies a forge's records. A plugin imports the functions of the WIT's
- * `forge` interface from its host, and a parsed document has the same
- * functions as methods.
+ * Supplies a forge's records through the WIT's `forge` resource. A plugin
+ * gets the resource from its host, and `parse` gets it from forge compiled
+ * to WebAssembly.
  *
  * @internal
  */
 export type Source = Pick<
-  typeof host,
+  host.Forge,
   'info' | 'groups' | 'getGroup' | 'getMethod' | 'getModel' | 'getType' | 'getLocation'
 >;
 

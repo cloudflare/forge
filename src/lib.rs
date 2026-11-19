@@ -9,13 +9,13 @@ mod method;
 mod name;
 mod plugin;
 mod types;
+#[cfg(feature = "wasm")]
+pub mod wasm;
+#[cfg(all(feature = "library", not(feature = "wasm")))]
+mod wasm;
 pub use json::Json;
 pub use method::{Body, Content, Location, Response};
 pub use name::Name;
-#[cfg(feature = "library")]
-pub use plugin::library;
-#[cfg(feature = "wasm")]
-pub use plugin::wasm;
 pub use plugin::{Err, File, Plugin, ts, write};
 pub use types::{Array, Discriminator, Enum, EnumValue, Field, Intersection, Number, Object, Scalar, Type, Union};
 

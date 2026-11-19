@@ -1,6 +1,6 @@
 {
-  // Compiles src/index.ts and src/ts.ts, the libraries plugins are written
-  // with, and src/library.ts, which parses documents in the same process,
+  // Compiles src/plugin.ts and src/ts.ts, the libraries plugins are written
+  // with, and src/index.ts, which parses documents in the same process,
   // into .js and .d.ts files in plugin/. scripts/build.mjs runs it, after
   // generating the bindings of plugin/forge.wit into src/wit and building
   // forge's library world into plugin/component, with its types in
@@ -21,5 +21,5 @@
     "outDir": "plugin",
     "newLine": "lf"
   },
-  "include": ["src/index.ts", "src/library.ts", "src/ts.ts", "src/wit/**/*.d.ts", "src/component/**/*.d.ts"]
+  "include": ["src/index.ts", "src/plugin.ts", "src/ts.ts", "src/wit/**/*.d.ts", "src/component/**/*.d.ts"]
 }

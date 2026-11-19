@@ -1,5 +1,5 @@
 //! Writes a forge's parts as the records of the WIT. The host that runs
-//! plugins ([`super::wasm`]) and the library ([`super::library`]) share this
+//! plugins ([`super::host`]) and the library ([`super::library`]) share this
 //! code.
 //!
 //! Each side generates its own bindings of the WIT, so the functions are a
@@ -14,8 +14,8 @@ macro_rules! records {
             use super::wit;
             use crate::arena::Str;
             use crate::method::{ContentData, ResponseData};
-            use crate::plugin::records::json;
             use crate::types::{EnumData, FieldData, TypeData};
+            use crate::wasm::records::json;
             use crate::{
                 Availability, Forge, GroupData, HttpMethod, Location, MethodData, ModelData, Name, Number, Scalar,
             };

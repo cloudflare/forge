@@ -397,7 +397,7 @@ From the root of the forge repository, with [just](https://just.systems) install
 ```sh
 pnpm install                            # the dev dependencies, which build the plugin library
 node packages/forge/scripts/version.mjs # after bumping the version in Cargo.toml
-node packages/forge/scripts/wit.mjs     # after changing src/plugin/forge.wit
+node packages/forge/scripts/wit.mjs     # after changing src/wasm/forge.wit
 just build-all                          # builds all six binaries into target/binaries/ (or: just fetch <run-id>)
 just pack                               # packs them into packages/forge/dist/cloudflare-forge-<version>.tgz
 ```
@@ -412,10 +412,10 @@ binaries of its own.
 
 The binaries are built with the `wasm` feature, which runs plugins. The
 package carries forge's copy of the WIT in `plugin/forge.wit`, and
-`archive.mjs` refuses to pack it if it isn't `src/plugin/forge.wit`.
+`archive.mjs` refuses to pack it if it isn't `src/wasm/forge.wit`.
 
 The library plugins are written with, `@cloudflare/forge/plugin`, is
-`src/index.ts`, over the API in `src/forge.ts`. `archive.mjs` builds it into
+`src/plugin.ts`, over the API in `src/forge.ts`. `archive.mjs` builds it into
 the package, and `node scripts/build.mjs` builds it into `plugin/` to try it
 out: jco generates the TypeScript bindings of `plugin/forge.wit` into
 `src/wit`, and `tsc` compiles the library against them into `plugin/`. So
@@ -424,7 +424,7 @@ of type, a new scalar or a renamed field, the library fails to compile, and
 the package can't be packed. Its exports are interfaces and the classes
 behind them are private, so the bindings never appear in its declarations.
 
-`parse`, the package's main export, is `src/library.ts`, over the same API.
+`parse`, the package's main export, is `src/index.ts`, over the same API.
 It reads forge's `library` world, which the crate in `library/` exports.
 `build.mjs` compiles the crate with cargo for `wasm32-unknown-unknown`, the
 target `rust-toolchain.toml` installs, makes it a component with `jco new`,

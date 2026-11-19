@@ -1,35 +1,10 @@
-//! Runs plugins compiled to WebAssembly components, in any language that
-//! targets the component model.
-//!
-//! A plugin is a component of the `plugin` world in [`WIT`]. It exports
-//! `generate`, which [`WasmPlugin`] calls where [`Plugin::generate`] is,
-//! and imports the `forge` interface, which reads the [`Forge`] the host
-//! runs it on.
-//!
-//! The forge is never copied into a plugin. It stays in the host, and the
-//! plugin reads it a part at a time through ids: a group, method, model or
-//! type is a `u32`, and the plugin calls `get-group`, `get-method`,
-//! `get-model` or `get-type` for the part's data. Each call of `generate`
-//! runs in an instance of its own, on one thread: unlike a native plugin,
-//! a wasm plugin can't generate groups in parallel.
-//!
-//! A plugin gets no files, network, environment or clock, only standard
-//! error, so it can print why it panicked.
-//!
-//! ```no_run
-//! # use forge::Plugin;
-//! # fn main() -> Result<(), forge::Err> {
-//! # let forge = forge::Forge::default();
-//! let plugin = forge::wasm::WasmPlugin::from_file("ts.wasm")?;
-//! forge::write("sdk", plugin.generate(&forge)?)?;
-//! # Ok(())
-//! # }
-//! ```
+//! Runs plugins compiled to WebAssembly components: the host side of the
+//! WIT's `plugin` world.
 
 use std::borrow::Cow;
 use std::path::Path;
 
-use wasmtime::component::{Component, HasSelf, Linker, ResourceTable};
+use wasmtime::component::{Component, HasSelf, Linker, Resource, ResourceTable};
 use wasmtime::{Config, Engine, Store};
 use wasmtime_wasi::{WasiCtx, WasiCtxView, WasiView};
 
@@ -37,16 +12,13 @@ use super::records::records;
 use crate::types::TypeData;
 use crate::{Err, File, Forge, Plugin};
 
-/// Holds the WIT package that plugins and the library are built against.
-/// Plugins are components of its `plugin` world, and its `library` world
-/// runs forge in the caller's process. Plugins in other languages generate
-/// their bindings from it.
-pub const WIT: &str = include_str!("forge.wit");
-
 mod bindings {
     wasmtime::component::bindgen!({
-        path: "src/plugin/forge.wit",
+        path: "src/wasm/forge.wit",
         world: "plugin",
+        // The host keeps the forge, so the resource a plugin reads holds
+        // nothing of its own.
+        with: { "forge:plugin/forge.forge": super::ForgeHandle },
         // A plugin that passes an id the host never gave out traps,
         // rather than panicking the host.
         imports: { default: trappable },
@@ -56,7 +28,7 @@ mod bindings {
 use bindings::forge::plugin::forge as wit;
 
 /// A plugin compiled to a WebAssembly component of the `plugin` world in
-/// [`WIT`].
+/// [`WIT`](super::WIT).
 ///
 /// It compiles the component once, and makes a new instance for each call
 /// of [`generate`](Plugin::generate), so an instance only ever reads one
@@ -111,7 +83,12 @@ impl Plugin for WasmPlugin {
         // returns, so the plugin never reads `forge` after the call.
         let mut store = Store::new(&self.engine, state);
         let plugin = self.pre.instantiate(&mut store).map_err(error)?;
-        let files = plugin.call_generate(&mut store).map_err(error)??;
+        let handle = store
+            .data_mut()
+            .table
+            .push(ForgeHandle)
+            .map_err(|err| err.to_string())?;
+        let files = plugin.call_generate(&mut store, handle).map_err(error)??;
         Ok(files.into_iter().map(|file| WasmFile {
             path: file.path,
             content: file.content,
@@ -161,39 +138,51 @@ impl State {
     }
 }
 
-impl wit::Host for State {
-    fn info(&mut self) -> wasmtime::Result<wit::ForgeInfo> {
+/// Holds the `forge` resource a plugin reads. The host keeps the forge in
+/// the instance's [`State`], so the resource holds nothing of its own.
+pub struct ForgeHandle;
+
+impl wit::Host for State {}
+
+impl wit::HostForge for State {
+    fn info(&mut self, _: Resource<ForgeHandle>) -> wasmtime::Result<wit::ForgeInfo> {
         Ok(forge_info(self.forge()))
     }
 
-    fn counts(&mut self) -> wasmtime::Result<wit::ForgeCounts> {
+    fn counts(&mut self, _: Resource<ForgeHandle>) -> wasmtime::Result<wit::ForgeCounts> {
         Ok(forge_counts(self.forge()))
     }
 
-    fn groups(&mut self) -> wasmtime::Result<Vec<u32>> {
+    fn groups(&mut self, _: Resource<ForgeHandle>) -> wasmtime::Result<Vec<u32>> {
         Ok(group_ids(self.forge()))
     }
 
-    fn get_group(&mut self, id: u32) -> wasmtime::Result<wit::GroupInfo> {
+    fn get_group(&mut self, _: Resource<ForgeHandle>, id: u32) -> wasmtime::Result<wit::GroupInfo> {
         Ok(group_info(get(&self.forge().groups, id, "group")?))
     }
 
-    fn get_method(&mut self, id: u32) -> wasmtime::Result<wit::MethodInfo> {
+    fn get_method(&mut self, _: Resource<ForgeHandle>, id: u32) -> wasmtime::Result<wit::MethodInfo> {
         let forge = self.forge();
         Ok(method_info(forge, get(&forge.methods, id, "method")?))
     }
 
-    fn get_model(&mut self, id: u32) -> wasmtime::Result<wit::ModelInfo> {
+    fn get_model(&mut self, _: Resource<ForgeHandle>, id: u32) -> wasmtime::Result<wit::ModelInfo> {
         let forge = self.forge();
         Ok(model_info(forge, get(&forge.models, id, "model")?))
     }
 
-    fn get_type(&mut self, id: u32) -> wasmtime::Result<wit::TypeInfo> {
+    fn get_type(&mut self, _: Resource<ForgeHandle>, id: u32) -> wasmtime::Result<wit::TypeInfo> {
         let forge = self.forge();
         Ok(type_info(forge, get(&forge.types, id, "type")?))
     }
 
-    fn get_location(&mut self, id: u32, object: u32, index: u32) -> wasmtime::Result<Option<wit::Location>> {
+    fn get_location(
+        &mut self,
+        _: Resource<ForgeHandle>,
+        id: u32,
+        object: u32,
+        index: u32,
+    ) -> wasmtime::Result<Option<wit::Location>> {
         let forge = self.forge();
         let method = get(&forge.methods, id, "method")?;
         let TypeData::Object(object) = get(&forge.types, object, "type")? else {
@@ -201,6 +190,11 @@ impl wit::Host for State {
         };
         let field = get(forge.fields.get(object.fields), index, "field")?;
         Ok(location(forge, method, field))
+    }
+
+    fn drop(&mut self, forge: Resource<ForgeHandle>) -> wasmtime::Result<()> {
+        self.table.delete(forge)?;
+        Ok(())
     }
 }
 

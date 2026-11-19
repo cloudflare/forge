@@ -62,12 +62,12 @@ export function findBinary(artifacts, platform) {
 /** The package's copy of the WIT that wasm plugins are built against. */
 export const witPath = join(npmDir, 'plugin', 'forge.wit');
 
-/** Returns the WIT in src/plugin/forge.wit, which `forge::wasm::WIT` also holds. */
+/** Returns the WIT in src/wasm/forge.wit, which `forge::wasm::WIT` also holds. */
 export function witSource() {
-  return readFileSync(join(repoDir, 'src', 'plugin', 'forge.wit'), 'utf8');
+  return readFileSync(join(repoDir, 'src', 'wasm', 'forge.wit'), 'utf8');
 }
 
-/** Throws unless plugin/forge.wit is the WIT in src/plugin/forge.wit. */
+/** Throws unless plugin/forge.wit is the WIT in src/wasm/forge.wit. */
 export function checkWit() {
   let have;
   try {
@@ -76,7 +76,7 @@ export function checkWit() {
     // Missing counts as stale.
   }
   if (have !== witSource()) {
-    throw new Error(`${display(witPath)} is not the WIT in src/plugin/forge.wit; run node scripts/wit.mjs`);
+    throw new Error(`${display(witPath)} is not the WIT in src/wasm/forge.wit; run node scripts/wit.mjs`);
   }
 }
 
@@ -84,7 +84,7 @@ export function checkWit() {
  * Builds the package's libraries into `out`, plugin/ by default, and throws
  * if a step fails. It builds forge's library world with `buildComponent`,
  * generates the bindings of plugin/forge.wit's `plugin` world into src/wit,
- * and compiles src/index.ts, src/library.ts and src/ts.ts against both into
+ * and compiles src/index.ts, src/plugin.ts and src/ts.ts against both into
  * .js and .d.ts files in `out`.
  */
 export function buildPlugin(out = join(npmDir, 'plugin')) {

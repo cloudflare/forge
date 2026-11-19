@@ -1,11 +1,12 @@
 package forge:plugin@0.4.0;
 
-/// Read-only access to the forge a plugin runs on, which the host keeps.
-/// Each id is an index the host gave out. An id the host never gave out
-/// traps.
+/// Reads a forge: the groups, methods, models and types of a parsed
+/// document. A plugin reads the forge its host runs it on, and the library
+/// returns one from `parse`. Both read it through the `forge` resource.
 ///
-/// Everything a part has is returned in one call, and orders and meanings
-/// are as the Rust API documents them.
+/// Each id is an index the forge gave out. An id the forge never gave out
+/// traps. Everything a part has is returned in one call, and orders and
+/// meanings are as the Rust API documents them.
 interface forge {
     type group-id = u32;
     type method-id = u32;
@@ -192,49 +193,8 @@ interface forge {
         model(model-id),
     }
 
-    info: func() -> forge-info;
-    counts: func() -> forge-counts;
-    /// Every group, depth first, starting with the root.
-    groups: func() -> list<group-id>;
-    get-group: func(id: group-id) -> group-info;
-    get-method: func(id: method-id) -> method-info;
-    get-model: func(id: model-id) -> model-info;
-    get-type: func(id: type-id) -> type-info;
-    /// Where method `id` sends field `index` of the object type `object`,
-    /// or none if it is not one of its parameters.
-    get-location: func(id: method-id, object: type-id, index: u32) -> option<location>;
-}
-
-world plugin {
-    import forge;
-
-    /// A generated file: its path relative to the output directory, using
-    /// `/` as a separator, and its content. A file with no content is not
-    /// written.
-    record file {
-        path: string,
-        content: list<u8>,
-    }
-
-    /// Generates every file for the forge, in a fresh instance. Called
-    /// exactly once.
-    export generate: func() -> result<list<file>, string>;
-}
-
-/// Parses OpenAPI documents in the caller's own process, without a host. A
-/// parsed document answers the same reads as the `forge` interface, with the
-/// same ids, orders and meanings.
-interface document {
-    use forge.{
-        group-id, method-id, model-id, type-id, forge-info, forge-counts, group-info, method-info, model-info,
-        type-info, location,
-    };
-
-    resource document {
-        /// Parses the OpenAPI JSON document `json`. Fails with the message
-        /// the `forge` command prints for the same document.
-        parse: static func(json: string) -> result<document, string>;
-
+    /// A parsed document, read a part at a time by id.
+    resource forge {
         info: func() -> forge-info;
         counts: func() -> forge-counts;
         /// Every group, depth first, starting with the root.
@@ -249,8 +209,37 @@ interface document {
     }
 }
 
+world plugin {
+    import forge;
+    use forge.{forge};
+
+    /// A generated file: its path relative to the output directory, using
+    /// `/` as a separator, and its content. A file with no content is not
+    /// written.
+    record file {
+        path: string,
+        content: list<u8>,
+    }
+
+    /// Generates every file for `forge`, in a fresh instance. Called exactly
+    /// once. The plugin owns the `forge` handle, which holds nothing of its
+    /// own, so it can keep the handle after it returns.
+    export generate: func(forge: forge) -> result<list<file>, string>;
+}
+
+/// Parses documents in the caller's own process, without a host. `parse`
+/// returns the same `forge` resource a plugin reads.
+interface parser {
+    use forge.{forge};
+
+    /// Parses the OpenAPI JSON document `json` into a forge. Fails with the
+    /// message the `forge` command prints for the same document.
+    parse: func(json: string) -> result<forge, string>;
+}
+
 /// Runs forge as a library. `@cloudflare/forge` uses this world to parse
 /// documents in JavaScript.
 world library {
-    export document;
+    export forge;
+    export parser;
 }

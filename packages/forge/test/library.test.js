@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { parse } from '../plugin/library.js';
+import { parse } from '../plugin/index.js';
 
 /** A document with a group, a method with path and query parameters and a body, and a model. */
 const pets = {
@@ -159,5 +159,5 @@ test('a disposed document keeps what was read, and fails on what was not', () =>
   forge.dispose();
 
   assert.equal(group.name.kebab(), 'pets');
-  assert.throws(() => group.methods[0].name, /not a valid "Document" resource/i);
+  assert.throws(() => group.methods[0].name, /not a valid "Forge" resource/i);
 });

@@ -27,12 +27,12 @@
   "type": "module",
   "exports": {
     ".": {
-      "types": "./plugin/library.d.ts",
-      "default": "./plugin/library.js"
-    },
-    "./plugin": {
       "types": "./plugin/index.d.ts",
       "default": "./plugin/index.js"
+    },
+    "./plugin": {
+      "types": "./plugin/plugin.d.ts",
+      "default": "./plugin/plugin.js"
     },
     "./ts": {
       "types": "./plugin/ts.d.ts",

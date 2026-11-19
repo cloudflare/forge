@@ -1,11 +1,10 @@
-// Builds the library plugins are written with, @cloudflare/forge/plugin:
+// Builds the package's libraries, @cloudflare/forge and
+// @cloudflare/forge/plugin, into <dir>, plugin/ unless --out says otherwise:
 //
 //     node scripts/build.mjs [--out <dir>]
 //
-// It generates the TypeScript bindings of plugin/forge.wit into src/wit
-// with jco, then compiles src/index.mts against them into index.mjs and
-// index.d.mts in <dir>, plugin/ unless --out says otherwise. A WIT the
-// library doesn't follow fails to compile.
+// buildPlugin in scripts/platforms.mjs lists the steps. A WIT the libraries
+// don't follow fails to compile.
 //
 // scripts/archive.mjs runs it too. It needs this directory's dev
 // dependencies: run pnpm install here first.

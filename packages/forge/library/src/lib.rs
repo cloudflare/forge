@@ -1,5 +1,5 @@
-//! Exports forge's `library` world, for `@cloudflare/forge`.
+//! Exports forge's `library` world, for `@cloudflare/forge`. Linking forge
+//! is enough, because forge exports the world when it is built to
+//! WebAssembly.
 
-use forge::library::Library;
-
-forge::library::bindings::export_library!(Library);
+use forge as _;

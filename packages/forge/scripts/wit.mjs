@@ -1,9 +1,9 @@
 // Copies the WIT that wasm plugins are built against, from
-// src/plugin/forge.wit, into plugin/forge.wit:
+// src/wasm/forge.wit, into plugin/forge.wit:
 //
 //     node scripts/wit.mjs
 //
-// Run it whenever src/plugin/forge.wit changes. scripts/archive.mjs
+// Run it whenever src/wasm/forge.wit changes. scripts/archive.mjs
 // refuses to pack a stale copy.
 
 import { readFileSync, writeFileSync } from 'node:fs';

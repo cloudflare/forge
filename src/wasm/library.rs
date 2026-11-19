@@ -1,45 +1,51 @@
-//! Implements the WIT's `library` world, which parses OpenAPI documents in
-//! the caller's own process.
+//! Implements the WIT's `library` world, which parses documents in the
+//! caller's own process.
 //!
-//! `packages/forge/library` builds this module to WebAssembly, and
-//! `@cloudflare/forge` turns the build into JavaScript. Callers read a parsed
-//! document a part at a time, by id, in the same way plugins read the `forge`
-//! interface. An id the document never gave out traps.
+//! `packages/forge/library` builds this crate to WebAssembly, and
+//! `@cloudflare/forge` turns the build into JavaScript. `parse` returns the
+//! same `forge` resource plugins read, so callers read a parsed document a
+//! part at a time, by id. An id the document never gave out traps.
 
 use super::records::records;
 use crate::Forge;
 
-/// Holds the bindings of the `library` world. The crate built to WebAssembly
-/// exports [`Library`] with `export_library!`.
-#[doc(hidden)]
+/// Holds the bindings of the `library` world, which only this module uses.
 #[expect(
     clippy::mem_forget,
     reason = "wit-bindgen's generated code hands resources over with mem::forget"
 )]
-pub mod bindings {
+mod bindings {
     wit_bindgen::generate!({
-        path: "src/plugin/forge.wit",
+        path: "src/wasm/forge.wit",
         world: "library",
-        pub_export_macro: true,
-        export_macro_name: "export_library",
-        default_bindings_module: "forge::library::bindings",
     });
 }
 
-use bindings::exports::forge::plugin::document::{self as exports, GuestDocument};
-use bindings::forge::plugin::forge as wit;
+use bindings::exports::forge::plugin::forge::{self as wit, GuestForge};
+use bindings::exports::forge::plugin::parser as exports;
 
-/// Implements the `library` world. Export it from the crate built to
-/// WebAssembly with `forge::library::bindings::export_library!(Library);`,
-/// with `Library` in scope.
-pub struct Library;
+// The crate built to WebAssembly links this crate, and so exports the world
+// these functions implement. Only a WebAssembly build has anything to
+// export them to.
+#[cfg(target_arch = "wasm32")]
+bindings::export!(Library with_types_in bindings);
 
-impl exports::Guest for Library {
-    type Document = Document;
+/// Implements the `library` world.
+struct Library;
+
+impl wit::Guest for Library {
+    type Forge = Document;
 }
 
-/// Holds one parsed document.
-pub struct Document {
+impl exports::Guest for Library {
+    fn parse(json: String) -> Result<wit::Forge, String> {
+        let forge: Forge = serde_json::from_str(&json).map_err(|err| err.to_string())?;
+        Ok(wit::Forge::new(Document { forge }))
+    }
+}
+
+/// Holds one parsed document, behind the `forge` resource.
+struct Document {
     forge: Forge,
 }
 
@@ -52,12 +58,7 @@ fn get<'a, T>(items: &'a [T], id: u32, what: &str) -> &'a T {
     }
 }
 
-impl GuestDocument for Document {
-    fn parse(json: String) -> Result<exports::Document, String> {
-        let forge: Forge = serde_json::from_str(&json).map_err(|err| err.to_string())?;
-        Ok(exports::Document::new(Document { forge }))
-    }
-
+impl GuestForge for Document {
     fn info(&self) -> wit::ForgeInfo {
         forge_info(&self.forge)
     }
