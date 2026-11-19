@@ -364,7 +364,19 @@ or list it in `package.json`. A path or URL to the tarball both work:
 
 ## Releasing
 
-From the root of the forge repository, with [just](https://just.systems) installed:
+To cut a release to npmjs.com:
+
+1. Land a PR to `main` that bumps `Cargo.toml` `version` and syncs it with `node packages/forge/scripts/version.mjs`.
+2. After it merges, create and push a signed tag:
+
+```sh
+git tag -s forge@0.2.0 -m 'forge 0.2.0'
+git push origin forge@0.2.0
+```
+
+`.github/workflows/publish-forge.yml` builds all six binaries, packs the tarball, and publishes `@cloudflare/forge` to npmjs.com with provenance.
+
+To build and pack locally from the root of the forge repository, with [just](https://just.systems) installed:
 
 ```sh
 pnpm install                            # the dev dependencies, which build the plugin library

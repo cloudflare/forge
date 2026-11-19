@@ -98,6 +98,7 @@ function archive(artifacts, only, out) {
     }
     buildPlugin(join(stage, 'plugin'));
     copyFileSync(join(npmDir, 'README.md'), join(stage, 'README.md'));
+    copyFileSync(join(repoDir, 'LICENSE'), join(stage, 'LICENSE'));
     for (const { platform, bin } of found) {
       const dest = join(stage, 'native', platform.id, platform.exe);
       mkdirSync(join(dest, '..'), { recursive: true });
