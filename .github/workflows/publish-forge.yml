@@ -1,0 +1,289 @@
+# Publishes @cloudflare/forge to npmjs.com on tag push.
+#
+# Hardened along the same lines as publish-redocly-plugin-forge.yml:
+# - Runs on tag only, never on arbitrary PRs.
+# - Installs with --frozen-lockfile and builds Rust with --locked.
+# - Runs `pnpm audit --audit-level=high --prod` before publishing, failing
+#   closed on any high- or critical-severity vulnerability in production deps.
+# - Runs the `@cloudflare/forge` test suite and smoke-tests native binaries
+#   before packing.
+# - Publishes with `npm publish --provenance`, producing an attestation that
+#   links the released tarball to this workflow run and the commit the tag
+#   points at. Consumers can verify with `npm view .. attestations`.
+# - Uses npm's OIDC-backed trusted-publisher flow: no long-lived publish
+#   token is stored in GitHub secrets. The `publish` job's `id-token: write`
+#   permission lets npm exchange the GitHub OIDC token for a short-lived
+#   publish credential, scoped to this repo and this workflow. Trusted
+#   publishing must be configured for the package on npmjs.com before the
+#   first automated tag release.
+# - All third-party actions (here and in the shared setup-workspace
+#   composite) are pinned by commit SHA, so a re-tagged upstream release
+#   cannot inject code into a run that holds OIDC credentials.
+#
+# Required repo settings (enforced by GitHub, not by this workflow):
+# - A tag ruleset matching `forge@*` with `required_signatures` enabled,
+#   `creation` restricted to the release-manager bypass list, and `update` /
+#   `deletion` restricted. GitHub rejects unsigned or unauthorized tag pushes
+#   before this workflow ever runs.
+#
+# Trigger: a tag of the form `forge@<version>` - the `<name>@<version>` form
+# matches npm's own identifier syntax and is the convention changesets and
+# other JS monorepos use.
+#
+# To cut a release:
+#   1. Land a PR to main that bumps `Cargo.toml` `version` and runs
+#      `node packages/forge/scripts/version.mjs` to sync `packages/forge/package.json`.
+#   2. After it merges, create and push a signed tag:
+#        git tag -s forge@0.2.0 -m 'forge 0.2.0'
+#        git push origin forge@0.2.0
+#   3. This workflow then builds all six binaries and publishes the new version.
+
+name: Publish @cloudflare/forge
+
+on:
+  push:
+    tags:
+      - 'forge@*'
+
+# Only one publish job runs at a time; a second tag push queues behind the
+# first rather than racing it to the registry.
+concurrency:
+  group: publish-forge
+  cancel-in-progress: false
+
+# Workflow-level permissions are read-only; only the publish job raises
+# `id-token: write` for provenance. No job gets `contents: write`, so a
+# compromised step cannot push commits or create releases.
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: Verify tag & package
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - name: Checkout tag
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Setup workspace
+        uses: ./.github/actions/setup-workspace
+
+      - name: Verify tag version matches Cargo.toml and package.json
+        id: version
+        env:
+          GITHUB_REF_NAME: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          tag_version="${GITHUB_REF_NAME#forge@}"
+          pkg_version=$(node --input-type=module -e "import { checkVersion } from './packages/forge/scripts/platforms.mjs'; process.stdout.write(checkVersion());")
+          if [ "$tag_version" != "$pkg_version" ]; then
+            echo "Tag version ($tag_version) does not match Cargo.toml / package.json version ($pkg_version)" >&2
+            exit 1
+          fi
+          echo "version=$pkg_version" >> "$GITHUB_OUTPUT"
+          echo "Publishing @cloudflare/forge@$pkg_version"
+
+      # Fail closed on high or critical vulnerabilities in the package's
+      # resolved production dependency tree. Scoped to `@cloudflare/forge`
+      # so unrelated dev/site dependencies cannot block a publish.
+      - name: Audit production dependencies
+        run: pnpm --filter @cloudflare/forge audit --audit-level=high --prod
+
+      - name: Test @cloudflare/forge
+        run: pnpm --filter @cloudflare/forge test
+
+  # One job per platform, each on a runner that builds its target with plain
+  # `cargo build`: macOS for both Mac targets, x64 and arm64 Linux runners with
+  # musl-tools for the static Linux binaries, and Windows for both MSVC
+  # targets. The list must match `platforms` in packages/forge/scripts/
+  # platforms.mjs; scripts/archive.mjs refuses to pack a package that misses a
+  # platform.
+  build:
+    name: Build (${{ matrix.platform }})
+    needs: verify
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 60
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - platform: darwin-arm64
+            target: aarch64-apple-darwin
+            runner: macos-latest
+            exe: forge
+            runs: true
+          - platform: darwin-x64
+            target: x86_64-apple-darwin
+            runner: macos-latest
+            exe: forge
+            runs: false
+          - platform: linux-arm64
+            target: aarch64-unknown-linux-musl
+            runner: ubuntu-24.04-arm
+            exe: forge
+            runs: true
+          - platform: linux-x64
+            target: x86_64-unknown-linux-musl
+            runner: ubuntu-24.04
+            exe: forge
+            runs: true
+          # `just build` links the C runtime into both Windows binaries, or
+          # they need VCRUNTIME140.dll from the Visual C++ Redistributable,
+          # which many machines don't have.
+          - platform: win32-arm64
+            target: aarch64-pc-windows-msvc
+            runner: windows-latest
+            exe: forge.exe
+            runs: false
+          - platform: win32-x64
+            target: x86_64-pc-windows-msvc
+            runner: windows-latest
+            exe: forge.exe
+            runs: true
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Checkout tag
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # Installs the channel pinned in rust-toolchain.toml and the matrix
+      # target, and caches ~/.cargo/registry and target/<target>/release,
+      # where `cargo build --target` puts the build. cache-target is part of
+      # the cache key, so every target gets a cache of its own.
+      - name: Install toolchain
+        uses: moonrepo/setup-rust@abb2d32350334249b178c401e5ec5836e0cd88d3 # v1.3.0
+        with:
+          targets: ${{ matrix.target }}
+          bins: just@1.58.0
+          cache-target: ${{ matrix.target }}/release
+          cache-base: main
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # The C compiler for musl, which the cc crate uses for wasmtime's C code.
+      - name: Install musl-tools
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends musl-tools
+
+      # The same recipe builds locally; it puts the binary in
+      # target/binaries/<target>/release/.
+      - name: Build
+        env:
+          TARGET: ${{ matrix.target }}
+        run: just build "$TARGET"
+
+      # Smoke-test every binary the runner can execute, and verify `forge --version`
+      # matches the tag version before publishing.
+      - name: Smoke test
+        if: matrix.runs
+        env:
+          BIN: target/binaries/${{ matrix.target }}/release/${{ matrix.exe }}
+          EXPECTED_VERSION: ${{ needs.verify.outputs.version }}
+        run: |
+          set -euo pipefail
+          out=$("$BIN" --version)
+          echo "$out"
+          if [ "$out" != "forge $EXPECTED_VERSION" ]; then
+            echo "Expected 'forge $EXPECTED_VERSION', got '$out'" >&2
+            exit 1
+          fi
+
+      # Uploading target/binaries keeps <target>/release/ inside the artifact.
+      # Artifacts drop the executable bit, which scripts/archive.mjs sets
+      # again when it packs.
+      - name: Upload binary
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: forge-${{ matrix.platform }}
+          path: target/binaries
+          if-no-files-found: error
+          retention-days: 7
+
+  publish:
+    name: Pack and publish to npm
+    needs: [verify, build]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Checkout tag
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Setup workspace
+        uses: ./.github/actions/setup-workspace
+
+      - name: Setup just
+        uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3 # v4.0.0
+        with:
+          just-version: 1.58.0
+
+      # Merges the build jobs' artifacts into target/binaries/<target>/release/,
+      # where `just pack` picks them up, as it does locally.
+      - name: Download binaries
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: forge-*
+          merge-multiple: true
+          path: target/binaries
+
+      # `just pack` verifies the WIT and Cargo/npm version alignment, compiles
+      # `@cloudflare/forge/plugin`, copies all six native binaries + LICENSE +
+      # README into a clean staging directory, strips devDependencies/scripts,
+      # and packs `packages/forge/dist/cloudflare-forge-<version>.tgz`.
+      - name: Pack tarball
+        id: pack
+        env:
+          VERSION: ${{ needs.verify.outputs.version }}
+        run: |
+          set -euo pipefail
+          just pack
+          tarball="packages/forge/dist/cloudflare-forge-${VERSION}.tgz"
+          test -f "$tarball"
+          echo "tarball=$tarball" >> "$GITHUB_OUTPUT"
+
+      # Publishes via npm's OIDC-backed trusted-publisher flow. The job's
+      # `id-token: write` permission lets npm exchange the GitHub OIDC
+      # token for a short-lived publish credential - no long-lived
+      # NPM_TOKEN secret needed. `--provenance` generates and uploads an
+      # attestation tying this tarball to this workflow run and commit;
+      # `--access public` is explicit so a misconfigured publishConfig
+      # can't silently publish a scoped package as private.
+      #
+      # Trusted publishing for @cloudflare/forge must be configured on
+      # npmjs.com (Package -> Settings -> Trusted Publishers) to point at
+      # this repo and `.github/workflows/publish-forge.yml` before the
+      # first automated tag release.
+      - name: Publish
+        env:
+          TARBALL: ${{ steps.pack.outputs.tarball }}
+        run: npm publish "./$TARBALL" --provenance --access public
+
+      - name: Summary
+        env:
+          TAG: ${{ github.ref_name }}
+          VERSION: ${{ needs.verify.outputs.version }}
+        run: |
+          cat >> "$GITHUB_STEP_SUMMARY" <<EOF
+          ### Published @cloudflare/forge@$VERSION
+
+          Tag: \`$TAG\`
+
+          Verify provenance:
+          \`\`\`sh
+          npm view @cloudflare/forge@$VERSION --json | jq .dist.attestations
+          \`\`\`
+          EOF
