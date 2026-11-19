@@ -9,19 +9,7 @@
  * `cloudflare.test.ts`).
  */
 import { cliCommandFor } from './cli-arguments.ts';
-import {
-  createSnippetProvider,
-  interpolatePath,
-  isJsonMediaType,
-  placeholderValue,
-  type SnippetInput,
-  type SnippetOperation,
-  type SnippetParam,
-  type SnippetProvider,
-  type SnippetRequestRepresentation,
-  type SnippetRenderer,
-  toEnvVar,
-} from './snippets.ts';
+import type { Content, Field, Method, Type } from '@cloudflare/forge';
 
 /** Describes one execution target: a tab of code samples. */
 export interface TargetConfig {
@@ -93,7 +81,7 @@ export function cloudflareFormatIdentifier(identifier: string): string {
 
 //#endregion
 
-//#region Execution targets + snippet renderers
+//#region Execution targets and samples
 
 /**
  * Cloudflare's execution targets, in tab order. Target ids match renderer keys.
@@ -113,68 +101,146 @@ function isMultipartMediaType(mediaType: string): boolean {
   return mediaType.split(';', 1)[0]?.trim().toLowerCase().startsWith('multipart/') === true;
 }
 
+function isJsonMediaType(mediaType: string): boolean {
+  const essence = mediaType.split(';', 1)[0]?.trim().toLowerCase();
+  return essence === 'application/json' || essence?.endsWith('+json') === true;
+}
+
 function shellSingleQuote(value: string): string {
   return `'${value.replaceAll("'", `'"'"'`)}'`;
 }
 
-function httpRequestRepresentation(op: SnippetOperation): SnippetRequestRepresentation | undefined {
-  const representations = op.requestBody?.representations ?? [];
+/** Returns a parameter's name as an environment variable, such as `ZONE_ID` for `zone_id`. */
+function toEnvVar(name: string): string {
+  return name.replace(/[^a-zA-Z0-9]+/g, '_').toUpperCase();
+}
+
+/** Reports whether `type` is a schema at all: Forge reads a media type without one as `unknown`. */
+function hasSchema(type: Type): boolean {
+  return !(type.kind === 'scalar' && type.scalar === 'unknown');
+}
+
+/** Returns the media type a curl sample sends: JSON with a schema, else JSON, else anything but multipart. */
+function curlContent(contents: readonly Content[]): Content | undefined {
   return (
-    representations.find(
-      (representation) => isJsonMediaType(representation.mediaType) && representation.schema !== undefined,
-    ) ??
-    representations.find((representation) => isJsonMediaType(representation.mediaType)) ??
-    representations.find((representation) => !isMultipartMediaType(representation.mediaType)) ??
-    representations[0]
+    contents.find((content) => isJsonMediaType(content.mediaType) && hasSchema(content.type)) ??
+    contents.find((content) => isJsonMediaType(content.mediaType)) ??
+    contents.find((content) => !isMultipartMediaType(content.mediaType)) ??
+    contents[0]
   );
 }
 
-function isEmptyObject(value: unknown): boolean {
-  return typeof value === 'object' && value !== null && !Array.isArray(value) && Object.keys(value).length === 0;
+/** Returns the fields of `type`: an object's, a model's, or every member's of an intersection. */
+function fieldsOf(type: Type, models: ReadonlySet<unknown> = new Set()): readonly Field[] {
+  switch (type.kind) {
+    case 'object':
+      return type.fields;
+    case 'intersection':
+      return type.members.flatMap((member) => fieldsOf(member, models));
+    case 'model':
+      return models.has(type.model) ? [] : fieldsOf(type.model.type, new Set([...models, type.model]));
+    default:
+      return [];
+  }
 }
 
 /**
- * The JSON a sample sends: the body's required fields, or, when the spec marks
- * none (as for many create and update bodies), the first option's top-level
- * fields, so the sample shows the body's shape instead of `{}`.
+ * Returns a representative value of `type`, called `name`, for a request
+ * sample: the first value of an enum, else `fallback` (the field's default),
+ * else the first member of a union, else an object of the required fields,
+ * an array of one element, or a placeholder for a scalar.
  */
-function sampleBody(schema: SnippetParam): unknown {
-  const required = placeholderValue(schema);
-  if (!isEmptyObject(required)) return required;
-  let shape = schema;
-  while (!shape.children?.length && shape.variants?.[0]) shape = shape.variants[0];
-  const fields = (shape.children ?? []).filter((field) => (field.apiFieldPath?.length ?? 1) <= 1);
-  if (fields.length === 0) return required;
-  return Object.fromEntries(fields.map((field) => [field.name, placeholderValue(field)]));
+function placeholder(type: Type, name: string, fallback: unknown, models: ReadonlySet<unknown>): unknown {
+  if (type.kind === 'enum') return type.values[0];
+  if (typeof fallback === 'string' || typeof fallback === 'number' || typeof fallback === 'boolean') return fallback;
+  switch (type.kind) {
+    case 'union': {
+      const member = type.members.find((m) => !(m.kind === 'scalar' && m.scalar === 'null')) ?? type.members[0];
+      return member ? placeholder(member, name, undefined, models) : `<${name || 'value'}>`;
+    }
+    case 'model':
+      if (models.has(type.model)) return {};
+      return placeholder(type.model.type, name, undefined, new Set([...models, type.model]));
+    case 'object':
+    case 'intersection':
+      return Object.fromEntries(
+        fieldsOf(type, models)
+          .filter((field) => field.required)
+          .map((field) => [field.wireName, placeholder(field.type, field.wireName, field.default, models)]),
+      );
+    case 'array':
+      return [placeholder(type.elem, '', undefined, models)];
+    case 'scalar':
+      if (type.scalar === 'number') return 0;
+      if (type.scalar === 'boolean') return true;
+      return `<${name || 'value'}>`;
+  }
 }
 
-const renderCurl: SnippetRenderer = ({ op }) => {
-  const url = `${CLOUDFLARE_API_BASE}${interpolatePath(op.path)}`;
-  const verb = op.method.toUpperCase();
+/**
+ * Returns the JSON a sample sends: the body's required fields, or, when the
+ * spec marks none (as for many create and update bodies), the first option's
+ * top-level fields, so the sample shows the body's shape instead of `{}`.
+ */
+function sampleBody(type: Type): unknown {
+  const required = placeholder(type, '', undefined, new Set());
+  const isEmpty =
+    typeof required === 'object' && required !== null && !Array.isArray(required) && Object.keys(required).length === 0;
+  if (!isEmpty) return required;
+  let shape = type;
+  while (fieldsOf(shape).length === 0) {
+    const resolved = shape.kind === 'model' ? shape.model.type : shape;
+    const first = resolved.kind === 'union' ? resolved.members[0] : undefined;
+    if (!first || first === shape) break;
+    shape = first;
+  }
+  const fields = fieldsOf(shape);
+  if (fields.length === 0) return required;
+  return Object.fromEntries(
+    fields.map((field) => [field.wireName, placeholder(field.type, field.wireName, field.default, new Set())]),
+  );
+}
+
+/** Returns the parameters of `method` sent in the query, as Forge locates them. */
+function queryFields(method: Method): readonly Field[] {
+  const request = method.request;
+  const params = request?.kind === 'intersection' ? request.members[0] : request;
+  const fields = params?.kind === 'object' ? params.fields : [];
+  return fields.filter((field) => method.location(field)?.in === 'query');
+}
+
+/** Returns the curl command that sends `method`, or `null` when it sends a multipart body. */
+function renderCurl(method: Method): string | null {
+  const url = `${CLOUDFLARE_API_BASE}${method.path.replace(/\{([^}]+)\}/g, (_m, p: string) => `$${toEnvVar(p)}`)}`;
+  const verb = method.httpMethod.toUpperCase();
   const head = verb === 'GET' ? `curl ${url}` : `curl -X ${verb} ${url}`;
   const args = [head, '-H "Authorization: Bearer $CLOUDFLARE_API_TOKEN"'];
-  for (const param of op.queryParams) {
-    if (param.required) args.push(`--url-query "${param.name}=$${toEnvVar(param.name)}"`);
+  for (const field of queryFields(method)) {
+    if (field.required) args.push(`--url-query "${field.wireName}=$${toEnvVar(field.wireName)}"`);
   }
-  if (op.requestBody) {
-    const representation = httpRequestRepresentation(op);
-    if (!representation || isMultipartMediaType(representation.mediaType)) return null;
-    args.push(`-H ${shellSingleQuote(`Content-Type: ${representation.mediaType}`)}`);
-    if (isJsonMediaType(representation.mediaType)) {
-      if (representation.schema) {
-        args.push(`-d ${shellSingleQuote(JSON.stringify(sampleBody(representation.schema)))}`);
+  if (method.body) {
+    const content = curlContent(method.body.contents);
+    if (!content || isMultipartMediaType(content.mediaType)) return null;
+    args.push(`-H ${shellSingleQuote(`Content-Type: ${content.mediaType}`)}`);
+    if (isJsonMediaType(content.mediaType)) {
+      if (hasSchema(content.type)) {
+        args.push(`-d ${shellSingleQuote(JSON.stringify(sampleBody(content.type)))}`);
       } else args.push('--data-binary @request-body.json');
     } else {
       args.push('--data-binary @request-body');
     }
   }
   return args.join(' \\\n    ');
-};
+}
 
-// The sample is the cf command that sends the operation, with the positionals
-// and options it requires, as the cf CLI's own metadata lists them.
-const renderCf: SnippetRenderer = ({ accessorPath, methodName, op }) => {
-  const command = cliCommandFor(op.method, op.path, [...accessorPath, methodName]);
+/**
+ * Returns the cf command that sends `method`, with the positionals and
+ * options it requires, as the cf CLI's own metadata lists them, or `null`
+ * when cf generates no command for it. `address` is the method's group path
+ * and name.
+ */
+function renderCf(method: Method, address: readonly string[]): string | null {
+  const command = cliCommandFor(method.httpMethod, method.path, address);
   if (!command) return null;
   const head = [command.command];
   for (const positional of [...(command.arguments ?? [])].sort((a, b) => (a.position ?? 0) - (b.position ?? 0))) {
@@ -186,31 +252,35 @@ const renderCf: SnippetRenderer = ({ accessorPath, methodName, op }) => {
       lines.push(option.type === 'boolean' ? `--${option.name}` : `--${option.name} <${option.name}>`);
   }
   return lines.join(' \\\n    ');
-};
+}
 
-// Terraform's declarative resource model can't be derived from a single
-// operation. `null` renders a placeholder; CodeSample.astro renders the
-// Terraform declarations from the generated provider docs instead.
-const comingSoon: SnippetRenderer = () => null;
-
-// API version selection currently changes documentation only. The live API does
-// not enforce it, so emitting api-version or hiding otherwise valid samples would
-// imply unsupported behavior. Keep the user-facing notice in CodeSample.astro in
-// sync until every renderer can apply SnippetInput.snapshotId faithfully.
-// TODO(versioning): Apply SnippetInput.snapshotId once upstream enforcement exists.
-/** Renders Cloudflare's code samples for one operation: cf, curl and Terraform. */
-export const cloudflareSnippets: SnippetProvider = createSnippetProvider(
-  {
-    cf: { label: 'cf CLI', syntax: 'bash', render: renderCf },
-    curl: { label: 'curl', syntax: 'bash', render: renderCurl },
-    terraform: { label: 'Terraform', syntax: 'hcl', render: comingSoon },
-  },
-  CLOUDFLARE_TARGETS.map((target) => target.id),
-);
-
-/** Convenience for tests: run the provider and index snippets by target id. */
-export function cloudflareSnippetsByTarget(input: SnippetInput): Map<string, string | null> {
-  return new Map(cloudflareSnippets(input).map((snippet) => [snippet.targetId, snippet.code]));
+/**
+ * Returns each execution target's sample for `method`, in tab order, or
+ * `null` for a target that can't express it. `address` is the method's
+ * group path and name. Terraform has no sample of its own: `forge-api.ts`
+ * writes it from the provider's declarations.
+ *
+ * API version selection changes documentation only, because the live API
+ * doesn't enforce it, so samples send no `api-version`.
+ */
+export function cloudflareSamples(
+  method: Method,
+  address: readonly string[],
+): { targetId: string; code: string | null }[] {
+  const render: Record<string, () => string | null> = {
+    cf: () => renderCf(method, address),
+    curl: () => renderCurl(method),
+    terraform: () => null,
+  };
+  return CLOUDFLARE_TARGETS.map((target) => {
+    let code: string | null = null;
+    try {
+      code = render[target.id]?.() ?? null;
+    } catch {
+      // A sample that can't be rendered shows as unavailable, not as a failed build.
+    }
+    return { targetId: target.id, code };
+  });
 }
 
 //#endregion
