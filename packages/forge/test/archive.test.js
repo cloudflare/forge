@@ -84,6 +84,11 @@ test('archive packs six per-platform tarballs plus main tarball with optionalDep
       assert.deepEqual(pkg.os, [platform.os]);
       assert.deepEqual(pkg.cpu, [platform.cpu]);
       assert.equal(pkg.license, 'Apache-2.0');
+      assert.deepEqual(pkg.repository, {
+        type: 'git',
+        url: 'git+https://github.com/cloudflare/forge.git',
+        directory: 'packages/forge',
+      });
       assert.deepEqual(pkg.files, [platform.exe]);
       assert.equal(pkg.publishConfig?.access, 'public');
       assert.equal(pkg.publishConfig?.provenance, true);
@@ -167,6 +172,27 @@ test('archive --bundled produces a single tarball with native/ binaries and no o
     assert.equal(pkg.optionalDependencies, undefined);
     assert.ok(pkg.files.includes('native'));
     assert.ok(entries.has(`package/native/${subset[0].id}/${subset[0].exe}`));
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('archive throws actionable errors for unknown platforms and missing binaries', () => {
+  const root = mkdtempSync(join(tmpdir(), 'forge-archive-errors-'));
+  try {
+    const emptyArtifacts = join(root, 'binaries');
+    const out = join(root, 'dist');
+    mkdirSync(emptyArtifacts);
+
+    assert.throws(
+      () => archive(emptyArtifacts, ['freebsd-x64'], out),
+      /unknown platform freebsd-x64; supported platforms are .*packages\/forge\/scripts\/platforms\.mjs/,
+    );
+
+    assert.throws(
+      () => archive(emptyArtifacts, ['darwin-arm64'], out),
+      /missing forge binary.*darwin-arm64 \(aarch64-apple-darwin\/release\/forge\).*just build-all.*build matrix/,
+    );
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

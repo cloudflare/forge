@@ -67,16 +67,28 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
   }
 }
 
-/** Runs `npm pack` in `stage` and copies the produced tarball to `dest`. */
-function packStage(stage, out, dest) {
-  const [{ filename }] = JSON.parse(
-    execFileSync(npm, ['pack', '--json', '--pack-destination', stage], {
+/**
+ * Runs `npm pack` in `stage` and copies the produced tarball to `dest`.
+ *
+ * @throws {Error} When `npm pack` exits non-zero or produces unexpected output.
+ */
+function packStage(stage, out, dest, pkgName) {
+  let stdout;
+  try {
+    stdout = execFileSync(npm, ['pack', '--json', '--pack-destination', stage], {
       cwd: stage,
       encoding: 'utf8',
       stdio: ['ignore', 'pipe', 'inherit'],
       shell: npm.endsWith('.cmd'),
-    }),
-  );
+    });
+  } catch (err) {
+    throw new Error(
+      `npm pack failed for ${pkgName}: ${err.message}. ` +
+        `Ensure npm is on PATH and the staged package.json is valid.`,
+      { cause: err },
+    );
+  }
+  const [{ filename }] = JSON.parse(stdout);
   mkdirSync(out, { recursive: true });
   copyFileSync(join(stage, filename), dest);
 }
@@ -114,7 +126,7 @@ function packPlatform(platform, bin, version, mainPkg, out) {
     writeFileSync(join(stage, 'package.json'), `${JSON.stringify(pkg, null, 2)}\n`);
 
     const dest = platformTarball(out, version, platform);
-    packStage(stage, out, dest);
+    packStage(stage, out, dest, platform.pkg);
     console.log(`packed ${platform.pkg}@${version} from ${display(bin)} into ${display(dest)}`);
     return dest;
   } finally {
@@ -173,7 +185,7 @@ function packMain(version, mainPkg, out, { bundled, found }) {
           found.map(({ platform }) => platform.id),
         )
       : tarball(out, version);
-    packStage(stage, out, dest);
+    packStage(stage, out, dest, pkg.name);
     console.log(`packed ${pkg.name}@${version} into ${display(dest)}`);
     return dest;
   } finally {
@@ -182,8 +194,20 @@ function packMain(version, mainPkg, out, { bundled, found }) {
 }
 
 /**
- * Packs the binaries in `artifacts` for the platforms in `only`, or for all
- * of them, into tarballs in `out`.
+ * Packs the binaries in `artifacts` for the platforms in `only` (or all
+ * platforms when omitted) into tarballs in `out`.
+ *
+ * @param {string} artifacts Directory containing built binaries under `<target>/release/<exe>`.
+ * @param {string[] | undefined} only Optional list of `<os>-<cpu>` platform IDs to pack.
+ * @param {string} out Output directory for generated `.tgz` files.
+ * @param {{ bundled?: boolean }} [options] Pass `{ bundled: true }` for a single combined tarball.
+ * @returns {string[]} Paths to the generated `.tgz` files.
+ * @throws {Error} If `Cargo.toml` and `packages/forge/package.json` versions differ (`checkVersion`: run `node packages/forge/scripts/version.mjs`).
+ * @throws {Error} If `packages/forge/plugin/forge.wit` is out of sync with `src/plugin/wasm.rs` (`checkWit`: run `node packages/forge/scripts/wit.mjs`).
+ * @throws {Error} If `only` contains an unsupported platform ID not listed in `packages/forge/scripts/platforms.mjs`.
+ * @throws {Error} If any selected platform binary is missing from `artifacts` (locally run `just build-all` / `just fetch <run-id>`; in CI verify the `build` job matrix and `Download binaries` step).
+ * @throws {Error} If compiling `@cloudflare/forge/plugin` fails (`buildPlugin`: run `pnpm install` if devDependencies are missing, or fix TypeScript/WIT errors).
+ * @throws {Error} If `npm pack` fails while creating a tarball.
  */
 export function archive(artifacts, only, out, { bundled = false } = {}) {
   const version = checkVersion();
@@ -192,17 +216,22 @@ export function archive(artifacts, only, out, { bundled = false } = {}) {
   const known = platforms.map((platform) => platform.id);
   const unknown = only?.filter((id) => !known.includes(id)) ?? [];
   if (unknown.length > 0) {
-    throw new Error(`unknown platform ${unknown.join(', ')}; forge supports ${known.join(', ')}`);
+    throw new Error(
+      `unknown platform ${unknown.join(', ')}; supported platforms are ${known.join(', ')}. ` +
+        `Pass one of those values to --platform or add the target to packages/forge/scripts/platforms.mjs.`,
+    );
   }
 
   const chosen = platforms.filter((platform) => !only || only.includes(platform.id));
   const found = chosen.map((platform) => ({ platform, bin: findBinary(artifacts, platform) }));
-  const missing = found.filter(({ bin }) => !bin).map(({ platform }) => platform.id);
+  const missing = found.filter(({ bin }) => !bin).map(({ platform }) => platform);
   if (missing.length > 0) {
+    const expected = missing.map((p) => `${p.id} (${p.target}/release/${p.exe})`).join(', ');
     throw new Error(
-      `no forge binary in ${artifacts} for ${missing.join(', ')}; ` +
-        `build them with just build-all, or fetch a CI run's with just fetch <run-id>` +
-        (only ? '' : ', or pack only some platforms with --platform'),
+      `missing forge binary in ${artifacts} for ${expected}. ` +
+        `Locally, run \`just build-all\` or \`just fetch <run-id>\`` +
+        (only ? '' : ' (or restrict targets with `--platform <os>-<cpu>`)') +
+        `; in CI, verify the build matrix produced and uploaded every platform artifact.`,
     );
   }
 

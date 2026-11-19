@@ -8,9 +8,9 @@
 #   closed on any high- or critical-severity vulnerability in production deps.
 # - Runs the `@cloudflare/forge` test suite and smoke-tests native binaries
 #   before packing.
-# - Publishes the six platform packages first and `@cloudflare/forge` last, so
-#   the main package never points at unpublished optionalDependencies. Reruns
-#   skip any package version already present on npmjs.com.
+# - Publishes the six platform packages before `@cloudflare/forge` so a partial
+#   failure cannot advance `@cloudflare/forge@latest` with a missing binary.
+#   Reruns skip any package version already present on npmjs.com.
 # - Publishes every package with `npm publish --provenance`, producing an
 #   attestation that links each released tarball to this workflow run and the
 #   commit the tag points at. Consumers can verify with `npm view .. attestations`.
@@ -261,15 +261,9 @@ jobs:
           "
 
       # Publishes the six `@cloudflare/forge-<os>-<cpu>` platform packages
-      # before `@cloudflare/forge`, so the main package never points to
-      # versions that don't exist on npmjs.com yet. If any platform publish
-      # fails, this step exits non-zero before the main package step runs;
-      # rerunning skips versions that are already published.
-      #
-      # Trusted publishing for all six `@cloudflare/forge-<os>-<cpu>` packages
-      # and `@cloudflare/forge` must be configured on npmjs.com
-      # (Package -> Settings -> Trusted Publishers) to point at this repo and
-      # `.github/workflows/publish-forge.yml` before the first tag release.
+      # before `@cloudflare/forge` so a partial failure cannot advance
+      # `@cloudflare/forge@latest` with a missing binary. Rerunning skips
+      # versions that are already published on npmjs.com.
       - name: Publish platform packages
         env:
           VERSION: ${{ needs.verify.outputs.version }}
