@@ -23,6 +23,7 @@ API documentation site for Forge OpenAPI specs, built on Astro.
   - No spaces inside brackets, and `", "` and `": "` as separators.
   - Data whose formatting is under test, such as the minified documents in `tests/normalize`, stays exactly as written.
 - **RFCs**: Design proposals and specifications live in `rfcs/`.
+- **Writing**: Prose in READMEs, docs, RFCs, doc comments, commit messages and PR text follows the [no-ai-slop](https://github.com/petergyang/no-ai-slop) rules. Say what a thing does, and leave out what it doesn't do unless a reader would expect it to.
 
 ## Public Repository
 

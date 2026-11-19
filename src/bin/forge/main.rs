@@ -6,6 +6,7 @@
 //! forge generate openapi.json --target mcp --out tools
 //! forge generate openapi.json --target wasm://plugin.wasm --out sdk
 //! forge normalize specs/*.json
+//! forge inspect methods openapi.json
 //! ```
 
 use std::fs;
@@ -18,6 +19,7 @@ use forge::{Err, Forge, Plugin};
 use strum::{EnumString, VariantNames};
 
 mod capnweb;
+mod inspect;
 mod mcp;
 mod normalize;
 mod ts;
@@ -42,6 +44,8 @@ enum Command {
     /// that has none is left as it is. A native key is never replaced: when a
     /// document says the same thing twice, the native key is kept.
     Normalize(normalize::Args),
+    /// Print what forge reads in a document, as JSON.
+    Inspect(inspect::Args),
 }
 
 /// What `forge generate` is given.
@@ -152,6 +156,7 @@ fn run(args: Args) -> Result<(), Err> {
     match args.command {
         Command::Generate(args) => generate(&args.spec, args.target, &args.out),
         Command::Normalize(args) => normalize::run(args),
+        Command::Inspect(args) => inspect::run(args),
     }
 }
 
@@ -221,6 +226,7 @@ mod tests {
         // so clap's own "did you mean" hint is the only one shown.
         assert!(hint_old_root_form(ErrorKind::InvalidSubcommand, Some("generat")).is_none());
         assert!(hint_old_root_form(ErrorKind::InvalidSubcommand, Some("normaliz")).is_none());
+        assert!(hint_old_root_form(ErrorKind::InvalidSubcommand, Some("inspec")).is_none());
 
         // Other error kinds never trigger the hint.
         assert!(hint_old_root_form(ErrorKind::MissingRequiredArgument, Some("openapi.json")).is_none());
@@ -234,6 +240,9 @@ mod tests {
         let normalize = parse(&["normalize", "--check", "a.json"]).unwrap();
         assert!(matches!(normalize.command, Command::Normalize(_)));
 
+        let inspect = parse(&["inspect", "methods", "a.json"]).unwrap();
+        assert!(matches!(inspect.command, Command::Inspect(_)));
+
         let generate = parse(&["generate", "./a.json", "--target", "ts", "--out", "sdk"]).unwrap();
         let Command::Generate(g) = generate.command else {
             panic!("expected Generate");
@@ -242,6 +251,9 @@ mod tests {
 
         // Each subcommand still requires its own arguments.
         assert!(parse(&["normalize"]).is_err());
+        assert!(parse(&["inspect"]).is_err());
+        assert!(parse(&["inspect", "a.json"]).is_err());
+        assert!(parse(&["inspect", "methods"]).is_err());
         assert!(parse(&["generate"]).is_err());
         assert!(parse(&["generate", "a.json"]).is_err());
         assert!(parse(&["generate", "a.json", "--target", "ts"]).is_err());

@@ -20,8 +20,18 @@ const SPEC: &str = r#"{
 
 /// Runs `forge generate` with `args`, writing `stdin` to it.
 fn generate(args: &[&str], stdin: &str) -> Output {
+    forge("generate", args, stdin)
+}
+
+/// Runs `forge inspect` with `args`, writing `stdin` to it.
+fn inspect(args: &[&str], stdin: &str) -> Output {
+    forge("inspect", args, stdin)
+}
+
+/// Runs the `forge` subcommand `command` with `args`, writing `stdin` to it.
+fn forge(command: &str, args: &[&str], stdin: &str) -> Output {
     let mut child = Command::new(env!("CARGO_BIN_EXE_forge"))
-        .arg("generate")
+        .arg(command)
         .args(args)
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
@@ -124,6 +134,7 @@ fn no_arguments_print_help_on_stdout_with_exit_zero() {
     assert!(stdout.contains("Usage: forge <COMMAND>"), "{stdout}");
     assert!(stdout.contains("generate"), "{stdout}");
     assert!(stdout.contains("normalize"), "{stdout}");
+    assert!(stdout.contains("inspect"), "{stdout}");
 }
 
 /// An unknown subcommand still errors on stderr with status 2, so scripts
@@ -148,4 +159,96 @@ fn an_unknown_subcommand_errors_on_stderr_with_exit_two() {
     );
     let stderr = String::from_utf8(out.stderr).unwrap();
     assert!(stderr.contains("unrecognized subcommand 'not-a-command'"), "{stderr}");
+}
+
+#[test]
+fn inspect_methods() {
+    let spec = r#"{
+      "openapi": "3.0.3",
+      "info": {"title": "t", "version": "1"},
+      "paths": {
+        "/zones/{zone_id}/dns_records": {
+          "get": {
+            "x-forge-group-name": "dns.records",
+            "x-forge-method-name": "listRecords",
+            "x-forge-availability": "beta",
+            "responses": {"200": {"description": "ok"}}
+          },
+          "post": {
+            "operationId": "dns.records.create",
+            "x-forge-hidden": true,
+            "deprecated": true,
+            "responses": {"200": {"description": "ok"}}
+          },
+          "put": {
+            "operationId": "dns.records.skipped",
+            "x-forge-skip": true,
+            "responses": {"200": {"description": "ok"}}
+          }
+        },
+        "/user": {
+          "get": {
+            "operationId": "getUser",
+            "responses": {"200": {"description": "ok"}}
+          }
+        }
+      }
+    }"#;
+    let out = inspect(&["methods", "-"], spec);
+    assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr));
+    let methods: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    assert_eq!(
+        methods,
+        serde_json::json!([
+            {
+                "group": [],
+                "name": "get-user",
+                "method": "GET",
+                "path": "/user",
+                "hidden": false,
+                "deprecated": false,
+                "availability": null
+            },
+            {
+                "group": ["dns", "records"],
+                "name": "create",
+                "method": "POST",
+                "path": "/zones/{zone_id}/dns_records",
+                "hidden": true,
+                "deprecated": true,
+                "availability": null
+            },
+            {
+                "group": ["dns", "records"],
+                "name": "list-records",
+                "method": "GET",
+                "path": "/zones/{zone_id}/dns_records",
+                "hidden": false,
+                "deprecated": false,
+                "availability": "beta"
+            }
+        ])
+    );
+}
+
+#[test]
+fn inspect_methods_of_an_invalid_document() {
+    let spec = r#"{
+      "openapi": "3.0.3",
+      "info": {"title": "t", "version": "1"},
+      "paths": {
+        "/a": {
+          "get": {
+            "operationId": "a.get",
+            "responses": {"200": {"description": "ok"}}
+          },
+          "post": {
+            "operationId": "a.get",
+            "responses": {"200": {"description": "ok"}}
+          }
+        }
+      }
+    }"#;
+    let err = failure(inspect(&["methods", "-"], spec));
+    assert!(err.contains("in the same group"), "{err}");
 }
