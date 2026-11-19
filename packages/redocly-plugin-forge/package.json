@@ -1,7 +1,7 @@
 {
   "name": "@cloudflare/redocly-plugin-forge",
   "version": "0.1.0",
-  "description": "Redocly plugin: twenty OAS-native lint rules that catch common OpenAPI mistakes before they reach code generation, plus a handful of x-forge-* validators for Cloudflare Forge users.",
+  "description": "Redocly plugin: lint rules that catch common OpenAPI mistakes before they reach code generation.",
   "keywords": [
     "code-generation",
     "forge",
@@ -39,7 +39,7 @@
     "provenance": true
   },
   "scripts": {
-    "build": "node --eval \"require('node:fs').rmSync('dist',{recursive:true,force:true})\" && tsc -p tsconfig.build.json",
+    "build": "node scripts/build.mjs",
     "prepack": "pnpm run build",
     "test": "vitest run",
     "test:update": "UPDATE_FIXTURES=1 vitest run",
