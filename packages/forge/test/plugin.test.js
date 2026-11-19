@@ -2,11 +2,10 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
 import { definePlugin } from '../plugin/plugin.js';
-import * as host from './fixtures/metadata-host.js';
+import { forgeBytes } from './fixtures/metadata-host.js';
 
-// The fixture's functions stand in for the methods of the `forge` resource
-// the host passes to `generate`, so the built plugin library reads it as it
-// reads a component's.
+// The fixture packs a capnstruct `ForgeDoc` buffer identical to what the host
+// passes to `generate(forge: list<u8>)`, exercising the plugin API end-to-end.
 test('array bounds distinguish absent, zero and one through the plugin API', () => {
   definePlugin({
     generate(forge) {
@@ -21,7 +20,7 @@ test('array bounds distinguish absent, zero and one through the plugin API', () 
       assert.equal(one.elem.scalar, 'uuid');
       return [];
     },
-  }).generate(host);
+  }).generate(forgeBytes);
 });
 
 test('UUIDs are a distinct scalar through the plugin API', () => {
@@ -39,7 +38,7 @@ test('UUIDs are a distinct scalar through the plugin API', () => {
       );
       return [];
     },
-  }).generate(host);
+  }).generate(forgeBytes);
 });
 
 test('every group is inside the root, which comes first', () => {
@@ -55,5 +54,5 @@ test('every group is inside the root, which comes first', () => {
       assert.ok(root.models.every((model) => model.group === root));
       return [];
     },
-  }).generate(host);
+  }).generate(forgeBytes);
 });

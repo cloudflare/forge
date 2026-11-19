@@ -35,7 +35,6 @@
 // classes behind them stay private, so the bindings never show in
 // index.d.ts.
 
-import type * as host from 'forge:plugin/forge@0.4.0';
 import type * as hostPlugin from 'forge:plugin/plugin@0.4.0';
 
 import { type Forge, forgeOf } from './forge.js';
@@ -71,8 +70,8 @@ export interface File {
 
 /** What the entry module of a plugin exports, under these names. */
 export interface Exports {
-  /** Takes the `forge` resource the host passes. */
-  generate(forge: object): Array<{ path: string; content: Uint8Array }>;
+  /** Takes the capnstruct `ForgeDoc` buffer the host passes. */
+  generate(forge: Uint8Array): Array<{ path: string; content: Uint8Array }>;
 }
 
 /**
@@ -87,7 +86,7 @@ export interface Exports {
  */
 export function definePlugin(plugin: Plugin): Exports {
   const exports = {
-    generate(forge: host.Forge) {
+    generate(forge: Uint8Array) {
       return call(() => files(plugin.generate(forgeOf(forge))));
     },
   } satisfies Pick<typeof hostPlugin, 'generate'>;

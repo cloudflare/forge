@@ -12,43 +12,29 @@
 #![allow(dead_code)]
 
 extern crate self as forge;
-
-use std::sync::{LazyLock, OnceLock};
+use std::sync::OnceLock;
 use std::{fmt, iter};
 mod json;
 mod name;
 
 pub use json::Json;
 pub use name::Name;
-
+#[path = "../../../../src/wasm/schema.rs"]
+mod schema;
 mod wit {
-    wit_bindgen::generate!({ path: "wit/forge.wit", world: "plugin" });
+    wit_bindgen::generate!({
+        path: "wit/forge.wit",
+        world: "plugin",
+    });
 }
 
-use wit::forge::plugin::forge as host;
-
-thread_local! {
-    /// The `forge` resource the running `generate` reads, null between calls.
-    static HOST: std::cell::Cell<*const host::Forge> = const { std::cell::Cell::new(std::ptr::null()) };
+fn capn_str(buf: &[u8], s: schema::CapnStr) -> String {
+    s.as_str(buf).unwrap().to_owned()
 }
 
-/// Returns the `forge` resource the running `generate` reads.
-fn host() -> &'static host::Forge {
-    let forge = HOST.get();
-    assert!(!forge.is_null(), "the forge is read only during generate");
-    // SAFETY: `with_host` sets the pointer from a borrow that outlives the
-    // call, and resets it before the borrow ends. A plugin has one thread.
-    unsafe { &*forge }
+fn capn_name(buf: &[u8], words: schema::CapnSlice<schema::CapnStr>) -> Name {
+    Name::from_words(words.as_slice(buf).iter().map(|w| capn_str(buf, *w)).collect())
 }
-
-/// Runs `f` with `forge` as the resource `host` returns.
-fn with_host<T>(forge: &host::Forge, f: impl FnOnce() -> T) -> T {
-    HOST.set(forge);
-    let result = f();
-    HOST.set(std::ptr::null());
-    result
-}
-
 /// `forge::plugin`: the traits from src/plugin.rs, and the `ts` library.
 #[path = "../../../../src/plugin"]
 pub mod plugin {
@@ -96,23 +82,20 @@ impl wit::Guest for Component {
     /// With the `dump` feature, returns the dump of the forge instead, as
     /// `dump.txt`.
     #[cfg(feature = "dump")]
-    fn generate(forge: host::Forge) -> Result<Vec<wit::File>, String> {
-        with_host(&forge, || {
-            Ok(vec![wit::File {
-                path: "dump.txt".to_owned(),
-                content: dump::dump(&FORGE).into_bytes(),
-            }])
-        })
+    fn generate(forge_bytes: Vec<u8>) -> Result<Vec<wit::File>, String> {
+        let forge = Forge::from_bytes(forge_bytes);
+        Ok(vec![wit::File {
+            path: "dump.txt".to_owned(),
+            content: dump::dump(&forge).into_bytes(),
+        }])
     }
 
     #[cfg(not(feature = "dump"))]
-    fn generate(forge: host::Forge) -> Result<Vec<wit::File>, String> {
-        with_host(&forge, || {
-            render(bin::ts::Generator.generate(&FORGE).map_err(|err| err.to_string())?)
-        })
+    fn generate(forge_bytes: Vec<u8>) -> Result<Vec<wit::File>, String> {
+        let forge = Forge::from_bytes(forge_bytes);
+        render(bin::ts::Generator.generate(&forge).map_err(|err| err.to_string())?)
     }
 }
-
 wit::export!(Component with_types_in wit);
 
 /// Renders the content of each of `files`.
@@ -133,45 +116,51 @@ fn render<F: File>(files: impl Iterator<Item = F>) -> Result<Vec<wit::File>, Str
 
 /// `forge::Forge`, read from the host a part at a time.
 pub struct Forge {
+    buf: Vec<u8>,
     pub version: String,
     pub description: String,
     pub base_url: String,
-
-    groups: OnceLock<Vec<u32>>,
-
+    group_order: Vec<u32>,
     group_data: Vec<OnceLock<GroupData>>,
     method_data: Vec<OnceLock<MethodData>>,
     model_data: Vec<OnceLock<ModelData>>,
     type_data: Vec<OnceLock<TypeData>>,
 }
 
-static FORGE: LazyLock<Forge> = LazyLock::new(Forge::fetch);
-
-fn slots<T>(n: u32) -> Vec<OnceLock<T>> {
+fn slots<T>(n: usize) -> Vec<OnceLock<T>> {
     (0..n).map(|_| OnceLock::new()).collect()
 }
 
 impl Forge {
-    fn fetch() -> Forge {
-        let info = host().info();
-        let counts = host().counts();
-        Forge {
-            version: info.version,
-            description: info.description,
-            base_url: info.base_url,
-            groups: OnceLock::new(),
-            group_data: slots(counts.groups),
-            method_data: slots(counts.methods),
-            model_data: slots(counts.models),
-            type_data: slots(counts.types),
+    fn from_bytes(buf: Vec<u8>) -> Self {
+        let doc = schema::ForgeDoc::as_slice(&buf, 1)[0];
+        let version = capn_str(&buf, doc.version);
+        let description = capn_str(&buf, doc.description);
+        let base_url = capn_str(&buf, doc.baseUrl);
+        let group_order = doc.groupOrder.as_slice(&buf).to_vec();
+        let groups_len = doc.groups.len as usize;
+        let methods_len = doc.methods.len as usize;
+        let models_len = doc.models.len as usize;
+        let types_len = doc.types.len as usize;
+        Self {
+            buf,
+            version,
+            description,
+            base_url,
+            group_order,
+            group_data: slots(groups_len),
+            method_data: slots(methods_len),
+            model_data: slots(models_len),
+            type_data: slots(types_len),
         }
     }
 
+    fn doc(&self) -> schema::ForgeDoc {
+        schema::ForgeDoc::as_slice(&self.buf, 1)[0]
+    }
+
     pub fn groups(&self) -> impl Iterator<Item = Group<'_>> {
-        self.groups
-            .get_or_init(|| host().groups())
-            .iter()
-            .map(|&id| self.group(id))
+        self.group_order.iter().map(|&id| self.group(id))
     }
 
     fn group(&self, id: u32) -> Group<'_> {
@@ -197,65 +186,79 @@ impl Forge {
 
     fn group_data(&self, id: u32) -> &GroupData {
         self.group_data[id as usize].get_or_init(|| {
-            let g = host().get_group(id);
+            let b = &self.buf;
+            let g = self.doc().groups.as_slice(b)[id as usize];
             GroupData {
-                name: Name::from_words(g.name),
-                description: g.description,
-                path: g.path,
-                parent: g.parent,
-                children: g.children,
-                methods: g.methods,
-                models: g.models,
+                name: capn_name(b, g.name),
+                description: capn_str(b, g.description),
+                path: g.path.as_slice(b).to_vec(),
+                parent: g.parent_opt(),
+                children: g.children.as_slice(b).to_vec(),
+                methods: g.methods.as_slice(b).to_vec(),
+                models: g.models.as_slice(b).to_vec(),
             }
         })
     }
 
     fn method_data(&self, id: u32) -> &MethodData {
         self.method_data[id as usize].get_or_init(|| {
-            let m = host().get_method(id);
+            let b = &self.buf;
+            let m = self.doc().methods.as_slice(b)[id as usize];
             MethodData {
-                name: Name::from_words(m.name),
+                name: capn_name(b, m.name),
                 group: m.group,
-                http_method: match m.http_method {
-                    host::HttpMethod::Get => HttpMethod::Get,
-                    host::HttpMethod::Put => HttpMethod::Put,
-                    host::HttpMethod::Post => HttpMethod::Post,
-                    host::HttpMethod::Delete => HttpMethod::Delete,
-                    host::HttpMethod::Options => HttpMethod::Options,
-                    host::HttpMethod::Head => HttpMethod::Head,
-                    host::HttpMethod::Patch => HttpMethod::Patch,
-                    host::HttpMethod::Trace => HttpMethod::Trace,
-                    host::HttpMethod::Query => HttpMethod::Query,
-                    host::HttpMethod::Connect => HttpMethod::Connect,
-                    host::HttpMethod::Other(method) => HttpMethod::Other(method),
+                http_method: match m.httpMethod {
+                    schema::HttpMethod::Get => HttpMethod::Get,
+                    schema::HttpMethod::Put => HttpMethod::Put,
+                    schema::HttpMethod::Post => HttpMethod::Post,
+                    schema::HttpMethod::Delete => HttpMethod::Delete,
+                    schema::HttpMethod::Options => HttpMethod::Options,
+                    schema::HttpMethod::Head => HttpMethod::Head,
+                    schema::HttpMethod::Patch => HttpMethod::Patch,
+                    schema::HttpMethod::Trace => HttpMethod::Trace,
+                    schema::HttpMethod::Query => HttpMethod::Query,
+                    schema::HttpMethod::Connect => HttpMethod::Connect,
+                    schema::HttpMethod::Other(method) => HttpMethod::Other(capn_str(b, method)),
                 },
-                path: m.path,
-                summary: m.summary,
-                description: m.description,
+                path: capn_str(b, m.path),
+                summary: capn_str(b, m.summary),
+                description: capn_str(b, m.description),
                 deprecated: m.deprecated,
-                availability: m.availability.map(|availability| match availability {
-                    host::Availability::Alpha => Availability::Alpha,
-                    host::Availability::Beta => Availability::Beta,
-                    host::Availability::Preview => Availability::Preview,
-                    host::Availability::GenerallyAvailable => Availability::GenerallyAvailable,
-                    host::Availability::Deprecated => Availability::Deprecated,
-                }),
+                availability: match m.availability {
+                    schema::Availability::None => None,
+                    schema::Availability::Alpha => Some(Availability::Alpha),
+                    schema::Availability::Beta => Some(Availability::Beta),
+                    schema::Availability::Preview => Some(Availability::Preview),
+                    schema::Availability::GenerallyAvailable => Some(Availability::GenerallyAvailable),
+                    schema::Availability::Deprecated => Some(Availability::Deprecated),
+                },
                 hidden: m.hidden,
-                confirmation: m.confirmation,
-                request: m.request,
-                headers: m.headers,
-                body: m.body.map(|b| BodyData {
-                    required: b.required,
-                    description: b.description,
-                    contents: contents(b.contents),
-                    json: b.json,
+                confirmation: m.confirmation.as_str(b).unwrap().map(str::to_owned),
+                request: m.request_opt(),
+                params_type: m.paramsType_opt(),
+                param_locations: m
+                    .paramLocations
+                    .as_slice(b)
+                    .iter()
+                    .map(|loc| match *loc {
+                        schema::Location::Path => Location::Path,
+                        schema::Location::Query(exploded) => Location::Query { exploded },
+                    })
+                    .collect(),
+                headers: m.headers_opt(),
+                body: m.body.as_ref(b).map(|body| BodyData {
+                    required: body.required,
+                    description: capn_str(b, body.description),
+                    contents: contents(b, body.contents),
+                    json: body.json_opt(),
                 }),
-                responses: m.responses.into_iter().map(response).collect(),
-                errors: m.errors.into_iter().map(response).collect(),
+                responses: m.responses.as_slice(b).iter().map(|r| response(b, *r)).collect(),
+                errors: m.errors.as_slice(b).iter().map(|r| response(b, *r)).collect(),
                 extensions: m
                     .extensions
-                    .into_iter()
-                    .map(|(name, value)| (name, Json::parse(&value)))
+                    .as_slice(b)
+                    .iter()
+                    .map(|ext| (capn_str(b, ext.key), Json::parse(ext.value.as_str(b).unwrap())))
                     .collect(),
             }
         })
@@ -263,12 +266,13 @@ impl Forge {
 
     fn model_data(&self, id: u32) -> &ModelData {
         self.model_data[id as usize].get_or_init(|| {
-            let m = host().get_model(id);
+            let b = &self.buf;
+            let m = self.doc().models.as_slice(b)[id as usize];
             ModelData {
-                schema_name: m.schema_name,
-                name: Name::from_words(m.name),
+                schema_name: capn_str(b, m.schemaName),
+                name: capn_name(b, m.name),
                 group: m.group,
-                description: m.description,
+                description: capn_str(b, m.description),
                 deprecated: m.deprecated,
                 ty: m.ty,
             }
@@ -276,97 +280,107 @@ impl Forge {
     }
 
     fn type_data(&self, id: u32) -> &TypeData {
-        self.type_data[id as usize].get_or_init(|| match host().get_type(id) {
-            host::TypeInfo::Scalar(scalar) => TypeData::Scalar(match scalar {
-                host::Scalar::Unknown => Scalar::Unknown,
-                host::Scalar::Null => Scalar::Null,
-                host::Scalar::Boolean => Scalar::Boolean,
-                host::Scalar::String => Scalar::String,
-                host::Scalar::Uuid => Scalar::Uuid,
-                host::Scalar::Number(number) => Scalar::Number(match number {
-                    host::Number::Int => Number::Int,
-                    host::Number::Int8 => Number::Int8,
-                    host::Number::Int16 => Number::Int16,
-                    host::Number::Int32 => Number::Int32,
-                    host::Number::Int64 => Number::Int64,
-                    host::Number::Uint8 => Number::Uint8,
-                    host::Number::Uint16 => Number::Uint16,
-                    host::Number::Uint32 => Number::Uint32,
-                    host::Number::Uint64 => Number::Uint64,
-                    host::Number::Float => Number::Float,
-                    host::Number::Double => Number::Double,
+        self.type_data[id as usize].get_or_init(|| {
+            let b = &self.buf;
+            match self.doc().types.as_slice(b)[id as usize] {
+                schema::TypeInfo::Scalar(scalar) => TypeData::Scalar(match scalar {
+                    schema::Scalar::Unknown => Scalar::Unknown,
+                    schema::Scalar::Null => Scalar::Null,
+                    schema::Scalar::Boolean => Scalar::Boolean,
+                    schema::Scalar::String => Scalar::String,
+                    schema::Scalar::Uuid => Scalar::Uuid,
+                    schema::Scalar::Number(number) => Scalar::Number(match number {
+                        schema::NumberKind::Int => Number::Int,
+                        schema::NumberKind::Int8 => Number::Int8,
+                        schema::NumberKind::Int16 => Number::Int16,
+                        schema::NumberKind::Int32 => Number::Int32,
+                        schema::NumberKind::Int64 => Number::Int64,
+                        schema::NumberKind::Uint8 => Number::Uint8,
+                        schema::NumberKind::Uint16 => Number::Uint16,
+                        schema::NumberKind::Uint32 => Number::Uint32,
+                        schema::NumberKind::Uint64 => Number::Uint64,
+                        schema::NumberKind::Float => Number::Float,
+                        schema::NumberKind::Double => Number::Double,
+                    }),
+                    schema::Scalar::DateTime => Scalar::DateTime,
+                    schema::Scalar::Date => Scalar::Date,
+                    schema::Scalar::Bytes => Scalar::Bytes,
+                    schema::Scalar::Binary => Scalar::Binary,
                 }),
-                host::Scalar::DateTime => Scalar::DateTime,
-                host::Scalar::Date => Scalar::Date,
-                host::Scalar::Bytes => Scalar::Bytes,
-                host::Scalar::Binary => Scalar::Binary,
-            }),
-            host::TypeInfo::Enum(values) => TypeData::Enum(
-                values
-                    .into_iter()
-                    .map(|value| match value {
-                        host::EnumValue::String(s) => EnumData::String(s),
-                        host::EnumValue::Number(n) => EnumData::Number(n),
-                        host::EnumValue::Boolean(b) => EnumData::Boolean(b),
+                schema::TypeInfo::Enum(values) => TypeData::Enum(
+                    values
+                        .as_slice(b)
+                        .iter()
+                        .map(|val| match *val {
+                            schema::EnumValue::String(s) => EnumData::String(capn_str(b, s)),
+                            schema::EnumValue::Number(n) => EnumData::Number(n),
+                            schema::EnumValue::Boolean(v) => EnumData::Boolean(v),
+                        })
+                        .collect(),
+                ),
+                schema::TypeInfo::Array(array) => TypeData::Array(ArrayData {
+                    elem: array.elem,
+                    min_items: array.minItems_opt(),
+                    max_items: array.maxItems_opt(),
+                }),
+                schema::TypeInfo::Object(object) => TypeData::Object(ObjectData {
+                    fields: object
+                        .fields
+                        .as_slice(b)
+                        .iter()
+                        .map(|f| FieldData {
+                            wire_name: capn_str(b, f.wireName),
+                            name: capn_name(b, f.name),
+                            required: f.required,
+                            ty: f.ty,
+                            description: capn_str(b, f.description),
+                            deprecated: f.deprecated,
+                            read_only: f.readOnly,
+                            sensitive: f.sensitive,
+                        default: f.default.as_str(b).unwrap().map(Json::parse),
                     })
                     .collect(),
-            ),
-            host::TypeInfo::Array(array) => TypeData::Array(ArrayData {
-                elem: array.elem,
-                min_items: array.min_items,
-                max_items: array.max_items,
-            }),
-            host::TypeInfo::Object(object) => TypeData::Object(ObjectData {
-                fields: object
-                    .fields
-                    .into_iter()
-                    .map(|f| FieldData {
-                        wire_name: f.wire_name,
-                        name: Name::from_words(f.name),
-                        required: f.required,
-                        ty: f.ty,
-                        description: f.description,
-                        deprecated: f.deprecated,
-                        read_only: f.read_only,
-                        sensitive: f.sensitive,
-                        default: f.default.as_deref().map(Json::parse),
-                    })
-                    .collect(),
-                extra: object.extra,
-            }),
-            host::TypeInfo::Union(union) => TypeData::Union(UnionData {
-                members: union.members,
-                exclusive: union.exclusive,
-                discriminator: union.discriminator.map(|d| DiscriminatorData {
-                    wire_name: d.wire_name,
-                    name: Name::from_words(d.name),
-                    cases: d.cases,
-                    default: d.default,
+                    extra: object.extra_opt(),
                 }),
-            }),
-            host::TypeInfo::Intersection(members) => TypeData::Intersection(members),
-            host::TypeInfo::Model(id) => TypeData::Model(id),
+                schema::TypeInfo::Union(union) => TypeData::Union(UnionData {
+                    members: union.members.as_slice(b).to_vec(),
+                    exclusive: union.exclusive,
+                    discriminator: union.discriminator.as_ref(b).map(|d| DiscriminatorData {
+                        wire_name: capn_str(b, d.wireName),
+                        name: capn_name(b, d.name),
+                        cases: d
+                            .cases
+                            .as_slice(b)
+                            .iter()
+                            .map(|c| (capn_str(b, c.value), c.ty))
+                            .collect(),
+                        default: d.defaultModel_opt(),
+                    }),
+                }),
+                schema::TypeInfo::Intersection(members) => TypeData::Intersection(members.as_slice(b).to_vec()),
+                schema::TypeInfo::Model(id) => TypeData::Model(id),
+            }
         })
     }
 }
 
-fn contents(contents: Vec<host::ContentInfo>) -> Vec<ContentData> {
-    contents
-        .into_iter()
+fn contents(buf: &[u8], list: schema::CapnSlice<schema::ContentInfo>) -> Vec<ContentData> {
+    list.as_slice(buf)
+        .iter()
         .map(|c| ContentData {
-            media_type: c.media_type,
+            media_type: capn_str(buf, c.mediaType),
             ty: c.ty,
-            description: c.description,
+            description: capn_str(buf, c.description),
         })
         .collect()
 }
 
-fn response(r: host::ResponseInfo) -> ResponseData {
+fn response(buf: &[u8], r: schema::ResponseInfo) -> ResponseData {
     ResponseData {
-        status: r.status,
-        description: r.description,
-        contents: contents(r.contents),
-        json: r.json,
+        status: capn_str(buf, r.status),
+        description: capn_str(buf, r.description),
+        contents: contents(buf, r.contents),
+        json: r.json_opt(),
     }
 }
 
@@ -392,6 +406,8 @@ struct MethodData {
     hidden: bool,
     confirmation: Option<String>,
     request: Option<u32>,
+    params_type: Option<u32>,
+    param_locations: Vec<Location>,
     headers: Option<u32>,
     body: Option<BodyData>,
     responses: Vec<ResponseData>,
@@ -618,14 +634,11 @@ impl<'f> Method<'f> {
     }
 
     pub fn location(self, field: Field<'f>) -> Option<Location> {
-        host()
-            .get_location(self.id, field.object, field.index)
-            .map(|location| match location {
-                host::Location::Path => Location::Path,
-                host::Location::Query(exploded) => Location::Query { exploded },
-            })
+        if self.data().params_type != Some(field.object) {
+            return None;
+        }
+        self.data().param_locations.get(field.index as usize).copied()
     }
-
     pub fn body(self) -> Option<Body<'f>> {
         Some(Body {
             forge: self.forge,

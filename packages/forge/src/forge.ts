@@ -10,8 +10,16 @@
  * @module
  */
 
-import type * as host from 'forge:plugin/forge@0.4.0';
-
+import type { StructArrayView } from 'capnstruct';
+import {
+  type ContentInfo,
+  type FieldInfo,
+  ForgeDoc,
+  type GroupInfo,
+  type MethodInfo,
+  type ModelInfo,
+  type ResponseInfo,
+} from './schema.js';
 /**
  * A name from the document, as lower-case words, which a plugin spells in
  * the casing of its language. `XMLDocument` is "xml document", `getByID` is
@@ -328,31 +336,15 @@ export interface ModelType {
 
 // ---------------------------------------------------------------------------
 // The implementation.
+// The implementation, reading directly from a single capnstruct `ForgeDoc` buffer.
 
-// The API spells out what it shares with the WIT, so the bindings stay out
-// of the declarations. These fail to compile if the two come apart.
-type Same<A, B> = [A] extends [B] ? ([B] extends [A] ? true : false) : false;
-type Check<T extends true> = T;
-type _ScalarsMatch = Check<Same<ScalarType['scalar'], host.Scalar['tag']>>;
-type _NumbersMatch = Check<Same<NumberFormat, host.Number>>;
-type _AvailabilitiesMatch = Check<Same<Availability, host.Availability>>;
-type _EnumValuesMatch = Check<Same<EnumType['values'][number], host.EnumValue['val']>>;
-
-// The bindings' types say a missing option is undefined, but a plugin's
-// host, through QuickJS, gives null, so options are read through `opt`.
-
-/** Reads the JSON text the host sends for a value. */
-function parseJson(text: host.Json): Json {
+/** Reads the JSON text stored in the capnstruct buffer for a value. */
+function parseJson(text: string): Json {
   return JSON.parse(text) as Json;
 }
 
-/** Returns `value`, or undefined for null. */
-function opt<T>(value: T | null | undefined): T | undefined {
-  return value ?? undefined;
-}
-
-/** Returns a list of ids, which comes as a Uint32Array, as an array. */
-function ids(list: Uint32Array | ArrayLike<number>): number[] {
+/** Returns a list of u32 ids as a plain number array. */
+function ids(list: ArrayLike<number>): number[] {
   return Array.from(list);
 }
 
@@ -382,7 +374,7 @@ function cached<T>(cache: (T | undefined)[], id: number, make: () => T): T {
 class NameImpl implements Name {
   readonly words: readonly string[];
 
-  constructor(words: host.Name) {
+  constructor(words: readonly string[]) {
     this.words = Object.freeze(Array.from(words));
   }
 
@@ -426,117 +418,153 @@ function upperFirst(word: string): string {
 }
 
 /**
- * Supplies a forge's records through the WIT's `forge` resource. A plugin
- * gets the resource from its host, and `parse` gets it from forge compiled
- * to WebAssembly.
+ * Returns the forge backed by a single `capnstruct` `ForgeDoc` buffer, plus
+ * an optional `dispose` callback that releases the underlying buffer reference.
  *
  * @internal
  */
-export type Source = Pick<
-  host.Forge,
-  'info' | 'groups' | 'getGroup' | 'getMethod' | 'getModel' | 'getType' | 'getLocation'
->;
-
-/**
- * Returns the forge that reads its records from `source`.
- *
- * @internal
- */
-export function forgeOf(source: Source): Forge {
-  return new ForgeImpl(source);
+export function forgeOf(bytes: Uint8Array): Forge & { /** @internal */ _dispose(): void } {
+  return new ForgeImpl(bytes);
 }
 
 class ForgeImpl implements Forge {
-  constructor(readonly source: Source) {}
+  private doc: typeof ForgeDoc.$view | undefined;
+  private groupsCur: typeof GroupInfo.$view | undefined;
+  private methodsCur: typeof MethodInfo.$view | undefined;
+  private modelsCur: typeof ModelInfo.$view | undefined;
+  private fieldCur: typeof FieldInfo.$view | undefined;
+  private respCur: typeof ResponseInfo.$view | undefined;
+  private contentCur: typeof ContentInfo.$view | undefined;
 
-  private readonly info = lazy(() => this.source.info());
+  private _version: string | undefined;
+  private _description: string | undefined;
+  private _baseUrl: string | undefined;
   private readonly groupCache: (GroupImpl | undefined)[] = [];
   private readonly methodCache: (MethodImpl | undefined)[] = [];
   private readonly modelCache: (ModelImpl | undefined)[] = [];
   private readonly typeCache: (Type | undefined)[] = [];
-  private readonly allGroups = lazy(() => ids(this.source.groups()).map((id) => this.group(id)));
+  private readonly allGroups = lazy(() => ids(this.requireDoc().groupOrder).map((id) => this.group(id)));
+
+  constructor(bytes: Uint8Array) {
+    this.doc = ForgeDoc.view(bytes);
+  }
+
+  /** @internal */
+  _dispose(): void {
+    this.doc = undefined;
+    this.groupsCur = undefined;
+    this.methodsCur = undefined;
+    this.modelsCur = undefined;
+    this.fieldCur = undefined;
+    this.respCur = undefined;
+    this.contentCur = undefined;
+  }
+
+  private requireDoc(): typeof ForgeDoc.$view {
+    if (this.doc === undefined) {
+      throw new Error('handle is not a valid "Forge" resource');
+    }
+    return this.doc;
+  }
+
+  rawGroup(id: number): typeof GroupInfo.$view {
+    return (this.groupsCur ??= this.requireDoc().groups.cursor()).seek(id);
+  }
+
+  rawMethod(id: number): typeof MethodInfo.$view {
+    return (this.methodsCur ??= this.requireDoc().methods.cursor()).seek(id);
+  }
+
+  rawModel(id: number): typeof ModelInfo.$view {
+    return (this.modelsCur ??= this.requireDoc().models.cursor()).seek(id);
+  }
+
+  rawType(id: number) {
+    return this.requireDoc().types.at(id);
+  }
+
+  fieldAt(list: StructArrayView<typeof FieldInfo.schema>, index: number): typeof FieldInfo.$view {
+    return this.fieldCur ? list.at(index, this.fieldCur) : (this.fieldCur = list.at(index));
+  }
+
+  respAt(list: StructArrayView<typeof ResponseInfo.schema>, index: number): typeof ResponseInfo.$view {
+    return this.respCur ? list.at(index, this.respCur) : (this.respCur = list.at(index));
+  }
+
+  contentAt(list: StructArrayView<typeof ContentInfo.schema>, index: number): typeof ContentInfo.$view {
+    return this.contentCur ? list.at(index, this.contentCur) : (this.contentCur = list.at(index));
+  }
 
   get version(): string {
-    return this.info().version;
+    return (this._version ??= this.requireDoc().version);
   }
 
   get description(): string {
-    return this.info().description;
+    return (this._description ??= this.requireDoc().description);
   }
 
   get baseUrl(): string {
-    return this.info().baseUrl;
+    return (this._baseUrl ??= this.requireDoc().baseUrl);
   }
 
   get groups(): readonly Group[] {
     return this.allGroups();
   }
 
-  group(id: host.GroupId): GroupImpl {
+  group(id: number): GroupImpl {
     return cached(this.groupCache, id, () => new GroupImpl(this, id));
   }
 
-  method(id: host.MethodId): MethodImpl {
+  method(id: number): MethodImpl {
     return cached(this.methodCache, id, () => new MethodImpl(this, id));
   }
 
-  model(id: host.ModelId): ModelImpl {
+  model(id: number): ModelImpl {
     return cached(this.modelCache, id, () => new ModelImpl(this, id));
   }
 
-  type(id: host.TypeId): Type {
+  type(id: number): Type {
     return cached(this.typeCache, id, () => makeType(this, id));
   }
 }
 
 class GroupImpl implements Group {
-  private readonly info: () => {
-    name: Name;
-    description: string;
-    path: host.GroupId[];
-    parent: host.GroupId | undefined;
-    children: host.GroupId[];
-    methods: host.MethodId[];
-    models: host.ModelId[];
-  };
+  private _name: Name | undefined;
+  private _description: string | undefined;
+  private _pathIds: number[] | undefined;
+  private _parentId: number | null | undefined;
+  private _childIds: number[] | undefined;
+  private _methodIds: number[] | undefined;
+  private _modelIds: number[] | undefined;
 
   constructor(
     private readonly forge: ForgeImpl,
-    id: host.GroupId,
-  ) {
-    this.info = lazy(() => {
-      const g = forge.source.getGroup(id);
-      return {
-        name: new NameImpl(g.name),
-        description: g.description,
-        path: ids(g.path),
-        parent: opt(g.parent),
-        children: ids(g.children),
-        methods: ids(g.methods),
-        models: ids(g.models),
-      };
-    });
-  }
+    private readonly id: number,
+  ) {}
 
   get name(): Name {
-    return this.info().name;
+    return (this._name ??= new NameImpl(this.forge.rawGroup(this.id).name));
   }
 
   get description(): string {
-    return this.info().description;
+    return (this._description ??= this.forge.rawGroup(this.id).description);
   }
 
   get path(): readonly Name[] {
-    return this.info().path.map((id) => this.forge.group(id).name);
+    const list = (this._pathIds ??= ids(this.forge.rawGroup(this.id).path));
+    return list.map((id) => this.forge.group(id).name);
   }
 
   get parent(): Group | undefined {
-    const parent = this.info().parent;
-    return parent === undefined ? undefined : this.forge.group(parent);
+    if (this._parentId === undefined) {
+      this._parentId = this.forge.rawGroup(this.id).parent;
+    }
+    return this._parentId === null ? undefined : this.forge.group(this._parentId);
   }
 
   get children(): readonly Group[] {
-    return this.info().children.map((id) => this.forge.group(id));
+    const list = (this._childIds ??= ids(this.forge.rawGroup(this.id).children));
+    return list.map((id) => this.forge.group(id));
   }
 
   get descendants(): readonly Group[] {
@@ -550,201 +578,280 @@ class GroupImpl implements Group {
   }
 
   get methods(): readonly Method[] {
-    return this.info().methods.map((id) => this.forge.method(id));
+    const list = (this._methodIds ??= ids(this.forge.rawGroup(this.id).methods));
+    return list.map((id) => this.forge.method(id));
   }
 
   get models(): readonly Model[] {
-    return this.info().models.map((id) => this.forge.model(id));
+    const list = (this._modelIds ??= ids(this.forge.rawGroup(this.id).models));
+    return list.map((id) => this.forge.model(id));
   }
 }
 
-/** How each HTTP method is sent, but `other`, which carries its own. */
-const httpMethods: Record<Exclude<host.HttpMethod['tag'], 'other'>, string> = {
-  get: 'GET',
-  put: 'PUT',
-  post: 'POST',
-  delete: 'DELETE',
-  options: 'OPTIONS',
-  head: 'HEAD',
-  patch: 'PATCH',
-  trace: 'TRACE',
-  query: 'QUERY',
-  connect: 'CONNECT',
+const httpMethodNames: Record<string, string> = {
+  Get: 'GET',
+  Put: 'PUT',
+  Post: 'POST',
+  Delete: 'DELETE',
+  Options: 'OPTIONS',
+  Head: 'HEAD',
+  Patch: 'PATCH',
+  Trace: 'TRACE',
+  Query: 'QUERY',
+  Connect: 'CONNECT',
+};
+
+const availabilityNames: Record<string, Availability | undefined> = {
+  None: undefined,
+  Alpha: 'alpha',
+  Beta: 'beta',
+  Preview: 'preview',
+  GenerallyAvailable: 'generally-available',
+  Deprecated: 'deprecated',
+};
+
+const numberFormatNames: Record<string, NumberFormat> = {
+  Int: 'int',
+  Int8: 'int8',
+  Int16: 'int16',
+  Int32: 'int32',
+  Int64: 'int64',
+  Uint8: 'uint8',
+  Uint16: 'uint16',
+  Uint32: 'uint32',
+  Uint64: 'uint64',
+  Float: 'float',
+  Double: 'double',
 };
 
 class MethodImpl implements Method {
-  private readonly info: () => {
-    name: Name;
-    group: host.GroupId;
-    httpMethod: string;
-    path: string;
-    summary: string;
-    description: string;
-    deprecated: boolean;
-    availability: Availability | undefined;
-    hidden: boolean;
-    confirmation: string | undefined;
-    request: host.TypeId | undefined;
-    headers: host.TypeId | undefined;
-    body: Body | undefined;
-    responses: Response[];
-    errors: Response[];
-    extensions: (readonly [string, Json])[];
-  };
+  private _name: Name | undefined;
+  private _group: number | undefined;
+  private _httpMethod: string | undefined;
+  private _path: string | undefined;
+  private _summary: string | undefined;
+  private _description: string | undefined;
+  private _deprecated: boolean | undefined;
+  private _availability: Availability | undefined | false = false;
+  private _hidden: boolean | undefined;
+  private _confirmation: string | undefined | false = false;
+  private _request: number | null | undefined;
+  private _paramsType: number | null | undefined;
+  private _paramLocations: readonly Location[] | undefined;
+  private _headers: number | null | undefined;
+  private _body: Body | undefined | false = false;
+  private _responses: Response[] | undefined;
+  private _errors: Response[] | undefined;
+  private _extensions: (readonly [string, Json])[] | undefined;
 
   constructor(
     private readonly forge: ForgeImpl,
-    private readonly id: host.MethodId,
-  ) {
-    this.info = lazy(() => {
-      const m = forge.source.getMethod(id);
-      const body = opt(m.body);
-      return {
-        name: new NameImpl(m.name),
-        group: m.group,
-        httpMethod: m.httpMethod.tag === 'other' ? m.httpMethod.val : httpMethods[m.httpMethod.tag],
-        path: m.path,
-        summary: m.summary,
-        description: m.description,
-        deprecated: m.deprecated,
-        availability: opt(m.availability),
-        hidden: m.hidden,
-        confirmation: opt(m.confirmation),
-        request: opt(m.request),
-        headers: opt(m.headers),
-        body: body && {
-          required: body.required,
-          description: body.description,
-          ...contents(forge, body.contents, body.json),
-        },
-        responses: m.responses.map((r) => response(forge, r)),
-        errors: m.errors.map((r) => response(forge, r)),
-        extensions: m.extensions.map(([name, value]) => [name, parseJson(value)] as const),
-      };
-    });
-  }
+    private readonly id: number,
+  ) {}
 
   get name(): Name {
-    return this.info().name;
+    return (this._name ??= new NameImpl(this.forge.rawMethod(this.id).name));
   }
 
   get group(): Group {
-    return this.forge.group(this.info().group);
+    const gid = (this._group ??= this.forge.rawMethod(this.id).group);
+    return this.forge.group(gid);
   }
 
   get httpMethod(): string {
-    return this.info().httpMethod;
+    if (this._httpMethod === undefined) {
+      const hm = this.forge.rawMethod(this.id).httpMethod;
+      this._httpMethod = hm.tag === 'Other' ? hm.value : httpMethodNames[hm.tag]!;
+    }
+    return this._httpMethod;
   }
 
   get path(): string {
-    return this.info().path;
+    return (this._path ??= this.forge.rawMethod(this.id).path);
   }
 
   get summary(): string {
-    return this.info().summary;
+    return (this._summary ??= this.forge.rawMethod(this.id).summary);
   }
 
   get description(): string {
-    return this.info().description;
+    return (this._description ??= this.forge.rawMethod(this.id).description);
   }
 
   get deprecated(): boolean {
-    return this.info().deprecated;
+    return (this._deprecated ??= this.forge.rawMethod(this.id).deprecated);
   }
 
   get availability(): Availability | undefined {
-    return this.info().availability;
+    if (this._availability === false) {
+      this._availability = availabilityNames[this.forge.rawMethod(this.id).availability.tag];
+    }
+    return this._availability;
   }
 
   get hidden(): boolean {
-    return this.info().hidden;
+    return (this._hidden ??= this.forge.rawMethod(this.id).hidden);
   }
 
   get confirmation(): string | undefined {
-    return this.info().confirmation;
+    if (this._confirmation === false) {
+      this._confirmation = this.forge.rawMethod(this.id).confirmation ?? undefined;
+    }
+    return this._confirmation;
   }
 
   get request(): Type | undefined {
-    const request = this.info().request;
-    return request === undefined ? undefined : this.forge.type(request);
+    if (this._request === undefined) {
+      this._request = this.forge.rawMethod(this.id).request;
+    }
+    return this._request === null ? undefined : this.forge.type(this._request);
   }
 
   get headers(): ObjectType | undefined {
-    const headers = this.info().headers;
-    if (headers === undefined) {
+    if (this._headers === undefined) {
+      this._headers = this.forge.rawMethod(this.id).headers;
+    }
+    if (this._headers === null) {
       return undefined;
     }
-    const type = this.forge.type(headers);
+    const type = this.forge.type(this._headers);
     return type.kind === 'object' ? type : undefined;
   }
 
   get body(): Body | undefined {
-    return this.info().body;
+    if (this._body === false) {
+      const body = this.forge.rawMethod(this.id).body;
+      this._body = body
+        ? {
+            required: body.required,
+            description: body.description,
+            ...contents(this.forge, body.contents, body.json ?? undefined),
+          }
+        : undefined;
+    }
+    return this._body;
   }
 
   get responses(): readonly Response[] {
-    return this.info().responses;
+    if (this._responses === undefined) {
+      const list = this.forge.rawMethod(this.id).responses;
+      const len = list.length;
+      const out: Response[] = new Array(len);
+      for (let i = 0; i < len; i++) {
+        const cur = this.forge.respAt(list, i);
+        out[i] = new ResponseImpl(this.forge, list, i, cur.contents, cur.json ?? undefined);
+      }
+      this._responses = out;
+    }
+    return this._responses;
   }
 
   get errors(): readonly Response[] {
-    return this.info().errors;
+    if (this._errors === undefined) {
+      const list = this.forge.rawMethod(this.id).errors;
+      const len = list.length;
+      const out: Response[] = new Array(len);
+      for (let i = 0; i < len; i++) {
+        const cur = this.forge.respAt(list, i);
+        out[i] = new ResponseImpl(this.forge, list, i, cur.contents, cur.json ?? undefined);
+      }
+      this._errors = out;
+    }
+    return this._errors;
   }
 
   get extensions(): readonly (readonly [string, Json])[] {
-    return this.info().extensions;
+    if (this._extensions === undefined) {
+      const out: (readonly [string, Json])[] = [];
+      for (const ext of this.forge.rawMethod(this.id).extensions) {
+        out.push([ext.key, parseJson(ext.value)] as const);
+      }
+      this._extensions = out;
+    }
+    return this._extensions;
   }
 
   extension(name: string): Json | undefined {
-    return this.info().extensions.find(([n]) => n === name)?.[1];
+    return this.extensions.find(([n]) => n === name)?.[1];
   }
 
   location(field: Field): Location | undefined {
     if (!(field instanceof FieldImpl) || field.forge !== this.forge) {
       return undefined;
     }
-    const location = opt(this.forge.source.getLocation(this.id, field.object, field.index));
-    switch (location?.tag) {
-      case undefined:
-        return undefined;
-      case 'path':
-        return { in: 'path' };
-      case 'query':
-        return { in: 'query', exploded: location.val };
-      default: {
-        const unknown: never = location;
-        throw new Error(`a location this library doesn't know: ${JSON.stringify(unknown)}`);
-      }
+    if (this._paramsType === undefined) {
+      this._paramsType = this.forge.rawMethod(this.id).paramsType;
     }
+    if (this._paramsType !== field.object) {
+      return undefined;
+    }
+    if (this._paramLocations === undefined) {
+      this._paramLocations = this.forge
+        .rawMethod(this.id)
+        .paramLocations.map((loc) => (loc.tag === 'Path' ? { in: 'path' } : { in: 'query', exploded: loc.value }));
+    }
+    return this._paramLocations[field.index];
   }
 }
 
-function response(forge: ForgeImpl, r: host.ResponseInfo): Response {
-  return { status: r.status, description: r.description, ...contents(forge, r.contents, r.json) };
-}
-
-/** Returns `list` as `Content`s, and the one at index `json`. */
-function contents(
-  forge: ForgeImpl,
-  list: host.ContentInfo[],
-  json: number | undefined,
-): { contents: Content[]; json: Content | undefined } {
-  const all = list.map((c) => new ContentImpl(forge, c));
-  const index = opt(json);
-  return { contents: all, json: index === undefined ? undefined : all[index] };
-}
-
-class ContentImpl implements Content {
-  readonly mediaType: string;
-  readonly description: string;
-  private readonly ty: host.TypeId;
+class ResponseImpl implements Response {
+  private _status: string | undefined;
+  private _description: string | undefined;
+  readonly contents: readonly Content[];
+  readonly json: Content | undefined;
 
   constructor(
     private readonly forge: ForgeImpl,
-    info: host.ContentInfo,
+    private readonly list: StructArrayView<typeof ResponseInfo.schema>,
+    private readonly index: number,
+    rawContents: StructArrayView<typeof ContentInfo.schema>,
+    jsonIndex: number | undefined,
   ) {
-    this.mediaType = info.mediaType;
-    this.description = info.description;
-    this.ty = info.ty;
+    const res = contents(forge, rawContents, jsonIndex);
+    this.contents = res.contents;
+    this.json = res.json;
+  }
+
+  get status(): string {
+    return (this._status ??= this.forge.respAt(this.list, this.index).status);
+  }
+
+  get description(): string {
+    return (this._description ??= this.forge.respAt(this.list, this.index).description);
+  }
+}
+
+function contents(
+  forge: ForgeImpl,
+  list: (typeof ResponseInfo.$view)['contents'],
+  jsonIndex: number | undefined,
+): { contents: Content[]; json: Content | undefined } {
+  const len = list.length;
+  const all: Content[] = new Array(len);
+  for (let i = 0; i < len; i++) {
+    const cur = forge.contentAt(list, i);
+    all[i] = new ContentImpl(forge, list, i, cur.ty);
+  }
+  return { contents: all, json: jsonIndex === undefined ? undefined : all[jsonIndex] };
+}
+
+class ContentImpl implements Content {
+  private _mediaType: string | undefined;
+  private _description: string | undefined;
+
+  constructor(
+    private readonly forge: ForgeImpl,
+    private readonly list: (typeof ResponseInfo.$view)['contents'],
+    private readonly index: number,
+    private readonly ty: number,
+  ) {}
+
+  get mediaType(): string {
+    return (this._mediaType ??= this.forge.contentAt(this.list, this.index).mediaType);
+  }
+
+  get description(): string {
+    return (this._description ??= this.forge.contentAt(this.list, this.index).description);
   }
 
   get isJson(): boolean {
@@ -758,54 +865,42 @@ class ContentImpl implements Content {
 }
 
 class ModelImpl implements Model {
-  private readonly info: () => {
-    schemaName: string;
-    name: Name;
-    group: host.GroupId;
-    description: string;
-    deprecated: boolean;
-    ty: host.TypeId;
-  };
+  private _schemaName: string | undefined;
+  private _name: Name | undefined;
+  private _group: number | undefined;
+  private _description: string | undefined;
+  private _deprecated: boolean | undefined;
+  private _ty: number | undefined;
 
   constructor(
     private readonly forge: ForgeImpl,
-    id: host.ModelId,
-  ) {
-    this.info = lazy(() => {
-      const m = forge.source.getModel(id);
-      return {
-        schemaName: m.schemaName,
-        name: new NameImpl(m.name),
-        group: m.group,
-        description: m.description,
-        deprecated: m.deprecated,
-        ty: m.ty,
-      };
-    });
-  }
+    private readonly id: number,
+  ) {}
 
   get schemaName(): string {
-    return this.info().schemaName;
+    return (this._schemaName ??= this.forge.rawModel(this.id).schemaName);
   }
 
   get name(): Name {
-    return this.info().name;
+    return (this._name ??= new NameImpl(this.forge.rawModel(this.id).name));
   }
 
   get group(): Group {
-    return this.forge.group(this.info().group);
+    const gid = (this._group ??= this.forge.rawModel(this.id).group);
+    return this.forge.group(gid);
   }
 
   get description(): string {
-    return this.info().description;
+    return (this._description ??= this.forge.rawModel(this.id).description);
   }
 
   get deprecated(): boolean {
-    return this.info().deprecated;
+    return (this._deprecated ??= this.forge.rawModel(this.id).deprecated);
   }
 
   get type(): Type {
-    return this.forge.type(this.info().ty);
+    const ty = (this._ty ??= this.forge.rawModel(this.id).ty);
+    return this.forge.type(ty);
   }
 
   toString(): string {
@@ -814,33 +909,57 @@ class ModelImpl implements Model {
 }
 
 class FieldImpl implements Field {
-  readonly wireName: string;
-  readonly name: Name;
-  readonly required: boolean;
-  readonly description: string;
-  readonly deprecated: boolean;
-  readonly readOnly: boolean;
-  readonly sensitive: boolean;
-  readonly default: Json | undefined;
-  private readonly ty: host.TypeId;
+  private _wireName: string | undefined;
+  private _name: Name | undefined;
+  private _required: boolean | undefined;
+  private _description: string | undefined;
+  private _deprecated: boolean | undefined;
+  private _readOnly: boolean | undefined;
+  private _sensitive: boolean | undefined;
+  private _default: Json | undefined | false = false;
 
-  /** The object type the field is in, and its index there, which the host knows it by. */
   constructor(
     readonly forge: ForgeImpl,
-    readonly object: host.TypeId,
+    readonly object: number,
     readonly index: number,
-    info: host.FieldInfo,
-  ) {
-    this.wireName = info.wireName;
-    this.name = new NameImpl(info.name);
-    this.required = info.required;
-    this.description = info.description;
-    this.deprecated = info.deprecated;
-    this.readOnly = info.readOnly;
-    this.sensitive = info.sensitive;
-    const value = opt(info.default);
-    this.default = value === undefined ? undefined : parseJson(value);
-    this.ty = info.ty;
+    private readonly list: StructArrayView<typeof FieldInfo.schema>,
+    private readonly ty: number,
+  ) {}
+
+  get wireName(): string {
+    return (this._wireName ??= this.forge.fieldAt(this.list, this.index).wireName);
+  }
+
+  get name(): Name {
+    return (this._name ??= new NameImpl(this.forge.fieldAt(this.list, this.index).name));
+  }
+
+  get required(): boolean {
+    return (this._required ??= this.forge.fieldAt(this.list, this.index).required);
+  }
+
+  get description(): string {
+    return (this._description ??= this.forge.fieldAt(this.list, this.index).description);
+  }
+
+  get deprecated(): boolean {
+    return (this._deprecated ??= this.forge.fieldAt(this.list, this.index).deprecated);
+  }
+
+  get readOnly(): boolean {
+    return (this._readOnly ??= this.forge.fieldAt(this.list, this.index).readOnly);
+  }
+
+  get sensitive(): boolean {
+    return (this._sensitive ??= this.forge.fieldAt(this.list, this.index).sensitive);
+  }
+
+  get default(): Json | undefined {
+    if (this._default === false) {
+      const def = this.forge.fieldAt(this.list, this.index).default;
+      this._default = def !== null ? parseJson(def) : undefined;
+    }
+    return this._default;
   }
 
   get type(): Type {
@@ -849,33 +968,60 @@ class FieldImpl implements Field {
 }
 
 /** Returns the type `id`. Types it refers to are made when first read. */
-function makeType(forge: ForgeImpl, id: host.TypeId): Type {
-  const t = forge.source.getType(id);
-  const type = (ty: host.TypeId) => forge.type(ty);
+function makeType(forge: ForgeImpl, id: number): Type {
+  const t = forge.rawType(id);
+  const type = (ty: number) => forge.type(ty);
   switch (t.tag) {
-    case 'scalar':
-      return t.val.tag === 'number'
-        ? { kind: 'scalar', scalar: 'number', number: t.val.val }
-        : { kind: 'scalar', scalar: t.val.tag };
-    case 'enum':
-      return { kind: 'enum', values: t.val.map((value) => value.val) };
-    case 'array': {
-      const { elem } = t.val;
-      const minItems = opt(t.val.minItems);
-      const maxItems = opt(t.val.maxItems);
+    case 'Scalar': {
+      const s = t.value;
+      switch (s.tag) {
+        case 'Unknown':
+          return { kind: 'scalar', scalar: 'unknown' };
+        case 'Null':
+          return { kind: 'scalar', scalar: 'null' };
+        case 'Boolean':
+          return { kind: 'scalar', scalar: 'boolean' };
+        case 'String':
+          return { kind: 'scalar', scalar: 'string' };
+        case 'Number':
+          return { kind: 'scalar', scalar: 'number', number: numberFormatNames[s.value.tag]! };
+        case 'DateTime':
+          return { kind: 'scalar', scalar: 'date-time' };
+        case 'Date':
+          return { kind: 'scalar', scalar: 'date' };
+        case 'Bytes':
+          return { kind: 'scalar', scalar: 'bytes' };
+        case 'Binary':
+          return { kind: 'scalar', scalar: 'binary' };
+        case 'Uuid':
+          return { kind: 'scalar', scalar: 'uuid' };
+      }
+      throw new Error(`unknown scalar tag`);
+    }
+    case 'Enum':
+      return { kind: 'enum', values: t.value.map((v) => v.value) };
+    case 'Array': {
+      const elem = t.value.elem;
+      const minItems = t.value.minItems;
+      const maxItems = t.value.maxItems;
       return {
         kind: 'array',
         get elem() {
           return type(elem);
         },
-        // A u64 comes as a bigint; no array's limit needs more than a number.
-        minItems: minItems === undefined ? undefined : Number(minItems),
-        maxItems: maxItems === undefined ? undefined : Number(maxItems),
+        minItems: minItems === null ? undefined : Number(minItems),
+        maxItems: maxItems === null ? undefined : Number(maxItems),
       };
     }
-    case 'object': {
-      const fields = t.val.fields.map((field, i) => new FieldImpl(forge, id, i, field));
-      const extra = opt(t.val.extra);
+    case 'Object': {
+      const fieldList = t.value.fields;
+      const len = fieldList.length;
+      const fields: FieldImpl[] = new Array(len);
+      for (let i = 0; i < len; i++) {
+        const cur = forge.fieldAt(fieldList, i);
+        fields[i] = new FieldImpl(forge, id, i, fieldList, cur.ty);
+      }
+      const extra = t.value.extra ?? undefined;
       return {
         kind: 'object',
         fields,
@@ -884,31 +1030,41 @@ function makeType(forge: ForgeImpl, id: host.TypeId): Type {
         },
       };
     }
-    case 'union': {
-      const members = ids(t.val.members);
-      const d = opt(t.val.discriminator);
-      const discriminator: Discriminator | undefined = d && {
-        wireName: d.wireName,
-        name: new NameImpl(d.name),
-        get cases() {
-          return d.cases.map(([value, ty]) => [value, type(ty)] as const);
-        },
-        get default() {
-          const model = opt(d.default);
-          return model === undefined ? undefined : forge.model(model);
-        },
-      };
+    case 'Union': {
+      const members = ids(t.value.members);
+      const d = t.value.discriminator;
+      const discriminator: Discriminator | undefined = d
+        ? (() => {
+            const wireName = d.wireName;
+              const name = new NameImpl(d.name);
+              const rawCases: [string, number][] = [];
+              for (const c of d.cases) {
+                rawCases.push([c.value, c.ty]);
+              }
+              const defaultModel = d.defaultModel ?? undefined;
+              return {
+                wireName,
+                name,
+                get cases() {
+                  return rawCases.map(([value, ty]) => [value, type(ty)] as const);
+                },
+                get default() {
+                  return defaultModel === undefined ? undefined : forge.model(defaultModel);
+                },
+              };
+            })()
+          : undefined;
       return {
         kind: 'union',
         get members() {
           return members.map(type);
         },
-        exclusive: t.val.exclusive,
+        exclusive: t.value.exclusive,
         discriminator,
       };
     }
-    case 'intersection': {
-      const members = ids(t.val);
+    case 'Intersection': {
+      const members = ids(t.value);
       return {
         kind: 'intersection',
         get members() {
@@ -916,12 +1072,14 @@ function makeType(forge: ForgeImpl, id: host.TypeId): Type {
         },
       };
     }
-    case 'model':
-      return { kind: 'model', model: forge.model(t.val) };
-    default: {
-      // A kind the WIT gains fails to compile here until it is handled.
-      const unknown: never = t;
-      throw new Error(`type ${id} is of a kind this library doesn't know: ${JSON.stringify(unknown)}`);
+    case 'Model': {
+      const modelId = t.value;
+      return {
+        kind: 'model',
+        get model() {
+          return forge.model(modelId);
+        },
+      };
     }
   }
 }

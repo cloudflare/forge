@@ -36,13 +36,12 @@ mod host;
 #[cfg(feature = "library")]
 mod library;
 mod records;
+pub mod schema;
 
 #[cfg(feature = "wasm")]
 pub use host::{WasmFile, WasmPlugin};
-
-/// Holds the WIT package that plugins and the library are built against.
-/// Plugins are components of its `plugin` world, and its `library` world
-/// runs forge in the caller's process. Plugins in other languages generate
-/// their bindings from it.
+#[cfg(feature = "wasm")]
+pub use records::pack_forge;
+/// Holds the WIT package that plugins are built against.
 #[cfg(feature = "wasm")]
 pub const WIT: &str = include_str!("wasm/forge.wit");

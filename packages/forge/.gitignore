@@ -14,3 +14,4 @@
 /plugin/component
 /plugin/*.js
 /plugin/*.d.ts
+/plugin/*.wasm

@@ -1,101 +1,76 @@
-//! Implements the WIT's `library` world, which parses documents in the
-//! caller's own process.
-//!
-//! `packages/forge/library` builds this crate to WebAssembly, and
-//! `@cloudflare/forge` turns the build into JavaScript. `parse` returns the
-//! same `forge` resource plugins read, so callers read a parsed document a
-//! part at a time, by id. An id the document never gave out traps.
+//! Plain `wasm32-unknown-unknown` C-ABI entrypoints for `@cloudflare/forge`'s
+//! in-process `parse()` function — no `wit-bindgen`, no `jco` component glue,
+//! and no leaked `Forge` instances retained across calls.
 
-use super::records::records;
-use crate::Forge;
-
-/// Holds the bindings of the `library` world, which only this module uses.
-#[expect(
-    clippy::mem_forget,
-    reason = "wit-bindgen's generated code hands resources over with mem::forget"
-)]
-mod bindings {
-    wit_bindgen::generate!({
-        path: "src/wasm/forge.wit",
-        world: "library",
-    });
-}
-
-use bindings::exports::forge::plugin::forge::{self as wit, GuestForge};
-use bindings::exports::forge::plugin::parser as exports;
-
-// The crate built to WebAssembly links this crate, and so exports the world
-// these functions implement. Only a WebAssembly build has anything to
-// export them to.
 #[cfg(target_arch = "wasm32")]
-bindings::export!(Library with_types_in bindings);
+mod wasm_exports {
+    use core::cell::RefCell;
 
-/// Implements the `library` world.
-struct Library;
+    use super::super::records::pack_forge;
+    use crate::Forge;
 
-impl wit::Guest for Library {
-    type Forge = Document;
-}
-
-impl exports::Guest for Library {
-    fn parse(json: String) -> Result<wit::Forge, String> {
-        let forge: Forge = serde_json::from_str(&json).map_err(|err| err.to_string())?;
-        Ok(wit::Forge::new(Document { forge }))
-    }
-}
-
-/// Holds one parsed document, behind the `forge` resource.
-struct Document {
-    forge: Forge,
-}
-
-/// Returns item `id` of `items`. Panics, and so traps, when the document
-/// never gave out `id`.
-fn get<'a, T>(items: &'a [T], id: u32, what: &str) -> &'a T {
-    match items.get(id as usize) {
-        Some(item) => item,
-        None => panic!("no {what} with id {id}"),
-    }
-}
-
-impl GuestForge for Document {
-    fn info(&self) -> wit::ForgeInfo {
-        forge_info(&self.forge)
+    struct Output {
+        bytes: Vec<u8>,
+        is_err: bool,
     }
 
-    fn counts(&self) -> wit::ForgeCounts {
-        forge_counts(&self.forge)
-    }
-
-    fn groups(&self) -> Vec<u32> {
-        group_ids(&self.forge)
-    }
-
-    fn get_group(&self, id: u32) -> wit::GroupInfo {
-        group_info(get(&self.forge.groups, id, "group"))
-    }
-
-    fn get_method(&self, id: u32) -> wit::MethodInfo {
-        method_info(&self.forge, get(&self.forge.methods, id, "method"))
-    }
-
-    fn get_model(&self, id: u32) -> wit::ModelInfo {
-        model_info(&self.forge, get(&self.forge.models, id, "model"))
-    }
-
-    fn get_type(&self, id: u32) -> wit::TypeInfo {
-        type_info(&self.forge, get(&self.forge.types, id, "type"))
-    }
-
-    fn get_location(&self, id: u32, object: u32, index: u32) -> Option<wit::Location> {
-        let forge = &self.forge;
-        let method = get(&forge.methods, id, "method");
-        let crate::types::TypeData::Object(object) = get(&forge.types, object, "type") else {
-            panic!("type {object} is not an object");
+    thread_local! {
+        static OUT: RefCell<Output> = const {
+            RefCell::new(Output {
+                bytes: Vec::new(),
+                is_err: false,
+            })
         };
-        let field = get(forge.fields.get(object.fields), index, "field");
-        location(forge, method, field)
+    }
+
+    /// Parses UTF-8 OpenAPI JSON at `(ptr, len)` into a `Forge`, immediately
+    /// packs it into a single `capnstruct` buffer, and drops `Forge`.
+    /// Returns `0` on success (packed `ForgeDoc` in `forge_out_ptr/len`) or
+    /// `1` on error (UTF-8 error message in `forge_out_ptr/len`).
+    #[unsafe(no_mangle)]
+    pub extern "C" fn forge_parse(ptr: *const u8, len: u32) -> u32 {
+        // SAFETY: JS writes `len` UTF-8 bytes into memory allocated via `capn_alloc`.
+        let input = unsafe { core::slice::from_raw_parts(ptr, len as usize) };
+        let result = match core::str::from_utf8(input) {
+            Ok(text) => serde_json::from_str::<Forge>(text)
+                .map(|forge| pack_forge(&forge))
+                .map_err(|err| err.to_string().into_bytes()),
+            Err(err) => Err(err.to_string().into_bytes()),
+        };
+        OUT.with(|cell| {
+            let mut out = cell.borrow_mut();
+            match result {
+                Ok(bytes) => {
+                    out.bytes = bytes;
+                    out.is_err = false;
+                    0
+                }
+                Err(msg) => {
+                    out.bytes = msg;
+                    out.is_err = true;
+                    1
+                }
+            }
+        })
+    }
+
+    #[unsafe(no_mangle)]
+    pub extern "C" fn forge_out_ptr() -> *const u8 {
+        OUT.with(|cell| cell.borrow().bytes.as_ptr())
+    }
+
+    #[unsafe(no_mangle)]
+    pub extern "C" fn forge_out_len() -> u32 {
+        OUT.with(|cell| cell.borrow().bytes.len() as u32)
+    }
+
+    #[unsafe(no_mangle)]
+    pub extern "C" fn forge_clear_out() {
+        OUT.with(|cell| {
+            let mut out = cell.borrow_mut();
+            out.bytes.clear();
+            out.bytes.shrink_to_fit();
+            out.is_err = false;
+        });
     }
 }
-
-records!();

@@ -112,21 +112,16 @@ export function buildPlugin(out = join(npmDir, 'plugin')) {
  * the compiler.
  */
 function buildComponent(out) {
-  const jco = devBin('@bytecodealliance/jco', 'jco');
   run(
     'cargo',
-    ['build', '--release', '--locked', '--target', 'wasm32-unknown-unknown', '-p', 'forge-library'],
+    ['build', '--release', '--target', 'wasm32-unknown-unknown', '-p', 'forge-library'],
     repoDir,
   );
   const release = join(repoDir, 'target', 'wasm32-unknown-unknown', 'release');
-  const component = join(release, 'forge.component.wasm');
-  node(jco, ['new', join(release, 'forge_library.wasm'), '-o', component]);
-  const transpiled = join(out, 'component');
-  rmSync(transpiled, { recursive: true, force: true });
-  node(jco, ['transpile', component, '--name', 'forge', '--quiet', '-o', transpiled]);
-  const types = join(npmDir, 'src', 'component');
-  rmSync(types, { recursive: true, force: true });
-  cpSync(transpiled, types, { recursive: true, filter: (path) => !/\.(js|wasm)$/.test(path) });
+  rmSync(join(out, 'component'), { recursive: true, force: true });
+  rmSync(join(npmDir, 'src', 'component'), { recursive: true, force: true });
+  cpSync(join(release, 'forge_library.wasm'), join(out, 'forge.wasm'));
+  cpSync(join(npmDir, 'src', 'wasm-loader.js'), join(out, 'wasm-loader.js'));
 }
 
 /**

@@ -1,35 +1,27 @@
 /**
  * Reads OpenAPI documents with forge, in the same process.
  *
- * `parse` parses a document with forge compiled to WebAssembly. It returns
- * the document's forge, with the same groups, methods, models and types a
- * plugin reads.
- *
- * ```ts
- * import { parse } from "@cloudflare/forge";
- *
- * using forge = parse(await readFile("openapi.json", "utf8"));
- * for (const group of forge.groups) {
- *   console.log(group.path.join("."), group.methods.map((m) => m.name.camel()));
- * }
- * ```
+ * `parse` parses a document with forge compiled to WebAssembly into a single
+ * self-contained `capnstruct` binary buffer. It returns the document's forge,
+ * with the same groups, methods, models and types a plugin reads.
  *
  * @module
  */
 
-import { parser } from './component/forge.js';
 import { type Forge, forgeOf } from './forge.js';
+import { parseToCapnBuffer } from './wasm-loader.js';
 
 export type * from './forge.js';
 
 /**
- * Holds a parsed document's forge in forge's memory until disposed. Dispose
- * it, or declare it with `using`, when done.
+ * Holds a parsed document's forge backed by a standalone `Uint8Array`.
+ * Disposal is optional (standard JS GC reclaims the buffer automatically),
+ * and `dispose()` / `using` immediately releases the backing buffer reference.
  */
 export interface Document extends Forge, Disposable {
   /**
-   * Frees the document. A part already read stays readable; reading one
-   * for the first time afterwards throws.
+   * Releases the backing buffer. Parts already read stay readable; reading an
+   * unread part afterwards throws.
    */
   dispose(): void;
 }
@@ -40,28 +32,10 @@ export interface Document extends Forge, Disposable {
  * not OpenAPI 3.x, or one with two methods of the same name in a group.
  */
 export function parse(json: string): Document {
-  let parsed: ReturnType<typeof parser.parse>;
-  try {
-    parsed = parser.parse(json);
-  } catch (err) {
-    throw new Error(componentMessage(err));
-  }
-  const forge = forgeOf(parsed);
-  const dispose = () => parsed[disposeSymbol]();
+  const bytes = parseToCapnBuffer(json);
+  const forge = forgeOf(bytes);
+  const dispose = () => forge._dispose();
   return Object.assign(forge, { dispose, [disposeSymbol]: dispose });
 }
 
-/**
- * Holds `Symbol.dispose`. Node added it in 18.18 and 20.4, so older versions
- * get the symbol jco's resources use instead.
- */
 const disposeSymbol: typeof Symbol.dispose = Symbol.dispose ?? (Symbol.for('dispose') as typeof Symbol.dispose);
-
-/** Returns the message of a component's error case, or of what was thrown. */
-function componentMessage(err: unknown): string {
-  const payload = (err as { payload?: unknown } | null)?.payload;
-  if (typeof payload === 'string') {
-    return payload;
-  }
-  return err instanceof Error ? err.message : String(err);
-}
