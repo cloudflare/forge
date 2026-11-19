@@ -36,6 +36,9 @@ jobs:
 
       - uses: ./.github/actions/setup-workspace
 
+      # The site reads the spec with the workspace's @cloudflare/forge.
+      - uses: ./.github/actions/build-forge
+
       # Preview URLs come from `previewUrls` in cloudflare.config.ts, which a
       # production deploy must apply first.
       - name: Deploy preview

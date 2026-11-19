@@ -1,23 +1,8 @@
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import type { ApiSpec, ApiVersionSpec } from '@cloudflare/nimbus-docs/types';
-import {
-  buildFernContent,
-  defineFernManifest,
-  type FernContentProjectData,
-  type FernManifestProvider,
-  type FernSourceOperation,
-  fernOperationId,
-  getOperationExtensionData,
-} from 'astro-fern';
-import { forgeExtension, hasRemovedForgeOperationFields, hoistForgeCommands } from 'fern-forge';
 import { sample } from 'openapi-sampler';
-import {
-  CLOUDFLARE_RESPONSE_PAYLOAD_KEY,
-  CLOUDFLARE_TARGETS,
-  cloudflareFormatIdentifier,
-  cloudflareOperationRoutingPreference,
-  cloudflareSnippets,
-} from './cloudflare.ts';
+import { CLOUDFLARE_TARGETS } from './cloudflare.ts';
+import { type Content, type ContentOperation, readContent } from './forge-content.ts';
 import { assertToolingRouteNamespace } from './command-reference/routing.ts';
 import { planStainlessRedirects, type StainlessSnapshot } from './stainless-redirects.ts';
 import {
@@ -27,8 +12,8 @@ import {
   snippetsByOperation,
   stainlessSnippetsFileSchema,
 } from './stainless-snippets.ts';
-import { TERRAFORM_EXTENSION_NAME, type TerraformOperationData, terraformOperationDataSchema } from './terraform.ts';
-import { cloudflareTerraformExtension } from './terraform-extension.ts';
+import type { TerraformOperationData } from './terraform.ts';
+import { cloudflareTerraform } from './terraform-extension.ts';
 import { parseCloudflareApiVersion } from './version.ts';
 
 export const TERRAFORM_EXTENSION = 'x-cloudflare-terraform';
@@ -53,7 +38,7 @@ function addResponseExamples(responses: Record<string, JsonResponse>, document: 
 }
 
 /**
- * Returns the operationId to give Nimbus for an ID that astro-fern derived from an SDK address.
+ * Returns the operationId to give Nimbus for an ID derived from an SDK address.
  *
  * Nimbus treats the dots in an operationId as namespaces, and it reserves a few of them, such as
  * `tags`, for its own pages. When a derived ID starts with one of those products, the product is
@@ -97,9 +82,6 @@ interface Tag {
 
 const air = parseCloudflareApiVersion('2026-11-30.air');
 
-const manifest: FernManifestProvider = (_openapi, { discoverProducts }) =>
-  defineFernManifest({ targets: CLOUDFLARE_TARGETS, products: discoverProducts() });
-
 function assertSlug(slug: string, what: string): void {
   for (const segment of slug.split('/')) {
     if (!SLUG_SEGMENT.test(segment)) {
@@ -117,27 +99,18 @@ const SCHEMA_TITLES: Record<string, string> = {
   'dns-records_dns-record-with-data': 'Data records',
 };
 
-/** Rewrites the raw Forge document into the one Nimbus draws, driven by what astro-fern decided. */
+/** Rewrites the spec into the one Nimbus draws, driven by what Forge read of it (`content`). */
 export function prepareForgeApi(
   source: Record<string, unknown>,
-  data: FernContentProjectData,
-  snapshotId: string,
+  content: Content,
   /** `operationId` → the retired Stainless site's SDK snippets; see `snippetsByOperation`. */
   sdkSnippets: ReadonlyMap<string, SdkSnippets> = new Map(),
 ): PreparedForgeApi {
   const document = structuredClone(source);
   document.info = { ...(document.info as Record<string, unknown>), title: API_TITLE };
-  // Collect the IDs astro-fern derives for operations that have no operationId. Only these are
-  // renamed for Nimbus; an operationId written in the spec is left as its author wrote it.
-  const derivedIds = new Set<string>();
-  for (const [path, item] of Object.entries((document.paths ?? {}) as Record<string, Record<string, unknown>>)) {
-    for (const method of HTTP_METHODS) {
-      const op = item?.[method] as Record<string, unknown> | undefined;
-      if (!op || typeof op.operationId === 'string') continue;
-      const derived = fernOperationId(op, method, path);
-      if (derived !== undefined) derivedIds.add(derived);
-    }
-  }
+  // Only the IDs derived for operations without an operationId are renamed for Nimbus; an
+  // operationId written in the spec is left as its author wrote it.
+  const derivedIds = new Set(content.operations.filter((entry) => entry.derivedId).map((entry) => entry.operationId));
   const nimbusId = (operationId: string) =>
     derivedIds.has(operationId) ? nimbusOperationId(operationId) : operationId;
   const schemas =
@@ -145,17 +118,19 @@ export function prepareForgeApi(
   for (const [name, title] of Object.entries(SCHEMA_TITLES)) {
     if (schemas[name]) schemas[name] = { title, ...schemas[name] };
   }
-  const byId = new Map<string, FernSourceOperation>();
-  const aliases: FernSourceOperation[] = [];
-  for (const entry of data.operations) {
-    if (entry.snapshotId !== snapshotId) continue;
-    if ((entry.operation.placement?.projectionId ?? 'primary') !== 'primary') {
+  const byId = new Map<string, ContentOperation>();
+  /** `method path` → the operation's own method, for finding it in the spec. */
+  const byAddress = new Map<string, ContentOperation>();
+  const aliases: ContentOperation[] = [];
+  for (const entry of content.operations) {
+    if (entry.alias) {
       aliases.push(entry);
       continue;
     }
-    const id = entry.operation.operationId;
+    const id = entry.operationId;
     if (byId.has(id)) throw new Error(`cloudflare-api-site: operation "${id}" has two primary placements`);
     byId.set(id, entry);
+    byAddress.set(`${entry.method} ${entry.path}`, entry);
   }
 
   const tags = new Map<string, Tag & { key: string }>();
@@ -182,7 +157,7 @@ export function prepareForgeApi(
   };
 
   const primaryProductIds = new Set([...byId.values()].map((entry) => entry.product.id));
-  const primaryProducts = data.catalog.products.filter((product) => primaryProductIds.has(product.id));
+  const primaryProducts = content.products.filter((product) => primaryProductIds.has(product.id));
   for (const product of primaryProducts) {
     defineTag(
       { name: product.slug, 'x-displayName': product.title, description: product.description },
@@ -191,15 +166,15 @@ export function prepareForgeApi(
     section(product.slug);
   }
 
-  for (const entry of byId.values()) {
-    const { product, operation } = entry;
+  for (const operation of byId.values()) {
+    const { product } = operation;
     let leaf = product.slug;
     let path = sectionPath(product.slug);
-    if (operation.placement) {
+    if (operation.resourcePath) {
       let parent = product.slug;
       const ids: string[] = [];
       const slugs: string[] = [];
-      for (const segment of operation.placement.resourcePath) {
+      for (const segment of operation.resourcePath) {
         ids.push(segment.id);
         slugs.push(segment.slug);
         const name = `${product.slug}-${slugs.join('-')}`;
@@ -209,7 +184,7 @@ export function prepareForgeApi(
       }
       leaf = parent;
     } else {
-      redirects[`/${product.slug}/sections/${entry.section.id}/`] = path;
+      redirects[`/${product.slug}/sections/${operation.sectionId}/`] = path;
     }
     leafTag.set(operation.operationId, leaf);
     leafPath.set(operation.operationId, path);
@@ -230,7 +205,8 @@ export function prepareForgeApi(
     operations[id] = slug;
   }
   for (const alias of aliases) {
-    const { product, operation } = alias;
+    const { product } = alias;
+    const operation = alias;
     const primary = byId.get(operation.operationId);
     const primarySlug = operations[nimbusId(operation.operationId)];
     const primarySection = leafPath.get(operation.operationId);
@@ -238,7 +214,7 @@ export function prepareForgeApi(
       throw new Error(`cloudflare-api-site: alias of "${operation.operationId}" has no primary page`);
     }
     redirects[`/${product.slug}/${operation.slug}/`] = `/${primarySlug}/`;
-    const slugs = operation.placement?.resourcePath.map((segment) => segment.slug) ?? [];
+    const slugs = operation.resourcePath?.map((segment) => segment.slug) ?? [];
     for (let depth = 0; depth <= slugs.length; depth++) {
       const from = `/${[product.slug, ...slugs.slice(0, depth)].join('/')}/`;
       if (sections.has(from)) continue;
@@ -254,30 +230,25 @@ export function prepareForgeApi(
       const raw = item[method];
       if (!raw || typeof raw !== 'object') continue;
       const op = raw as Record<string, unknown>;
-      const operationId = fernOperationId(op, method, path);
-      const entry = operationId === undefined ? undefined : byId.get(operationId);
+      const entry = byAddress.get(`${method} ${path}`);
       if (!entry) {
         delete item[method];
         continue;
       }
       kept++;
       // Nimbus needs an operationId on every operation, so give the derived one to those without.
-      op.operationId = nimbusId(entry.operation.operationId);
-      op.tags = [leafTag.get(entry.operation.operationId)];
+      op.operationId = nimbusId(entry.operationId);
+      op.tags = [leafTag.get(entry.operationId)];
       // Nimbus reads each page's URL from the spec, so the config carries no route map.
-      op['x-nimbus-route'] = operations[entry.operation.operationId];
-      if (entry.operation.deprecated) op.deprecated = true;
+      op['x-nimbus-route'] = operations[nimbusId(entry.operationId)];
+      if (entry.deprecated) op.deprecated = true;
       const methodName = op['x-fern-sdk-method-name'];
       const rank = typeof methodName === 'string' ? LIFECYCLE.indexOf(methodName) : -1;
       if (rank !== -1) op['x-nimbus-order'] = rank + 1;
-      const terraform = getOperationExtensionData(
-        entry.operation,
-        TERRAFORM_EXTENSION_NAME,
-        terraformOperationDataSchema,
-      );
+      const { terraform } = entry;
       if (terraform) op[TERRAFORM_EXTENSION] = terraform;
       const snippets = new Map(entry.snippets.map((snippet) => [snippet.targetId, snippet.code]));
-      const sdk = sdkSnippets.get(entry.operation.operationId);
+      const sdk = sdkSnippets.get(entry.operationId);
       op['x-codeSamples'] = CLOUDFLARE_TARGETS.flatMap((target) => {
         const lang = target.id;
         const code = snippets.get(target.id);
@@ -357,20 +328,12 @@ function terraformSample(terraform: TerraformOperationData | undefined): string 
  * and dev start, and `astro preview` reuses the last build's result.
  */
 export function prepareForgeSpec(source: Record<string, unknown>): Record<string, unknown> {
-  const document = hoistForgeCommands(source);
-  const data = buildFernContent({
-    source: { kind: 'snapshots', snapshots: [{ id: air.wire, source: document, label: air.label, default: true }] },
-    manifest,
-    responsePayloadKey: CLOUDFLARE_RESPONSE_PAYLOAD_KEY,
-    formatIdentifier: cloudflareFormatIdentifier,
-    operationRoutingPreference: cloudflareOperationRoutingPreference,
-    isOperationHidden: hasRemovedForgeOperationFields,
-    snippets: cloudflareSnippets,
-    extensions: [forgeExtension(), cloudflareTerraformExtension],
-    onWarning: (message) => console.warn(`[forge-api] ${message}`),
-  });
   const snapshot = readStainlessSnapshot();
-  const prepared = prepareForgeApi(document, data, air.wire, readStainlessSnippets(snapshot));
+  const prepared = prepareForgeApi(
+    source,
+    readContent(source, cloudflareTerraform(source)),
+    readStainlessSnippets(snapshot),
+  );
   assertToolingRouteNamespace(prepared.products, Object.values(prepared.operations));
 
   const dir = new URL('../.forge/', import.meta.url);

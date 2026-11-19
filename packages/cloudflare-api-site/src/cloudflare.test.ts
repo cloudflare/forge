@@ -1,16 +1,13 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { test } from 'node:test';
-import type { SnippetInput, SnippetOperation } from 'astro-fern';
-import { buildDocsModel, type OpenApiDocumentSchema } from 'astro-fern/content';
-import { forgeExtension } from 'fern-forge';
 import {
   CLOUDFLARE_TARGETS,
   cloudflareFormatIdentifier,
-  cloudflareOperationRoutingPreference,
   cloudflareSnippets,
   cloudflareSnippetsByTarget,
 } from './cloudflare.ts';
+import type { SnippetInput, SnippetOperation } from './snippets.ts';
 
 function op(partial: Partial<SnippetOperation> = {}): SnippetOperation {
   return {
@@ -102,47 +99,6 @@ const nestedCreateInput: SnippetInput = {
     },
   }),
 };
-
-test('Cloudflare routing temporarily prefers approved account operations over zone operations', () => {
-  const source = (accountHidden: boolean): OpenApiDocumentSchema => ({
-    paths: {
-      '/accounts/{account_id}/media/usage': {
-        get: {
-          operationId: 'usage-analytics-get-account-media-usage',
-          tags: ['Usage Analytics'],
-          'x-fern-sdk-group-name': 'media.usage',
-          'x-fern-sdk-method-name': 'get',
-          'x-forge-hidden': accountHidden,
-        },
-      },
-      '/zones/{zone_id}/media/usage': {
-        get: {
-          operationId: 'usage-analytics-get-zone-media-usage',
-          tags: ['Usage Analytics'],
-          'x-fern-sdk-group-name': 'media.usage',
-          'x-fern-sdk-method-name': 'get',
-        },
-      },
-    },
-  });
-  const build = (accountHidden: boolean) =>
-    buildDocsModel({
-      source: source(accountHidden),
-      products: [{ id: 'media', sdkGroup: 'media', sections: [{ id: 'usage', tag: 'Usage Analytics' }] }],
-      extensions: [forgeExtension()],
-      operationRoutingPreference: cloudflareOperationRoutingPreference,
-      onWarning: () => {},
-    });
-
-  assert.equal(
-    build(false).products[0]?.sections[0]?.operations[0]?.operationId,
-    'usage-analytics-get-account-media-usage',
-  );
-  assert.equal(
-    build(true).products[0]?.sections[0]?.operations[0]?.operationId,
-    'usage-analytics-get-zone-media-usage',
-  );
-});
 
 const rootArrayCreateInput: SnippetInput = {
   ...createInput,

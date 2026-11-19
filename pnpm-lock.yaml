@@ -233,6 +233,9 @@ importers:
       '@astrojs/cloudflare':
         specifier: ^15.0.0-beta.2
         version: 15.0.0-beta.2(@types/node@26.0.1)(astro@7.4.1(@types/node@26.0.1)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.22.4)(yaml@2.9.1))(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.22.4)(workerd@1.20261101.1)(yaml@2.9.1)
+      '@cloudflare/forge':
+        specifier: workspace:*
+        version: link:../forge
       '@cloudflare/nimbus-docs':
         specifier: ^0.20.1
         version: 0.20.1(@modelcontextprotocol/server@2.3.1)(@resvg/resvg-js@2.6.2)(@scalar/openapi-parser@0.28.12)(@types/node@26.0.1)(astro@7.4.1(@types/node@26.0.1)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.22.4)(yaml@2.9.1))(esbuild@0.28.2)(jiti@2.7.0)(openapi-sampler@1.7.4)(satori@0.63.2)(supports-color@10.2.2)(tsx@4.22.4)
