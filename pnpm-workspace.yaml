@@ -5,10 +5,21 @@ packages:
 allowBuilds:
   esbuild: true
   workerd: true
+# Force a patched version of fast-uri in the whole workspace. @redocly/ajv
+# and ajv-formats both depend on fast-uri ^3.0.1, which resolves to a
+# version with five known high-severity advisories (GHSA-5jgf-p345-68v8,
+# GHSA-f65p-4m7j-42xc, GHSA-fph4-wmhf-6fwf, GHSA-jqff-g426-hqxp,
+# GHSA-qw65-cvwx-89v3). 3.1.7 fixes them all and is a drop-in replacement.
+# Required so `pnpm audit --audit-level=high` passes in the publish workflow
+# for @cloudflare/redocly-plugin-forge. Drop this override once the parent
+# packages widen their ranges above 3.1.7 themselves.
+overrides:
+  fast-uri@<3.1.7: '>=3.1.7'
 minimumReleaseAgeExclude:
   - '@astrojs/cloudflare@15.0.0-beta.2'
   - '@cloudflare/runtime-types@0.1.13'
   - astro@7.4.1
   - cf@1.0.0-beta.19
   - miniflare@5.20261019.0-beta
+  - '@cloudflare/nimbus-docs@0.20.0'
   - '@redocly/openapi-core@2.77.0'

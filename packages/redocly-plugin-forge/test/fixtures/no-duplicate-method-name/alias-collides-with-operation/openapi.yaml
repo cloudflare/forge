@@ -1,0 +1,23 @@
+openapi: 3.1.0
+info:
+  title: Alias collides with other operation
+  version: 1.0.0
+paths:
+  /zones/legacy:
+    get:
+      operationId: legacyListZones
+      x-forge-group-name: zones
+      x-forge-method-name: legacyList
+      x-forge-aliases:
+        - x-forge-method-name: list
+      responses:
+        '200':
+          description: OK
+  /zones:
+    get:
+      operationId: listZones
+      x-forge-group-name: zones
+      x-forge-method-name: list
+      responses:
+        '200':
+          description: OK

@@ -1,0 +1,17 @@
+openapi: 3.1.0
+info:
+  title: Duplicate path placeholder
+  version: 1.0.0
+paths:
+  /pets/{id}/toys/{id}:
+    get:
+      operationId: getPetToy
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK

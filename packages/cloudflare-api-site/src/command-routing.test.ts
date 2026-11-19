@@ -44,18 +44,6 @@ test('command titles humanize kebab and snake case names', () => {
   assert.equal(commandTitle({ name: 'who_am_i' }), 'Who Am I');
 });
 
-test('commands are associated with products by exact visible namespace', () => {
-  assert.deepEqual(
-    router.commandsForProduct('d1').map((command) => command.command),
-    ['cf d1 migrations apply', 'cf d1 migrations create', 'cf d1 migrations list'],
-  );
-  assert.deepEqual(
-    router.commandsForProduct('workers').map((command) => command.command),
-    ['cf workers triggers deploy'],
-  );
-  assert.deepEqual(router.commandsForProduct('builds'), []);
-});
-
 test('hidden commands cannot be resolved', () => {
   const hidden = new CommandRouter(
     {
@@ -69,23 +57,13 @@ test('hidden commands cannot be resolved', () => {
 });
 
 test('the tooling namespace rejects a colliding API product', () => {
-  assert.throws(() => assertToolingRouteNamespace([{ id: 'tooling', slug: 'tooling' }], '/api', '/api'), /conflicts/);
-  assert.throws(() => assertToolingRouteNamespace([{ id: 'Tools', slug: 'tooling' }], '/api', '/api'), /conflicts/);
+  assert.throws(() => assertToolingRouteNamespace([{ id: 'tooling', slug: 'tooling' }], []), /conflicts/);
+  assert.throws(() => assertToolingRouteNamespace([{ id: 'Tools', slug: 'tooling' }], []), /conflicts/);
   assert.throws(
-    () =>
-      assertToolingRouteNamespace(
-        [
-          {
-            id: 'workers',
-            slug: 'workers',
-            snapshots: [{ pages: [{ pathname: '/api/workers/tooling/methods/list/' }] }],
-          },
-        ],
-        '/api',
-        '/api',
-      ),
+    () => assertToolingRouteNamespace([{ id: 'workers', slug: 'workers' }], ['workers/tooling/methods/list']),
     /conflicts/,
   );
-  assert.doesNotThrow(() => assertToolingRouteNamespace([{ id: 'tooling', slug: 'tooling' }], '/api', '/docs/api'));
-  assert.doesNotThrow(() => assertToolingRouteNamespace([{ id: 'workers', slug: 'workers' }], '/api', '/api'));
+  assert.doesNotThrow(() =>
+    assertToolingRouteNamespace([{ id: 'workers', slug: 'workers' }], ['workers/tools/methods/list']),
+  );
 });

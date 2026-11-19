@@ -1,0 +1,33 @@
+openapi: 3.0.3
+info:
+  title: Null defaults are skipped when composition or $ref is involved
+  version: 1.0.0
+paths: {}
+components:
+  schemas:
+    # The rule intentionally does not try to evaluate whether null satisfies these schemas.
+    # Any schema using $ref, allOf, oneOf, anyOf, or not is skipped for the null-default check.
+    RefTarget:
+      type: string
+    RefOnlyNonNullable:
+      $ref: '#/components/schemas/RefTarget'
+      default: null
+    AllOfNonNullable:
+      allOf:
+        - type: string
+      default: null
+    OneOfNonNullable:
+      oneOf:
+        - type: string
+        - type: integer
+      default: null
+    AnyOfNonNullable:
+      anyOf:
+        - type: string
+        - type: integer
+      default: null
+    NotNonNullable:
+      type: string
+      not:
+        type: integer
+      default: null

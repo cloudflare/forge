@@ -1,8 +1,0 @@
-[
-  {
-    "ruleId": "generators/fern-valid-webhook-signature",
-    "severity": "warn",
-    "message": "x-fern-webhook-signature: false does not disable signature verification: Fern treats any boolean as \"inherit\" and applies the document-level x-fern-webhook-signature to this webhook.",
-    "location": "openapi.yaml#/webhooks/a/post/x-fern-webhook-signature"
-  }
-]

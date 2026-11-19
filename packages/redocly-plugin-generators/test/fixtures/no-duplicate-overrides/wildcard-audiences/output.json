@@ -1,8 +1,0 @@
-[
-  {
-    "ruleId": "generators/fern-no-duplicate-overrides",
-    "severity": "error",
-    "message": "SDK method members.add already exists (x-fern-sdk-group-name: members, x-fern-sdk-method-name: add)",
-    "location": "openapi.yaml#/paths/~1admin~1members/put/x-fern-sdk-method-name"
-  }
-]

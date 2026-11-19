@@ -422,8 +422,8 @@ fn returns_errors() {
     assert_eq!(wasm, native);
 }
 
-/// `forge --target wasm://PATH` runs the plugin at PATH, and writes what
-/// `--target ts` does.
+/// `forge generate --target wasm://PATH` runs the plugin at PATH, and writes
+/// what `--target ts` does.
 #[test]
 fn cli() {
     let out = std::env::temp_dir().join(format!("forge-cli-wasm-{}", std::process::id()));
@@ -454,12 +454,13 @@ fn cli_missing_plugin() {
     assert!(err.starts_with("forge: missing.wasm: "), "{err}");
 }
 
-/// Runs `forge` with `args`, writing [`SPEC`] to it.
+/// Runs `forge generate` with `args`, writing [`SPEC`] to it.
 fn forge_cli(args: &[&str]) -> std::process::Output {
     use std::io::Write;
     use std::process::Stdio;
 
     let mut child = Command::new(env!("CARGO_BIN_EXE_forge"))
+        .arg("generate")
         .args(args)
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())

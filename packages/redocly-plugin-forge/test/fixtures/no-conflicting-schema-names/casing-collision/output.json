@@ -1,0 +1,8 @@
+[
+  {
+    "ruleId": "forge/no-conflicting-schema-names",
+    "severity": "error",
+    "message": "Schemas schema 'PlantType', schema 'plant_type' all normalize to 'plant type' in generated SDK code, which collides. Rename one of them, set a distinct x-forge-model-name, or mark one `x-forge-skip: true`.",
+    "location": "openapi.yaml#/components/schemas/plant_type (key)"
+  }
+]

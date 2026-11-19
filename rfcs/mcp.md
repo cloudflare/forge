@@ -1,6 +1,6 @@
 # The MCP target
 
-`forge openapi.json --target mcp --out tools` generates the tools of an MCP server in TypeScript: one tool for each API method, with everything needed to build the method's HTTP request from a call. This document specifies the mapping of the API onto MCP and the generated output, as the generator currently implements them.
+`forge generate openapi.json --target mcp --out tools` generates the tools of an MCP server in TypeScript: one tool for each API method, with everything needed to build the method's HTTP request from a call. This document specifies the mapping of the API onto MCP and the generated output, as the generator currently implements them.
 
 Forge generates the tools, not a server. Every server around them differs in its authentication, its own tools, resources and prompts served alongside, and its handling of API errors. So the output is data, typed for the official MCP TypeScript SDK, `@modelcontextprotocol/server`, with one function that serves it on an `McpServer`:
 

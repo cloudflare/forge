@@ -1,0 +1,14 @@
+[
+  {
+    "ruleId": "forge/no-conflicting-parameter-names",
+    "severity": "error",
+    "message": "query parameter '_' has a name with no letters or digits.",
+    "location": "openapi.yaml#/paths/~1plants/get/parameters/0/name (key)"
+  },
+  {
+    "ruleId": "forge/no-conflicting-parameter-names",
+    "severity": "error",
+    "message": "header parameter '-' has a name with no letters or digits.",
+    "location": "openapi.yaml#/paths/~1plants/get/parameters/1/name (key)"
+  }
+]

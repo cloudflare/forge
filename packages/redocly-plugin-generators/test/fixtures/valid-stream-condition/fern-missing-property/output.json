@@ -1,8 +1,0 @@
-[
-  {
-    "ruleId": "generators/fern-valid-stream-condition",
-    "severity": "warn",
-    "message": "Property \"$request.stream\" does not exist on the request. Fern adds a required boolean \"stream\" property to the request body; declare it in the schema so the documented request matches.",
-    "location": "openapi.yaml#/paths/~1chat/post/x-fern-streaming/stream-condition"
-  }
-]

@@ -1,0 +1,8 @@
+[
+  {
+    "ruleId": "forge/no-conflicting-parameter-names",
+    "severity": "error",
+    "message": "Parameters path parameter 'plant_id', body property 'plant-id' all normalize to 'plant id' in generated SDK code, which collides. Rename one of them, or set a distinct x-forge-parameter-name / x-forge-property-name.",
+    "location": "openapi.yaml#/components/schemas/PlantPatch/properties/plant-id (key)"
+  }
+]

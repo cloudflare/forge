@@ -1,8 +1,0 @@
-[
-  {
-    "ruleId": "generators/fern-valid-global-parameters",
-    "severity": "error",
-    "message": "Global parameter 'currency' is declared more than once (also at index 0); Fern keeps only the last declaration.",
-    "location": "openapi.yaml#/x-fern-global-parameters/1/name"
-  }
-]

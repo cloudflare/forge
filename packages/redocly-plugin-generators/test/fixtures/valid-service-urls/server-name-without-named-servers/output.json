@@ -1,8 +1,0 @@
-[
-  {
-    "ruleId": "generators/fern-valid-service-urls",
-    "severity": "error",
-    "message": "x-fern-server-name 'Upload' on GET /files does not name a base URL: no operation- or path-level server with a url has x-fern-server-name 'Upload'. Fern ignores it, and the operation uses the default base URL.",
-    "location": "openapi.yaml#/paths/~1files/get/x-fern-server-name"
-  }
-]

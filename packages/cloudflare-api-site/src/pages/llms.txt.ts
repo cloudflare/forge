@@ -1,26 +1,17 @@
-import { getLlmsPayload } from '@cloudflare/nimbus-docs/agent-endpoints';
-import type { APIRoute } from 'astro';
-import { renderLlmsIndexFromCatalog } from 'astro-fern/agents';
-import { getApiContentCatalog, getApiRouter } from '../api-server.ts';
+import { llmsRoute } from '@cloudflare/nimbus-docs/agent-endpoints';
+import { commandProducts } from '../command-sidebar.ts';
+import { getCommandRouter } from '../command-reference/server.ts';
 
-// Rendered on request: the authored pages come from the index Nimbus prepares
-// at build time, followed by the API products astro-fern resolves per request.
-export const prerender = false;
-
-/** Drops a Markdown document's leading H1 so its sections can follow another document. */
-function withoutTitle(body: string): string {
-  return body.replace(/^# [^\n]*\n+/, '');
-}
-
-export const GET: APIRoute = async ({ request, url }) => {
-  const router = await getApiRouter();
-  // The site index has no variants, but invalid selection values still 404 like other agent routes.
-  if (!router.resolveSiteSelection(url)) return new Response('Not found', { status: 404 });
-  const [docs, catalog] = await Promise.all([
-    getLlmsPayload({ scope: 'site', surface: 'index' }, { request }),
-    getApiContentCatalog(),
-  ]);
-  const api = renderLlmsIndexFromCatalog(catalog, { kind: 'llms', scope: 'site' }, router.resolveHref);
-  const body = docs ? `${docs.body.trimEnd()}\n\n${withoutTitle(api.body)}` : api.body;
-  return new Response(body, { headers: { 'Content-Type': api.contentType } });
-};
+/** Nimbus's `llms.txt`, followed by the cf command pages, which aren't in the API spec. */
+export const { GET } = llmsRoute({
+  body: async (index, context) => {
+    const router = await getCommandRouter();
+    const products = new Map(commandProducts.map((product) => [product.id, product]));
+    const origin = context.site ?? context.url;
+    const lines = router.commands.map((command) => {
+      const href = new URL(`${router.commandHref(command, products.get(command.fullPath[0]!))}index.md`, origin).href;
+      return `- [${command.command}](${href}) — ${command.description.split('\n')[0]}`;
+    });
+    return `${index.trimEnd()}\n\n## Developer tooling\n\n${lines.join('\n')}\n`;
+  },
+});

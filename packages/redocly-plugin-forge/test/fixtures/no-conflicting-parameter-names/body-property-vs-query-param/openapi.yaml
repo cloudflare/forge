@@ -1,0 +1,26 @@
+openapi: 3.0.3
+info:
+  title: Test API
+  version: 1.0.0
+paths:
+  /plants:
+    post:
+      operationId: searchPlants
+      parameters:
+        - name: plant_id
+          in: query
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                plantId:
+                  type: string
+                nickname:
+                  type: string
+      responses:
+        '200':
+          description: OK

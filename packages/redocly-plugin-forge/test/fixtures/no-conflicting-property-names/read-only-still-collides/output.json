@@ -1,0 +1,8 @@
+[
+  {
+    "ruleId": "forge/no-conflicting-property-names",
+    "severity": "error",
+    "message": "Properties property 'notification_url', property 'notificationUrl' all normalize to 'notification url' in generated SDK code, which collides. Rename one of them, set a distinct x-forge-property-name, or mark one `x-forge-skip: true`.",
+    "location": "openapi.yaml#/components/schemas/Thing/properties/notificationUrl (key)"
+  }
+]

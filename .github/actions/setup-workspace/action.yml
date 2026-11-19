@@ -10,14 +10,20 @@ inputs:
 runs:
   using: composite
   steps:
-    # No `version:` input on purpose: pnpm/action-setup reads the pinned
-    # `packageManager` field from the root package.json, so CI can never drift
-    # from what contributors run locally.
-    - uses: pnpm/action-setup@v6.0.10
+    # Pinned to commit SHAs (not tags) so a compromised or re-tagged
+    # upstream release can't inject code into any workflow that reuses
+    # this composite — notably the publish workflow, which runs with
+    # `id-token: write` to mint npm OIDC credentials. Bump by updating
+    # both the SHA and the version comment together.
+    #
+    # No `version:` input to pnpm/action-setup on purpose: it reads the
+    # pinned `packageManager` field from the root package.json, so CI
+    # can never drift from what contributors run locally.
+    - uses: pnpm/action-setup@ff378ebe6b225b0680b81c1ad4498ae0d1d3a5e3 # v6.0.10
 
     # `cache: pnpm` keys the pnpm store on pnpm-lock.yaml and needs pnpm on PATH,
     # hence the ordering above.
-    - uses: actions/setup-node@v7.0.0
+    - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
       with:
         node-version: ${{ inputs.node-version }}
         cache: pnpm

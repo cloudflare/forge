@@ -1,8 +1,0 @@
-[
-  {
-    "ruleId": "generators/fern-valid-global-parameters",
-    "severity": "error",
-    "message": "Global parameter at index 1 is null; Fern fails to import the document.",
-    "location": "openapi.yaml#/x-fern-global-parameters/1"
-  }
-]

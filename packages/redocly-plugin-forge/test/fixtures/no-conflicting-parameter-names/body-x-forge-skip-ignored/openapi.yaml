@@ -1,0 +1,28 @@
+openapi: 3.0.3
+info:
+  title: Test API
+  version: 1.0.0
+paths:
+  /plants/{plant_id}:
+    patch:
+      operationId: patchPlant
+      parameters:
+        - name: plant_id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                plantId:
+                  type: string
+                  x-forge-skip: true
+                nickname:
+                  type: string
+      responses:
+        '200':
+          description: OK
