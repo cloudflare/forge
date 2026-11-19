@@ -2,9 +2,9 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { sample } from 'openapi-sampler';
 import type { ApiSpec } from '@cloudflare/nimbus-docs/types';
 import { CLOUDFLARE_TARGETS } from './cloudflare.ts';
-import { type Content, type ContentOperation, readContent } from './forge-content.ts';
+import { type ContentOperation, readContent } from './forge-content.ts';
 import { loadForgeOpenApi } from './openapi-source.ts';
-import { cloudflareTerraform } from './terraform-extension.ts';
+import { loadTerraform, type TerraformIndex, terraformLookup } from './terraform-extension.ts';
 import type { TerraformOperationData } from './terraform.ts';
 import { assertToolingRouteNamespace } from './command-reference/routing.ts';
 import { cloudflareApiVersionLabel, parseCloudflareApiVersion } from './version.ts';
@@ -78,8 +78,13 @@ const SCHEMA_TITLES: Record<string, string> = {
   'dns-records_dns-record-with-data': 'Data records',
 };
 
-/** Rewrites the spec into the one Nimbus draws, driven by what Forge read of it (`content`). */
-export function prepareForgeApi(source: Record<string, unknown>, content: Content): PreparedForgeApi {
+/**
+ * Rewrites the spec `source` into the one Nimbus draws, driven by what Forge
+ * reads of it. `terraform` holds the provider's declarations, which the
+ * spec's operations show as samples and data.
+ */
+export function prepareForgeApi(source: Record<string, unknown>, terraform: TerraformIndex): PreparedForgeApi {
+  const content = readContent(source, terraformLookup(terraform, source));
   const document = structuredClone(source);
   document.info = { ...(document.info as Record<string, unknown>), title: API_TITLE };
   const schemas =
@@ -134,24 +139,19 @@ export function prepareForgeApi(source: Record<string, unknown>, content: Conten
 
   for (const operation of byId.values()) {
     const { product } = operation;
-    let leaf = product.slug;
     let path = sectionPath(product.slug);
-    if (operation.resourcePath) {
-      let parent = product.slug;
-      const ids: string[] = [];
-      const slugs: string[] = [];
-      for (const segment of operation.resourcePath) {
-        ids.push(segment.id);
-        slugs.push(segment.slug);
-        const name = `${product.slug}-${slugs.join('-')}`;
-        defineTag({ name, 'x-displayName': segment.title, parent }, `${product.id}:${ids.join('/')}`);
-        path = section(product.slug, slugs);
-        parent = name;
-      }
-      leaf = parent;
-    } else {
-      redirects[`/${product.slug}/sections/${operation.sectionId}/`] = path;
+    let parent = product.slug;
+    const ids: string[] = [];
+    const slugs: string[] = [];
+    for (const segment of operation.resourcePath) {
+      ids.push(segment.id);
+      slugs.push(segment.slug);
+      const name = `${product.slug}-${slugs.join('-')}`;
+      defineTag({ name, 'x-displayName': segment.title, parent }, `${product.id}:${ids.join('/')}`);
+      path = section(product.slug, slugs);
+      parent = name;
     }
+    const leaf = parent;
     leafTag.set(operation.operationId, leaf);
     leafPath.set(operation.operationId, path);
 
@@ -170,7 +170,7 @@ export function prepareForgeApi(source: Record<string, unknown>, content: Conten
     const { product } = alias;
     const operation = alias;
     redirects[`/${product.slug}/${operation.slug}/`] = `/${operations[operation.operationId]}/`;
-    const slugs = operation.resourcePath?.map((segment) => segment.slug) ?? [];
+    const slugs = operation.resourcePath.map((segment) => segment.slug);
     for (let depth = 0; depth <= slugs.length; depth++) {
       const from = `/${[product.slug, ...slugs.slice(0, depth)].join('/')}/`;
       if (sections.has(from)) continue;
@@ -266,7 +266,7 @@ function terraformSample(terraform: TerraformOperationData | undefined): string 
 export async function forgeApi(): Promise<ApiSpec> {
   const document = (await loadForgeOpenApi()) as Record<string, unknown>;
   const label = cloudflareApiVersionLabel(air);
-  const prepared = prepareForgeApi(document, readContent(document, cloudflareTerraform(document)));
+  const prepared = prepareForgeApi(document, loadTerraform());
   assertToolingRouteNamespace(prepared.products, Object.values(prepared.operations));
 
   const dir = new URL('../.forge/', import.meta.url);

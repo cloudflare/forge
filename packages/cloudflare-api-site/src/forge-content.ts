@@ -31,12 +31,10 @@ export interface ResourceSegment {
 export interface ContentOperation {
   operationId: string;
   product: ContentProduct;
-  /** The section of the operation's first tag, which old URLs used. */
-  sectionId: string;
   /** The page's path below its product, such as `items/methods/list`. */
   slug: string;
-  /** The groups between the product and the method, or none for an operation placed only by section. */
-  resourcePath?: ResourceSegment[];
+  /** The groups between the product and the method. */
+  resourcePath: ResourceSegment[];
   /** Whether the method is an alias. An alias has no page of its own; its URL redirects to the operation's page. */
   alias: boolean;
   deprecated: boolean;
@@ -54,7 +52,7 @@ export interface Content {
 /** Returns the Terraform declarations that call the operation `method` `path`, if any. */
 export type TerraformLookup = (method: string, path: string) => TerraformOperationData | undefined;
 
-type OpenApiOperation = { operationId?: unknown; tags?: unknown; deprecated?: unknown };
+type OpenApiOperation = { operationId?: unknown; deprecated?: unknown };
 
 /** Returns the operation the document declares at `method` `path`. */
 function openApiOperation(document: Record<string, unknown>, method: string, path: string): OpenApiOperation {
@@ -92,7 +90,7 @@ function hasRemovedMetadata(method: Method): boolean {
  * Returns what the site documents of `document`, an OpenAPI document with
  * Fern's extensions. Throws with Forge's message when Forge doesn't read it.
  */
-export function readContent(document: Record<string, unknown>, terraform: TerraformLookup = () => undefined): Content {
+export function readContent(document: Record<string, unknown>, terraform: TerraformLookup): Content {
   const forge = parse(JSON.stringify(document), { adapters: ['fern'] });
   try {
     return contentOf(forge, document, terraform);
@@ -131,11 +129,9 @@ function contentOf(
         title: cloudflareFormatIdentifier(id),
       }));
       const methodName = method.name.kebab();
-      const tag = Array.isArray(operation.tags) && typeof operation.tags[0] === 'string' ? operation.tags[0] : '';
       operations.push({
         operationId: operation.operationId,
         product,
-        sectionId: routeSegment(tag),
         slug: [...resourcePath.map((segment) => segment.slug), 'methods', routeSegment(methodName)].join('/'),
         resourcePath,
         alias: method.aliasOf !== undefined,

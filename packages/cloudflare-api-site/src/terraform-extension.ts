@@ -16,23 +16,25 @@ const HTTP_METHODS = ['get', 'post', 'put', 'patch', 'delete', 'head', 'options'
  * descriptions with the renderer the OpenAPI descriptions use, once at build time, so pages only
  * print HTML.
  */
-function loadTerraformIndex(): Map<string, TerraformDeclaration[]> {
+export function loadTerraform(): TerraformIndex {
   const file = new URL('./generated/terraform-docs.json', import.meta.url);
   const docs = terraformDocsSchema.parse(JSON.parse(readFileSync(file, 'utf8')));
   return indexTerraformDocs(renderTerraformDescriptions(docs, renderDescription));
 }
 
+/** Holds the provider's declarations by endpoint, as `canonicalTerraformEndpoint` keys them. */
+export type TerraformIndex = Map<string, TerraformDeclaration[]>;
+
 /**
- * Returns the Terraform declarations that call each operation of
- * `document`, looked up by HTTP method and path. Warns about provider
- * declarations that match no operation of the document, so drift between the
- * provider and the spec shows in builds.
+ * Returns a lookup of `index`'s declarations by HTTP method and path. Warns
+ * about declarations that match no operation of `document`, so drift between
+ * the provider and the spec shows in builds.
  */
-export function cloudflareTerraform(
+export function terraformLookup(
+  index: TerraformIndex,
   document: Record<string, unknown>,
   warn: (message: string) => void = (message) => console.warn(`[forge-api] ${message}`),
 ): (method: string, path: string) => TerraformOperationData | undefined {
-  const index = loadTerraformIndex();
   const known = new Set<string>();
   for (const [endpointPath, pathItem] of Object.entries((document.paths ?? {}) as Record<string, unknown>)) {
     for (const method of HTTP_METHODS) {
