@@ -8,9 +8,8 @@
  * top-level group is a product, the groups below it are the page's
  * resources, and the method's name ends its URL.
  */
-import { type Field, type Method, parse, type Type } from '@cloudflare/forge';
-import { cloudflareFormatIdentifier, cloudflareSnippets } from './cloudflare.ts';
-import type { SnippetInput, SnippetOperation, SnippetParam } from './snippets.ts';
+import { type Method, parse } from '@cloudflare/forge';
+import { cloudflareFormatIdentifier, cloudflareSamples } from './cloudflare.ts';
 import type { TerraformOperationData } from './terraform.ts';
 
 /** Describes a product: a top-level group of methods. */
@@ -132,11 +131,6 @@ export function readContent(document: Record<string, unknown>, terraform: Terraf
       }));
       const methodName = method.name.kebab();
       const tag = Array.isArray(operation.tags) && typeof operation.tags[0] === 'string' ? operation.tags[0] : '';
-      const input: SnippetInput = {
-        op: snippetOperation(method),
-        accessorPath: [productName, ...resources],
-        methodName,
-      };
       operations.push({
         operationId: operationId ?? sdkAddress(primary),
         derivedId: operationId === undefined,
@@ -148,7 +142,7 @@ export function readContent(document: Record<string, unknown>, terraform: Terraf
         resourcePath,
         alias: method.aliasOf !== undefined,
         deprecated: operation.deprecated === true || primary.availability === 'deprecated',
-        snippets: cloudflareSnippets(input).map(({ targetId, code }) => ({ targetId, code })),
+        snippets: cloudflareSamples(method, [productName, ...resources, methodName]),
         ...(method.aliasOf ? {} : withTerraform(terraform(method.httpMethod.toLowerCase(), method.path))),
       });
     }
@@ -167,91 +161,4 @@ function sdkAddress(method: Method): string {
 
 function withTerraform(data: TerraformOperationData | undefined): { terraform?: TerraformOperationData } {
   return data ? { terraform: data } : {};
-}
-
-/** Returns what a snippet renderer reads of `method`: its path, parameters and request body. */
-function snippetOperation(method: Method): SnippetOperation {
-  const request = method.request;
-  const params = request?.kind === 'intersection' ? request.members[0] : request;
-  const fields = params?.kind === 'object' ? params.fields : [];
-  const located = (where: 'path' | 'query') =>
-    fields.filter((field) => method.location(field)?.in === where).map((field) => fieldParam(field, new Set()));
-  const body = method.body;
-  return {
-    path: method.path,
-    method: method.httpMethod.toLowerCase(),
-    pathParams: located('path'),
-    queryParams: located('query'),
-    ...(body
-      ? {
-          requestBody: {
-            required: body.required,
-            representations: body.contents.map((content) => {
-              const schema = param('', content.type, true, new Set());
-              // A body's top-level fields nest at their own names.
-              for (const child of schema.children ?? []) child.apiFieldPath = [child.name];
-              return { mediaType: content.mediaType, schema };
-            }),
-          },
-        }
-      : {}),
-  };
-}
-
-/** Returns `field` as a snippet parameter. */
-function fieldParam(field: Field, models: ReadonlySet<unknown>): SnippetParam {
-  const node = param(field.wireName, field.type, field.required, models);
-  const value = field.default;
-  if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') node.default = value;
-  return node;
-}
-
-/**
- * Returns a value of `type` as a snippet parameter, with models written in
- * place. A model inside itself is written as an object with no fields.
- */
-function param(name: string, type: Type, required: boolean, models: ReadonlySet<unknown>): SnippetParam {
-  switch (type.kind) {
-    case 'scalar':
-      return { name, required, type: scalarType(type) };
-    case 'enum':
-      return {
-        name,
-        required,
-        type: typeof type.values[0] === 'string' ? 'string' : 'number',
-        enumValues: [...type.values],
-      };
-    case 'array':
-      return { name, required, type: 'array', items: param('', type.elem, false, models) };
-    case 'object':
-      return { name, required, type: 'object', children: type.fields.map((field) => fieldParam(field, models)) };
-    case 'union':
-      return {
-        name,
-        required,
-        type: 'object',
-        variants: type.members.map((member) => param('', member, false, models)),
-      };
-    case 'intersection': {
-      const children = type.members.flatMap((member) => param('', member, false, models).children ?? []);
-      return { name, required, type: 'object', children };
-    }
-    case 'model':
-      if (models.has(type.model)) return { name, required, type: 'object' };
-      return param(name, type.model.type, required, new Set([...models, type.model]));
-  }
-}
-
-/** Returns a scalar's JSON type name. */
-function scalarType(type: Extract<Type, { kind: 'scalar' }>): string {
-  switch (type.scalar) {
-    case 'number':
-      return type.number === 'float' || type.number === 'double' ? 'number' : 'integer';
-    case 'boolean':
-    case 'null':
-    case 'unknown':
-      return type.scalar;
-    default:
-      return 'string';
-  }
 }
