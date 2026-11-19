@@ -193,9 +193,11 @@ jobs:
           merge-multiple: true
           path: target/binaries
 
+      # pkg.pr.new does not rewrite sibling optionalDependencies inside
+      # prebuilt .tgz tarballs, so previews keep the single combined tarball
+      # with all binaries under native/ (which bin/forge.cjs falls back to).
       - name: Pack
-        run: just pack
-
+        run: just pack --bundled
       - name: Publish
         id: publish
         if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository

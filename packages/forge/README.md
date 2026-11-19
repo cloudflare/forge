@@ -331,24 +331,19 @@ works: in Rust, `wit_bindgen::generate!` and
 
 ## Platforms
 
-forge is a native binary, and this package carries one for each of:
+forge is a native binary, distributed as per-platform npm packages via `optionalDependencies` (`@cloudflare/forge-<os>-<cpu>`):
 
-- macOS, Apple silicon and Intel
-- Linux, arm64 and x64
-- Windows, arm64 and x64
+- macOS, Apple silicon and Intel (`@cloudflare/forge-darwin-arm64`, `@cloudflare/forge-darwin-x64`)
+- Linux, arm64 and x64 (`@cloudflare/forge-linux-arm64`, `@cloudflare/forge-linux-x64`)
+- Windows, arm64 and x64 (`@cloudflare/forge-win32-arm64`, `@cloudflare/forge-win32-x64`)
 
-The `forge` command is a small Node launcher that runs the right one. The
-Linux binaries are statically linked, so they run on both glibc and musl
-distributions, Alpine included. The Windows ones don't need the Visual C++
-Redistributable.
+The `forge` command is a small Node launcher that resolves the matching platform package at runtime without any `preinstall` or `postinstall` scripts, so installs work with `--ignore-scripts`. Linux binaries are statically linked (musl), so they run on both glibc and musl distributions, Alpine included. The Windows ones don't need the Visual C++ Redistributable.
 
-To run some other forge binary through this package, such as a local build,
-set `FORGE_BINARY` to its path.
+To run some other forge binary through this package, such as a local build, set `FORGE_BINARY` to its path.
 
 ## Installing from a tarball
 
-The package is a single tarball, so you can install it without the
-registry. Install it by path:
+To install without the registry, pack a single bundled tarball with `just pack --bundled` (or `just pack --bundled --platform <os>-<cpu>` for one target). Install it by path:
 
 ```sh
 npm install --save-dev /path/to/cloudflare-forge-0.2.0.tgz
@@ -374,7 +369,7 @@ git tag -s forge@0.2.0 -m 'forge 0.2.0'
 git push origin forge@0.2.0
 ```
 
-`.github/workflows/publish-forge.yml` builds all six binaries, packs the tarball, and publishes `@cloudflare/forge` to npmjs.com with provenance.
+`.github/workflows/publish-forge.yml` builds all six binaries, packs the six `@cloudflare/forge-<os>-<cpu>` packages and `@cloudflare/forge`, and publishes the platform packages first followed by `@cloudflare/forge` to npmjs.com with provenance.
 
 To build and pack locally from the root of the forge repository, with [just](https://just.systems) installed:
 
@@ -383,16 +378,10 @@ pnpm install                            # the dev dependencies, which build the 
 node packages/forge/scripts/version.mjs # after bumping the version in Cargo.toml
 node packages/forge/scripts/wit.mjs     # after changing the WIT in src/plugin/wasm.rs
 just build-all                          # builds all six binaries into target/binaries/ (or: just fetch <run-id>)
-just pack                               # packs them into packages/forge/dist/cloudflare-forge-<version>.tgz
+just pack                               # packs six platform tarballs + @cloudflare/forge into packages/forge/dist/
 ```
 
-To vendor the package in another repository, copy the tarball from
-`packages/forge/dist/` and depend on it with a `file:` specifier.
-
-The tarball that `just pack` makes is the one that gets published, so a
-tarball you hand around and the package on the registry are the same.
-`npm pack` and `npm publish` refuse to run in this directory, which has no
-binaries of its own.
+The seven tarballs that `just pack` makes are the ones published to npm (`cloudflare-forge-<os>-<cpu>-<version>.tgz` plus `cloudflare-forge-<version>.tgz`). To vendor a single self-contained tarball in another repository without the registry, run `just pack --bundled` and depend on `packages/forge/dist/cloudflare-forge-<version>.tgz` with a `file:` specifier. `npm pack` and `npm publish` refuse to run directly in this directory, which has no binaries of its own.
 
 The binaries are built with the `wasm` feature, which runs plugins. The
 package carries forge's copy of the WIT in `plugin/forge.wit`, and
@@ -435,20 +424,19 @@ on an Apple silicon Mac, the x64 Linux build runs emulated, so it's slow.
 The images also trust any `.crt` files in `docker/certs/`, which is gitignored.
 
 CI builds each target with `just build` on a runner that builds it natively,
-in the publish-preview workflow, then packs them with `just pack`.
+then packs them with `just pack` for npm releases or `just pack --bundled` for
+`pkg.pr.new` previews.
 
 The Windows binaries link the C runtime statically (see the `justfile`), so
 they don't need the Visual C++ Redistributable.
 
 ### Trying it out locally
 
-`just pack` takes `--platform <os>-<cpu>`, repeated, to pack only some
-platforms. For a package that runs on this machine:
+`just pack` takes `--platform <os>-<cpu>`, repeated, to pack only some platforms. Combine with `--bundled` for a single self-contained tarball that runs on this machine without the registry:
 
 ```sh
 just build aarch64-apple-darwin
-just pack --platform darwin-arm64
+just pack --bundled --platform darwin-arm64
 ```
 
-A tarball that leaves platforms out lists the ones it has in its name, as in
-`cloudflare-forge-0.2.0-darwin-arm64.tgz`, so it can't pass for the full package.
+A bundled tarball that leaves platforms out lists the ones it has in its name, as in `cloudflare-forge-0.2.0-darwin-arm64.tgz`, so it can't pass for the full package.

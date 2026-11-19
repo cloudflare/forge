@@ -27,7 +27,6 @@
   },
   "files": [
     "bin",
-    "native",
     "plugin",
     "README.md",
     "LICENSE"

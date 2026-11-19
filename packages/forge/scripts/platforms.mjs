@@ -12,18 +12,19 @@ export const npmDir = join(dirname(fileURLToPath(import.meta.url)), '..');
 /** The root of the Rust crate. */
 export const repoDir = join(npmDir, '..', '..');
 
-/** Where scripts/archive.mjs puts the tarball. */
+/** Where scripts/archive.mjs puts the tarballs. */
 export const distDir = join(npmDir, 'dist');
 
 /**
- * The platforms forge ships for, each a binary in the package at
- * native/<os>-<cpu>/. `os` and `cpu` take the values of Node's
- * process.platform and process.arch, which the launcher looks the binary up
- * by, and `target` is the Rust target that builds it.
+ * The platforms forge ships for, each published as a per-platform package
+ * `@cloudflare/forge-<os>-<cpu>` listed in optionalDependencies (or placed
+ * under `native/<os>-<cpu>/` in bundled tarballs). `os` and `cpu` take the
+ * values of Node's `process.platform` and `process.arch`, which the launcher
+ * looks the binary up by, and `target` is the Rust target that builds it.
  *
- * `just build <target>` builds one (see the justfile); the publish-preview
- * workflow's build matrix and the justfile's target lists must name the same
- * platforms, and scripts/archive.mjs refuses to pack a package that misses one.
+ * `just build <target>` builds one (see the justfile); the publish workflows'
+ * build matrices and the justfile's target lists must name the same platforms,
+ * and scripts/archive.mjs refuses to pack a package that misses one.
  *
  * Linux builds against musl so the binary is static and runs on any distro.
  */
@@ -34,11 +35,15 @@ export const platforms = [
   { os: 'linux', cpu: 'x64', target: 'x86_64-unknown-linux-musl' },
   { os: 'win32', cpu: 'arm64', target: 'aarch64-pc-windows-msvc' },
   { os: 'win32', cpu: 'x64', target: 'x86_64-pc-windows-msvc' },
-].map((platform) => ({
-  ...platform,
-  id: `${platform.os}-${platform.cpu}`,
-  exe: platform.os === 'win32' ? 'forge.exe' : 'forge',
-}));
+].map((platform) => {
+  const id = `${platform.os}-${platform.cpu}`;
+  return {
+    ...platform,
+    id,
+    pkg: `@cloudflare/forge-${id}`,
+    exe: platform.os === 'win32' ? 'forge.exe' : 'forge',
+  };
+});
 
 /**
  * Returns the path to the forge binary for `platform` in `artifacts`, or
@@ -170,13 +175,21 @@ export function checkVersion() {
 }
 
 /**
- * Returns the path of the tarball scripts/archive.mjs makes in `out` for
- * `version`, holding the binaries for `ids`. Only a tarball with every
- * platform goes without a suffix, so only that name can be published.
+ * Returns the path of the main @cloudflare/forge tarball scripts/archive.mjs
+ * makes in `out` for `version`. For bundled tarballs that leave out platforms,
+ * `ids` adds a suffix so a partial bundled tarball can't pass for the full one.
  */
 export function tarball(out, version, ids = platforms.map((platform) => platform.id)) {
   const suffix = ids.length === platforms.length ? '' : `-${ids.join('-')}`;
   return join(out, `cloudflare-forge-${version}${suffix}.tgz`);
+}
+
+/**
+ * Returns the path of the per-platform tarball scripts/archive.mjs makes in
+ * `out` for `platform` at `version`.
+ */
+export function platformTarball(out, version, platform) {
+  return join(out, `cloudflare-forge-${platform.id}-${version}.tgz`);
 }
 
 /** Returns `path` relative to the working directory if it's inside it. */

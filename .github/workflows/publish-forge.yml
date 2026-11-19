@@ -1,4 +1,5 @@
-# Publishes @cloudflare/forge to npmjs.com on tag push.
+# Publishes @cloudflare/forge and its six per-platform binary packages
+# (`@cloudflare/forge-<os>-<cpu>`) to npmjs.com on tag push.
 #
 # Hardened along the same lines as publish-redocly-plugin-forge.yml:
 # - Runs on tag only, never on arbitrary PRs.
@@ -7,19 +8,22 @@
 #   closed on any high- or critical-severity vulnerability in production deps.
 # - Runs the `@cloudflare/forge` test suite and smoke-tests native binaries
 #   before packing.
-# - Publishes with `npm publish --provenance`, producing an attestation that
-#   links the released tarball to this workflow run and the commit the tag
-#   points at. Consumers can verify with `npm view .. attestations`.
+# - Publishes the six platform packages first and `@cloudflare/forge` last, so
+#   the main package never points at unpublished optionalDependencies. Reruns
+#   skip any package version already present on npmjs.com.
+# - Publishes every package with `npm publish --provenance`, producing an
+#   attestation that links each released tarball to this workflow run and the
+#   commit the tag points at. Consumers can verify with `npm view .. attestations`.
 # - Uses npm's OIDC-backed trusted-publisher flow: no long-lived publish
 #   token is stored in GitHub secrets. The `publish` job's `id-token: write`
 #   permission lets npm exchange the GitHub OIDC token for a short-lived
 #   publish credential, scoped to this repo and this workflow. Trusted
-#   publishing must be configured for the package on npmjs.com before the
-#   first automated tag release.
+#   publishing must be configured on npmjs.com for `@cloudflare/forge` AND all
+#   six `@cloudflare/forge-<os>-<cpu>` packages before the first automated tag
+#   release.
 # - All third-party actions (here and in the shared setup-workspace
 #   composite) are pinned by commit SHA, so a re-tagged upstream release
 #   cannot inject code into a run that holds OIDC credentials.
-#
 # Required repo settings (enforced by GitHub, not by this workflow):
 # - A tag ruleset matching `forge@*` with `required_signatures` enabled and
 #   `creation` restricted to the release-manager bypass list. GitHub rejects
@@ -236,36 +240,92 @@ jobs:
 
       # Runs the same script `just pack` wraps: verifies the WIT and
       # Cargo/npm version alignment, compiles `@cloudflare/forge/plugin`,
-      # copies all six native binaries + LICENSE + README into a clean
-      # staging directory, strips devDependencies/scripts, and packs
-      # `packages/forge/dist/cloudflare-forge-<version>.tgz`.
-      - name: Pack tarball
-        id: pack
+      # and packs the six per-platform tarballs plus the main
+      # `@cloudflare/forge` tarball into `packages/forge/dist/`.
+      - name: Pack tarballs
         env:
           VERSION: ${{ needs.verify.outputs.version }}
         run: |
           set -euo pipefail
           node packages/forge/scripts/archive.mjs --artifacts target/binaries
-          tarball="packages/forge/dist/cloudflare-forge-${VERSION}.tgz"
-          test -f "$tarball"
-          echo "tarball=$tarball" >> "$GITHUB_OUTPUT"
+          test -f "packages/forge/dist/cloudflare-forge-${VERSION}.tgz"
+          node --input-type=module -e "
+            import { existsSync } from 'node:fs';
+            import { distDir, platforms, platformTarball } from './packages/forge/scripts/platforms.mjs';
+            for (const platform of platforms) {
+              const tgz = platformTarball(distDir, process.env.VERSION, platform);
+              if (!existsSync(tgz)) {
+                throw new Error('missing platform tarball: ' + tgz);
+              }
+            }
+          "
 
-      # Publishes via npm's OIDC-backed trusted-publisher flow. The job's
-      # `id-token: write` permission lets npm exchange the GitHub OIDC
-      # token for a short-lived publish credential - no long-lived
-      # NPM_TOKEN secret needed. `--provenance` generates and uploads an
-      # attestation tying this tarball to this workflow run and commit;
-      # `--access public` is explicit so a misconfigured publishConfig
-      # can't silently publish a scoped package as private.
+      # Publishes the six `@cloudflare/forge-<os>-<cpu>` platform packages
+      # before `@cloudflare/forge`, so the main package never points to
+      # versions that don't exist on npmjs.com yet. If any platform publish
+      # fails, this step exits non-zero before the main package step runs;
+      # rerunning skips versions that are already published.
       #
-      # Trusted publishing for @cloudflare/forge must be configured on
-      # npmjs.com (Package -> Settings -> Trusted Publishers) to point at
-      # this repo and `.github/workflows/publish-forge.yml` before the
-      # first automated tag release.
-      - name: Publish
+      # Trusted publishing for all six `@cloudflare/forge-<os>-<cpu>` packages
+      # and `@cloudflare/forge` must be configured on npmjs.com
+      # (Package -> Settings -> Trusted Publishers) to point at this repo and
+      # `.github/workflows/publish-forge.yml` before the first tag release.
+      - name: Publish platform packages
         env:
-          TARBALL: ${{ steps.pack.outputs.tarball }}
-        run: npm publish "./$TARBALL" --provenance --access public
+          VERSION: ${{ needs.verify.outputs.version }}
+        run: |
+          set -euo pipefail
+          out_file="$RUNNER_TEMP/npm-view.json"
+          err_file="$RUNNER_TEMP/npm-view.err"
+
+          publish_if_missing() {
+            local pkg="$1"
+            local tarball="$2"
+            if npm view "${pkg}@${VERSION}" version --json --registry=https://registry.npmjs.org >"$out_file" 2>"$err_file"; then
+              if [ "$(jq -r 'if type == "string" then . else "" end' "$out_file")" = "$VERSION" ]; then
+                echo "Skipping ${pkg}@${VERSION}: already published"
+                return 0
+              fi
+            elif ! jq -e '.error.code == "E404"' "$out_file" >/dev/null 2>&1; then
+              cat "$out_file" "$err_file" >&2
+              return 1
+            fi
+            echo "Publishing ${pkg}@${VERSION} from ${tarball}"
+            npm publish "$tarball" --provenance --access public
+          }
+
+          manifest="$(
+            node --input-type=module -e "
+              import { distDir, platforms, platformTarball } from './packages/forge/scripts/platforms.mjs';
+              for (const platform of platforms) {
+                console.log(platform.pkg + '\t' + platformTarball(distDir, process.env.VERSION, platform));
+              }
+            "
+          )"
+          while IFS=$'\t' read -r pkg tarball; do
+            publish_if_missing "$pkg" "$tarball"
+          done <<< "$manifest"
+
+      # Publishes `@cloudflare/forge` last, only after all six platform
+      # packages are live on npmjs.com. Skips if already published on rerun.
+      - name: Publish @cloudflare/forge
+        env:
+          VERSION: ${{ needs.verify.outputs.version }}
+        run: |
+          set -euo pipefail
+          out_file="$RUNNER_TEMP/npm-view.json"
+          err_file="$RUNNER_TEMP/npm-view.err"
+          tarball="packages/forge/dist/cloudflare-forge-${VERSION}.tgz"
+          if npm view "@cloudflare/forge@${VERSION}" version --json --registry=https://registry.npmjs.org >"$out_file" 2>"$err_file"; then
+            if [ "$(jq -r 'if type == "string" then . else "" end' "$out_file")" = "$VERSION" ]; then
+              echo "Skipping @cloudflare/forge@${VERSION}: already published"
+              exit 0
+            fi
+          elif ! jq -e '.error.code == "E404"' "$out_file" >/dev/null 2>&1; then
+            cat "$out_file" "$err_file" >&2
+            exit 1
+          fi
+          npm publish "./$tarball" --provenance --access public
 
       - name: Summary
         env:
@@ -276,6 +336,15 @@ jobs:
           ### Published @cloudflare/forge@$VERSION
 
           Tag: \`$TAG\`
+
+          Packages:
+          - \`@cloudflare/forge@$VERSION\`
+          - \`@cloudflare/forge-darwin-arm64@$VERSION\`
+          - \`@cloudflare/forge-darwin-x64@$VERSION\`
+          - \`@cloudflare/forge-linux-arm64@$VERSION\`
+          - \`@cloudflare/forge-linux-x64@$VERSION\`
+          - \`@cloudflare/forge-win32-arm64@$VERSION\`
+          - \`@cloudflare/forge-win32-x64@$VERSION\`
 
           Verify provenance:
           \`\`\`sh
