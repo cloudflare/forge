@@ -1,14 +1,50 @@
 {
   "name": "@cloudflare/redocly-plugin-forge",
-  "private": true,
+  "version": "0.1.0",
+  "description": "Redocly plugin: lint rules that catch common OpenAPI mistakes before they reach code generation.",
+  "keywords": [
+    "code-generation",
+    "forge",
+    "lint",
+    "oas",
+    "openapi",
+    "redocly",
+    "redocly-plugin"
+  ],
+  "homepage": "https://github.com/cloudflare/forge/tree/main/packages/redocly-plugin-forge",
+  "bugs": {
+    "url": "https://github.com/cloudflare/forge/issues"
+  },
+  "license": "Apache-2.0",
+  "author": "Cloudflare, Inc.",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/cloudflare/forge.git",
+    "directory": "packages/redocly-plugin-forge"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
   "type": "module",
   "exports": {
-    ".": "./index.ts"
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
   },
   "scripts": {
+    "build": "node scripts/build.mjs",
+    "prepack": "pnpm run build",
     "test": "vitest run",
     "test:update": "UPDATE_FIXTURES=1 vitest run",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "verify-pack": "pnpm pack && publint ./cloudflare-redocly-plugin-forge-*.tgz"
   },
   "dependencies": {
     "@redocly/ajv": "8.18.3",
@@ -19,6 +55,7 @@
     "@redocly/openapi-core": "2.77.0",
     "@types/lodash-es": "4.17.12",
     "@types/node": "25.3.5",
+    "publint": "0.3.16",
     "typescript": "5.9.3",
     "vitest": "5.1.0"
   },
