@@ -21,5 +21,12 @@
     "outDir": "plugin",
     "newLine": "lf"
   },
-  "include": ["src/index.ts", "src/plugin.ts", "src/ts.ts", "src/schema.ts", "src/wasm-loader.d.ts", "src/wit/**/*.d.ts"]
+  "include": [
+    "src/index.ts",
+    "src/plugin.ts",
+    "src/ts.ts",
+    "src/schema.ts",
+    "src/wasm-loader.d.ts",
+    "src/wit/**/*.d.ts"
+  ]
 }

@@ -337,9 +337,9 @@ impl Forge {
                             deprecated: f.deprecated,
                             read_only: f.readOnly,
                             sensitive: f.sensitive,
-                        default: f.default.as_str(b).unwrap().map(Json::parse),
-                    })
-                    .collect(),
+                            default: f.default.as_str(b).unwrap().map(Json::parse),
+                        })
+                        .collect(),
                     extra: object.extra_opt(),
                 }),
                 schema::TypeInfo::Union(union) => TypeData::Union(UnionData {

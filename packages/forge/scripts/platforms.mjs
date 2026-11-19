@@ -112,11 +112,7 @@ export function buildPlugin(out = join(npmDir, 'plugin')) {
  * the compiler.
  */
 function buildComponent(out) {
-  run(
-    'cargo',
-    ['build', '--release', '--target', 'wasm32-unknown-unknown', '-p', 'forge-library'],
-    repoDir,
-  );
+  run('cargo', ['build', '--release', '--target', 'wasm32-unknown-unknown', '-p', 'forge-library'], repoDir);
   const release = join(repoDir, 'target', 'wasm32-unknown-unknown', 'release');
   rmSync(join(out, 'component'), { recursive: true, force: true });
   rmSync(join(npmDir, 'src', 'component'), { recursive: true, force: true });

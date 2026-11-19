@@ -1,16 +1,4 @@
-import {
-  bool,
-  defineStruct,
-  defineUnion,
-  f64,
-  optStr,
-  ref,
-  sentinel,
-  slice,
-  str,
-  u32,
-  u64,
-} from 'capnstruct';
+import { bool, defineStruct, defineUnion, f64, optStr, ref, sentinel, slice, str, u32, u64 } from 'capnstruct';
 
 export const NO_U32 = 0xffffffff;
 export const NO_U64 = 0xffffffffffffffffn;
@@ -174,7 +162,6 @@ export const DiscriminatorInfo = defineStruct('DiscriminatorInfo', {
   cases: slice(DiscriminatorCase),
   defaultModel: sentinel(u32, NO_U32),
 });
-
 
 export const UnionInfo = defineStruct('UnionInfo', {
   members: slice(u32),

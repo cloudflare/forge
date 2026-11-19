@@ -1036,24 +1036,24 @@ function makeType(forge: ForgeImpl, id: number): Type {
       const discriminator: Discriminator | undefined = d
         ? (() => {
             const wireName = d.wireName;
-              const name = new NameImpl(d.name);
-              const rawCases: [string, number][] = [];
-              for (const c of d.cases) {
-                rawCases.push([c.value, c.ty]);
-              }
-              const defaultModel = d.defaultModel ?? undefined;
-              return {
-                wireName,
-                name,
-                get cases() {
-                  return rawCases.map(([value, ty]) => [value, type(ty)] as const);
-                },
-                get default() {
-                  return defaultModel === undefined ? undefined : forge.model(defaultModel);
-                },
-              };
-            })()
-          : undefined;
+            const name = new NameImpl(d.name);
+            const rawCases: [string, number][] = [];
+            for (const c of d.cases) {
+              rawCases.push([c.value, c.ty]);
+            }
+            const defaultModel = d.defaultModel ?? undefined;
+            return {
+              wireName,
+              name,
+              get cases() {
+                return rawCases.map(([value, ty]) => [value, type(ty)] as const);
+              },
+              get default() {
+                return defaultModel === undefined ? undefined : forge.model(defaultModel);
+              },
+            };
+          })()
+        : undefined;
       return {
         kind: 'union',
         get members() {

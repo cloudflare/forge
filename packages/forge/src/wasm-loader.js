@@ -4,15 +4,7 @@ import { readFileSync } from 'node:fs';
 
 const wasmBytes = readFileSync(new URL('./forge.wasm', import.meta.url));
 const instance = new WebAssembly.Instance(new WebAssembly.Module(wasmBytes), {});
-const {
-  memory,
-  capn_alloc,
-  capn_reset,
-  forge_parse,
-  forge_out_ptr,
-  forge_out_len,
-  forge_clear_out,
-} = instance.exports;
+const { memory, capn_alloc, capn_reset, forge_parse, forge_out_ptr, forge_out_len, forge_clear_out } = instance.exports;
 
 const encoder = new TextEncoder();
 const decoder = new TextDecoder();

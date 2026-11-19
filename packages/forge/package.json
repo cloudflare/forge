@@ -52,6 +52,9 @@
     "sync-version": "node scripts/version.mjs",
     "prepack": "node -e \"console.error('error: this directory has no binaries; pack the package with just pack from the repository root'); process.exit(1)\""
   },
+  "dependencies": {
+    "capnstruct": "0.4.0"
+  },
   "devDependencies": {
     "@bytecodealliance/jco": "1.37.0",
     "typescript": "7.0.2"
@@ -66,8 +69,5 @@
   },
   "engines": {
     "node": ">=18"
-  },
-  "dependencies": {
-    "capnstruct": "0.4.0"
   }
 }

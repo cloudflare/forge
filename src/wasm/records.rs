@@ -6,9 +6,7 @@
 use crate::arena::Str;
 use crate::method::{ContentData, ResponseData};
 use crate::types::{EnumData, FieldData, TypeData};
-use crate::{
-    Availability, Forge, GroupData, HttpMethod, Json, Location, MethodData, ModelData, Name, Number, Scalar,
-};
+use crate::{Availability, Forge, GroupData, HttpMethod, Json, Location, MethodData, ModelData, Name, Number, Scalar};
 
 use super::schema::{self, CapnBuilder, CapnSlice, CapnStr};
 
@@ -17,9 +15,8 @@ use super::schema::{self, CapnBuilder, CapnSlice, CapnStr};
 /// [`CapnBuilder::str_dedup`].
 #[must_use]
 pub fn pack_forge(forge: &Forge) -> Vec<u8> {
-    let mut b = CapnBuilder::with_capacity(
-        forge.types.len() * 64 + forge.methods.len() * 256 + forge.models.len() * 64,
-    );
+    let mut b =
+        CapnBuilder::with_capacity(forge.types.len() * 64 + forge.methods.len() * 256 + forge.models.len() * 64);
     let group_order: Vec<u32> = forge.groups().map(|group| group.id.0).collect();
 
     b.build_vec(|b| {
@@ -54,7 +51,12 @@ fn pack_group(b: &mut CapnBuilder, data: &GroupData) -> schema::GroupInfo {
     let description = b.str(&data.description);
     let path_ids: Vec<u32> = data.path[1..].iter().map(|id| id.0).collect();
     let path = b.pack_slice(&path_ids);
-    let parent = data.path.iter().rev().nth(1).map_or(schema::GroupInfo::PARENT_NULL, |id| id.0);
+    let parent = data
+        .path
+        .iter()
+        .rev()
+        .nth(1)
+        .map_or(schema::GroupInfo::PARENT_NULL, |id| id.0);
     let child_ids: Vec<u32> = data.groups.iter().map(|id| id.0).collect();
     let children = b.pack_slice(&child_ids);
     let method_ids: Vec<u32> = data.methods.iter().map(|id| id.0).collect();
@@ -231,7 +233,9 @@ fn pack_type(b: &mut CapnBuilder, forge: &Forge, data: &TypeData) -> schema::Typ
                     wireName: wire_name,
                     name,
                     cases,
-                    defaultModel: disc.default.map_or(schema::DiscriminatorInfo::DEFAULT_MODEL_NULL, |id| id.0),
+                    defaultModel: disc
+                        .default
+                        .map_or(schema::DiscriminatorInfo::DEFAULT_MODEL_NULL, |id| id.0),
                 }
             });
             schema::TypeInfo::Union(schema::UnionInfo {
