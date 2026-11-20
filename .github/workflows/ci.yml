@@ -25,6 +25,7 @@ jobs:
       - name: Install Rust toolchain
         uses: moonrepo/setup-rust@abb2d32350334249b178c401e5ec5836e0cd88d3 # v1.3.0
         with:
+          components: rustfmt
           targets: wasm32-unknown-unknown
           cache: false
         env:
