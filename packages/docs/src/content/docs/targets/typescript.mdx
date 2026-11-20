@@ -1,6 +1,6 @@
 ---
 title: TypeScript SDK
-description: What forge --target ts generates, with its files, clients, methods, models, codecs, errors, envelope hook, limitations and requirements.
+description: What forge generate --target ts generates, with its files, clients, methods, models, codecs, errors, envelope hook, limitations and requirements.
 content_type: reference
 sidebar:
   order: 2
@@ -11,7 +11,7 @@ the binary. It writes an SDK with no dependencies: a client per group, a model p
 codecs where the wire and the language differ, and a small runtime it ships alongside.
 
 ```sh
-forge openapi.json --target ts --out sdk
+forge generate openapi.json --target ts --out sdk
 ```
 
 ## What it writes

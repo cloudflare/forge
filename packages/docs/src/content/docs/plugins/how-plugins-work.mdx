@@ -25,7 +25,7 @@ uses Forge as a library. `forge-plugin build` makes the component for TypeScript
 | --- | --- | --- | --- |
 | You write                | A module that calls `definePlugin`          | A `cdylib` that implements the WIT          | A binary that implements `forge::Plugin` |
 | You build                | `forge-plugin build plugin.ts`              | `cargo build --target wasm32-wasip2`        | `cargo build`                            |
-| You run                  | `forge --target wasm://plugin.wasm`         | `forge --target wasm://plugin.wasm`         | Your own binary                          |
+| You run                  | `forge generate --target wasm://plugin.wasm`         | `forge generate --target wasm://plugin.wasm`         | Your own binary                          |
 | API                      | Objects and arrays, like the Rust API       | Raw ids and records, from the WIT           | The full Rust API                        |
 | Sandbox                  | Yes                                         | Yes                                         | No: ordinary native code                 |
 | Typical size             | About 1.7 MB (QuickJS inside)               | Tens of KB                                  | Part of your binary                      |
@@ -66,7 +66,7 @@ the models that more than one top-level group uses.
 Forge runs a WebAssembly plugin named by `--target`, with a `wasm://` prefix:
 
 ```sh
-forge openapi.json --target wasm://plugin.wasm --out sdk
+forge generate openapi.json --target wasm://plugin.wasm --out sdk
 ```
 
 `wasm://` takes a path to a component, relative to the working directory. The `forge` package

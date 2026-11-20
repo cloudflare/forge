@@ -102,7 +102,7 @@ confirmation, which the MCP target turns into a destructive hint.
 
 Run the `ts` target:
 
-<PackageManagers type="exec" pkg="forge" args="openapi.json --target ts --out sdk" />
+<PackageManagers type="exec" pkg="forge" args="generate openapi.json --target ts --out sdk" />
 
 Forge writes a directory per group, and a small runtime in `_/`. The root `client.ts` has a
 property per top-level group, `pets/client.ts` has `list`, `create` and `delete`, and
@@ -192,7 +192,7 @@ document.
 The `mcp` target writes the tools of a [Model Context Protocol](https://modelcontextprotocol.io)
 server in TypeScript, one tool per method, for the official MCP TypeScript SDK:
 
-<PackageManagers type="exec" pkg="forge" args="openapi.json --target mcp --out tools" />
+<PackageManagers type="exec" pkg="forge" args="generate openapi.json --target mcp --out tools" />
 
 Forge writes the tools, and you write the server around them:
 

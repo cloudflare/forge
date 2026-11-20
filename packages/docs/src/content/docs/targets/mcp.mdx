@@ -1,6 +1,6 @@
 ---
 title: MCP tools
-description: What forge --target mcp generates, with its files, which methods get a tool, and how tool names, arguments, schemas, hints and requests are derived.
+description: What forge generate --target mcp generates, with its files, which methods get a tool, and how tool names, arguments, schemas, hints and requests are derived.
 content_type: reference
 sidebar:
   order: 3
@@ -11,7 +11,7 @@ server in TypeScript: one tool per method, for the official MCP TypeScript SDK,
 `@modelcontextprotocol/server`. Like every built-in target, it is a plugin like any other.
 
 ```sh
-forge openapi.json --target mcp --out tools
+forge generate openapi.json --target mcp --out tools
 ```
 
 Forge generates the tools, not a server. Servers differ in how they authenticate, what else they
