@@ -46,7 +46,7 @@ function ident(
 ): Ident;
 
 /** A model's name in Pascal case, in the `models.ts` of its group or of the root. */
-ident.model(model: { name: Name; group: Group | undefined }): Ident;
+ident.model(model: { name: Name; group: Group }): Ident;
 
 interface Ident {
   /** Such as `Pet`, or a dotted name such as `Temporal.Instant`. */

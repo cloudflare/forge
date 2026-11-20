@@ -51,11 +51,11 @@ Forge sorts every part of OpenAPI into one of three:
 | --- | --- |
 | `in: path` | Read. Always required. Style `simple` only. `label` and `matrix` are not covered. |
 | `in: query` | Read. Style `form` only, with `explode`. `spaceDelimited`, `pipeDelimited` and `deepObject` are not covered. |
-| `in: querystring` (3.2) | Read: its object's properties are query parameters. At most one, and not with `in: query` parameters. |
+| `in: querystring` (3.2) | Read: the properties of the object in its first `content` entry are query parameters. At most one, and not with `in: query` parameters. |
 | `in: header` | Read, into [`headers`](/concepts/requests-and-responses/#headers). Style `simple` only. |
 | `in: cookie` | Ignored. |
-| `schema` | Read. |
-| `content` | Not covered yet. |
+| `schema` | Read, except on `in: querystring`. |
+| `content` | Read on `in: querystring` only. Not covered yet on other parameters. |
 | `required`, `deprecated`, `description` | Read. |
 | `allowEmptyValue`, `allowReserved`, `example`, `examples` | Ignored. |
 
