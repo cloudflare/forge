@@ -14,41 +14,39 @@ const types = [
   { tag: 'Scalar', value: { tag: 'Number', value: { tag: 'Int32' } } },
 ];
 
-export const forgeBytes = ForgeDoc.pack([
-  {
-    version: '1',
-    description: '',
-    baseUrl: '',
-    groupOrder: [0, 1],
-    groups: [
-      {
-        name: [],
-        description: '',
-        path: [],
-        parent: null,
-        children: [1],
-        methods: [],
-        models: types.map((_, model) => model),
-      },
-      {
-        name: ['pets'],
-        description: '',
-        path: [1],
-        parent: 0,
-        children: [],
-        methods: [],
-        models: [],
-      },
-    ],
-    methods: [],
-    models: types.map((_, id) => ({
-      schemaName: `Type${id}`,
-      name: [`type${id}`],
-      group: 0,
+export const forgeBytes = ForgeDoc.packEnvelope({
+  version: '1',
+  description: '',
+  baseUrl: '',
+  groupOrder: [0, 1],
+  groups: [
+    {
+      name: [],
       description: '',
-      deprecated: false,
-      ty: id,
-    })),
-    types,
-  },
-]);
+      path: [],
+      parent: null,
+      children: [1],
+      methods: [],
+      models: types.map((_, model) => model),
+    },
+    {
+      name: ['pets'],
+      description: '',
+      path: [1],
+      parent: 0,
+      children: [],
+      methods: [],
+      models: [],
+    },
+  ],
+  methods: [],
+  models: types.map((_, id) => ({
+    schemaName: `Type${id}`,
+    name: [`type${id}`],
+    group: 0,
+    description: '',
+    deprecated: false,
+    ty: id,
+  })),
+  types,
+});

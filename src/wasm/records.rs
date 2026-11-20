@@ -10,16 +10,15 @@ use crate::{Availability, Forge, GroupData, HttpMethod, Json, Location, MethodDa
 
 use super::schema::{self, CapnBuilder, CapnSlice, CapnStr};
 
-/// Packs the entire `forge` into a single 8-byte-aligned `capnstruct` buffer
-/// whose root record is [`schema::ForgeDoc`]. Strings are deduplicated via
-/// [`CapnBuilder::str_dedup`].
+/// Packs the entire `Forge` into a single 8-byte-aligned `capnstruct` buffer with a
+/// self-describing `CS01` schema-evolution envelope header whose root record is
+/// [`schema::ForgeDoc`]. Strings are deduplicated via [`CapnBuilder::str_dedup`].
 #[must_use]
 pub fn pack_forge(forge: &Forge) -> Vec<u8> {
     let mut b =
         CapnBuilder::with_capacity(forge.types.len() * 64 + forge.methods.len() * 256 + forge.models.len() * 64);
     let group_order: Vec<u32> = forge.groups().map(|group| group.id.0).collect();
-
-    b.build_vec(|b| {
+    b.build_envelope_vec(|b| {
         let version = b.str(&forge.version);
         let description = b.str(&forge.description);
         let base_url = b.str(&forge.base_url);

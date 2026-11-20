@@ -28,12 +28,12 @@ mod wit {
     });
 }
 
-fn capn_str(buf: &[u8], s: schema::CapnStr) -> String {
-    s.as_str(buf).unwrap().to_owned()
+fn capn_name(words: schema::CapnSliceReader<'_, schema::CapnStr>) -> Name {
+    Name::from_words(words.iter().map(|w| w.unwrap().to_owned()).collect())
 }
 
-fn capn_name(buf: &[u8], words: schema::CapnSlice<schema::CapnStr>) -> Name {
-    Name::from_words(words.as_slice(buf).iter().map(|w| capn_str(buf, *w)).collect())
+fn capn_u32s(ids: schema::CapnSliceReader<'_, u32>) -> Vec<u32> {
+    ids.iter().map(Result::unwrap).collect()
 }
 /// `forge::plugin`: the traits from src/plugin.rs, and the `ts` library.
 #[path = "../../../../src/plugin"]
@@ -117,6 +117,7 @@ fn render<F: File>(files: impl Iterator<Item = F>) -> Result<Vec<wit::File>, Str
 /// `forge::Forge`, read from the host a part at a time.
 pub struct Forge {
     buf: Vec<u8>,
+    table: schema::CapnTable,
     pub version: String,
     pub description: String,
     pub base_url: String,
@@ -133,17 +134,19 @@ fn slots<T>(n: usize) -> Vec<OnceLock<T>> {
 
 impl Forge {
     fn from_bytes(buf: Vec<u8>) -> Self {
-        let doc = schema::ForgeDoc::as_slice(&buf, 1)[0];
-        let version = capn_str(&buf, doc.version);
-        let description = capn_str(&buf, doc.description);
-        let base_url = capn_str(&buf, doc.baseUrl);
-        let group_order = doc.groupOrder.as_slice(&buf).to_vec();
-        let groups_len = doc.groups.len as usize;
-        let methods_len = doc.methods.len as usize;
-        let models_len = doc.models.len as usize;
-        let types_len = doc.types.len as usize;
+        let table = schema::ForgeDoc::parse_envelope(&buf).unwrap();
+        let doc = schema::ForgeDoc::reader(&buf, &table).unwrap();
+        let version = doc.version().unwrap().to_owned();
+        let description = doc.description().unwrap().to_owned();
+        let base_url = doc.baseUrl().unwrap().to_owned();
+        let group_order = capn_u32s(doc.groupOrder().unwrap());
+        let groups_len = doc.groups().unwrap().len();
+        let methods_len = doc.methods().unwrap().len();
+        let models_len = doc.models().unwrap().len();
+        let types_len = doc.types().unwrap().len();
         Self {
             buf,
+            table,
             version,
             description,
             base_url,
@@ -155,8 +158,8 @@ impl Forge {
         }
     }
 
-    fn doc(&self) -> schema::ForgeDoc {
-        schema::ForgeDoc::as_slice(&self.buf, 1)[0]
+    fn doc(&self) -> schema::ForgeDocReader<'_> {
+        schema::ForgeDoc::reader(&self.buf, &self.table).unwrap()
     }
 
     pub fn groups(&self) -> impl Iterator<Item = Group<'_>> {
@@ -186,79 +189,83 @@ impl Forge {
 
     fn group_data(&self, id: u32) -> &GroupData {
         self.group_data[id as usize].get_or_init(|| {
-            let b = &self.buf;
-            let g = self.doc().groups.as_slice(b)[id as usize];
+            let g = self.doc().groups().unwrap().get(id as usize).unwrap().unwrap();
             GroupData {
-                name: capn_name(b, g.name),
-                description: capn_str(b, g.description),
-                path: g.path.as_slice(b).to_vec(),
-                parent: g.parent_opt(),
-                children: g.children.as_slice(b).to_vec(),
-                methods: g.methods.as_slice(b).to_vec(),
-                models: g.models.as_slice(b).to_vec(),
+                name: capn_name(g.name().unwrap()),
+                description: g.description().unwrap().to_owned(),
+                path: capn_u32s(g.path().unwrap()),
+                parent: g.parent(),
+                children: capn_u32s(g.children().unwrap()),
+                methods: capn_u32s(g.methods().unwrap()),
+                models: capn_u32s(g.models().unwrap()),
             }
         })
     }
 
     fn method_data(&self, id: u32) -> &MethodData {
         self.method_data[id as usize].get_or_init(|| {
-            let b = &self.buf;
-            let m = self.doc().methods.as_slice(b)[id as usize];
+            let m = self.doc().methods().unwrap().get(id as usize).unwrap().unwrap();
             MethodData {
-                name: capn_name(b, m.name),
-                group: m.group,
-                http_method: match m.httpMethod {
-                    schema::HttpMethod::Get => HttpMethod::Get,
-                    schema::HttpMethod::Put => HttpMethod::Put,
-                    schema::HttpMethod::Post => HttpMethod::Post,
-                    schema::HttpMethod::Delete => HttpMethod::Delete,
-                    schema::HttpMethod::Options => HttpMethod::Options,
-                    schema::HttpMethod::Head => HttpMethod::Head,
-                    schema::HttpMethod::Patch => HttpMethod::Patch,
-                    schema::HttpMethod::Trace => HttpMethod::Trace,
-                    schema::HttpMethod::Query => HttpMethod::Query,
-                    schema::HttpMethod::Connect => HttpMethod::Connect,
-                    schema::HttpMethod::Other(method) => HttpMethod::Other(capn_str(b, method)),
+                name: capn_name(m.name().unwrap()),
+                group: m.group(),
+                http_method: match m.httpMethod().unwrap() {
+                    schema::HttpMethodReader::Get => HttpMethod::Get,
+                    schema::HttpMethodReader::Put => HttpMethod::Put,
+                    schema::HttpMethodReader::Post => HttpMethod::Post,
+                    schema::HttpMethodReader::Delete => HttpMethod::Delete,
+                    schema::HttpMethodReader::Options => HttpMethod::Options,
+                    schema::HttpMethodReader::Head => HttpMethod::Head,
+                    schema::HttpMethodReader::Patch => HttpMethod::Patch,
+                    schema::HttpMethodReader::Trace => HttpMethod::Trace,
+                    schema::HttpMethodReader::Query => HttpMethod::Query,
+                    schema::HttpMethodReader::Connect => HttpMethod::Connect,
+                    schema::HttpMethodReader::Other(method) => HttpMethod::Other(method.to_owned()),
+                    schema::HttpMethodReader::Unknown(tag) => panic!("unknown HttpMethod tag {tag}"),
                 },
-                path: capn_str(b, m.path),
-                summary: capn_str(b, m.summary),
-                description: capn_str(b, m.description),
-                deprecated: m.deprecated,
-                availability: match m.availability {
-                    schema::Availability::None => None,
-                    schema::Availability::Alpha => Some(Availability::Alpha),
-                    schema::Availability::Beta => Some(Availability::Beta),
-                    schema::Availability::Preview => Some(Availability::Preview),
-                    schema::Availability::GenerallyAvailable => Some(Availability::GenerallyAvailable),
-                    schema::Availability::Deprecated => Some(Availability::Deprecated),
+                path: m.path().unwrap().to_owned(),
+                summary: m.summary().unwrap().to_owned(),
+                description: m.description().unwrap().to_owned(),
+                deprecated: m.deprecated().unwrap(),
+                availability: match m.availability().unwrap() {
+                    schema::AvailabilityReader::None => None,
+                    schema::AvailabilityReader::Alpha => Some(Availability::Alpha),
+                    schema::AvailabilityReader::Beta => Some(Availability::Beta),
+                    schema::AvailabilityReader::Preview => Some(Availability::Preview),
+                    schema::AvailabilityReader::GenerallyAvailable => Some(Availability::GenerallyAvailable),
+                    schema::AvailabilityReader::Deprecated => Some(Availability::Deprecated),
+                    schema::AvailabilityReader::Unknown(tag) => panic!("unknown Availability tag {tag}"),
                 },
-                hidden: m.hidden,
-                confirmation: m.confirmation.as_str(b).unwrap().map(str::to_owned),
-                request: m.request_opt(),
-                params_type: m.paramsType_opt(),
+                hidden: m.hidden().unwrap(),
+                confirmation: m.confirmation().unwrap().map(str::to_owned),
+                request: m.request(),
+                params_type: m.paramsType(),
                 param_locations: m
-                    .paramLocations
-                    .as_slice(b)
+                    .paramLocations()
+                    .unwrap()
                     .iter()
-                    .map(|loc| match *loc {
-                        schema::Location::Path => Location::Path,
-                        schema::Location::Query(exploded) => Location::Query { exploded },
+                    .map(|loc| match loc.unwrap() {
+                        schema::LocationReader::Path => Location::Path,
+                        schema::LocationReader::Query(exploded) => Location::Query { exploded },
+                        schema::LocationReader::Unknown(tag) => panic!("unknown Location tag {tag}"),
                     })
                     .collect(),
-                headers: m.headers_opt(),
-                body: m.body.as_ref(b).map(|body| BodyData {
-                    required: body.required,
-                    description: capn_str(b, body.description),
-                    contents: contents(b, body.contents),
-                    json: body.json_opt(),
+                headers: m.headers(),
+                body: m.body().unwrap().map(|body| BodyData {
+                    required: body.required().unwrap(),
+                    description: body.description().unwrap().to_owned(),
+                    contents: contents(body.contents().unwrap()),
+                    json: body.json(),
                 }),
-                responses: m.responses.as_slice(b).iter().map(|r| response(b, *r)).collect(),
-                errors: m.errors.as_slice(b).iter().map(|r| response(b, *r)).collect(),
+                responses: m.responses().unwrap().iter().map(|r| response(r.unwrap())).collect(),
+                errors: m.errors().unwrap().iter().map(|r| response(r.unwrap())).collect(),
                 extensions: m
-                    .extensions
-                    .as_slice(b)
+                    .extensions()
+                    .unwrap()
                     .iter()
-                    .map(|ext| (capn_str(b, ext.key), Json::parse(ext.value.as_str(b).unwrap())))
+                    .map(|ext| {
+                        let ext = ext.unwrap();
+                        (ext.key().unwrap().to_owned(), Json::parse(ext.value().unwrap()))
+                    })
                     .collect(),
             }
         })
@@ -266,121 +273,130 @@ impl Forge {
 
     fn model_data(&self, id: u32) -> &ModelData {
         self.model_data[id as usize].get_or_init(|| {
-            let b = &self.buf;
-            let m = self.doc().models.as_slice(b)[id as usize];
+            let m = self.doc().models().unwrap().get(id as usize).unwrap().unwrap();
             ModelData {
-                schema_name: capn_str(b, m.schemaName),
-                name: capn_name(b, m.name),
-                group: m.group,
-                description: capn_str(b, m.description),
-                deprecated: m.deprecated,
-                ty: m.ty,
+                schema_name: m.schemaName().unwrap().to_owned(),
+                name: capn_name(m.name().unwrap()),
+                group: m.group(),
+                description: m.description().unwrap().to_owned(),
+                deprecated: m.deprecated().unwrap(),
+                ty: m.ty(),
             }
         })
     }
 
     fn type_data(&self, id: u32) -> &TypeData {
         self.type_data[id as usize].get_or_init(|| {
-            let b = &self.buf;
-            match self.doc().types.as_slice(b)[id as usize] {
-                schema::TypeInfo::Scalar(scalar) => TypeData::Scalar(match scalar {
-                    schema::Scalar::Unknown => Scalar::Unknown,
-                    schema::Scalar::Null => Scalar::Null,
-                    schema::Scalar::Boolean => Scalar::Boolean,
-                    schema::Scalar::String => Scalar::String,
-                    schema::Scalar::Uuid => Scalar::Uuid,
-                    schema::Scalar::Number(number) => Scalar::Number(match number {
-                        schema::NumberKind::Int => Number::Int,
-                        schema::NumberKind::Int8 => Number::Int8,
-                        schema::NumberKind::Int16 => Number::Int16,
-                        schema::NumberKind::Int32 => Number::Int32,
-                        schema::NumberKind::Int64 => Number::Int64,
-                        schema::NumberKind::Uint8 => Number::Uint8,
-                        schema::NumberKind::Uint16 => Number::Uint16,
-                        schema::NumberKind::Uint32 => Number::Uint32,
-                        schema::NumberKind::Uint64 => Number::Uint64,
-                        schema::NumberKind::Float => Number::Float,
-                        schema::NumberKind::Double => Number::Double,
+            match self.doc().types().unwrap().get(id as usize).unwrap().unwrap() {
+                schema::TypeInfoReader::Scalar(scalar) => TypeData::Scalar(match scalar {
+                    schema::ScalarReader::Unknown => Scalar::Unknown,
+                    schema::ScalarReader::Null => Scalar::Null,
+                    schema::ScalarReader::Boolean => Scalar::Boolean,
+                    schema::ScalarReader::String => Scalar::String,
+                    schema::ScalarReader::Uuid => Scalar::Uuid,
+                    schema::ScalarReader::Number(number) => Scalar::Number(match number {
+                        schema::NumberKindReader::Int => Number::Int,
+                        schema::NumberKindReader::Int8 => Number::Int8,
+                        schema::NumberKindReader::Int16 => Number::Int16,
+                        schema::NumberKindReader::Int32 => Number::Int32,
+                        schema::NumberKindReader::Int64 => Number::Int64,
+                        schema::NumberKindReader::Uint8 => Number::Uint8,
+                        schema::NumberKindReader::Uint16 => Number::Uint16,
+                        schema::NumberKindReader::Uint32 => Number::Uint32,
+                        schema::NumberKindReader::Uint64 => Number::Uint64,
+                        schema::NumberKindReader::Float => Number::Float,
+                        schema::NumberKindReader::Double => Number::Double,
+                        schema::NumberKindReader::Unknown(tag) => panic!("unknown NumberKind tag {tag}"),
                     }),
-                    schema::Scalar::DateTime => Scalar::DateTime,
-                    schema::Scalar::Date => Scalar::Date,
-                    schema::Scalar::Bytes => Scalar::Bytes,
-                    schema::Scalar::Binary => Scalar::Binary,
+                    schema::ScalarReader::DateTime => Scalar::DateTime,
+                    schema::ScalarReader::Date => Scalar::Date,
+                    schema::ScalarReader::Bytes => Scalar::Bytes,
+                    schema::ScalarReader::Binary => Scalar::Binary,
+                    schema::ScalarReader::UnknownTag(tag) => panic!("unknown Scalar tag {tag}"),
                 }),
-                schema::TypeInfo::Enum(values) => TypeData::Enum(
+                schema::TypeInfoReader::Enum(values) => TypeData::Enum(
                     values
-                        .as_slice(b)
                         .iter()
-                        .map(|val| match *val {
-                            schema::EnumValue::String(s) => EnumData::String(capn_str(b, s)),
-                            schema::EnumValue::Number(n) => EnumData::Number(n),
-                            schema::EnumValue::Boolean(v) => EnumData::Boolean(v),
+                        .map(|val| match val.unwrap() {
+                            schema::EnumValueReader::String(s) => EnumData::String(s.to_owned()),
+                            schema::EnumValueReader::Number(n) => EnumData::Number(n),
+                            schema::EnumValueReader::Boolean(v) => EnumData::Boolean(v),
+                            schema::EnumValueReader::Unknown(tag) => panic!("unknown EnumValue tag {tag}"),
                         })
                         .collect(),
                 ),
-                schema::TypeInfo::Array(array) => TypeData::Array(ArrayData {
-                    elem: array.elem,
-                    min_items: array.minItems_opt(),
-                    max_items: array.maxItems_opt(),
+                schema::TypeInfoReader::Array(array) => TypeData::Array(ArrayData {
+                    elem: array.elem(),
+                    min_items: array.minItems(),
+                    max_items: array.maxItems(),
                 }),
-                schema::TypeInfo::Object(object) => TypeData::Object(ObjectData {
+                schema::TypeInfoReader::Object(object) => TypeData::Object(ObjectData {
                     fields: object
-                        .fields
-                        .as_slice(b)
+                        .fields()
+                        .unwrap()
                         .iter()
-                        .map(|f| FieldData {
-                            wire_name: capn_str(b, f.wireName),
-                            name: capn_name(b, f.name),
-                            required: f.required,
-                            ty: f.ty,
-                            description: capn_str(b, f.description),
-                            deprecated: f.deprecated,
-                            read_only: f.readOnly,
-                            sensitive: f.sensitive,
-                            default: f.default.as_str(b).unwrap().map(Json::parse),
+                        .map(|f| {
+                            let f = f.unwrap();
+                            FieldData {
+                                wire_name: f.wireName().unwrap().to_owned(),
+                                name: capn_name(f.name().unwrap()),
+                                description: f.description().unwrap().to_owned(),
+                                required: f.required().unwrap(),
+                                deprecated: f.deprecated().unwrap(),
+                                read_only: f.readOnly().unwrap(),
+                                sensitive: f.sensitive().unwrap(),
+                                ty: f.ty(),
+                                default: f.default().unwrap().map(Json::parse),
+                            }
                         })
                         .collect(),
-                    extra: object.extra_opt(),
+                    extra: object.extra(),
                 }),
-                schema::TypeInfo::Union(union) => TypeData::Union(UnionData {
-                    members: union.members.as_slice(b).to_vec(),
-                    exclusive: union.exclusive,
-                    discriminator: union.discriminator.as_ref(b).map(|d| DiscriminatorData {
-                        wire_name: capn_str(b, d.wireName),
-                        name: capn_name(b, d.name),
+                schema::TypeInfoReader::Union(union) => TypeData::Union(UnionData {
+                    members: capn_u32s(union.members().unwrap()),
+                    exclusive: union.exclusive().unwrap(),
+                    discriminator: union.discriminator().unwrap().map(|d| DiscriminatorData {
+                        wire_name: d.wireName().unwrap().to_owned(),
+                        name: capn_name(d.name().unwrap()),
                         cases: d
-                            .cases
-                            .as_slice(b)
+                            .cases()
+                            .unwrap()
                             .iter()
-                            .map(|c| (capn_str(b, c.value), c.ty))
+                            .map(|c| {
+                                let c = c.unwrap();
+                                (c.value().unwrap().to_owned(), c.ty())
+                            })
                             .collect(),
-                        default: d.defaultModel_opt(),
+                        default: d.defaultModel(),
                     }),
                 }),
-                schema::TypeInfo::Intersection(members) => TypeData::Intersection(members.as_slice(b).to_vec()),
-                schema::TypeInfo::Model(id) => TypeData::Model(id),
+                schema::TypeInfoReader::Intersection(members) => TypeData::Intersection(capn_u32s(members)),
+                schema::TypeInfoReader::Model(id) => TypeData::Model(id),
+                schema::TypeInfoReader::Unknown(tag) => panic!("unknown TypeInfo tag {tag}"),
             }
         })
     }
 }
 
-fn contents(buf: &[u8], list: schema::CapnSlice<schema::ContentInfo>) -> Vec<ContentData> {
-    list.as_slice(buf)
-        .iter()
-        .map(|c| ContentData {
-            media_type: capn_str(buf, c.mediaType),
-            ty: c.ty,
-            description: capn_str(buf, c.description),
+fn contents(list: schema::CapnSliceReader<'_, schema::ContentInfo>) -> Vec<ContentData> {
+    list.iter()
+        .map(|c| {
+            let c = c.unwrap();
+            ContentData {
+                media_type: c.mediaType().unwrap().to_owned(),
+                ty: c.ty(),
+                description: c.description().unwrap().to_owned(),
+            }
         })
         .collect()
 }
 
-fn response(buf: &[u8], r: schema::ResponseInfo) -> ResponseData {
+fn response(r: schema::ResponseInfoReader<'_>) -> ResponseData {
     ResponseData {
-        status: capn_str(buf, r.status),
-        description: capn_str(buf, r.description),
-        contents: contents(buf, r.contents),
-        json: r.json_opt(),
+        status: r.status().unwrap().to_owned(),
+        description: r.description().unwrap().to_owned(),
+        contents: contents(r.contents().unwrap()),
+        json: r.json(),
     }
 }
 

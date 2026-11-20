@@ -33,6 +33,9 @@ jobs:
       - name: Lint and format check
         run: pnpm check
 
+      - name: Check generated capnstruct schema
+        run: node packages/forge/scripts/schema.mjs --check
+
       - name: Typecheck
         run: pnpm typecheck
 

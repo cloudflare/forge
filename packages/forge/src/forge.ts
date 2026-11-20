@@ -446,7 +446,7 @@ class ForgeImpl implements Forge {
   private readonly allGroups = lazy(() => ids(this.requireDoc().groupOrder).map((id) => this.group(id)));
 
   constructor(bytes: Uint8Array) {
-    this.doc = ForgeDoc.view(bytes);
+    this.doc = ForgeDoc.viewEnvelope(bytes);
   }
 
   /** @internal */
