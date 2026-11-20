@@ -12,7 +12,7 @@ import { noGetRequestBody } from './no-get-request-body.ts';
 import { noInvalidTagNamesOrFrontmatter } from './no-invalid-tag-names-or-frontmatter.ts';
 import { noMultipartAllofComposition } from './no-multipart-allof-composition.ts';
 import { noOpenApiV2InDocs } from './no-openapi-v2-in-docs.ts';
-import { onlyObjectExtensions } from './only-object-extensions.ts';
+import { onlyObjectAllofRefs } from './only-object-allof-refs.ts';
 import { validAliases } from './valid-aliases.ts';
 import { validAvailability } from './valid-availability.ts';
 import { validGroupName } from './valid-group-name.ts';
@@ -33,7 +33,7 @@ export const ruleDefinitions: RuleDefinition[] = [
   noInvalidTagNamesOrFrontmatter,
   noMultipartAllofComposition,
   noOpenApiV2InDocs,
-  onlyObjectExtensions,
+  onlyObjectAllofRefs,
   validAliases,
   validAvailability,
   validGroupName,

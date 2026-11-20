@@ -64,7 +64,7 @@ function describeNonObject(schema: Record<string, AnyNode>): string {
   return `a ${types.join('/')}`;
 }
 
-export const onlyObjectExtensions: RuleDefinition = {
+export const onlyObjectAllofRefs: RuleDefinition = {
   name: 'only-object-allof-refs',
   sourceRules: ['fern-definition/only-object-extensions'],
   severity: 'error',
