@@ -1,0 +1,20 @@
+# Exports forge's `library` world. packages/forge/scripts/build.mjs compiles
+# this crate to a WebAssembly component, and `@cloudflare/forge` turns the
+# component into JavaScript to parse documents in the caller's process. The
+# build runs this command.
+#
+#     cargo build --release --target wasm32-unknown-unknown -p forge-library
+#
+# The crate is a member of the root workspace, so it shares forge's
+# Cargo.lock and release profile.
+[package]
+name = "forge-library"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+forge = { path = "../../..", default-features = false, features = ["library"] }

@@ -1,0 +1,245 @@
+package forge:plugin@0.4.0;
+
+/// Reads a forge: the groups, methods, models and types of a parsed
+/// document. A plugin reads the forge its host runs it on, and the library
+/// returns one from `parse`. Both read it through the `forge` resource.
+///
+/// Each id is an index the forge gave out. An id the forge never gave out
+/// traps. Everything a part has is returned in one call, and orders and
+/// meanings are as the Rust API documents them.
+interface forge {
+    type group-id = u32;
+    type method-id = u32;
+    type model-id = u32;
+    type type-id = u32;
+
+    /// The lower-case words of a `Name`.
+    type name = list<string>;
+
+    /// A JSON value, which forge keeps without reading, as JSON text that
+    /// `JSON.parse` reads back: an object's members in the order they are
+    /// written, each key once. WIT has no recursive types, so a value is
+    /// its text.
+    type json = string;
+
+    record forge-info {
+        version: string,
+        description: string,
+        base-url: string,
+    }
+
+    /// How many of each part the forge has. Ids run from 0 to the count.
+    record forge-counts {
+        groups: u32,
+        methods: u32,
+        models: u32,
+        types: u32,
+    }
+
+    record group-info {
+        /// Empty for the root, and only for the root.
+        name: name,
+        description: string,
+        /// The groups from the top level down to this one, ending with it.
+        /// The root is not included, so its path is empty.
+        path: list<group-id>,
+        /// The group this one is inside, or none for the root.
+        parent: option<group-id>,
+        /// The groups directly inside, sorted by name.
+        children: list<group-id>,
+        /// The methods directly inside, sorted by name.
+        methods: list<method-id>,
+        models: list<model-id>,
+    }
+
+    variant http-method {
+        get, put, post, delete, options, head, patch, trace, query, connect,
+        other(string),
+    }
+
+    variant location {
+        path,
+        /// Whether the parameter is exploded.
+        query(bool),
+    }
+
+    record content-info {
+        media-type: string,
+        ty: type-id,
+        /// The description of the content's schema.
+        description: string,
+    }
+
+    record body-info {
+        required: bool,
+        description: string,
+        contents: list<content-info>,
+        /// The index in `contents` of the JSON content.
+        json: option<u32>,
+    }
+
+    record response-info {
+        status: string,
+        description: string,
+        contents: list<content-info>,
+        /// The index in `contents` of the JSON content.
+        json: option<u32>,
+    }
+
+    /// The stage of the API a method is in, from `x-forge-availability`.
+    enum availability {
+        alpha, beta, preview, generally-available, deprecated,
+    }
+
+    record method-info {
+        name: name,
+        group: group-id,
+        http-method: http-method,
+        path: string,
+        summary: string,
+        description: string,
+        deprecated: bool,
+        availability: option<availability>,
+        /// Whether to leave the method out of listings, from `x-forge-hidden`.
+        hidden: bool,
+        /// The sentence to show before calling the method, from
+        /// `x-forge-require-confirmation`, or none if it needs no
+        /// confirmation.
+        confirmation: option<string>,
+        request: option<type-id>,
+        /// The header parameters: an object type, with a field for each.
+        /// Its fields have no location.
+        headers: option<type-id>,
+        body: option<body-info>,
+        responses: list<response-info>,
+        errors: list<response-info>,
+        /// The extensions of the operation, or alias, that forge does not
+        /// read itself, in the order they are written.
+        extensions: list<tuple<string, json>>,
+    }
+
+    record model-info {
+        schema-name: string,
+        name: name,
+        group: group-id,
+        description: string,
+        deprecated: bool,
+        ty: type-id,
+    }
+
+    enum number {
+        int, int8, int16, int32, int64, uint8, uint16, uint32, uint64, float, double,
+    }
+
+    variant scalar {
+        unknown, null, boolean, %string, number(number), date-time, date, bytes, binary, uuid,
+    }
+
+    variant enum-value {
+        %string(string),
+        number(f64),
+        boolean(bool),
+    }
+
+    record field-info {
+        wire-name: string,
+        name: name,
+        required: bool,
+        ty: type-id,
+        description: string,
+        deprecated: bool,
+        /// Whether the server sets the property, so a client doesn't send it.
+        read-only: bool,
+        /// Whether the value is a secret, such as a password or a token.
+        sensitive: bool,
+        /// The `default` of the property's schema.
+        default: option<json>,
+    }
+
+    record array-info {
+        elem: type-id,
+        /// The `minItems`, or none if it is absent; zero is kept.
+        min-items: option<u64>,
+        /// The `maxItems`, or none if the array has no limit.
+        max-items: option<u64>,
+    }
+
+    record object-info {
+        fields: list<field-info>,
+        extra: option<type-id>,
+    }
+
+    record discriminator-info {
+        wire-name: string,
+        name: name,
+        cases: list<tuple<string, type-id>>,
+        default: option<model-id>,
+    }
+
+    record union-info {
+        members: list<type-id>,
+        /// Whether a value is at most one of the members.
+        exclusive: bool,
+        discriminator: option<discriminator-info>,
+    }
+
+    variant type-info {
+        scalar(scalar),
+        %enum(list<enum-value>),
+        array(array-info),
+        object(object-info),
+        union(union-info),
+        intersection(list<type-id>),
+        model(model-id),
+    }
+
+    /// A parsed document, read a part at a time by id.
+    resource forge {
+        info: func() -> forge-info;
+        counts: func() -> forge-counts;
+        /// Every group, depth first, starting with the root.
+        groups: func() -> list<group-id>;
+        get-group: func(id: group-id) -> group-info;
+        get-method: func(id: method-id) -> method-info;
+        get-model: func(id: model-id) -> model-info;
+        get-type: func(id: type-id) -> type-info;
+        /// Where method `id` sends field `index` of the object type `object`,
+        /// or none if it is not one of its parameters.
+        get-location: func(id: method-id, object: type-id, index: u32) -> option<location>;
+    }
+}
+
+world plugin {
+    import forge;
+    use forge.{forge};
+
+    /// A generated file: its path relative to the output directory, using
+    /// `/` as a separator, and its content. A file with no content is not
+    /// written.
+    record file {
+        path: string,
+        content: list<u8>,
+    }
+
+    /// Generates every file for `forge`, in a fresh instance. Called exactly
+    /// once. The plugin owns the `forge` handle, which holds nothing of its
+    /// own, so it can keep the handle after it returns.
+    export generate: func(forge: forge) -> result<list<file>, string>;
+}
+
+/// Parses documents in the caller's own process, without a host. `parse`
+/// returns the same `forge` resource a plugin reads.
+interface parser {
+    use forge.{forge};
+
+    /// Parses the OpenAPI JSON document `json` into a forge. Fails with the
+    /// message the `forge` command prints for the same document.
+    parse: func(json: string) -> result<forge, string>;
+}
+
+/// Runs forge as a library. `@cloudflare/forge` uses this world to parse
+/// documents in JavaScript.
+world library {
+    export forge;
+    export parser;
+}

@@ -2,7 +2,7 @@
 // things live.
 
 import { spawnSync } from 'node:child_process';
-import { existsSync, readFileSync, rmSync, statSync } from 'node:fs';
+import { cpSync, existsSync, readFileSync, rmSync, statSync } from 'node:fs';
 import { dirname, isAbsolute, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -67,21 +67,12 @@ export function findBinary(artifacts, platform) {
 /** The package's copy of the WIT that wasm plugins are built against. */
 export const witPath = join(npmDir, 'plugin', 'forge.wit');
 
-/**
- * Returns the WIT in src/plugin/wasm.rs, which `forge::wasm::WIT` holds:
- * the raw string passed to its `wit!` macro.
- */
+/** Returns the WIT in src/wasm/forge.wit, which `forge::wasm::WIT` also holds. */
 export function witSource() {
-  const rs = readFileSync(join(repoDir, 'src', 'plugin', 'wasm.rs'), 'utf8');
-  // rustfmt may put the raw string on lines of its own.
-  const wit = rs.match(/^wit!\(\s*r#"([\s\S]*?)"#\s*\);$/m);
-  if (!wit) {
-    throw new Error('cannot find the WIT in src/plugin/wasm.rs');
-  }
-  return wit[1];
+  return readFileSync(join(repoDir, 'src', 'wasm', 'forge.wit'), 'utf8');
 }
 
-/** Throws unless plugin/forge.wit is the WIT in src/plugin/wasm.rs. */
+/** Throws unless plugin/forge.wit is the WIT in src/wasm/forge.wit. */
 export function checkWit() {
   let have;
   try {
@@ -90,16 +81,19 @@ export function checkWit() {
     // Missing counts as stale.
   }
   if (have !== witSource()) {
-    throw new Error(`${display(witPath)} is not the WIT in src/plugin/wasm.rs; run node scripts/wit.mjs`);
+    throw new Error(`${display(witPath)} is not the WIT in src/wasm/forge.wit; run node scripts/wit.mjs`);
   }
 }
 
 /**
- * Generates the bindings of plugin/forge.wit into src/wit, then compiles
- * src/index.mts against them into index.mjs and index.d.mts in `out`, or in
- * plugin/. Throws if either fails.
+ * Builds the package's libraries into `out`, plugin/ by default, and throws
+ * if a step fails. It builds forge's library world with `buildComponent`,
+ * generates the bindings of plugin/forge.wit's `plugin` world into src/wit,
+ * and compiles src/index.ts, src/plugin.ts and src/ts.ts against both into
+ * .js and .d.ts files in `out`.
  */
 export function buildPlugin(out = join(npmDir, 'plugin')) {
+  buildComponent(out);
   const bindings = join(npmDir, 'src', 'wit');
   rmSync(bindings, { recursive: true, force: true });
   node(devBin('@bytecodealliance/jco', 'jco'), [
@@ -112,7 +106,32 @@ export function buildPlugin(out = join(npmDir, 'plugin')) {
     bindings,
   ]);
   node(devBin('typescript', 'tsc'), ['-p', join(npmDir, 'tsconfig.json'), '--outDir', out]);
-  console.log(`built @cloudflare/forge/plugin into ${display(out)}`);
+  console.log(`built @cloudflare/forge into ${display(out)}`);
+}
+
+/**
+ * Builds forge's `library` world, which `parse` runs. It compiles library/,
+ * a member of the root workspace, to WebAssembly with cargo, makes it a
+ * component with jco, and turns the component into JavaScript in
+ * <out>/component. It copies the component's types into src/component, for
+ * the compiler.
+ */
+function buildComponent(out) {
+  const jco = devBin('@bytecodealliance/jco', 'jco');
+  run(
+    'cargo',
+    ['build', '--release', '--locked', '--target', 'wasm32-unknown-unknown', '-p', 'forge-library'],
+    repoDir,
+  );
+  const release = join(repoDir, 'target', 'wasm32-unknown-unknown', 'release');
+  const component = join(release, 'forge.component.wasm');
+  node(jco, ['new', join(release, 'forge_library.wasm'), '-o', component]);
+  const transpiled = join(out, 'component');
+  rmSync(transpiled, { recursive: true, force: true });
+  node(jco, ['transpile', component, '--name', 'forge', '--quiet', '-o', transpiled]);
+  const types = join(npmDir, 'src', 'component');
+  rmSync(types, { recursive: true, force: true });
+  cpSync(transpiled, types, { recursive: true, filter: (path) => !/\.(js|wasm)$/.test(path) });
 }
 
 /**
@@ -132,6 +151,17 @@ function devBin(pkg, name) {
     throw new Error(`${pkg} has no command ${name}`);
   }
   return join(dir, bin);
+}
+
+/** Runs `command` with `args` in `cwd`, and throws if it fails. */
+function run(command, args, cwd) {
+  const result = spawnSync(command, args, { cwd, stdio: 'inherit' });
+  if (result.error) {
+    throw new Error(`cannot run ${command}: ${result.error.message}`);
+  }
+  if (result.status !== 0) {
+    throw new Error(`${command} ${args.join(' ')} failed in ${display(cwd)}`);
+  }
 }
 
 /** Runs the Node script `script` with `args`, and throws if it fails. */
