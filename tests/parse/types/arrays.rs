@@ -39,11 +39,14 @@ fn min_items_preserves_absence_zero_and_positive_bounds() {
 #[test]
 fn arrays_with_different_minimums_keep_their_own_bounds() {
     let forge = parse(&responding_with_schemas(
-        r##"{"type": "object", "properties": {
-          "zero": {"type": "array", "items": {}, "minItems": 0},
-          "one": {"$ref": "#/components/schemas/One"},
-          "any": {"items": {}}
-        }}"##,
+        r##"{
+          "type": "object",
+          "properties": {
+            "zero": {"type": "array", "items": {}, "minItems": 0},
+            "one": {"$ref": "#/components/schemas/One"},
+            "any": {"items": {}}
+          }
+        }"##,
         r#"{"One": {"type": "array", "items": {}, "minItems": 1, "maxItems": 50}}"#,
     ));
     let object = object(response_type(&forge, "a.get"));
@@ -91,11 +94,20 @@ fn items_without_a_type_are_an_array() {
 fn array_without_items_has_unknown_elements() {
     let forge = parse(
         r#"{
-          "openapi": "3.1.0", "info": {"title": "t", "version": "1"},
-          "paths": {"/a": {"get": {"x-forge-group-name": "a", "x-forge-method-name": "get",
-            "responses": {"200": {"description": "ok", "content": {"application/json": {"schema": {
-              "type": "array"
-            }}}}}}}}
+          "openapi": "3.1.0",
+          "info": {"title": "t", "version": "1"},
+          "paths": {
+            "/a": {
+              "get": {
+                "x-forge-group-name": "a",
+                "x-forge-method-name": "get",
+                "responses": {"200": {
+                  "description": "ok",
+                  "content": {"application/json": {"schema": {"type": "array"}}}
+                }}
+              }
+            }
+          }
         }"#,
     );
 
@@ -106,11 +118,24 @@ fn array_without_items_has_unknown_elements() {
 fn tuple_is_unknown() {
     let forge = parse(
         r#"{
-          "openapi": "3.1.0", "info": {"title": "t", "version": "1"},
-          "paths": {"/a": {"get": {"x-forge-group-name": "a", "x-forge-method-name": "get",
-            "responses": {"200": {"description": "ok", "content": {"application/json": {"schema": {
-              "type": "array", "prefixItems": [{"type": "string"}, {"type": "integer"}], "items": false
-            }}}}}}}}
+          "openapi": "3.1.0",
+          "info": {"title": "t", "version": "1"},
+          "paths": {
+            "/a": {
+              "get": {
+                "x-forge-group-name": "a",
+                "x-forge-method-name": "get",
+                "responses": {"200": {
+                  "description": "ok",
+                  "content": {"application/json": {"schema": {
+                    "type": "array",
+                    "prefixItems": [{"type": "string"}, {"type": "integer"}],
+                    "items": false
+                  }}}
+                }}
+              }
+            }
+          }
         }"#,
     );
 
@@ -143,7 +168,10 @@ fn max_items_zero_is_a_limit() {
 #[test]
 fn max_items_of_an_array_property() {
     let forge = parse(&responding_with(
-        r#"{"type": "object", "properties": {"tags": {"type": "array", "items": {"type": "string"}, "maxItems": 20}}}"#,
+        r#"{
+          "type": "object",
+          "properties": {"tags": {"type": "array", "items": {"type": "string"}, "maxItems": 20}}
+        }"#,
     ));
 
     let tags = field(object(response_type(&forge, "a.get")), "tags");
@@ -153,11 +181,14 @@ fn max_items_of_an_array_property() {
 #[test]
 fn arrays_of_the_same_items_with_different_limits_are_apart() {
     let forge = parse(&responding_with(
-        r#"{"type": "object", "properties": {
-          "few": {"type": "array", "items": {"type": "string"}, "maxItems": 2},
-          "many": {"type": "array", "items": {"type": "string"}, "maxItems": 50},
-          "any": {"type": "array", "items": {"type": "string"}}
-        }}"#,
+        r#"{
+          "type": "object",
+          "properties": {
+            "few": {"type": "array", "items": {"type": "string"}, "maxItems": 2},
+            "many": {"type": "array", "items": {"type": "string"}, "maxItems": 50},
+            "any": {"type": "array", "items": {"type": "string"}}
+          }
+        }"#,
     ));
 
     let object = object(response_type(&forge, "a.get"));
@@ -169,10 +200,13 @@ fn arrays_of_the_same_items_with_different_limits_are_apart() {
 #[test]
 fn array_model_keeps_the_limit_of_its_schema() {
     let forge = parse(&responding_with_schemas(
-        r##"{"type": "object", "properties": {
-          "tags": {"$ref": "#/components/schemas/Tags"},
-          "names": {"type": "array", "items": {"type": "string"}}
-        }}"##,
+        r##"{
+          "type": "object",
+          "properties": {
+            "tags": {"$ref": "#/components/schemas/Tags"},
+            "names": {"type": "array", "items": {"type": "string"}}
+          }
+        }"##,
         r#"{"Tags": {"type": "array", "items": {"type": "string"}, "maxItems": 5}}"#,
     ));
 

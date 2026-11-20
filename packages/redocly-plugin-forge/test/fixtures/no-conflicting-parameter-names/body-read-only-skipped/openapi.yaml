@@ -1,0 +1,28 @@
+openapi: 3.0.3
+info:
+  title: Test API
+  version: 1.0.0
+paths:
+  /plants/{id}:
+    put:
+      operationId: putPlant
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                id:
+                  type: string
+                  readOnly: true
+                nickname:
+                  type: string
+      responses:
+        '200':
+          description: OK

@@ -1,0 +1,38 @@
+openapi: 3.0.3
+info:
+  title: Inline
+  version: 1.0.0
+paths:
+  /pets:
+    post:
+      operationId: createPet
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                owner:
+                  allOf:
+                    - $ref: '#/components/schemas/Id'
+                    - type: object
+                      properties:
+                        name:
+                          type: string
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  name:
+                    type: string
+                allOf:
+                  - $ref: '#/components/schemas/Id'
+components:
+  schemas:
+    Id:
+      type: string
+      format: uuid

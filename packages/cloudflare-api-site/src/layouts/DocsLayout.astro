@@ -8,7 +8,7 @@
 import Icon from "@cloudflare/nimbus-docs/components/Icon.astro";
 import BaseLayout from "./BaseLayout.astro";
 import Header from "@/components/Header.astro";
-import VersionSelect from "@/components/VersionSelect.astro";
+import SiteLinks from "@/components/SiteLinks.astro";
 import { Banner } from "@/components/ui/banner";
 import { Sidebar, SidebarFilter } from "@/components/ui/sidebar";
 import { TOC, MobileTOC } from "@/components/ui/toc";
@@ -72,7 +72,7 @@ const hasContentFooter = Astro.slots.has("content-footer");
               ) : (
                 <nav data-nb-sidebar-nav class="px-4 pb-12 flex-1">
                   <div class="sb-filter-bar">
-                    <SidebarFilter placeholder="Filter sidebar" />
+                    <SidebarFilter />
                   </div>
                   <Sidebar items={sidebar} persist />
                 </nav>
@@ -230,10 +230,9 @@ const hasContentFooter = Astro.slots.has("content-footer");
             <Icon name="ph:x" class="w-5 h-5" />
           </button>
         </div>
+        <SiteLinks />
         {/* The desktop rail's <nav> moves here while the drawer is open, so the
             (very large) API tree is rendered once per page. */}
-        {/* The header hides the version select on mobile; it lives here instead. */}
-        <VersionSelect variant="drawer" />
         <div data-mobile-sidebar-nav></div>
       </div>
     </dialog>

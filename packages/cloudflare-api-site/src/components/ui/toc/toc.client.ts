@@ -19,8 +19,9 @@ function initToc(root: HTMLElement): () => void {
   const scrollHost = root.closest<HTMLElement>("[data-nb-toc-scroll-host]") ?? root;
   const slugs = Array.from(links).map((l) => l.dataset.nbSlug!);
   // Observe only resolvable headings, each carrying its original index, so
-  // scroll-spy stays aligned with the full-length links/segments even when a
-  // heading slugs to "" (e.g. emoji-only `## 🎉`) and has no DOM target.
+  // scroll-spy stays aligned with the links/segments even when a heading's
+  // target is missing from the page. (The TOC leaves out headings that slug
+  // to "", such as an emoji-only `## 🎉`.)
   const observed = slugs
     .map((slug, index) => ({ el: document.getElementById(slug), index }))
     .filter((o): o is { el: HTMLElement; index: number } => o.el !== null);
@@ -39,11 +40,13 @@ function initToc(root: HTMLElement): () => void {
   // static gray rail, capturing each link's arc-length range as we go.
   function buildRail() {
     const navRect = nav!.getBoundingClientRect();
+    // The rail is the links' inline-start border: their left edge, or right in RTL.
+    const rtl = getComputedStyle(nav!).direction === "rtl";
 
     const m = Array.from(links).map((link) => {
       const r = link.getBoundingClientRect();
       return {
-        x: r.left - navRect.left + 1,
+        x: rtl ? r.right - navRect.left - 1 : r.left - navRect.left + 1,
         yTop: r.top - navRect.top,
         yBot: r.top - navRect.top + r.height,
       };
@@ -166,7 +169,9 @@ function initToc(root: HTMLElement): () => void {
       setActive(pinnedIndex);
       return;
     }
-    setActive(atBottom ? links.length - 1 : observedIndex);
+    // At the bottom, the last heading on the page, not the last link: a link
+    // whose heading has no target can't be the one being read.
+    setActive(atBottom ? observed.at(-1)!.index : observedIndex);
   }
 
   // rootMargin collapses the root to the top band; deepest in-band heading wins.
@@ -315,6 +320,27 @@ function initToc(root: HTMLElement): () => void {
     passive: true,
     signal: controller.signal,
   });
+  // Content that loads later (the API home's parts) dispatches
+  // `nb:toc-headings`: track the headings that have appeared since.
+  document.addEventListener(
+    "nb:toc-headings",
+    () => {
+      let added = false;
+      slugs.forEach((slug, index) => {
+        if (observed.some((o) => o.index === index)) return;
+        const el = document.getElementById(slug);
+        if (!el) return;
+        observed.push({ el, index });
+        indexOfEl.set(el, index);
+        spy.observe(el);
+        added = true;
+      });
+      if (!added) return;
+      observed.sort((a, b) => a.index - b.index);
+      onLayoutChange();
+    },
+    { signal: controller.signal },
+  );
 
   const ro = new ResizeObserver(onLayoutChange);
   ro.observe(nav);

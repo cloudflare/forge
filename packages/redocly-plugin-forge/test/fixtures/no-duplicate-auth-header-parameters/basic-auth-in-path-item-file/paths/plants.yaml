@@ -1,0 +1,10 @@
+post:
+  operationId: createPlant
+  parameters:
+    - name: AUTHORIZATION
+      in: header
+      schema:
+        type: string
+  responses:
+    '201':
+      description: Created

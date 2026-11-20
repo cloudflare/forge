@@ -1,0 +1,13 @@
+CreateDocument:
+  content:
+    application/json:
+      schema:
+        type: object
+        properties:
+          title:
+            type: string
+          attachment:
+            type: string
+      encoding:
+        attachment:
+          contentType: application/pdf

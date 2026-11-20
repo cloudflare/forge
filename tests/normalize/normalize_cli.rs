@@ -5,6 +5,7 @@ use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output, Stdio};
 
+use forge::{Availability, Forge, Name, Type};
 use serde_json::Value;
 
 /// A document with one operation, written on one line, with no final newline.
@@ -15,6 +16,46 @@ const NATIVE: &str = r#"{"openapi":"3.0.3","info":{"title":"t","version":"1"},"p
 
 /// A document with a key from each compatibility source.
 const SOURCES: &str = r##"{"openapi":"3.0.3","info":{"title":"t","version":"1"},"paths":{"/a":{"get":{"x-fern-sdk-group-name":["a"],"x-fern-sdk-method-name":"get","responses":{"200":{"description":"ok","content":{"application/json":{"schema":{"$ref":"#/components/schemas/S"}}}}}}}},"components":{"schemas":{"S":{"type":"object","properties":{"secret":{"type":"string","x-sensitive":true},"hidden":{"type":"string","x-stainless-skip":true}}}}}}"##;
+
+/// A document that uses every compatibility key Forge knows how to normalize.
+const COMPATIBILITY: &str = r##"{
+  "openapi": "3.0.3",
+  "info": {"title": "t", "version": "1"},
+  "paths": {
+    "/a": {
+      "get": {
+        "x-fern-sdk-group-name": ["a"],
+        "x-fern-sdk-method-name": "get",
+        "x-fern-ignore": false,
+        "x-fern-availability": "beta",
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "x-fern-parameter-name": "page_number",
+            "schema": {"type": "integer"}
+          }
+        ],
+        "responses": {"200": {
+          "description": "ok",
+          "content": {"application/json": {"schema": {"$ref": "#/components/schemas/S"}}}
+        }}
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "S": {
+        "type": "object",
+        "x-fern-type-name": "Secret",
+        "properties": {
+          "value": {"type": "string", "x-fern-property-name": "token", "x-sensitive": true},
+          "hidden": {"type": "string", "x-stainless-skip": true}
+        }
+      }
+    }
+  }
+}"##;
 
 /// A folder of its own to write files in, which is empty.
 fn dir(name: &str) -> PathBuf {
@@ -132,6 +173,40 @@ fn standard_input_is_written_to_standard_output() {
 
     succeeded(&out);
     assert_eq!(text(&out.stdout), NATIVE);
+}
+
+#[test]
+fn normalized_compatibility_keys_are_read_by_forge() {
+    let out = normalize(&["-"], COMPATIBILITY);
+
+    succeeded(&out);
+    let forge: Forge = serde_json::from_slice(&out.stdout).unwrap();
+    let group = forge.groups().find(|group| *group.name() == Name::new("a")).unwrap();
+    let method = group
+        .methods()
+        .find(|method| *method.name() == Name::new("get"))
+        .unwrap();
+    assert_eq!(method.availability(), Some(Availability::Beta));
+
+    let Type::Object(request) = method.request().unwrap() else {
+        panic!("the normalized parameter is not an object");
+    };
+    let parameter = request.fields().next().unwrap();
+    assert_eq!(parameter.wire_name(), "page");
+    assert_eq!(parameter.name(), &Name::new("page_number"));
+
+    let Type::Model(model) = method.responses().next().unwrap().json().unwrap().ty() else {
+        panic!("the normalized response is not a model");
+    };
+    assert_eq!(model.name(), &Name::new("Secret"));
+    let Type::Object(object) = model.ty() else {
+        panic!("the normalized model is not an object");
+    };
+    let fields: Vec<_> = object.fields().collect();
+    assert_eq!(fields.len(), 1, "x-stainless-skip removes the other field");
+    assert_eq!(fields[0].wire_name(), "value");
+    assert_eq!(fields[0].name(), &Name::new("token"));
+    assert!(fields[0].is_sensitive());
 }
 
 #[test]

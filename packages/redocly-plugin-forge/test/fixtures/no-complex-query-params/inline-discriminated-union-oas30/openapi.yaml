@@ -1,0 +1,29 @@
+openapi: 3.0.3
+info:
+  title: Shapes
+  version: 1.0.0
+paths:
+  /shapes:
+    get:
+      operationId: listShapes
+      parameters:
+        - name: shape
+          in: query
+          schema:
+            nullable: true
+            oneOf:
+              - type: object
+                properties:
+                  type:
+                    type: string
+                    enum: [circle]
+              - type: object
+                properties:
+                  type:
+                    type: string
+                    enum: [square]
+            discriminator:
+              propertyName: type
+      responses:
+        '200':
+          description: OK

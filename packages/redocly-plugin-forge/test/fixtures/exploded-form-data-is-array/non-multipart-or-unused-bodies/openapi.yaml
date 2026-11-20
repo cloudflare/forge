@@ -1,0 +1,84 @@
+openapi: 3.1.0
+info:
+  title: Uploads
+  version: 1.0.0
+paths:
+  /form:
+    post:
+      operationId: submitForm
+      requestBody:
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+            encoding:
+              name:
+                explode: true
+      responses:
+        '200':
+          description: OK
+  /json-preferred:
+    post:
+      operationId: jsonPreferred
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+            encoding:
+              name:
+                explode: true
+      responses:
+        '200':
+          description: OK
+  /binary-preferred:
+    put:
+      operationId: binaryPreferred
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+            encoding:
+              name:
+                explode: true
+          application/octet-stream:
+            schema:
+              type: string
+              format: binary
+      responses:
+        '200':
+          description: OK
+  /ignored:
+    post:
+      operationId: ignored
+      x-fern-ignore: true
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+            encoding:
+              name:
+                explode: true
+      responses:
+        '200':
+          description: OK

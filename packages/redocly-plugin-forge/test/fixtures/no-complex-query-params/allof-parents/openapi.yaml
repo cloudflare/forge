@@ -1,0 +1,58 @@
+openapi: 3.1.0
+info:
+  title: Filters
+  version: 1.0.0
+paths:
+  /items:
+    get:
+      operationId: listItems
+      parameters:
+        - name: inheritsUnion
+          in: query
+          style: deepObject
+          schema:
+            allOf:
+              - $ref: '#/components/schemas/Target'
+              - type: object
+                properties:
+                  limit:
+                    type: integer
+        - name: aliasOfUnion
+          in: query
+          schema:
+            allOf:
+              - $ref: '#/components/schemas/Target'
+        - name: inheritsUndiscriminated
+          in: query
+          style: deepObject
+          schema:
+            allOf:
+              - $ref: '#/components/schemas/Either'
+              - type: object
+                properties:
+                  limit:
+                    type: integer
+      responses:
+        '200':
+          description: OK
+components:
+  schemas:
+    Target:
+      oneOf:
+        - $ref: '#/components/schemas/User'
+      discriminator:
+        propertyName: kind
+        mapping:
+          user: '#/components/schemas/User'
+    User:
+      type: object
+      properties:
+        kind:
+          type: string
+    Either:
+      oneOf:
+        - type: object
+          properties:
+            target:
+              $ref: '#/components/schemas/Target'
+        - type: string

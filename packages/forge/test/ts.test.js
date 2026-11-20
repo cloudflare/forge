@@ -378,12 +378,14 @@ test('models', () => {
     camel: () => words.map((w, i) => (i ? w[0].toUpperCase() + w.slice(1) : w)).join(''),
     pascal: () => words.map((w) => w[0].toUpperCase() + w.slice(1)).join(''),
   });
+  const root = { path: [] };
   const petStore = { path: [name('pet', 'store')] };
   const listAll = { path: [name('pet', 'store'), name('list', 'all')] };
   const owner = { schemaName: 'pet_owner', name: name('pet', 'owner'), group: listAll, toString: () => 'pet_owner' };
-  const twoFa = { schemaName: '2fa', name: name('2fa'), group: undefined, toString: () => '2fa' };
+  const twoFa = { schemaName: '2fa', name: name('2fa'), group: root, toString: () => '2fa' };
 
   assert.equal(module.ROOT.sub('models.ts').path, 'models.ts');
+  assert.equal(module.group(root).path, module.ROOT.path);
   assert.equal(module.group(petStore).path, 'petStore');
   assert.equal(module.group(listAll).sub('client.ts').path, 'petStore/listAll/client.ts');
   assert.equal(ident.model(owner).module.path, 'petStore/listAll/models.ts');

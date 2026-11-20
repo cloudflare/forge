@@ -1,0 +1,8 @@
+[
+  {
+    "ruleId": "no-duplicated-enum-values",
+    "severity": "error",
+    "message": "Duplicated enum value found: 'small'.",
+    "location": "openapi.yaml#/paths/~1plants/get/parameters/0/schema/enum/2"
+  }
+]

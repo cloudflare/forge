@@ -1,0 +1,12 @@
+openapi: 3.1.0
+info:
+  title: Non-string availability
+  version: 1.0.0
+paths:
+  /thing:
+    get:
+      operationId: getThing
+      x-forge-availability: true
+      responses:
+        '200':
+          description: OK

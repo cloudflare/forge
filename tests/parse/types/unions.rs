@@ -75,11 +75,20 @@ fn any_of_with_a_discriminator_is_not_exclusive() {
 fn type_array_is_exclusive() {
     let forge = parse(
         r#"{
-          "openapi": "3.1.0", "info": {"title": "t", "version": "1"},
-          "paths": {"/a": {"get": {"x-forge-group-name": "a", "x-forge-method-name": "get",
-            "responses": {"200": {"description": "ok", "content": {"application/json": {"schema": {
-              "type": ["string", "integer"]
-            }}}}}}}}
+          "openapi": "3.1.0",
+          "info": {"title": "t", "version": "1"},
+          "paths": {
+            "/a": {
+              "get": {
+                "x-forge-group-name": "a",
+                "x-forge-method-name": "get",
+                "responses": {"200": {
+                  "description": "ok",
+                  "content": {"application/json": {"schema": {"type": ["string", "integer"]}}}
+                }}
+              }
+            }
+          }
         }"#,
     );
 
@@ -109,7 +118,12 @@ fn nullable_any_of_is_not_exclusive() {
 #[test]
 fn one_of_with_an_any_of_member_is_not_exclusive() {
     let forge = parse(&responding_with(
-        r#"{"oneOf": [{"type": "boolean"}, {"anyOf": [{"type": "string"}, {"type": "integer"}]}]}"#,
+        r#"{
+          "oneOf": [
+            {"type": "boolean"},
+            {"anyOf": [{"type": "string"}, {"type": "integer"}]}
+          ]
+        }"#,
     ));
 
     let ty = response_type(&forge, "a.get");
@@ -120,10 +134,15 @@ fn one_of_with_an_any_of_member_is_not_exclusive() {
 #[test]
 fn discriminated_member_keeps_its_own_exclusivity() {
     let forge = parse(&responding_with_schemas(
-        r##"{"anyOf": [
-          {"oneOf": [{"$ref": "#/components/schemas/A"}, {"$ref": "#/components/schemas/B"}], "discriminator": {"propertyName": "kind"}},
-          {"type": "string"}
-        ]}"##,
+        r##"{
+          "anyOf": [
+            {
+              "oneOf": [{"$ref": "#/components/schemas/A"}, {"$ref": "#/components/schemas/B"}],
+              "discriminator": {"propertyName": "kind"}
+            },
+            {"type": "string"}
+          ]
+        }"##,
         A_AND_B,
     ));
 
@@ -137,11 +156,20 @@ fn discriminated_member_keeps_its_own_exclusivity() {
 fn types_in_a_type_array_are_a_union() {
     let forge = parse(
         r#"{
-          "openapi": "3.1.0", "info": {"title": "t", "version": "1"},
-          "paths": {"/a": {"get": {"x-forge-group-name": "a", "x-forge-method-name": "get",
-            "responses": {"200": {"description": "ok", "content": {"application/json": {"schema": {
-              "type": ["string", "integer"]
-            }}}}}}}}
+          "openapi": "3.1.0",
+          "info": {"title": "t", "version": "1"},
+          "paths": {
+            "/a": {
+              "get": {
+                "x-forge-group-name": "a",
+                "x-forge-method-name": "get",
+                "responses": {"200": {
+                  "description": "ok",
+                  "content": {"application/json": {"schema": {"type": ["string", "integer"]}}}
+                }}
+              }
+            }
+          }
         }"#,
     );
 
@@ -170,10 +198,12 @@ fn union_of_the_same_type_twice_is_the_type() {
 #[test]
 fn union_member_that_is_a_union_is_flattened() {
     let forge = parse(&responding_with_schemas(
-        r##"{"oneOf": [
-          {"$ref": "#/components/schemas/A"},
-          {"oneOf": [{"type": "string"}, {"$ref": "#/components/schemas/B"}]}
-        ]}"##,
+        r##"{
+          "oneOf": [
+            {"$ref": "#/components/schemas/A"},
+            {"oneOf": [{"type": "string"}, {"$ref": "#/components/schemas/B"}]}
+          ]
+        }"##,
         A_AND_B,
     ));
 
@@ -201,7 +231,10 @@ fn discriminator_mapping_gives_the_cases() {
     let forge = parse(&responding_with_schemas(
         r##"{
           "oneOf": [{"$ref": "#/components/schemas/A"}, {"$ref": "#/components/schemas/B"}],
-          "discriminator": {"propertyName": "kind", "mapping": {"a": "#/components/schemas/A", "b": "#/components/schemas/B"}}
+          "discriminator": {
+            "propertyName": "kind",
+            "mapping": {"a": "#/components/schemas/A", "b": "#/components/schemas/B"}
+          }
         }"##,
         A_AND_B,
     ));
@@ -257,8 +290,14 @@ fn discriminator_without_mapping_uses_the_one_value_of_an_enum() {
           "discriminator": {"propertyName": "kind"}
         }"##,
         r#"{
-          "Cat": {"type": "object", "properties": {"kind": {"type": "string", "enum": ["cat"]}}},
-          "Dog": {"type": "object", "properties": {"kind": {"type": "string", "enum": ["dog"]}}}
+          "Cat": {
+            "type": "object",
+            "properties": {"kind": {"type": "string", "enum": ["cat"]}}
+          },
+          "Dog": {
+            "type": "object",
+            "properties": {"kind": {"type": "string", "enum": ["dog"]}}
+          }
         }"#,
     ));
 
@@ -275,8 +314,19 @@ fn discriminator_of_members_written_in_place_uses_the_one_value_of_an_enum() {
         r#"{
           "discriminator": {"propertyName": "type"},
           "oneOf": [
-            {"type": "object", "title": "Int32", "properties": {"type": {"type": "string", "enum": ["int32"]}}},
-            {"type": "object", "title": "Struct", "properties": {"type": {"type": "string", "enum": ["struct"]}, "fields": {"type": "array", "items": {"type": "string"}}}}
+            {
+              "type": "object",
+              "title": "Int32",
+              "properties": {"type": {"type": "string", "enum": ["int32"]}}
+            },
+            {
+              "type": "object",
+              "title": "Struct",
+              "properties": {
+                "type": {"type": "string", "enum": ["struct"]},
+                "fields": {"type": "array", "items": {"type": "string"}}
+              }
+            }
           ]
         }"#,
     ));
@@ -298,8 +348,14 @@ fn discriminator_is_named_by_x_forge_property_name() {
           "discriminator": {"propertyName": "kind"}
         }"##,
         r#"{
-          "A": {"type": "object", "properties": {"kind": {"type": "string", "x-forge-property-name": "pet_kind"}}},
-          "B": {"type": "object", "properties": {"kind": {"type": "string", "x-forge-property-name": "pet_kind"}}}
+          "A": {
+            "type": "object",
+            "properties": {"kind": {"type": "string", "x-forge-property-name": "pet_kind"}}
+          },
+          "B": {
+            "type": "object",
+            "properties": {"kind": {"type": "string", "x-forge-property-name": "pet_kind"}}
+          }
         }"#,
     ));
 
@@ -312,7 +368,10 @@ fn discriminator_of_any_of() {
     let forge = parse(&responding_with_schemas(
         r##"{
           "anyOf": [{"$ref": "#/components/schemas/A"}, {"$ref": "#/components/schemas/B"}],
-          "discriminator": {"propertyName": "kind", "mapping": {"a": "#/components/schemas/A", "b": "#/components/schemas/B"}}
+          "discriminator": {
+            "propertyName": "kind",
+            "mapping": {"a": "#/components/schemas/A", "b": "#/components/schemas/B"}
+          }
         }"##,
         A_AND_B,
     ));
@@ -328,16 +387,33 @@ fn discriminator_of_any_of() {
 fn discriminator_default_mapping_is_the_default() {
     let forge = parse(
         r##"{
-          "openapi": "3.2.0", "info": {"title": "t", "version": "1"},
-          "paths": {"/a": {"get": {"x-forge-group-name": "a", "x-forge-method-name": "get",
-            "responses": {"200": {"description": "ok", "content": {"application/json": {"schema": {
-              "oneOf": [{"$ref": "#/components/schemas/A"}, {"$ref": "#/components/schemas/B"}],
-              "discriminator": {"propertyName": "kind", "mapping": {"a": "#/components/schemas/A"}, "defaultMapping": "#/components/schemas/B"}
-            }}}}}}}},
-          "components": {"schemas": {
-            "A": {"type": "object", "properties": {"kind": {"type": "string"}}},
-            "B": {"type": "object", "properties": {"kind": {"type": "string"}}}
-          }}
+          "openapi": "3.2.0",
+          "info": {"title": "t", "version": "1"},
+          "paths": {
+            "/a": {
+              "get": {
+                "x-forge-group-name": "a",
+                "x-forge-method-name": "get",
+                "responses": {"200": {
+                  "description": "ok",
+                  "content": {"application/json": {"schema": {
+                    "oneOf": [{"$ref": "#/components/schemas/A"}, {"$ref": "#/components/schemas/B"}],
+                    "discriminator": {
+                      "propertyName": "kind",
+                      "mapping": {"a": "#/components/schemas/A"},
+                      "defaultMapping": "#/components/schemas/B"
+                    }
+                  }}}
+                }}
+              }
+            }
+          },
+          "components": {
+            "schemas": {
+              "A": {"type": "object", "properties": {"kind": {"type": "string"}}},
+              "B": {"type": "object", "properties": {"kind": {"type": "string"}}}
+            }
+          }
         }"##,
     );
 
@@ -348,10 +424,15 @@ fn discriminator_default_mapping_is_the_default() {
 #[test]
 fn discriminated_union_is_a_member_of_another_union() {
     let forge = parse(&responding_with_schemas(
-        r##"{"oneOf": [
-          {"oneOf": [{"$ref": "#/components/schemas/A"}, {"$ref": "#/components/schemas/B"}], "discriminator": {"propertyName": "kind"}},
-          {"type": "string"}
-        ]}"##,
+        r##"{
+          "oneOf": [
+            {
+              "oneOf": [{"$ref": "#/components/schemas/A"}, {"$ref": "#/components/schemas/B"}],
+              "discriminator": {"propertyName": "kind"}
+            },
+            {"type": "string"}
+          ]
+        }"##,
         A_AND_B,
     ));
 
@@ -384,7 +465,10 @@ fn members_with_only_required_are_dropped() {
         r#"{
           "type": "object",
           "properties": {"appeals": {"type": "string"}, "type": {"type": "string"}},
-          "oneOf": [{"type": "object", "required": ["appeals"]}, {"type": "object", "required": ["type"]}]
+          "oneOf": [
+            {"type": "object", "required": ["appeals"]},
+            {"type": "object", "required": ["type"]}
+          ]
         }"#,
     ));
 
@@ -396,11 +480,13 @@ fn members_with_only_required_are_dropped() {
 #[test]
 fn member_with_only_constraints_is_dropped() {
     let forge = parse(&responding_with_schemas(
-        r##"{"anyOf": [
-          {"$ref": "#/components/schemas/A"},
-          {"$ref": "#/components/schemas/B"},
-          {"not": {"required": ["a", "b"]}}
-        ]}"##,
+        r##"{
+          "anyOf": [
+            {"$ref": "#/components/schemas/A"},
+            {"$ref": "#/components/schemas/B"},
+            {"not": {"required": ["a", "b"]}}
+          ]
+        }"##,
         A_AND_B,
     ));
 
@@ -423,7 +509,10 @@ fn object_member_without_properties_allows_any_keys() {
 #[test]
 fn type_next_to_a_union_is_dropped() {
     let forge = parse(&responding_with_schemas(
-        r##"{"type": "object", "anyOf": [{"$ref": "#/components/schemas/A"}, {"$ref": "#/components/schemas/B"}]}"##,
+        r##"{
+          "type": "object",
+          "anyOf": [{"$ref": "#/components/schemas/A"}, {"$ref": "#/components/schemas/B"}]
+        }"##,
         A_AND_B,
     ));
 
@@ -434,7 +523,8 @@ fn type_next_to_a_union_is_dropped() {
 fn properties_next_to_a_union_are_intersected_with_it() {
     let forge = parse(&responding_with_schemas(
         r##"{
-          "type": "object", "properties": {"id": {"type": "string"}},
+          "type": "object",
+          "properties": {"id": {"type": "string"}},
           "oneOf": [{"$ref": "#/components/schemas/A"}, {"$ref": "#/components/schemas/B"}]
         }"##,
         A_AND_B,

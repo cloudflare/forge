@@ -1,0 +1,29 @@
+openapi: 3.1.0
+info:
+  title: Test API
+  version: 1.0.0
+paths:
+  /plants:
+    parameters:
+      - name: authorization
+        in: header
+        schema:
+          type: string
+    get:
+      operationId: listPlants
+      responses:
+        '200':
+          description: OK
+    post:
+      operationId: createPlant
+      responses:
+        '200':
+          description: OK
+components:
+  securitySchemes:
+    OAuth:
+      type: oauth2
+      flows:
+        clientCredentials:
+          tokenUrl: https://example.com/token
+          scopes: {}

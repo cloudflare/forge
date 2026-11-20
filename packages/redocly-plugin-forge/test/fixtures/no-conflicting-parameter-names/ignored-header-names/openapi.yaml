@@ -1,0 +1,28 @@
+openapi: 3.1.0
+info:
+  title: Ignored header names
+  version: 1.0.0
+paths:
+  /plants:
+    get:
+      operationId: listPlants
+      parameters:
+        - name: Accept
+          in: header
+          schema:
+            type: string
+        - name: accept
+          in: header
+          schema:
+            type: string
+        - name: Content-Type
+          in: header
+          schema:
+            type: string
+        - name: Authorization
+          in: header
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK

@@ -1,0 +1,33 @@
+openapi: 3.1.0
+info:
+  title: Fern port of the only-object-extensions fixture
+  version: 1.0.0
+paths:
+  /:
+    post:
+      operationId: get
+      requestBody:
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/LocalObject'
+                - $ref: '#/components/schemas/LocalString'
+      responses:
+        '200':
+          description: OK
+components:
+  schemas:
+    MyObject:
+      allOf:
+        - $ref: './commons.yaml#/CommonObject'
+        - $ref: './commons.yaml#/CommonString'
+        - $ref: '#/components/schemas/LocalObject'
+        - $ref: '#/components/schemas/LocalString'
+    LocalObject:
+      type: object
+      properties:
+        foo:
+          type: string
+    LocalString:
+      type: string

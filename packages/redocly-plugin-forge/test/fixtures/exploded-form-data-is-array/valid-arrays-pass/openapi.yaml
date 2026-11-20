@@ -1,0 +1,47 @@
+openapi: 3.0.3
+info:
+  title: Uploads
+  version: 1.0.0
+paths:
+  /upload:
+    post:
+      operationId: upload
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                tags:
+                  type: array
+                  nullable: true
+                  items:
+                    type: string
+                ids:
+                  $ref: '#/components/schemas/IdList'
+                labels:
+                  oneOf:
+                    - type: array
+                      items:
+                        type: string
+                    - type: 'null'
+                name:
+                  type: string
+            encoding:
+              tags:
+                explode: true
+              ids:
+                explode: true
+              labels:
+                explode: true
+              name:
+                explode: false
+      responses:
+        '200':
+          description: OK
+components:
+  schemas:
+    IdList:
+      type: array
+      items:
+        type: integer

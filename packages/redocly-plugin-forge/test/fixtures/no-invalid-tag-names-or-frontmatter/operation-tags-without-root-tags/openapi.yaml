@@ -1,0 +1,22 @@
+openapi: 3.0.3
+info:
+  title: Test API
+  version: 1.0.0
+paths:
+  /orders:
+    get:
+      tags:
+        - Commandes
+        - Café
+      operationId: listOrders
+      responses:
+        '200':
+          description: Success
+    post:
+      tags:
+        - Café
+        - Ünits
+      operationId: createOrder
+      responses:
+        '201':
+          description: Created

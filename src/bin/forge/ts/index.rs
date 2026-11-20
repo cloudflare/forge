@@ -2,18 +2,19 @@
 
 use std::collections::HashSet;
 
-use forge::ts::{File, Ident, p};
+use forge::Group;
+use forge::ts::{File, Ident, Module, p};
 
-use super::Node;
 use super::client::{request_name, response_name, skipped};
+use super::sorted_models;
 
-/// Returns the index.ts of `node`: ApiError and RequestOptions from the
+/// Returns the index.ts of `group`: ApiError and RequestOptions from the
 /// runtime library, so that every entry point is complete, then
 /// createClient and the types of its client, then its models. A model named
 /// like another export is exported with a `$` added.
-pub(super) fn index(node: Node<'_>) -> File {
-    let mut f = File::new(node.dir().sub("index.ts"));
-    let depth = node.depth();
+pub(super) fn index(group: Group<'_>) -> File {
+    let mut f = File::new(Module::group(group).sub("index.ts"));
+    let depth = group.path().len();
     let mut runtime = format!("{}_/index.js", "../".repeat(depth));
     if depth == 0 {
         runtime.insert_str(0, "./");
@@ -23,7 +24,7 @@ pub(super) fn index(node: Node<'_>) -> File {
 
     export(&mut f, "export", &["createClient".to_owned()], "./client.js");
     let mut names = vec!["Client".to_owned(), "ClientOptions".to_owned()];
-    for m in node.methods() {
+    for m in group.methods() {
         if !skipped(m) {
             names.push(request_name(m));
             names.push(response_name(m));
@@ -34,7 +35,7 @@ pub(super) fn index(node: Node<'_>) -> File {
     let mut taken: HashSet<String> = ["ApiError", "RequestOptions"].map(String::from).into();
     taken.extend(names);
     let mut models = Vec::new();
-    for m in node.models() {
+    for m in sorted_models(group) {
         let name = Ident::model(m).name.into_owned();
         let mut alias = name.clone();
         while taken.contains(&alias) {

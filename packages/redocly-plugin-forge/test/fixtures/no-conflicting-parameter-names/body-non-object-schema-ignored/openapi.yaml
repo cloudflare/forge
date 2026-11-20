@@ -1,0 +1,60 @@
+openapi: 3.0.3
+info:
+  title: Test API
+  version: 1.0.0
+paths:
+  /plants/{plant_id}/tags:
+    put:
+      operationId: putPlantTags
+      parameters:
+        - name: plant_id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                type: string
+      responses:
+        '200':
+          description: OK
+  /plants/{plantId}/raw:
+    put:
+      operationId: putPlantRaw
+      parameters:
+        - name: plantId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: string
+      responses:
+        '200':
+          description: OK
+  /plants/{plant-id}/map:
+    put:
+      operationId: putPlantMap
+      parameters:
+        - name: plant-id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties:
+                type: string
+      responses:
+        '200':
+          description: OK

@@ -1,0 +1,38 @@
+openapi: 3.1.0
+info:
+  title: Fern port of the uploadDocument fixture
+  version: 1.0.0
+paths:
+  /documents/upload:
+    post:
+      operationId: uploadDocument
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file, invalid-exploded, exploded]
+              properties:
+                file:
+                  type: string
+                  format: binary
+                invalid-exploded:
+                  type: string
+                exploded:
+                  type: array
+                  items:
+                    type: string
+                exploded2:
+                  type: array
+                  items:
+                    type: string
+            encoding:
+              invalid-exploded:
+                explode: true
+              exploded:
+                explode: true
+              exploded2:
+                explode: true
+      responses:
+        '200':
+          description: OK

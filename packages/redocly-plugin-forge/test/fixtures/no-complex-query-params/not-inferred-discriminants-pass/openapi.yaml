@@ -1,0 +1,91 @@
+openapi: 3.1.0
+info:
+  title: Not inferred discriminants
+  version: 1.0.0
+paths:
+  /search:
+    get:
+      operationId: search
+      parameters:
+        - name: sameValue
+          in: query
+          schema:
+            $ref: '#/components/schemas/SameValue'
+        - name: multiValueEnum
+          in: query
+          schema:
+            $ref: '#/components/schemas/MultiValueEnum'
+        - name: optedOut
+          in: query
+          schema:
+            $ref: '#/components/schemas/OptedOut'
+        - name: nullableType
+          in: query
+          schema:
+            $ref: '#/components/schemas/NullableTypeEnum'
+        - name: nullable
+          in: query
+          schema:
+            oneOf:
+              - $ref: '#/components/schemas/Circle'
+              - type: 'null'
+        - name: enums
+          in: query
+          schema:
+            oneOf:
+              - type: string
+                enum: [a]
+              - type: string
+                enum: [b]
+      responses:
+        '200':
+          description: OK
+components:
+  schemas:
+    Circle:
+      type: object
+      properties:
+        kind:
+          type: string
+          enum: [circle]
+    Square:
+      type: object
+      properties:
+        kind:
+          type: string
+          enum: [square]
+    SameValue:
+      oneOf:
+        - $ref: '#/components/schemas/Circle'
+        - type: object
+          properties:
+            kind:
+              type: string
+              enum: [circle]
+            radius:
+              type: number
+    MultiValueEnum:
+      oneOf:
+        - $ref: '#/components/schemas/Circle'
+        - type: object
+          properties:
+            kind:
+              type: string
+              enum: [square, rectangle]
+    OptedOut:
+      x-fern-undiscriminated: true
+      oneOf:
+        - $ref: '#/components/schemas/Circle'
+        - $ref: '#/components/schemas/Square'
+    NullableTypeEnum:
+      oneOf:
+        - type: object
+          properties:
+            kind:
+              type: [string, 'null']
+              enum: [a]
+        - type: object
+          properties:
+            kind:
+              type: [string, 'null']
+              enum: [b]

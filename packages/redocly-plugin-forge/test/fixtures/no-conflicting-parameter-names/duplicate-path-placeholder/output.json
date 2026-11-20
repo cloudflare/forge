@@ -1,0 +1,8 @@
+[
+  {
+    "ruleId": "forge/no-conflicting-parameter-names",
+    "severity": "error",
+    "message": "Path '/pets/{id}/toys/{id}' uses the same placeholder '{id}' more than once. Rename one of the segments (e.g. '/pets/{petId}/toys/{toyId}').",
+    "location": "openapi.yaml#/paths/~1pets~1{id}~1toys~1{id} (key)"
+  }
+]

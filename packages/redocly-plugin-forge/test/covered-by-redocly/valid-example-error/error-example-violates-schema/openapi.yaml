@@ -1,0 +1,33 @@
+openapi: 3.0.3
+info:
+  title: Plants
+  version: 1.0.0
+paths:
+  /plants/{plantId}:
+    get:
+      operationId: getPlant
+      parameters:
+        - name: plantId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The plant
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+              example:
+                title: 404
+components:
+  schemas:
+    Problem:
+      type: object
+      required: [title]
+      properties:
+        title:
+          type: string

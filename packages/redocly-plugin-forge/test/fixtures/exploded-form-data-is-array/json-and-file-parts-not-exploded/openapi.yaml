@@ -1,0 +1,40 @@
+openapi: 3.1.0
+info:
+  title: Uploads
+  version: 1.0.0
+paths:
+  /upload:
+    post:
+      operationId: upload
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+                files:
+                  type: array
+                  items:
+                    type: string
+                    contentMediaType: application/octet-stream
+                metadata:
+                  type: object
+                  properties:
+                    author:
+                      type: string
+            encoding:
+              file:
+                explode: true
+              files:
+                explode: true
+              metadata:
+                explode: true
+                contentType: application/json
+              unknownProperty:
+                explode: true
+      responses:
+        '200':
+          description: OK

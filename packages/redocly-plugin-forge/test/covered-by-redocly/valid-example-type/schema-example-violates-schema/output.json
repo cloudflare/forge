@@ -1,0 +1,16 @@
+[
+  {
+    "ruleId": "no-invalid-schema-examples",
+    "severity": "error",
+    "message": "Example value must conform to the schema: must have required property 'name'.",
+    "location": "openapi.yaml#/components/schemas/Plant/example",
+    "from": "openapi.yaml#/components/schemas/Plant"
+  },
+  {
+    "ruleId": "no-invalid-schema-examples",
+    "severity": "error",
+    "message": "Example value must conform to the schema: must NOT have unevaluated properties `height`.",
+    "location": "openapi.yaml#/components/schemas/Plant/example/height (key)",
+    "from": "openapi.yaml#/components/schemas/Plant"
+  }
+]

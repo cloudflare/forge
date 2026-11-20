@@ -194,20 +194,6 @@ function capitalize(value: string): string {
   return value.charAt(0).toUpperCase() + value.slice(1);
 }
 
-/**
- * URL path segment for a version: only the date appears in the URL. Both dated releases
- * and previews collapse to their bare date (e.g. `2027-01-01.air` → `"2027-01-01"`,
- * `2028-01-01.preview` → `"2028-01-01"`); the codename / `preview` suffix survives only in
- * the wire `id` and the display label. `legacy` has no date, so it keeps its literal token.
- *
- * Because the suffix is dropped, a preview and a stable release sharing a date resolve to
- * the same slug; the engine rejects that at build time (duplicate slug), so a promoted
- * release and its retired preview must not be configured simultaneously.
- */
-export function cloudflareApiVersionSlug(version: CloudflareApiVersion): string {
-  return version.channel === 'legacy' ? version.wire : version.date;
-}
-
 export function isLegacy(
   version: CloudflareApiVersion,
 ): version is Extract<CloudflareApiVersion, { channel: 'legacy' }> {

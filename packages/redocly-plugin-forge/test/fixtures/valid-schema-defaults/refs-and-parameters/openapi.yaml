@@ -1,0 +1,25 @@
+openapi: 3.0.3
+info:
+  title: Plants
+  version: 1.0.0
+paths:
+  /plants:
+    get:
+      operationId: listPlants
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: ten
+        - name: sort
+          in: query
+          schema:
+            $ref: schemas.yaml#/Sort
+        - name: order
+          in: query
+          schema:
+            $ref: schemas.yaml#/Sort
+      responses:
+        '200':
+          description: The plants

@@ -1,0 +1,14 @@
+Reports:
+  get:
+    operationId: listReports
+    tags:
+      - "Rapports \U0001F4CA"
+    description: |
+      Lists reports.
+
+      ---
+
+      See also the export endpoint.
+    responses:
+      '200':
+        description: Success

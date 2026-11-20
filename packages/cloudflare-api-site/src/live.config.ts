@@ -1,8 +1,6 @@
 import { defineLiveCollection } from 'astro:content';
-import { fernOperationLiveLoader } from 'astro-fern/live';
+import { apiPagesLoader } from '@cloudflare/nimbus-docs/live';
 
 export const collections = {
-  apiOperations: defineLiveCollection({
-    loader: fernOperationLiveLoader(),
-  }),
+  apiPages: defineLiveCollection({ loader: apiPagesLoader() }),
 };

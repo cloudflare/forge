@@ -1,0 +1,28 @@
+openapi: 3.0.3
+info:
+  title: Null defaults 3.0
+  version: 1.0.0
+paths: {}
+components:
+  schemas:
+    OptionalName:
+      type: string
+      nullable: true
+      default: null
+    RequiredName:
+      type: string
+      default: null
+    OptionalCount:
+      type: integer
+      nullable: true
+      default: null
+    RequiredCount:
+      type: integer
+      default: null
+    EnumWithNullNoType:
+      enum: [open, closed, null]
+      default: null
+    EnumWithNullTypedString:
+      type: string
+      enum: [open, closed, null]
+      default: null

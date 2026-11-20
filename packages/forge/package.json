@@ -1,6 +1,6 @@
 {
   "name": "@cloudflare/forge",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Generates SDKs from OpenAPI documents.",
   "keywords": [
     "codegen",
@@ -10,6 +10,12 @@
     "typescript",
     "wasm"
   ],
+  "homepage": "https://github.com/cloudflare/forge/tree/main/packages/forge",
+  "bugs": {
+    "url": "https://github.com/cloudflare/forge/issues"
+  },
+  "license": "Apache-2.0",
+  "author": "Cloudflare, Inc.",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/cloudflare/forge.git",
@@ -21,14 +27,19 @@
   },
   "files": [
     "bin",
-    "native",
-    "plugin"
+    "plugin",
+    "README.md",
+    "LICENSE"
   ],
   "type": "module",
   "exports": {
-    "./plugin": {
+    ".": {
       "types": "./plugin/index.d.ts",
       "default": "./plugin/index.js"
+    },
+    "./plugin": {
+      "types": "./plugin/plugin.d.ts",
+      "default": "./plugin/plugin.js"
     },
     "./ts": {
       "types": "./plugin/ts.d.ts",
@@ -38,7 +49,8 @@
     "./package.json": "./package.json"
   },
   "publishConfig": {
-    "access": "public"
+    "access": "public",
+    "provenance": true
   },
   "scripts": {
     "wit": "node scripts/wit.mjs",

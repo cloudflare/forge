@@ -1,0 +1,52 @@
+openapi: 3.0.3
+info:
+  title: Parents
+  version: 1.0.0
+paths: {}
+components:
+  schemas:
+    Child:
+      type: object
+      properties:
+        name:
+          type: string
+      allOf:
+        - $ref: '#/components/schemas/AllOfAliasOfNullable'
+        - $ref: '#/components/schemas/RefAliasOfNullable'
+        - $ref: '#/components/schemas/NullableAliasOfObject'
+        - $ref: '#/components/schemas/NullableString'
+        - $ref: '#/components/schemas/NullableMap'
+    NullableBase:
+      type: object
+      nullable: true
+      properties:
+        id:
+          type: string
+    AllOfAliasOfNullable:
+      allOf:
+        - $ref: '#/components/schemas/NullableBase'
+    NullableOther:
+      type: object
+      nullable: true
+      properties:
+        label:
+          type: string
+    RefAliasOfNullable:
+      $ref: '#/components/schemas/NullableOther'
+    Base:
+      type: object
+      properties:
+        code:
+          type: string
+    NullableAliasOfObject:
+      nullable: true
+      allOf:
+        - $ref: '#/components/schemas/Base'
+    NullableString:
+      type: string
+      nullable: true
+    NullableMap:
+      type: object
+      nullable: true
+      additionalProperties:
+        type: string

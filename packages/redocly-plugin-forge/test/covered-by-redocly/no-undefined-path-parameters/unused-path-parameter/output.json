@@ -1,0 +1,8 @@
+[
+  {
+    "ruleId": "path-params-defined",
+    "severity": "error",
+    "message": "Path parameter `id` is not used in the path `/users`.",
+    "location": "openapi.yaml#/paths/~1users/get/parameters/0/name"
+  }
+]

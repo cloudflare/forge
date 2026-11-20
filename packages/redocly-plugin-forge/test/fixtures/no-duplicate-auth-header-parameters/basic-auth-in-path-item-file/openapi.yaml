@@ -1,0 +1,12 @@
+openapi: 3.0.3
+info:
+  title: Test API
+  version: 1.0.0
+paths:
+  /plants:
+    $ref: ./paths/plants.yaml
+components:
+  securitySchemes:
+    Basic:
+      type: http
+      scheme: basic

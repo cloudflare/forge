@@ -1,0 +1,35 @@
+openapi: 3.1.0
+info:
+  title: Uploads
+  version: 1.0.0
+paths:
+  /upload:
+    post:
+      operationId: upload
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+          multipart/mixed:
+            schema:
+              allOf:
+                - type: object
+                  properties:
+                    tag:
+                      type: string
+                - type: object
+                  properties:
+                    file:
+                      type: string
+                      format: binary
+            encoding:
+              tag:
+                explode: true
+      responses:
+        '200':
+          description: OK

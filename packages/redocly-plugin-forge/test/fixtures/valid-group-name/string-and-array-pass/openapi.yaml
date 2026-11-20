@@ -1,0 +1,26 @@
+openapi: 3.1.0
+info:
+  title: String and array pass
+  version: 1.0.0
+paths:
+  /dotted:
+    get:
+      operationId: dotted
+      x-forge-group-name: zone.settings
+      responses:
+        '200':
+          description: OK
+  /array:
+    get:
+      operationId: arr
+      x-forge-group-name: ['zone', 'settings']
+      responses:
+        '200':
+          description: OK
+  /single:
+    get:
+      operationId: single
+      x-forge-group-name: zone
+      responses:
+        '200':
+          description: OK

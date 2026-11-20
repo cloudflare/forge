@@ -1,0 +1,8 @@
+[
+  {
+    "ruleId": "path-params-defined",
+    "severity": "error",
+    "message": "The operation does not define the path parameter `{id}` expected by path `/users/{id}`.",
+    "location": "openapi.yaml#/paths/~1users~1{id}/get/parameters (key)"
+  }
+]

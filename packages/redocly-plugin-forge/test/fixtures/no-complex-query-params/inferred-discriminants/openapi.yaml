@@ -1,0 +1,85 @@
+openapi: 3.1.0
+info:
+  title: Inferred discriminants
+  version: 1.0.0
+paths:
+  /search:
+    get:
+      operationId: search
+      parameters:
+        - name: enumValues
+          in: query
+          schema:
+            $ref: '#/components/schemas/EnumDiscriminated'
+        - name: anyOfConst
+          in: query
+          schema:
+            $ref: '#/components/schemas/AnyOfConstDiscriminated'
+        - name: typeExamples
+          in: query
+          schema:
+            $ref: '#/components/schemas/TypeExampleDiscriminated'
+        - name: undiscriminatedAnyOf
+          in: query
+          schema:
+            $ref: '#/components/schemas/UndiscriminatedAnyOf'
+        - name: forced
+          in: query
+          schema:
+            $ref: '#/components/schemas/ForcedDiscriminated'
+      responses:
+        '200':
+          description: OK
+components:
+  schemas:
+    Circle:
+      type: object
+      properties:
+        kind:
+          type: string
+          enum: [circle]
+    Square:
+      type: object
+      properties:
+        kind:
+          type: string
+          enum: [square]
+    EnumDiscriminated:
+      oneOf:
+        - $ref: '#/components/schemas/Circle'
+        - $ref: '#/components/schemas/Square'
+    AnyOfConstDiscriminated:
+      anyOf:
+        - type: object
+          properties:
+            kind:
+              type: string
+              const: a
+        - type: object
+          properties:
+            kind:
+              type: string
+              const: b
+    TypeExampleDiscriminated:
+      oneOf:
+        - type: object
+          properties:
+            type:
+              type: string
+              example: first
+        - type: object
+          properties:
+            type:
+              type: string
+              example: second
+    UndiscriminatedAnyOf:
+      x-fern-undiscriminated: true
+      anyOf:
+        - $ref: '#/components/schemas/Circle'
+        - $ref: '#/components/schemas/Square'
+    ForcedDiscriminated:
+      x-fern-undiscriminated: true
+      x-fern-discriminated: true
+      oneOf:
+        - $ref: '#/components/schemas/Circle'
+        - $ref: '#/components/schemas/Square'

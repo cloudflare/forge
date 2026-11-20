@@ -1,0 +1,19 @@
+openapi: 3.0.3
+info:
+  title: Plants
+  version: 1.0.0
+paths: {}
+components:
+  schemas:
+    Plant:
+      type: object
+      properties:
+        indoor:
+          type: boolean
+          default: 1
+        outdoor:
+          type: boolean
+          default: 'yes'
+        potted:
+          type: boolean
+          default: 'FALSE'

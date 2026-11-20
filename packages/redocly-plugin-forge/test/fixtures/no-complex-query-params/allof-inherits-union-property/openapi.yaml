@@ -1,0 +1,39 @@
+openapi: 3.1.0
+info:
+  title: Filters
+  version: 1.0.0
+paths:
+  /items:
+    get:
+      operationId: listItems
+      parameters:
+        - name: filter
+          in: query
+          style: deepObject
+          schema:
+            allOf:
+              - $ref: '#/components/schemas/BaseFilter'
+              - type: object
+                properties:
+                  limit:
+                    type: integer
+      responses:
+        '200':
+          description: OK
+components:
+  schemas:
+    BaseFilter:
+      type: object
+      properties:
+        target:
+          $ref: '#/components/schemas/Target'
+    Target:
+      discriminator:
+        propertyName: kind
+        mapping:
+          user: '#/components/schemas/User'
+    User:
+      type: object
+      properties:
+        kind:
+          type: string

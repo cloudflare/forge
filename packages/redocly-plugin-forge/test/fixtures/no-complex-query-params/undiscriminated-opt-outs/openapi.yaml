@@ -1,0 +1,61 @@
+openapi: 3.1.0
+info:
+  title: Shapes
+  version: 1.0.0
+paths:
+  /shapes:
+    get:
+      operationId: listShapes
+      parameters:
+        - name: undiscriminated
+          in: query
+          schema:
+            $ref: '#/components/schemas/UndiscriminatedShape'
+        - name: notDiscriminated
+          in: query
+          schema:
+            $ref: '#/components/schemas/NotDiscriminatedShape'
+        - name: ignored
+          in: query
+          x-fern-ignore: true
+          schema:
+            $ref: '#/components/schemas/Shape'
+        - name: shapeHeader
+          in: header
+          schema:
+            $ref: '#/components/schemas/Shape'
+        - name: custom
+          in: query
+          schema:
+            x-fern-type: string
+            oneOf:
+              - $ref: '#/components/schemas/Circle'
+            discriminator:
+              propertyName: type
+      responses:
+        '200':
+          description: OK
+components:
+  schemas:
+    Shape:
+      oneOf:
+        - $ref: '#/components/schemas/Circle'
+      discriminator:
+        propertyName: type
+    UndiscriminatedShape:
+      x-fern-undiscriminated: true
+      oneOf:
+        - $ref: '#/components/schemas/Circle'
+      discriminator:
+        propertyName: type
+    NotDiscriminatedShape:
+      x-fern-discriminated: false
+      oneOf:
+        - $ref: '#/components/schemas/Circle'
+      discriminator:
+        propertyName: type
+    Circle:
+      type: object
+      properties:
+        type:
+          type: string

@@ -32,9 +32,17 @@ fn ref_into_a_schema_is_written_in_place() {
 fn recursive_ref_written_in_place_is_an_error() {
     let err = parse_err(&responding_with_schemas(
         r##"{"$ref": "#/components/schemas/Tree/properties/node"}"##,
-        r##"{"Tree": {"type": "object", "properties": {
-          "node": {"type": "object", "properties": {"next": {"$ref": "#/components/schemas/Tree/properties/node"}}}
-        }}}"##,
+        r##"{
+          "Tree": {
+            "type": "object",
+            "properties": {
+              "node": {
+                "type": "object",
+                "properties": {"next": {"$ref": "#/components/schemas/Tree/properties/node"}}
+              }
+            }
+          }
+        }"##,
     ));
 
     assert!(err.contains("#/components/schemas/Tree/properties/node"), "{err}");
@@ -64,12 +72,29 @@ fn siblings_of_a_ref_are_ignored_in_3_0() {
 fn annotations_next_to_a_ref_keep_the_model_in_3_1() {
     let forge = parse(
         r##"{
-          "openapi": "3.1.0", "info": {"title": "t", "version": "1"},
-          "paths": {"/a": {"get": {"x-forge-group-name": "a", "x-forge-method-name": "get",
-            "responses": {"200": {"description": "ok", "content": {"application/json": {"schema": {
-              "$ref": "#/components/schemas/Zone", "description": "The zone.", "deprecated": true
-            }}}}}}}},
-          "components": {"schemas": {"Zone": {"type": "object", "properties": {"id": {"type": "string"}}}}}
+          "openapi": "3.1.0",
+          "info": {"title": "t", "version": "1"},
+          "paths": {
+            "/a": {
+              "get": {
+                "x-forge-group-name": "a",
+                "x-forge-method-name": "get",
+                "responses": {"200": {
+                  "description": "ok",
+                  "content": {"application/json": {"schema": {
+                    "$ref": "#/components/schemas/Zone",
+                    "description": "The zone.",
+                    "deprecated": true
+                  }}}
+                }}
+              }
+            }
+          },
+          "components": {
+            "schemas": {
+              "Zone": {"type": "object", "properties": {"id": {"type": "string"}}}
+            }
+          }
         }"##,
     );
 
@@ -80,12 +105,28 @@ fn annotations_next_to_a_ref_keep_the_model_in_3_1() {
 fn shape_next_to_a_ref_is_intersected_in_3_1() {
     let forge = parse(
         r##"{
-          "openapi": "3.1.0", "info": {"title": "t", "version": "1"},
-          "paths": {"/a": {"get": {"x-forge-group-name": "a", "x-forge-method-name": "get",
-            "responses": {"200": {"description": "ok", "content": {"application/json": {"schema": {
-              "$ref": "#/components/schemas/Zone", "properties": {"extra": {"type": "string"}}
-            }}}}}}}},
-          "components": {"schemas": {"Zone": {"type": "object", "properties": {"id": {"type": "string"}}}}}
+          "openapi": "3.1.0",
+          "info": {"title": "t", "version": "1"},
+          "paths": {
+            "/a": {
+              "get": {
+                "x-forge-group-name": "a",
+                "x-forge-method-name": "get",
+                "responses": {"200": {
+                  "description": "ok",
+                  "content": {"application/json": {"schema": {
+                    "$ref": "#/components/schemas/Zone",
+                    "properties": {"extra": {"type": "string"}}
+                  }}}
+                }}
+              }
+            }
+          },
+          "components": {
+            "schemas": {
+              "Zone": {"type": "object", "properties": {"id": {"type": "string"}}}
+            }
+          }
         }"##,
     );
 
@@ -96,12 +137,25 @@ fn shape_next_to_a_ref_is_intersected_in_3_1() {
 fn nullable_next_to_a_ref_is_a_union_with_null_in_3_1() {
     let forge = parse(
         r##"{
-          "openapi": "3.1.0", "info": {"title": "t", "version": "1"},
-          "paths": {"/a": {"get": {"x-forge-group-name": "a", "x-forge-method-name": "get",
-            "responses": {"200": {"description": "ok", "content": {"application/json": {"schema": {
-              "$ref": "#/components/schemas/Zone", "nullable": true
-            }}}}}}}},
-          "components": {"schemas": {"Zone": {"type": "object", "properties": {"id": {"type": "string"}}}}}
+          "openapi": "3.1.0",
+          "info": {"title": "t", "version": "1"},
+          "paths": {
+            "/a": {
+              "get": {
+                "x-forge-group-name": "a",
+                "x-forge-method-name": "get",
+                "responses": {"200": {
+                  "description": "ok",
+                  "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Zone", "nullable": true}}}
+                }}
+              }
+            }
+          },
+          "components": {
+            "schemas": {
+              "Zone": {"type": "object", "properties": {"id": {"type": "string"}}}
+            }
+          }
         }"##,
     );
 
@@ -152,12 +206,28 @@ fn property_description_is_never_the_title_of_its_schema() {
 fn description_next_to_a_property_ref_is_its_own_in_3_1() {
     let forge = parse(
         r##"{
-          "openapi": "3.1.0", "info": {"title": "t", "version": "1"},
-          "paths": {"/a": {"get": {"x-forge-group-name": "a", "x-forge-method-name": "get",
-            "responses": {"200": {"description": "ok", "content": {"application/json": {"schema": {
-              "type": "object", "properties": {"home": {"$ref": "#/components/schemas/Zone", "description": "The home zone."}}
-            }}}}}}}},
-          "components": {"schemas": {"Zone": {"type": "string", "description": "A zone."}}}
+          "openapi": "3.1.0",
+          "info": {"title": "t", "version": "1"},
+          "paths": {
+            "/a": {
+              "get": {
+                "x-forge-group-name": "a",
+                "x-forge-method-name": "get",
+                "responses": {"200": {
+                  "description": "ok",
+                  "content": {"application/json": {"schema": {
+                    "type": "object",
+                    "properties": {"home": {"$ref": "#/components/schemas/Zone", "description": "The home zone."}}
+                  }}}
+                }}
+              }
+            }
+          },
+          "components": {
+            "schemas": {
+              "Zone": {"type": "string", "description": "A zone."}
+            }
+          }
         }"##,
     );
 
@@ -168,7 +238,10 @@ fn description_next_to_a_property_ref_is_its_own_in_3_1() {
 #[test]
 fn description_next_to_a_property_ref_is_ignored_in_3_0() {
     let forge = parse(&responding_with_schemas(
-        r##"{"type": "object", "properties": {"home": {"$ref": "#/components/schemas/Zone", "description": "The home zone."}}}"##,
+        r##"{
+          "type": "object",
+          "properties": {"home": {"$ref": "#/components/schemas/Zone", "description": "The home zone."}}
+        }"##,
         r#"{"Zone": {"type": "string", "description": "A zone."}}"#,
     ));
 
@@ -185,10 +258,18 @@ fn responding_with_schemas_3_1(schema: &str, schemas: &str) -> String {
 #[test]
 fn property_description_comes_from_an_all_of_member_in_3_1() {
     let forge = parse(&responding_with_schemas_3_1(
-        r##"{"type": "object", "properties": {
-          "region": {"allOf": [{"$ref": "#/components/schemas/Region"}, {"default": "us"}]},
-          "until": {"allOf": [{"type": "string", "description": "The end."}, {"$ref": "#/components/schemas/Region"}]}
-        }}"##,
+        r##"{
+          "type": "object",
+          "properties": {
+            "region": {"allOf": [{"$ref": "#/components/schemas/Region"}, {"default": "us"}]},
+            "until": {
+              "allOf": [
+                {"type": "string", "description": "The end."},
+                {"$ref": "#/components/schemas/Region"}
+              ]
+            }
+          }
+        }"##,
         r#"{"Region": {"type": "string", "description": "A region."}}"#,
     ));
 
@@ -200,7 +281,10 @@ fn property_description_comes_from_an_all_of_member_in_3_1() {
 #[test]
 fn property_description_comes_from_a_one_member_all_of_in_3_1() {
     let forge = parse(&responding_with_schemas_3_1(
-        r##"{"type": "object", "properties": {"page": {"allOf": [{"$ref": "#/components/schemas/Page"}]}}}"##,
+        r##"{
+          "type": "object",
+          "properties": {"page": {"allOf": [{"$ref": "#/components/schemas/Page"}]}}
+        }"##,
         r#"{"Page": {"type": "integer", "description": "The page."}}"#,
     ));
 
@@ -229,9 +313,12 @@ fn property_description_follows_all_of_inside_a_ref_in_3_1() {
 #[test]
 fn own_description_comes_before_all_of_members_in_3_1() {
     let forge = parse(&responding_with_schemas_3_1(
-        r##"{"type": "object", "properties": {
-          "region": {"description": "Where.", "allOf": [{"$ref": "#/components/schemas/Region"}]}
-        }}"##,
+        r##"{
+          "type": "object",
+          "properties": {
+            "region": {"description": "Where.", "allOf": [{"$ref": "#/components/schemas/Region"}]}
+          }
+        }"##,
         r#"{"Region": {"type": "string", "description": "A region."}}"#,
     ));
 
@@ -244,9 +331,12 @@ fn own_description_comes_before_all_of_members_in_3_1() {
 #[test]
 fn ref_description_comes_before_all_of_members_in_3_1() {
     let forge = parse(&responding_with_schemas_3_1(
-        r##"{"type": "object", "properties": {
-          "region": {"$ref": "#/components/schemas/Region", "allOf": [{"description": "Other."}]}
-        }}"##,
+        r##"{
+          "type": "object",
+          "properties": {
+            "region": {"$ref": "#/components/schemas/Region", "allOf": [{"description": "Other."}]}
+          }
+        }"##,
         r#"{"Region": {"type": "string", "description": "A region."}}"#,
     ));
 
@@ -259,10 +349,13 @@ fn ref_description_comes_before_all_of_members_in_3_1() {
 #[test]
 fn property_description_never_comes_from_one_of_or_any_of_members() {
     let forge = parse(&responding_with_schemas_3_1(
-        r#"{"type": "object", "properties": {
-          "since": {"oneOf": [{"type": "string", "description": "A date."}, {"type": "integer"}]},
-          "until": {"anyOf": [{"type": "string", "description": "A date."}, {"type": "integer"}]}
-        }}"#,
+        r#"{
+          "type": "object",
+          "properties": {
+            "since": {"oneOf": [{"type": "string", "description": "A date."}, {"type": "integer"}]},
+            "until": {"anyOf": [{"type": "string", "description": "A date."}, {"type": "integer"}]}
+          }
+        }"#,
         "{}",
     ));
 
@@ -274,10 +367,13 @@ fn property_description_never_comes_from_one_of_or_any_of_members() {
 #[test]
 fn all_of_member_description_is_ignored_in_3_0() {
     let forge = parse(&responding_with_schemas(
-        r##"{"type": "object", "properties": {
-          "region": {"allOf": [{"$ref": "#/components/schemas/Region"}, {"default": "us"}]},
-          "page": {"allOf": [{"$ref": "#/components/schemas/Region"}]}
-        }}"##,
+        r##"{
+          "type": "object",
+          "properties": {
+            "region": {"allOf": [{"$ref": "#/components/schemas/Region"}, {"default": "us"}]},
+            "page": {"allOf": [{"$ref": "#/components/schemas/Region"}]}
+          }
+        }"##,
         r#"{"Region": {"type": "string", "description": "A region."}}"#,
     ));
 
@@ -291,8 +387,14 @@ fn all_of_that_leads_back_to_itself_has_no_description() {
     let forge = parse(&responding_with_schemas_3_1(
         r##"{"type": "object", "properties": {"a": {"$ref": "#/components/schemas/A"}}}"##,
         r##"{
-          "A": {"type": "object", "allOf": [{"$ref": "#/components/schemas/B"}, {"$ref": "#/components/schemas/A"}]},
-          "B": {"type": "object", "allOf": [{"$ref": "#/components/schemas/A"}, {"$ref": "#/components/schemas/B"}]}
+          "A": {
+            "type": "object",
+            "allOf": [{"$ref": "#/components/schemas/B"}, {"$ref": "#/components/schemas/A"}]
+          },
+          "B": {
+            "type": "object",
+            "allOf": [{"$ref": "#/components/schemas/A"}, {"$ref": "#/components/schemas/B"}]
+          }
         }"##,
     ));
 
@@ -323,12 +425,28 @@ fn property_read_only_follows_a_chain_of_refs() {
 fn read_only_next_to_a_property_ref_counts_in_3_1() {
     let forge = parse(
         r##"{
-          "openapi": "3.1.0", "info": {"title": "t", "version": "1"},
-          "paths": {"/a": {"get": {"x-forge-group-name": "a", "x-forge-method-name": "get",
-            "responses": {"200": {"description": "ok", "content": {"application/json": {"schema": {
-              "type": "object", "properties": {"id": {"$ref": "#/components/schemas/Id", "readOnly": true}}
-            }}}}}}}},
-          "components": {"schemas": {"Id": {"type": "string"}}}
+          "openapi": "3.1.0",
+          "info": {"title": "t", "version": "1"},
+          "paths": {
+            "/a": {
+              "get": {
+                "x-forge-group-name": "a",
+                "x-forge-method-name": "get",
+                "responses": {"200": {
+                  "description": "ok",
+                  "content": {"application/json": {"schema": {
+                    "type": "object",
+                    "properties": {"id": {"$ref": "#/components/schemas/Id", "readOnly": true}}
+                  }}}
+                }}
+              }
+            }
+          },
+          "components": {
+            "schemas": {
+              "Id": {"type": "string"}
+            }
+          }
         }"##,
     );
 
@@ -349,12 +467,28 @@ fn read_only_next_to_a_property_ref_is_ignored_in_3_0() {
 fn read_only_false_next_to_a_ref_does_not_undo_its_schemas_in_3_1() {
     let forge = parse(
         r##"{
-          "openapi": "3.1.0", "info": {"title": "t", "version": "1"},
-          "paths": {"/a": {"get": {"x-forge-group-name": "a", "x-forge-method-name": "get",
-            "responses": {"200": {"description": "ok", "content": {"application/json": {"schema": {
-              "type": "object", "properties": {"id": {"$ref": "#/components/schemas/Id", "readOnly": false}}
-            }}}}}}}},
-          "components": {"schemas": {"Id": {"type": "string", "readOnly": true}}}
+          "openapi": "3.1.0",
+          "info": {"title": "t", "version": "1"},
+          "paths": {
+            "/a": {
+              "get": {
+                "x-forge-group-name": "a",
+                "x-forge-method-name": "get",
+                "responses": {"200": {
+                  "description": "ok",
+                  "content": {"application/json": {"schema": {
+                    "type": "object",
+                    "properties": {"id": {"$ref": "#/components/schemas/Id", "readOnly": false}}
+                  }}}
+                }}
+              }
+            }
+          },
+          "components": {
+            "schemas": {
+              "Id": {"type": "string", "readOnly": true}
+            }
+          }
         }"##,
     );
 
@@ -362,10 +496,118 @@ fn read_only_false_next_to_a_ref_does_not_undo_its_schemas_in_3_1() {
 }
 
 #[test]
+fn read_only_in_an_all_of_member_counts() {
+    let forge = parse(&responding_with_schemas(
+        r##"{
+          "type": "object",
+          "properties": {"id": {"allOf": [{"$ref": "#/components/schemas/Id"}, {"readOnly": true}]}}
+        }"##,
+        r#"{"Id": {"type": "string"}}"#,
+    ));
+
+    assert!(field(object(response_type(&forge, "a.get")), "id").is_read_only());
+}
+
+#[test]
+fn read_only_follows_refs_and_all_of_members() {
+    let forge = parse(&responding_with_schemas(
+        r##"{"type": "object", "properties": {"id": {"$ref": "#/components/schemas/Id"}}}"##,
+        r##"{
+          "Id": {"allOf": [{"$ref": "#/components/schemas/Uuid"}]},
+          "Uuid": {"$ref": "#/components/schemas/ServerSet"},
+          "ServerSet": {"type": "string", "readOnly": true}
+        }"##,
+    ));
+
+    assert!(field(object(response_type(&forge, "a.get")), "id").is_read_only());
+}
+
+#[test]
+fn all_of_next_to_a_property_ref_is_ignored_in_3_0() {
+    let forge = parse(&responding_with_schemas(
+        r##"{
+          "type": "object",
+          "properties": {"id": {"$ref": "#/components/schemas/Id", "allOf": [{"readOnly": true}]}}
+        }"##,
+        r#"{"Id": {"type": "string"}}"#,
+    ));
+
+    assert!(!field(object(response_type(&forge, "a.get")), "id").is_read_only());
+}
+
+#[test]
+fn all_of_next_to_a_property_ref_counts_in_3_1() {
+    let forge = parse(&responding_with_schemas_3_1(
+        r##"{
+          "type": "object",
+          "properties": {"id": {"$ref": "#/components/schemas/Id", "allOf": [{"readOnly": true}]}}
+        }"##,
+        r#"{"Id": {"type": "string"}}"#,
+    ));
+
+    assert!(field(object(response_type(&forge, "a.get")), "id").is_read_only());
+}
+
+#[test]
+fn read_only_in_an_any_of_or_one_of_member_does_not_count() {
+    let forge = parse(&responding_with_schemas(
+        r##"{
+          "type": "object",
+          "properties": {
+            "a": {"anyOf": [{"$ref": "#/components/schemas/Id"}, {"type": "string", "readOnly": true}]},
+            "b": {"oneOf": [{"$ref": "#/components/schemas/Id"}, {"type": "integer", "readOnly": true}]}
+          }
+        }"##,
+        r#"{"Id": {"type": "string"}}"#,
+    ));
+
+    let ty = object(response_type(&forge, "a.get"));
+    assert!(!field(ty, "a").is_read_only());
+    assert!(!field(ty, "b").is_read_only());
+}
+
+#[test]
+fn all_of_that_leads_back_to_itself_is_not_read_only() {
+    let forge = parse(&responding_with_schemas(
+        r##"{"type": "object", "properties": {"a": {"$ref": "#/components/schemas/A"}}}"##,
+        r##"{
+          "A": {
+            "type": "object",
+            "allOf": [{"$ref": "#/components/schemas/B"}, {"$ref": "#/components/schemas/A"}]
+          },
+          "B": {
+            "type": "object",
+            "allOf": [{"$ref": "#/components/schemas/A"}, {"$ref": "#/components/schemas/B"}]
+          }
+        }"##,
+    ));
+
+    assert!(!field(object(response_type(&forge, "a.get")), "a").is_read_only());
+}
+
+#[test]
+fn sensitive_in_an_all_of_member_counts() {
+    let forge = parse(&responding_with_schemas(
+        r##"{
+          "type": "object",
+          "properties": {
+            "token": {"allOf": [{"$ref": "#/components/schemas/Token"}, {"x-forge-sensitive": true}]}
+          }
+        }"##,
+        r#"{"Token": {"type": "string"}}"#,
+    ));
+
+    assert!(field(object(response_type(&forge, "a.get")), "token").is_sensitive());
+}
+
+#[test]
 fn property_that_is_a_ref_is_sensitive_when_its_schema_is() {
     let forge = parse(&responding_with_schemas(
         r##"{"type": "object", "properties": {"token": {"$ref": "#/components/schemas/Token"}}}"##,
-        r##"{"Token": {"$ref": "#/components/schemas/Secret"}, "Secret": {"type": "string", "x-forge-sensitive": true}}"##,
+        r##"{
+          "Token": {"$ref": "#/components/schemas/Secret"},
+          "Secret": {"type": "string", "x-forge-sensitive": true}
+        }"##,
     ));
 
     assert!(field(object(response_type(&forge, "a.get")), "token").is_sensitive());
@@ -374,7 +616,10 @@ fn property_that_is_a_ref_is_sensitive_when_its_schema_is() {
 #[test]
 fn sensitive_next_to_a_property_ref_counts_in_3_0() {
     let forge = parse(&responding_with_schemas(
-        r##"{"type": "object", "properties": {"token": {"$ref": "#/components/schemas/Token", "x-forge-sensitive": true}}}"##,
+        r##"{
+          "type": "object",
+          "properties": {"token": {"$ref": "#/components/schemas/Token", "x-forge-sensitive": true}}
+        }"##,
         r#"{"Token": {"type": "string"}}"#,
     ));
 
@@ -385,12 +630,28 @@ fn sensitive_next_to_a_property_ref_counts_in_3_0() {
 fn sensitive_next_to_a_property_ref_counts_in_3_1() {
     let forge = parse(
         r##"{
-          "openapi": "3.1.0", "info": {"title": "t", "version": "1"},
-          "paths": {"/a": {"get": {"x-forge-group-name": "a", "x-forge-method-name": "get",
-            "responses": {"200": {"description": "ok", "content": {"application/json": {"schema": {
-              "type": "object", "properties": {"token": {"$ref": "#/components/schemas/Token", "x-forge-sensitive": true}}
-            }}}}}}}},
-          "components": {"schemas": {"Token": {"type": "string"}}}
+          "openapi": "3.1.0",
+          "info": {"title": "t", "version": "1"},
+          "paths": {
+            "/a": {
+              "get": {
+                "x-forge-group-name": "a",
+                "x-forge-method-name": "get",
+                "responses": {"200": {
+                  "description": "ok",
+                  "content": {"application/json": {"schema": {
+                    "type": "object",
+                    "properties": {"token": {"$ref": "#/components/schemas/Token", "x-forge-sensitive": true}}
+                  }}}
+                }}
+              }
+            }
+          },
+          "components": {
+            "schemas": {
+              "Token": {"type": "string"}
+            }
+          }
         }"##,
     );
 
@@ -423,15 +684,29 @@ fn property_default_follows_a_chain_of_refs() {
 fn property_default_is_the_first_along_a_chain_of_refs_in_3_1() {
     let forge = parse(
         r##"{
-          "openapi": "3.1.0", "info": {"title": "t", "version": "1"},
-          "paths": {"/a": {"get": {"x-forge-group-name": "a", "x-forge-method-name": "get",
-            "responses": {"200": {"description": "ok", "content": {"application/json": {"schema": {
-              "type": "object", "properties": {"size": {"$ref": "#/components/schemas/Size"}}
-            }}}}}}}},
-          "components": {"schemas": {
-            "Size": {"$ref": "#/components/schemas/Count", "default": 5},
-            "Count": {"type": "integer", "default": 10}
-          }}
+          "openapi": "3.1.0",
+          "info": {"title": "t", "version": "1"},
+          "paths": {
+            "/a": {
+              "get": {
+                "x-forge-group-name": "a",
+                "x-forge-method-name": "get",
+                "responses": {"200": {
+                  "description": "ok",
+                  "content": {"application/json": {"schema": {
+                    "type": "object",
+                    "properties": {"size": {"$ref": "#/components/schemas/Size"}}
+                  }}}
+                }}
+              }
+            }
+          },
+          "components": {
+            "schemas": {
+              "Size": {"$ref": "#/components/schemas/Count", "default": 5},
+              "Count": {"type": "integer", "default": 10}
+            }
+          }
         }"##,
     );
 
@@ -453,15 +728,31 @@ fn property_that_is_a_ref_without_a_default_has_none() {
 fn default_next_to_a_property_ref_is_its_own_in_3_1() {
     let forge = parse(
         r##"{
-          "openapi": "3.1.0", "info": {"title": "t", "version": "1"},
-          "paths": {"/a": {"get": {"x-forge-group-name": "a", "x-forge-method-name": "get",
-            "responses": {"200": {"description": "ok", "content": {"application/json": {"schema": {
-              "type": "object", "properties": {
-                "size": {"$ref": "#/components/schemas/Size", "default": 5},
-                "none": {"$ref": "#/components/schemas/Size", "default": null}
+          "openapi": "3.1.0",
+          "info": {"title": "t", "version": "1"},
+          "paths": {
+            "/a": {
+              "get": {
+                "x-forge-group-name": "a",
+                "x-forge-method-name": "get",
+                "responses": {"200": {
+                  "description": "ok",
+                  "content": {"application/json": {"schema": {
+                    "type": "object",
+                    "properties": {
+                      "size": {"$ref": "#/components/schemas/Size", "default": 5},
+                      "none": {"$ref": "#/components/schemas/Size", "default": null}
+                    }
+                  }}}
+                }}
               }
-            }}}}}}}},
-          "components": {"schemas": {"Size": {"type": "integer", "default": 10}}}
+            }
+          },
+          "components": {
+            "schemas": {
+              "Size": {"type": "integer", "default": 10}
+            }
+          }
         }"##,
     );
 
@@ -473,10 +764,13 @@ fn default_next_to_a_property_ref_is_its_own_in_3_1() {
 #[test]
 fn default_next_to_a_property_ref_is_ignored_in_3_0() {
     let forge = parse(&responding_with_schemas(
-        r##"{"type": "object", "properties": {
-          "size": {"$ref": "#/components/schemas/Size", "default": 5},
-          "count": {"$ref": "#/components/schemas/Count", "default": 5}
-        }}"##,
+        r##"{
+          "type": "object",
+          "properties": {
+            "size": {"$ref": "#/components/schemas/Size", "default": 5},
+            "count": {"$ref": "#/components/schemas/Count", "default": 5}
+          }
+        }"##,
         r#"{"Size": {"type": "integer", "default": 10}, "Count": {"type": "integer"}}"#,
     ));
 

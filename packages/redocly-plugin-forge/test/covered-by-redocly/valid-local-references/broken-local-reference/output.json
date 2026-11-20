@@ -1,0 +1,8 @@
+[
+  {
+    "ruleId": "no-unresolved-refs",
+    "severity": "error",
+    "message": "Can't resolve $ref",
+    "location": "openapi.yaml#/paths/~1pets/get/parameters/0"
+  }
+]

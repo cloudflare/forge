@@ -2,7 +2,7 @@
 // things live.
 
 import { spawnSync } from 'node:child_process';
-import { existsSync, readFileSync, rmSync, statSync } from 'node:fs';
+import { cpSync, existsSync, readFileSync, rmSync, statSync } from 'node:fs';
 import { dirname, isAbsolute, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -12,18 +12,19 @@ export const npmDir = join(dirname(fileURLToPath(import.meta.url)), '..');
 /** The root of the Rust crate. */
 export const repoDir = join(npmDir, '..', '..');
 
-/** Where scripts/archive.mjs puts the tarball. */
+/** Where scripts/archive.mjs puts the tarballs. */
 export const distDir = join(npmDir, 'dist');
 
 /**
- * The platforms forge ships for, each a binary in the package at
- * native/<os>-<cpu>/. `os` and `cpu` take the values of Node's
- * process.platform and process.arch, which the launcher looks the binary up
- * by, and `target` is the Rust target that builds it.
+ * The platforms forge ships for, each published as a per-platform package
+ * `@cloudflare/forge-<os>-<cpu>` listed in optionalDependencies (or placed
+ * under `native/<os>-<cpu>/` in bundled tarballs). `os` and `cpu` take the
+ * values of Node's `process.platform` and `process.arch`, which the launcher
+ * looks the binary up by, and `target` is the Rust target that builds it.
  *
- * `just build <target>` builds one (see the justfile); the publish-preview
- * workflow's build matrix and the justfile's target lists must name the same
- * platforms, and scripts/archive.mjs refuses to pack a package that misses one.
+ * `just build <target>` builds one (see the justfile); the publish workflows'
+ * build matrices and the justfile's target lists must name the same platforms,
+ * and scripts/archive.mjs refuses to pack a package that misses one.
  *
  * Linux builds against musl so the binary is static and runs on any distro.
  */
@@ -34,11 +35,15 @@ export const platforms = [
   { os: 'linux', cpu: 'x64', target: 'x86_64-unknown-linux-musl' },
   { os: 'win32', cpu: 'arm64', target: 'aarch64-pc-windows-msvc' },
   { os: 'win32', cpu: 'x64', target: 'x86_64-pc-windows-msvc' },
-].map((platform) => ({
-  ...platform,
-  id: `${platform.os}-${platform.cpu}`,
-  exe: platform.os === 'win32' ? 'forge.exe' : 'forge',
-}));
+].map((platform) => {
+  const id = `${platform.os}-${platform.cpu}`;
+  return {
+    ...platform,
+    id,
+    pkg: `@cloudflare/forge-${id}`,
+    exe: platform.os === 'win32' ? 'forge.exe' : 'forge',
+  };
+});
 
 /**
  * Returns the path to the forge binary for `platform` in `artifacts`, or
@@ -62,21 +67,12 @@ export function findBinary(artifacts, platform) {
 /** The package's copy of the WIT that wasm plugins are built against. */
 export const witPath = join(npmDir, 'plugin', 'forge.wit');
 
-/**
- * Returns the WIT in src/plugin/wasm.rs, which `forge::wasm::WIT` holds:
- * the raw string passed to its `wit!` macro.
- */
+/** Returns the WIT in src/wasm/forge.wit, which `forge::wasm::WIT` also holds. */
 export function witSource() {
-  const rs = readFileSync(join(repoDir, 'src', 'plugin', 'wasm.rs'), 'utf8');
-  // rustfmt may put the raw string on lines of its own.
-  const wit = rs.match(/^wit!\(\s*r#"([\s\S]*?)"#\s*\);$/m);
-  if (!wit) {
-    throw new Error('cannot find the WIT in src/plugin/wasm.rs');
-  }
-  return wit[1];
+  return readFileSync(join(repoDir, 'src', 'wasm', 'forge.wit'), 'utf8');
 }
 
-/** Throws unless plugin/forge.wit is the WIT in src/plugin/wasm.rs. */
+/** Throws unless plugin/forge.wit is the WIT in src/wasm/forge.wit. */
 export function checkWit() {
   let have;
   try {
@@ -85,16 +81,19 @@ export function checkWit() {
     // Missing counts as stale.
   }
   if (have !== witSource()) {
-    throw new Error(`${display(witPath)} is not the WIT in src/plugin/wasm.rs; run node scripts/wit.mjs`);
+    throw new Error(`${display(witPath)} is not the WIT in src/wasm/forge.wit; run node scripts/wit.mjs`);
   }
 }
 
 /**
- * Generates the bindings of plugin/forge.wit into src/wit, then compiles
- * src/index.mts against them into index.mjs and index.d.mts in `out`, or in
- * plugin/. Throws if either fails.
+ * Builds the package's libraries into `out`, plugin/ by default, and throws
+ * if a step fails. It builds forge's library world with `buildComponent`,
+ * generates the bindings of plugin/forge.wit's `plugin` world into src/wit,
+ * and compiles src/index.ts, src/plugin.ts and src/ts.ts against both into
+ * .js and .d.ts files in `out`.
  */
 export function buildPlugin(out = join(npmDir, 'plugin')) {
+  buildComponent(out);
   const bindings = join(npmDir, 'src', 'wit');
   rmSync(bindings, { recursive: true, force: true });
   node(devBin('@bytecodealliance/jco', 'jco'), [
@@ -107,7 +106,32 @@ export function buildPlugin(out = join(npmDir, 'plugin')) {
     bindings,
   ]);
   node(devBin('typescript', 'tsc'), ['-p', join(npmDir, 'tsconfig.json'), '--outDir', out]);
-  console.log(`built @cloudflare/forge/plugin into ${display(out)}`);
+  console.log(`built @cloudflare/forge into ${display(out)}`);
+}
+
+/**
+ * Builds forge's `library` world, which `parse` runs. It compiles library/,
+ * a member of the root workspace, to WebAssembly with cargo, makes it a
+ * component with jco, and turns the component into JavaScript in
+ * <out>/component. It copies the component's types into src/component, for
+ * the compiler.
+ */
+function buildComponent(out) {
+  const jco = devBin('@bytecodealliance/jco', 'jco');
+  run(
+    'cargo',
+    ['build', '--release', '--locked', '--target', 'wasm32-unknown-unknown', '-p', 'forge-library'],
+    repoDir,
+  );
+  const release = join(repoDir, 'target', 'wasm32-unknown-unknown', 'release');
+  const component = join(release, 'forge.component.wasm');
+  node(jco, ['new', join(release, 'forge_library.wasm'), '-o', component]);
+  const transpiled = join(out, 'component');
+  rmSync(transpiled, { recursive: true, force: true });
+  node(jco, ['transpile', component, '--name', 'forge', '--quiet', '-o', transpiled]);
+  const types = join(npmDir, 'src', 'component');
+  rmSync(types, { recursive: true, force: true });
+  cpSync(transpiled, types, { recursive: true, filter: (path) => !/\.(js|wasm)$/.test(path) });
 }
 
 /**
@@ -127,6 +151,17 @@ function devBin(pkg, name) {
     throw new Error(`${pkg} has no command ${name}`);
   }
   return join(dir, bin);
+}
+
+/** Runs `command` with `args` in `cwd`, and throws if it fails. */
+function run(command, args, cwd) {
+  const result = spawnSync(command, args, { cwd, stdio: 'inherit' });
+  if (result.error) {
+    throw new Error(`cannot run ${command}: ${result.error.message}`);
+  }
+  if (result.status !== 0) {
+    throw new Error(`${command} ${args.join(' ')} failed in ${display(cwd)}`);
+  }
 }
 
 /** Runs the Node script `script` with `args`, and throws if it fails. */
@@ -170,13 +205,21 @@ export function checkVersion() {
 }
 
 /**
- * Returns the path of the tarball scripts/archive.mjs makes in `out` for
- * `version`, holding the binaries for `ids`. Only a tarball with every
- * platform goes without a suffix, so only that name can be published.
+ * Returns the path of the main @cloudflare/forge tarball scripts/archive.mjs
+ * makes in `out` for `version`. For bundled tarballs that leave out platforms,
+ * `ids` adds a suffix so a partial bundled tarball can't pass for the full one.
  */
 export function tarball(out, version, ids = platforms.map((platform) => platform.id)) {
   const suffix = ids.length === platforms.length ? '' : `-${ids.join('-')}`;
   return join(out, `cloudflare-forge-${version}${suffix}.tgz`);
+}
+
+/**
+ * Returns the path of the per-platform tarball scripts/archive.mjs makes in
+ * `out` for `platform` at `version`.
+ */
+export function platformTarball(out, version, platform) {
+  return join(out, `cloudflare-forge-${platform.id}-${version}.tgz`);
 }
 
 /** Returns `path` relative to the working directory if it's inside it. */

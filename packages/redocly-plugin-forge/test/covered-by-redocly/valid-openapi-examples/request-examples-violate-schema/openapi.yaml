@@ -1,0 +1,27 @@
+openapi: 3.0.3
+info:
+  title: Plants
+  version: 1.0.0
+paths:
+  /plants:
+    post:
+      operationId: createPlant
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name:
+                  type: string
+            examples:
+              fern:
+                value:
+                  name: Fern
+              wrongType:
+                value:
+                  name: 7
+      responses:
+        '201':
+          description: Created

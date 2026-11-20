@@ -12,26 +12,25 @@ use super::operation::operation;
 use super::types::{
     Prec, all_optional, alternatives, doc, has_fields, identifier, js_string, key, object_like, typ, valid_name,
 };
-use super::{Node, request_options, runtime};
+use super::{request_options, runtime};
 
-/// Returns the client.ts of `node`: its ClientOptions and Client,
+/// Returns the client.ts of `group`: its ClientOptions and Client,
 /// createClient and bind, the request and response types of each method,
 /// then the operation of each method. The library has already rejected
-/// methods and groups with no name and duplicate methods, and equal group
-/// names are one group.
-pub(super) fn client(node: Node<'_>) -> File {
-    let groups = node.children();
+/// methods and subgroups with no name and duplicate methods, and equal
+/// group names are one group.
+pub(super) fn client(group: Group<'_>) -> File {
+    let groups: Vec<Group<'_>> = group.children().collect();
     let group_names: HashMap<String, Group<'_>> = groups.iter().map(|&sub| (group_name(sub), sub)).collect();
 
     // A method that is not JSON is left out (specs/13-non-json-operations.md).
-    let methods: Vec<(Method<'_>, Request<'_>)> = node
+    let methods: Vec<(Method<'_>, Request<'_>)> = group
         .methods()
-        .into_iter()
         .filter(|&m| !skipped(m))
         .map(|m| (m, Request::new(m)))
         .collect();
 
-    let mut f = File::new(node.dir().sub("client.ts"));
+    let mut f = File::new(Module::group(group).sub("client.ts"));
     client_options(&mut f);
     p!(f);
     client_interface(&mut f, &methods, &groups, &group_names);
@@ -344,7 +343,7 @@ pub(super) fn response(m: Method<'_>) -> (Vec<Type<'_>>, bool) {
 
 /// The request of a method: its parameters that have a field, and its JSON
 /// body.
-pub(super) struct Request<'f> {
+pub(crate) struct Request<'f> {
     /// The parameters, path parameters first.
     pub(super) params: Vec<Param<'f>>,
     pub(super) body: Option<Body<'f>>,
@@ -373,7 +372,7 @@ impl<'f> Request<'f> {
     /// query parameter whose name is not valid has no field, and one named
     /// like another parameter gets a `$`. A parameter named `body` next to a
     /// body that is not flat gets a `$` too.
-    fn new(m: Method<'f>) -> Request<'f> {
+    pub(crate) fn new(m: Method<'f>) -> Request<'f> {
         let request = m.request();
         let object = match request {
             Some(Type::Object(object)) => Some(object),
@@ -424,7 +423,7 @@ impl<'f> Request<'f> {
 
     /// Reports whether the request can be left out: no parameter is
     /// required, and an empty object is a body.
-    fn optional(&self) -> bool {
+    pub(crate) fn optional(&self) -> bool {
         let params = !self.params.iter().any(|p| p.field.is_required());
         let body = match &self.body {
             None => true,
@@ -462,11 +461,11 @@ fn response_ident(f: &File, m: Method<'_>) -> Ident {
     f.ident(response_name(m))
 }
 
-pub(super) fn request_name(m: Method<'_>) -> String {
+pub(crate) fn request_name(m: Method<'_>) -> String {
     format!("{}Request", identifier(m.name().pascal()))
 }
 
-pub(super) fn response_name(m: Method<'_>) -> String {
+pub(crate) fn response_name(m: Method<'_>) -> String {
     format!("{}Response", identifier(m.name().pascal()))
 }
 
@@ -476,16 +475,16 @@ pub(super) fn operation_ident(f: &File, m: Method<'_>) -> Ident {
 }
 
 /// Returns the property of a method and a group in the Client.
-fn method_name(m: Method<'_>) -> String {
+pub(crate) fn method_name(m: Method<'_>) -> String {
     identifier(m.name().camel())
 }
 
-fn group_name(g: Group<'_>) -> String {
+pub(crate) fn group_name(g: Group<'_>) -> String {
     identifier(g.name().camel())
 }
 
 /// Returns the documentation of `m`: its summary, then its description.
-fn method_doc(m: Method<'_>) -> String {
+pub(crate) fn method_doc(m: Method<'_>) -> String {
     let mut text = m.summary().trim().to_owned();
     let description = m.description().trim();
     if !description.is_empty() && description != text {
@@ -500,7 +499,7 @@ fn method_doc(m: Method<'_>) -> String {
 /// Reports whether `m` is left out of the SDK: its request body, or a
 /// success response, has content, and none of it is JSON
 /// (specs/13-non-json-operations.md).
-pub(super) fn skipped(m: Method<'_>) -> bool {
+pub(crate) fn skipped(m: Method<'_>) -> bool {
     if let Some(body) = m.body()
         && body.json().is_none()
         && body.contents().len() > 0

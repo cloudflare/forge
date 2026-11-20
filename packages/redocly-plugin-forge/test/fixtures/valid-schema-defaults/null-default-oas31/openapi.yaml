@@ -1,0 +1,18 @@
+openapi: 3.1.0
+info:
+  title: Null defaults 3.1
+  version: 1.0.0
+components:
+  schemas:
+    OptionalName:
+      type: [string, 'null']
+      default: null
+    RequiredName:
+      type: string
+      default: null
+    OptionalCount:
+      type: ['null', integer]
+      default: null
+    RequiredCount:
+      type: integer
+      default: null

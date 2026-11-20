@@ -1,6 +1,8 @@
 #!/usr/bin/env node
-// Runs the forge binary for this platform. The package carries a binary for
-// every platform it supports, at native/<os>-<cpu>/forge.
+// Runs the forge binary for this platform. Standard npm installs resolve the
+// matching @cloudflare/forge-<os>-<cpu> optionalDependency without any
+// preinstall/postinstall scripts; bundled preview/local tarballs fall back to
+// native/<os>-<cpu>/forge.
 
 'use strict';
 
@@ -25,17 +27,37 @@ function binary() {
   }
 
   const platform = `${process.platform}-${process.arch}`;
+  const pkg = `@cloudflare/forge-${platform}`;
+
+  try {
+    return require.resolve(`${pkg}/${exe}`);
+  } catch (err) {
+    if (err && err.code !== 'MODULE_NOT_FOUND') {
+      throw err;
+    }
+  }
+
+  // Bundled tarballs (pkg.pr.new previews and `just pack --bundled`) carry
+  // binaries under native/<os>-<cpu>/ instead of optionalDependencies.
   const native = path.join(__dirname, '..', 'native');
-  const bin = path.join(native, platform, exe);
-  if (!fs.existsSync(bin)) {
-    const bundled = fs.existsSync(native) ? fs.readdirSync(native) : [];
+  const bundled = path.join(native, platform, exe);
+  if (fs.existsSync(bundled)) {
+    return bundled;
+  }
+
+  const bundledPlatforms = fs.existsSync(native) ? fs.readdirSync(native) : [];
+  if (bundledPlatforms.length > 0) {
     fail(
-      bundled.length > 0
-        ? `there is no forge binary for ${platform}; this package has them for ${bundled.join(', ')}`
-        : 'this package has no forge binaries; build it with scripts/archive.mjs',
+      `could not find platform package ${pkg} for ${platform}, and this bundled package only has binaries for ${bundledPlatforms.join(', ')}`,
     );
   }
-  return bin;
+
+  fail(
+    `could not find platform package ${pkg} for ${platform}. ` +
+      `This usually happens if ${platform} is unsupported, if dependencies were installed with --no-optional or --omit=optional, ` +
+      `or if node_modules was copied from another OS or CPU. ` +
+      `Reinstall without omitting optional dependencies, or set FORGE_BINARY to a local forge binary.`,
+  );
 }
 
 const bin = binary();

@@ -1,0 +1,42 @@
+openapi: 3.1.0
+info:
+  title: Trees
+  version: 1.0.0
+paths:
+  /forests:
+    get:
+      operationId: listForests
+      parameters:
+        - name: forest
+          in: query
+          style: deepObject
+          schema:
+            $ref: '#/components/schemas/Forest'
+      responses:
+        '200':
+          description: OK
+components:
+  schemas:
+    Forest:
+      type: object
+      properties:
+        trees:
+          type: array
+          items:
+            $ref: '#/components/schemas/Forest'
+        leaf:
+          $ref: '#/components/schemas/Leaf'
+    Leaf:
+      oneOf:
+        - $ref: '#/components/schemas/Forest'
+        - $ref: '#/components/schemas/Twig'
+      discriminator:
+        propertyName: kind
+        mapping:
+          forest: '#/components/schemas/Forest'
+          twig: '#/components/schemas/Twig'
+    Twig:
+      type: object
+      properties:
+        kind:
+          type: string

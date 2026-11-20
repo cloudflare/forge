@@ -19,6 +19,17 @@ jobs:
 
       - uses: ./.github/actions/setup-workspace
 
+      # @cloudflare/forge's build compiles forge's library world with cargo
+      # for wasm32-unknown-unknown, the channel and target pinned in
+      # rust-toolchain.toml.
+      - name: Install Rust toolchain
+        uses: moonrepo/setup-rust@abb2d32350334249b178c401e5ec5836e0cd88d3 # v1.3.0
+        with:
+          targets: wasm32-unknown-unknown
+          cache: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Lint and format check
         run: pnpm check
 
@@ -27,6 +38,33 @@ jobs:
 
       - name: Run unit tests
         run: pnpm -r run test
+
+      # Only verify the plugin pack when files that could affect it change.
+      # On push to main/feat we always run so regressions caught in merged
+      # code still surface; on pull_request we skip when nothing relevant
+      # changed to keep unrelated PRs fast.
+      - name: Detect plugin-affecting changes
+        id: changes
+        if: github.event_name == 'pull_request'
+        uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
+        with:
+          filters: |
+            plugin:
+              - 'packages/redocly-plugin-forge/**'
+              - 'pnpm-lock.yaml'
+              - 'pnpm-workspace.yaml'
+              - '.github/workflows/ci.yml'
+              - '.github/workflows/publish-redocly-plugin-forge.yml'
+
+      # Pack the one published package and lint the tarball, so broken
+      # `exports` / `main` / `types` maps fail CI rather than surfacing at
+      # tag time (or worse, to a downstream consumer). `verify-pack` runs
+      # `pnpm pack` (which fires `prepack` → full build) and then
+      # `publint` from the plugin's own devDependencies — no `pnpm dlx`
+      # fetch on every run.
+      - name: Verify @cloudflare/redocly-plugin-forge pack
+        if: github.event_name != 'pull_request' || steps.changes.outputs.plugin == 'true'
+        run: pnpm --filter @cloudflare/redocly-plugin-forge run verify-pack
 
       - name: Install Playwright browser
         run: pnpm --filter astro-fern exec playwright install --with-deps chromium

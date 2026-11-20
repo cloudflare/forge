@@ -1,0 +1,12 @@
+openapi: 3.1.0
+info:
+  title: Non-string name
+  version: 1.0.0
+paths:
+  /thing:
+    get:
+      operationId: getThing
+      x-forge-method-name: 42
+      responses:
+        '200':
+          description: OK

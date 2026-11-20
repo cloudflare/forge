@@ -1,0 +1,2 @@
+rules:
+  forge/no-duplicate-auth-header-parameters: warn

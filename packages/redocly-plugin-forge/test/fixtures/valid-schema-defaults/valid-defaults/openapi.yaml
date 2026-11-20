@@ -1,0 +1,53 @@
+openapi: 3.0.3
+info:
+  title: Plants
+  version: 1.0.0
+paths: {}
+components:
+  schemas:
+    Plant:
+      type: object
+      properties:
+        name:
+          type: string
+          default: Fern
+        kind:
+          type: string
+          enum: [fern, moss]
+          default: fern
+        nickname:
+          type: string
+          nullable: true
+          default: null
+        height:
+          type: integer
+          minimum: 0
+          maximum: 100
+          multipleOf: 5
+          default: 10
+        seeds:
+          type: integer
+          format: int64
+          default: 1.5
+        ratio:
+          type: number
+          multipleOf: 0.5
+          minimum: 0.5
+          default: 1.5
+        indoor:
+          type: boolean
+          default: 'true'
+        tags:
+          type: array
+          items:
+            type: string
+          default: [green]
+        color:
+          enum: [green, red]
+          default: green
+        custom:
+          x-fern-type: optional<string>
+          type: string
+          default: 3
+        anything:
+          default: 3

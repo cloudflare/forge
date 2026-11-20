@@ -1,9 +1,13 @@
 [workspace]
 resolver = "3"
+# packages/forge/library builds forge as a library for JavaScript, for
+# wasm32-unknown-unknown. It is a member so it shares Cargo.lock. Plain
+# `cargo` commands at the root build and test only forge.
+members = ["packages/forge/library"]
 
 [package]
 name = "forge"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2024"
 
 [dependencies]
@@ -11,8 +15,10 @@ clap = { version = "4.6.7", features = ["derive"], optional = true }
 rayon = "1.12.0"
 serde = { version = "1.0.229", features = ["derive"] }
 serde_json = { version = "1.0.151", features = ["preserve_order"], optional = true }
+strum = { version = "0.28.0", features = ["derive"], optional = true }
 wasmtime = { version = "49.0.2", default-features = false, features = ["runtime", "cranelift", "component-model", "parallel-compilation", "std"], optional = true }
 wasmtime-wasi = { version = "49.0.2", default-features = false, features = ["p2"], optional = true }
+wit-bindgen = { version = "0.57.1", optional = true }
 
 [dev-dependencies]
 divan = "0.1.21"
@@ -26,9 +32,12 @@ harness = false
 default = ["cli"]
 # The `forge` command. Library users can turn it off with
 # `default-features = false`.
-cli = ["dep:clap", "dep:serde_json"]
+cli = ["dep:clap", "dep:serde_json", "dep:strum"]
 # `forge::wasm`, which runs plugins compiled to WebAssembly components.
 wasm = ["dep:wasmtime", "dep:wasmtime-wasi"]
+# `forge::library` implements the WIT's `library` world. `@cloudflare/forge`
+# builds forge with it to WebAssembly to parse documents in JavaScript.
+library = ["dep:serde_json", "dep:wit-bindgen"]
 
 [profile.release]
 strip = true # Drop symbols and debug info from the binary, which the npm packages ship.

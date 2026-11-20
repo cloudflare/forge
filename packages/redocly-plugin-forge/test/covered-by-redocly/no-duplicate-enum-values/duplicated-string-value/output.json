@@ -1,0 +1,8 @@
+[
+  {
+    "ruleId": "no-duplicated-enum-values",
+    "severity": "error",
+    "message": "Duplicated enum value found: 'available'.",
+    "location": "openapi.yaml#/components/schemas/PlantStatus/enum/2"
+  }
+]

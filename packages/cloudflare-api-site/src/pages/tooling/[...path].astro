@@ -1,39 +1,17 @@
 ---
-import DocsLayout from '../../layouts/DocsLayout.astro';
+import CommandPage from '../../components/CommandPage.astro';
 import CommandReference from '../../components/commands/CommandReference.astro';
-import { getApiRouter } from '../../api-server.ts';
-import { commandPath, commandTitle } from '../../command-reference/routing.ts';
+import { commandProducts } from '../../command-sidebar.ts';
+import { commandTitle } from '../../command-reference/routing.ts';
+import { stripBase } from '@cloudflare/nimbus-docs/runtime';
 import { getCommandRouter } from '../../command-reference/server.ts';
-import type { CommandMetadata } from '../../command-reference/schema.ts';
-import { getPageSidebar } from '../../page-sidebar.ts';
 
-export const prerender = true;
-
-export async function getStaticPaths() {
-  const [apiRouter, router] = await Promise.all([getApiRouter(), getCommandRouter()]);
-  const productIds = new Set(apiRouter.plan.catalog.products.map((product) => product.id));
-  return router.commands.filter((command) => !productIds.has(command.fullPath[0])).map((command) => ({
-    params: { path: commandPath(command) },
-    props: { command },
-  }));
-}
-
-interface Props {
-  command: CommandMetadata;
-}
-
-const { command } = Astro.props;
-
-const sidebar = await getPageSidebar(Astro.url);
+const router = await getCommandRouter();
+const command = router.resolve(Astro.url, commandProducts);
+if (!command) return new Response('Not found', { status: 404 });
+const markdownUrl = `${stripBase(Astro.url.pathname, import.meta.env.BASE_URL)}index.md`;
 ---
 
-<DocsLayout
-  title={commandTitle(command)}
-  description={command.description}
-  sidebar={sidebar}
-  headings={false}
-  breadcrumbs={[]}
-  showDescription={false}
->
+<CommandPage title={commandTitle(command)} description={command.description} href="/" markdownUrl={markdownUrl}>
   <CommandReference command={command} />
-</DocsLayout>
+</CommandPage>

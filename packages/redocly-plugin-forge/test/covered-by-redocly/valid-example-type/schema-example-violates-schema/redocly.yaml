@@ -1,0 +1,2 @@
+rules:
+  no-invalid-schema-examples: error

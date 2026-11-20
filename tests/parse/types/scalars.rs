@@ -81,13 +81,16 @@ fn string_formats() {
 #[test]
 fn uuid_references_and_plain_strings_keep_their_own_scalar_types() {
     let forge = parse(&responding_with_schemas(
-        r##"{"type":"object","properties":{
-          "id":{"$ref":"#/components/schemas/ID"},
-          "plain":{"type":"string"},
-          "empty":{"type":"string","format":""},
-          "custom":{"type":"string","format":"custom-ID"},
-          "id_again":{"type":"string","format":"uuid"}
-        }}"##,
+        r##"{
+          "type": "object",
+          "properties": {
+            "id": {"$ref": "#/components/schemas/ID"},
+            "plain": {"type": "string"},
+            "empty": {"type": "string", "format": ""},
+            "custom": {"type": "string", "format": "custom-ID"},
+            "id_again": {"type": "string", "format": "uuid"}
+          }
+        }"##,
         r#"{"ID":{"type":"string","format":"uuid"}}"#,
     ));
     let object = object(response_type(&forge, "a.get"));
@@ -101,12 +104,14 @@ fn uuid_references_and_plain_strings_keep_their_own_scalar_types() {
 #[test]
 fn union_deduplication_keeps_uuids_distinct_from_plain_strings() {
     let forge = parse(&responding_with(
-        r#"{"anyOf":[
-          {"type":"string","format":"uuid"},
-          {"type":"string"},
-          {"type":"string","format":"uuid"},
-          {"type":"string","format":"uri"}
-        ]}"#,
+        r#"{
+          "anyOf": [
+            {"type": "string", "format": "uuid"},
+            {"type": "string"},
+            {"type": "string", "format": "uuid"},
+            {"type": "string", "format": "uri"}
+          ]
+        }"#,
     ));
     let members: Vec<_> = union(response_type(&forge, "a.get")).members().map(scalar).collect();
     assert_eq!(members, [Scalar::Uuid, Scalar::String]);
@@ -139,11 +144,20 @@ fn uuid_format_only_classifies_strings_and_survives_nullability() {
 fn base64_content_encoding_is_bytes() {
     let forge = parse(
         r#"{
-          "openapi": "3.1.0", "info": {"title": "t", "version": "1"},
-          "paths": {"/a": {"get": {"x-forge-group-name": "a", "x-forge-method-name": "get",
-            "responses": {"200": {"description": "ok", "content": {"application/json": {"schema": {
-              "type": "string", "contentEncoding": "base64"
-            }}}}}}}}
+          "openapi": "3.1.0",
+          "info": {"title": "t", "version": "1"},
+          "paths": {
+            "/a": {
+              "get": {
+                "x-forge-group-name": "a",
+                "x-forge-method-name": "get",
+                "responses": {"200": {
+                  "description": "ok",
+                  "content": {"application/json": {"schema": {"type": "string", "contentEncoding": "base64"}}}
+                }}
+              }
+            }
+          }
         }"#,
     );
 
@@ -154,11 +168,22 @@ fn base64_content_encoding_is_bytes() {
 fn binary_format_is_binary_even_with_base64_content_encoding() {
     let forge = parse(
         r#"{
-          "openapi": "3.1.0", "info": {"title": "t", "version": "1"},
-          "paths": {"/a": {"get": {"x-forge-group-name": "a", "x-forge-method-name": "get",
-            "responses": {"200": {"description": "ok", "content": {"application/json": {"schema": {
-              "type": "string", "format": "binary", "contentEncoding": "base64"
-            }}}}}}}}
+          "openapi": "3.1.0",
+          "info": {"title": "t", "version": "1"},
+          "paths": {
+            "/a": {
+              "get": {
+                "x-forge-group-name": "a",
+                "x-forge-method-name": "get",
+                "responses": {"200": {
+                  "description": "ok",
+                  "content": {
+                    "application/json": {"schema": {"type": "string", "format": "binary", "contentEncoding": "base64"}}
+                  }
+                }}
+              }
+            }
+          }
         }"#,
     );
 
@@ -168,10 +193,13 @@ fn binary_format_is_binary_even_with_base64_content_encoding() {
 #[test]
 fn json_field_with_binary_format_is_binary_and_byte_format_is_bytes() {
     let forge = parse(&responding_with(
-        r#"{"type": "object", "properties": {
-          "raw": {"type": "string", "format": "binary"},
-          "encoded": {"type": "string", "format": "byte"}
-        }}"#,
+        r#"{
+          "type": "object",
+          "properties": {
+            "raw": {"type": "string", "format": "binary"},
+            "encoded": {"type": "string", "format": "byte"}
+          }
+        }"#,
     ));
 
     let object = object(response_type(&forge, "a.get"));
@@ -197,9 +225,17 @@ fn schema_with_only_annotations_is_unknown() {
 fn true_schema_is_unknown() {
     let forge = parse(
         r#"{
-          "openapi": "3.1.0", "info": {"title": "t", "version": "1"},
-          "paths": {"/a": {"get": {"x-forge-group-name": "a", "x-forge-method-name": "get",
-            "responses": {"200": {"description": "ok", "content": {"application/json": {"schema": true}}}}}}}
+          "openapi": "3.1.0",
+          "info": {"title": "t", "version": "1"},
+          "paths": {
+            "/a": {
+              "get": {
+                "x-forge-group-name": "a",
+                "x-forge-method-name": "get",
+                "responses": {"200": {"description": "ok", "content": {"application/json": {"schema": true}}}}
+              }
+            }
+          }
         }"#,
     );
 

@@ -1,35 +1,21 @@
 ---
-import DocsLayout from '../../layouts/DocsLayout.astro';
+import CommandPage from '../../components/CommandPage.astro';
 import CommandDirectory from '../../components/commands/CommandDirectory.astro';
 import CopyableCommand from '../../components/commands/CopyableCommand.astro';
-import { getApiRouter } from '../../api-server.ts';
+import { commandProducts } from '../../command-sidebar.ts';
 import { getCommandRouter } from '../../command-reference/server.ts';
-import { getPageSidebar } from '../../page-sidebar.ts';
 
-export const prerender = true;
-
-const [apiRouter, router, sidebar] = await Promise.all([
-  getApiRouter(),
-  getCommandRouter(),
-  getPageSidebar(Astro.url),
-]);
-const productIds = new Set(apiRouter.plan.catalog.products.map((product) => product.id));
+const router = await getCommandRouter();
+const productIds = new Set(commandProducts.map((product) => product.id));
 const commands = router.commands.filter((command) => !productIds.has(command.fullPath[0]));
 ---
 
-<DocsLayout
-  title="Developer Tooling"
-  description="Reference for commands implemented directly by the cf CLI."
-  sidebar={sidebar}
-  headings={false}
-  breadcrumbs={[]}
-  showDescription={false}
->
+<CommandPage title="Developer Tooling" description="Reference for commands implemented directly by the cf CLI." href="/">
   <div class="command-overview">
     <CopyableCommand command="cf --help" label="Copy cf help command" />
     <CommandDirectory router={router} commands={commands} />
   </div>
-</DocsLayout>
+</CommandPage>
 
 <style>
   .command-overview {

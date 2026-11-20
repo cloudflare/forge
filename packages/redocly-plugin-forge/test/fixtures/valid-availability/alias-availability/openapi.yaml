@@ -1,0 +1,17 @@
+openapi: 3.1.0
+info:
+  title: Alias availability
+  version: 1.0.0
+paths:
+  /thing:
+    get:
+      operationId: getThing
+      x-forge-availability: generally-available
+      x-forge-aliases:
+        - x-forge-method-name: fetchThing
+          x-forge-availability: deprecated
+        - x-forge-method-name: pullThing
+          x-forge-availability: legacy
+      responses:
+        '200':
+          description: OK

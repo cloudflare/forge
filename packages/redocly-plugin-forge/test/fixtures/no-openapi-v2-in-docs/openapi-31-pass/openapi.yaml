@@ -1,0 +1,6 @@
+openapi: 3.1.0
+info:
+  title: Pets
+  description: 'Migrated from swagger: "2.0".'
+  version: 1.0.0
+paths: {}

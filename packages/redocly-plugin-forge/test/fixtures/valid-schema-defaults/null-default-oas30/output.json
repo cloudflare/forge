@@ -1,0 +1,20 @@
+[
+  {
+    "ruleId": "forge/valid-schema-defaults",
+    "severity": "error",
+    "message": "Default value is null, but the schema is not nullable.",
+    "location": "openapi.yaml#/components/schemas/EnumWithNullTypedString/default"
+  },
+  {
+    "ruleId": "forge/valid-schema-defaults",
+    "severity": "error",
+    "message": "Default value is null, but the schema is not nullable.",
+    "location": "openapi.yaml#/components/schemas/RequiredCount/default"
+  },
+  {
+    "ruleId": "forge/valid-schema-defaults",
+    "severity": "error",
+    "message": "Default value is null, but the schema is not nullable.",
+    "location": "openapi.yaml#/components/schemas/RequiredName/default"
+  }
+]

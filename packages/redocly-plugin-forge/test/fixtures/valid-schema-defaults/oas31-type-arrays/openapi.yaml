@@ -1,0 +1,22 @@
+openapi: 3.1.0
+info:
+  title: Plants
+  version: 1.0.0
+components:
+  schemas:
+    Plant:
+      type: object
+      properties:
+        height:
+          type: [integer, 'null']
+          default: tall
+        name:
+          type: ['null', string]
+          default: null
+        either:
+          type: [string, integer]
+          default: false
+        kind:
+          type: [string, 'null']
+          enum: [fern, moss, null]
+          default: tree

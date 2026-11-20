@@ -1,0 +1,26 @@
+openapi: 3.0.3
+info:
+  title: Plants
+  version: 1.0.0
+paths: {}
+components:
+  schemas:
+    Plant:
+      type: object
+      properties:
+        height:
+          type: integer
+          minimum: 0.5
+          maximum: 9.5
+          multipleOf: 0.5
+        seeds:
+          type: integer
+          format: int64
+          minimum: 0.5
+        huge:
+          type: integer
+          maximum: 3000000000.5
+        rings:
+          type: number
+          format: int32
+          minimum: 1.5

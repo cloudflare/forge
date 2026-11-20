@@ -1,0 +1,20 @@
+openapi: 3.1.0
+info:
+  title: Test API
+  version: 1.0.0
+paths:
+  /plants:
+    get:
+      operationId: listPlants
+      parameters:
+        - name: page_size
+          in: query
+          schema:
+            type: integer
+        - name: pageSize
+          in: query
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: OK

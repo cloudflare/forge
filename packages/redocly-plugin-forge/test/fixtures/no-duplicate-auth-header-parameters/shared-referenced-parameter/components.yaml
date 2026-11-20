@@ -1,0 +1,11 @@
+components:
+  parameters:
+    Authorization:
+      name: Authorization
+      in: header
+      schema:
+        type: string
+  securitySchemes:
+    Oidc:
+      type: openIdConnect
+      openIdConnectUrl: https://example.com/.well-known/openid-configuration
