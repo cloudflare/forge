@@ -55,25 +55,25 @@ export const noRedundantAllofRefWrapper: RuleDefinition = {
   description:
     'Single-member `allOf: [{$ref}]` wrappers that only attach annotations are redundant on OAS 3.1+; attach the annotations directly to the `$ref`.',
   rule: () => ({
-    Schema(schema: AnyNode, ctx: UserContext) {
+    AllOf(members: AnyNode, ctx: UserContext) {
       if (ctx.specVersion !== 'oas3_1' && ctx.specVersion !== 'oas3_2') {
         return;
       }
-      if (!isPlainObject(schema) || !Array.isArray(schema.allOf) || schema.allOf.length !== 1) {
+      if (!Array.isArray(members) || members.length !== 1 || !isPlainObject(ctx.parent)) {
         return;
       }
-      const [member] = schema.allOf;
+      const [member] = members;
       if (!isRefNode(member)) {
         return;
       }
-      if (!isAnnotationOnly(schema)) {
+      if (!isAnnotationOnly(ctx.parent)) {
         return;
       }
       ctx.report({
         message:
           `\`allOf\` with the single member $ref "${refName(member.$ref)}" only serves to attach annotation siblings.` +
           ' On OpenAPI 3.1+, `$ref` composes with sibling keywords directly — drop the `allOf` wrapper and attach the siblings to the `$ref`.',
-        location: ctx.location.child('allOf').key(),
+        location: ctx.location.key(),
       });
     },
   }),

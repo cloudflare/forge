@@ -234,19 +234,19 @@ export const compatibleAllofIntersection: RuleDefinition = {
   severity: 'error',
   description: '`allOf` members must have compatible types; their intersection cannot be empty.',
   rule: () => ({
-    Schema(schema: AnyNode, ctx: UserContext) {
-      if (!isPlainObject(schema) || !Array.isArray(schema.allOf) || schema.allOf.length === 0) {
+    AllOf(members: AnyNode, ctx: UserContext) {
+      if (!Array.isArray(members) || members.length === 0 || !isPlainObject(ctx.parent)) {
         return;
       }
 
-      const enclosing = enclosingTypes(schema, ctx.specVersion);
+      const enclosing = enclosingTypes(ctx.parent, ctx.specVersion);
       let running: Set<PrimType> | undefined = enclosing;
       let conflictContext: string | undefined =
         enclosing !== undefined ? `${describeTypes(enclosing)} required by the enclosing schema` : undefined;
 
-      for (let index = 0; index < schema.allOf.length; index++) {
-        const member = schema.allOf[index];
-        const memberLocation = ctx.location.child(['allOf', index]);
+      for (let index = 0; index < members.length; index++) {
+        const member = members[index];
+        const memberLocation = ctx.location.child([index]);
         const memberTypes = possibleTypes(ctx, { node: member, location: memberLocation }, new Set());
         if (memberTypes === undefined) {
           continue;
