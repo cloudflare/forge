@@ -112,6 +112,28 @@ test('x-forge-hidden records approval state without hiding documentation', () =>
   assert.equal(model.products[0]?.sections[0]?.operations.length, 1);
 });
 
+test('accepts the Forge-native operation extensions carried alongside the Fern keys', () => {
+  const source = operation({
+    'x-forge-group-name': 'widgets.items',
+    'x-forge-method-name': 'update',
+    'x-forge-availability': 'generally-available',
+    'x-forge-oauth-scopes': ['widgets.read', 'widgets.write'],
+    'x-forge-skip': true,
+    'x-forge-aliases': [
+      {
+        'x-fern-sdk-group-name': 'widgets.legacy_items',
+        'x-fern-sdk-method-name': 'update',
+        'x-forge-group-name': 'widgets.legacy_items',
+        'x-forge-method-name': 'update',
+        'x-forge-availability': 'deprecated',
+      },
+    ],
+  });
+  const model = buildDocsModel({ source, products: [product], extensions: [forgeExtension()] });
+  const slugs = (model.products[0]?.sections[0]?.operations ?? []).map((entry) => entry.slug).sort();
+  assert.deepEqual(slugs, ['items/methods/update', 'legacy-items/methods/update']);
+});
+
 test('x-forge-hidden only breaks SDK route collisions against one approved operation', () => {
   const source = operation({ 'x-forge-hidden': true });
   if (!source.paths) source.paths = {};
