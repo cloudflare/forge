@@ -2,19 +2,19 @@
   {
     "ruleId": "forge/only-object-allof-refs",
     "severity": "error",
-    "message": "allOf $ref \"CommonString\" is a string, not an object; a value cannot be both an object and a non-object.",
+    "message": "allOf $ref \"CommonString\" is a string; cannot intersect with an object required by allOf $ref \"CommonObject\".",
     "location": "openapi.yaml#/components/schemas/MyObject/allOf/1/$ref (key)"
   },
   {
     "ruleId": "forge/only-object-allof-refs",
     "severity": "error",
-    "message": "allOf $ref \"LocalString\" is a string, not an object; a value cannot be both an object and a non-object.",
+    "message": "allOf $ref \"LocalString\" is a string; cannot intersect with an object required by allOf $ref \"LocalObject\".",
     "location": "openapi.yaml#/components/schemas/MyObject/allOf/3/$ref (key)"
   },
   {
     "ruleId": "forge/only-object-allof-refs",
     "severity": "error",
-    "message": "allOf $ref \"LocalString\" is a string, not an object; a value cannot be both an object and a non-object.",
+    "message": "allOf $ref \"LocalString\" is a string; cannot intersect with an object required by allOf $ref \"LocalObject\".",
     "location": "openapi.yaml#/paths/~1/post/requestBody/content/application~1json/schema/allOf/1/$ref (key)"
   }
 ]

@@ -2,7 +2,7 @@
   {
     "ruleId": "forge/only-object-allof-refs",
     "severity": "error",
-    "message": "allOf $ref \"NullableString\" is a string, not an object; a value cannot be both an object and a non-object.",
+    "message": "allOf $ref \"NullableString\" is a string; cannot intersect with an object required by allOf $ref \"NullableAliasOfObject\".",
     "location": "openapi.yaml#/components/schemas/Child/allOf/3/$ref (key)"
   }
 ]

@@ -1,0 +1,8 @@
+[
+  {
+    "ruleId": "forge/only-object-allof-refs",
+    "severity": "error",
+    "message": "allOf member at index 1 is an object; cannot intersect with a string required by allOf member at index 0.",
+    "location": "openapi.yaml#/components/schemas/Impossible/allOf/1"
+  }
+]

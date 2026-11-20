@@ -2,13 +2,13 @@
   {
     "ruleId": "forge/only-object-allof-refs",
     "severity": "error",
-    "message": "allOf $ref \"Id\" is a string, not an object; a value cannot be both an object and a non-object.",
-    "location": "openapi.yaml#/paths/~1pets/post/requestBody/content/application~1json/schema/properties/owner/allOf/0/$ref (key)"
+    "message": "allOf member at index 1 is an object; cannot intersect with a string required by allOf $ref \"Id\".",
+    "location": "openapi.yaml#/paths/~1pets/post/requestBody/content/application~1json/schema/properties/owner/allOf/1"
   },
   {
     "ruleId": "forge/only-object-allof-refs",
     "severity": "error",
-    "message": "allOf $ref \"Id\" is a string, not an object; a value cannot be both an object and a non-object.",
+    "message": "allOf $ref \"Id\" is a string; cannot intersect with an object required by the enclosing schema.",
     "location": "openapi.yaml#/paths/~1pets/post/responses/201/content/application~1json/schema/allOf/0/$ref (key)"
   }
 ]
