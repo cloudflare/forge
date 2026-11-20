@@ -69,6 +69,9 @@ approved zone mapping.
   and `llms-full.txt.ts` are Nimbus's agent routes. A Markdown twin lives at
   `/<page>/index.md`; `[...slug].md.ts` 301s the old `/<page>.md` URLs to it.
   Its frontmatter leaves out the description, which the body repeats.
+- `src/pages/search-manifest.json.ts` prerenders `/api/search-manifest.json`,
+  the records a search index loads: `src/search-manifest.ts` turns each
+  product, resource, and operation page of Nimbus's API model into one.
 - `src/middleware.ts` 302s the URLs in `.forge/redirects.json` to their pages.
 - `src/command-reference/`, `src/command-sidebar.ts`, `src/pages/tooling/`, and
   `src/pages/[product]/tooling/` own the `cf` command pages. They render on

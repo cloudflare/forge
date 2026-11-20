@@ -3,7 +3,7 @@
 // the types must reject, and fails the test if they accept it.
 
 import { type File, type Ident, type Module, type Part, file, frag, ident, join, module } from '../plugin/ts.js';
-import type { Type } from '../plugin/index.js';
+import type { Type } from '../plugin/plugin.js';
 
 function metadata(type: Type): number | string | undefined {
   if (type.kind === 'array') {

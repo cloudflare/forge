@@ -45,7 +45,7 @@
 // the forge only through the types of index.ts, so it needs no host, and
 // its tests run in Node.
 
-import type { Group, Model, Name } from './index.js';
+import type { Group, Model, Name } from './forge.js';
 
 /** One level of indentation. */
 const INDENT = '  ';

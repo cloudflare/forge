@@ -8,8 +8,6 @@ use rayon::prelude::*;
 use crate::Forge;
 
 pub mod ts;
-#[cfg(feature = "wasm")]
-pub mod wasm;
 
 /// The error that plugins, files and [`write()`] return.
 pub type Err = Box<dyn std::error::Error + Send + Sync + 'static>;

@@ -27,6 +27,28 @@ mod wit {
 
 use wit::forge::plugin::forge as host;
 
+thread_local! {
+    /// The `forge` resource the running `generate` reads, null between calls.
+    static HOST: std::cell::Cell<*const host::Forge> = const { std::cell::Cell::new(std::ptr::null()) };
+}
+
+/// Returns the `forge` resource the running `generate` reads.
+fn host() -> &'static host::Forge {
+    let forge = HOST.get();
+    assert!(!forge.is_null(), "the forge is read only during generate");
+    // SAFETY: `with_host` sets the pointer from a borrow that outlives the
+    // call, and resets it before the borrow ends. A plugin has one thread.
+    unsafe { &*forge }
+}
+
+/// Runs `f` with `forge` as the resource `host` returns.
+fn with_host<T>(forge: &host::Forge, f: impl FnOnce() -> T) -> T {
+    HOST.set(forge);
+    let result = f();
+    HOST.set(std::ptr::null());
+    result
+}
+
 /// `forge::plugin`: the traits from src/plugin.rs, and the `ts` library.
 #[path = "../../../../src/plugin"]
 pub mod plugin {
@@ -74,16 +96,20 @@ impl wit::Guest for Component {
     /// With the `dump` feature, returns the dump of the forge instead, as
     /// `dump.txt`.
     #[cfg(feature = "dump")]
-    fn generate() -> Result<Vec<wit::File>, String> {
-        Ok(vec![wit::File {
-            path: "dump.txt".to_owned(),
-            content: dump::dump(&FORGE).into_bytes(),
-        }])
+    fn generate(forge: host::Forge) -> Result<Vec<wit::File>, String> {
+        with_host(&forge, || {
+            Ok(vec![wit::File {
+                path: "dump.txt".to_owned(),
+                content: dump::dump(&FORGE).into_bytes(),
+            }])
+        })
     }
 
     #[cfg(not(feature = "dump"))]
-    fn generate() -> Result<Vec<wit::File>, String> {
-        render(bin::ts::Generator.generate(&FORGE).map_err(|err| err.to_string())?)
+    fn generate(forge: host::Forge) -> Result<Vec<wit::File>, String> {
+        with_host(&forge, || {
+            render(bin::ts::Generator.generate(&FORGE).map_err(|err| err.to_string())?)
+        })
     }
 }
 
@@ -127,8 +153,8 @@ fn slots<T>(n: u32) -> Vec<OnceLock<T>> {
 
 impl Forge {
     fn fetch() -> Forge {
-        let info = host::info();
-        let counts = host::counts();
+        let info = host().info();
+        let counts = host().counts();
         Forge {
             version: info.version,
             description: info.description,
@@ -142,7 +168,10 @@ impl Forge {
     }
 
     pub fn groups(&self) -> impl Iterator<Item = Group<'_>> {
-        self.groups.get_or_init(host::groups).iter().map(|&id| self.group(id))
+        self.groups
+            .get_or_init(|| host().groups())
+            .iter()
+            .map(|&id| self.group(id))
     }
 
     fn group(&self, id: u32) -> Group<'_> {
@@ -168,7 +197,7 @@ impl Forge {
 
     fn group_data(&self, id: u32) -> &GroupData {
         self.group_data[id as usize].get_or_init(|| {
-            let g = host::get_group(id);
+            let g = host().get_group(id);
             GroupData {
                 name: Name::from_words(g.name),
                 description: g.description,
@@ -183,7 +212,7 @@ impl Forge {
 
     fn method_data(&self, id: u32) -> &MethodData {
         self.method_data[id as usize].get_or_init(|| {
-            let m = host::get_method(id);
+            let m = host().get_method(id);
             MethodData {
                 name: Name::from_words(m.name),
                 group: m.group,
@@ -234,7 +263,7 @@ impl Forge {
 
     fn model_data(&self, id: u32) -> &ModelData {
         self.model_data[id as usize].get_or_init(|| {
-            let m = host::get_model(id);
+            let m = host().get_model(id);
             ModelData {
                 schema_name: m.schema_name,
                 name: Name::from_words(m.name),
@@ -247,7 +276,7 @@ impl Forge {
     }
 
     fn type_data(&self, id: u32) -> &TypeData {
-        self.type_data[id as usize].get_or_init(|| match host::get_type(id) {
+        self.type_data[id as usize].get_or_init(|| match host().get_type(id) {
             host::TypeInfo::Scalar(scalar) => TypeData::Scalar(match scalar {
                 host::Scalar::Unknown => Scalar::Unknown,
                 host::Scalar::Null => Scalar::Null,
@@ -589,10 +618,12 @@ impl<'f> Method<'f> {
     }
 
     pub fn location(self, field: Field<'f>) -> Option<Location> {
-        host::get_location(self.id, field.object, field.index).map(|location| match location {
-            host::Location::Path => Location::Path,
-            host::Location::Query(exploded) => Location::Query { exploded },
-        })
+        host()
+            .get_location(self.id, field.object, field.index)
+            .map(|location| match location {
+                host::Location::Path => Location::Path,
+                host::Location::Query(exploded) => Location::Query { exploded },
+            })
     }
 
     pub fn body(self) -> Option<Body<'f>> {

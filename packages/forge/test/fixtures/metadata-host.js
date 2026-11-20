@@ -1,5 +1,5 @@
-// The WIT records returned by a host, including QuickJS's null options and
-// the bigint values used for u64 bounds. The Rust wasm tests exercise the
+// The WIT records a host's `forge` resource returns, including QuickJS's null
+// options and the bigint values used for u64 bounds. The Rust wasm tests exercise the
 // real host; this fixture checks the JavaScript projection of its records.
 const types = [
   { tag: 'array', val: { elem: 3, minItems: null, maxItems: null } },
