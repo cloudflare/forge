@@ -19,6 +19,7 @@ openapi.forge.json (latest stable Forge release)
                  |
                  v
    prepareForgeApi (src/forge-api.ts)  <-  src/stainless-redirects.json
+                                       <-  src/stainless-snippets.json
                  |
                  v
    .forge/  spec, products, redirects, Stainless redirects
@@ -37,7 +38,8 @@ metadata and do not appear in URLs.
 `forgeApi` writes these files to the git-ignored `.forge/` directory:
 
 - `openapi-<version>.json`: the spec Nimbus renders, with Cloudflare titles,
-  `x-nimbus-order` for lifecycle order, request samples, synthesized response
+  `x-nimbus-order` for lifecycle order, request samples (the SDK ones from the
+  retired Stainless site, see [Stainless snippets](#stainless-snippets)), synthesized response
   examples, and Terraform data under `x-cloudflare-terraform`;
 - `products.json`: the products and their slugs, read by the command sidebar;
 - `redirects.json`: old section, alias-operation, and moved-product URLs, read by
@@ -213,15 +215,45 @@ the home page. The build warns with their count and lists them in
 `src/middleware.ts` serves them with `stainlessRedirect`:
 
 - each old page and its Markdown twin (`index.md`);
-- its SDK language variants (`/api/typescript/`, `/api/python/`, `/api/go/`,
-  `/api/node/`), which fold onto the HTTP page because the site has no SDK
-  samples;
-- its Terraform variant (`/api/terraform/`), which keeps its view with
-  `?lang=terraform`.
+- its language variants (`/api/typescript/`, `/api/python/`, `/api/go/`,
+  `/api/terraform/`), which open the page with that language's sample
+  (`?lang=python`), and Terraform's in its view. The old `/api/node/` pages
+  were TypeScript's, and open with `?lang=typescript`.
 
 Old paths the snapshot doesn't hold were never pages, and they 404. The
 redirects don't use `_redirects`: it allows only 2,000 static rules, and it
 counts every rule after the first dynamic one as dynamic, against a limit of 100.
+
+## Stainless snippets
+
+The TypeScript, Python and Go samples are the retired Stainless site's, in
+`src/stainless-snippets.json`: each old method page, as the redirects snapshot
+names it, with its snippet per language. The repository root's
+`pnpm generate:stainless-snippets` writes it; the `cloudflare-stainless-snippets`
+package's README says how to run it.
+
+Each build gives an operation the snippets of the old method page the snapshot
+maps to its operationId, the page that redirects to it. When several old pages
+map to one operation, such as account and zone variants, the first by path
+wins, and the build warns with their count. An operation with no old page, or
+whose page had no snippet in a language, shows a comment in that language
+saying the SDK lacks it (`// This operation is not available in the Go SDK.`).
+
+`src/stainless-snippets.ts` reads the file and maps it, and `prepareForgeApi`
+adds the samples to `x-codeSamples`. The `typescript`, `python` and `go` targets
+in `src/cloudflare.ts` render nothing themselves.
+
+Once Forge generates its own SDK samples, remove these:
+
+1. Delete `packages/cloudflare-stainless-snippets` and the root `package.json`'s
+   `generate:stainless-snippets` script.
+2. Here, delete `src/stainless-snippets.json`, `src/stainless-snippets.ts` and its
+   test, and in `src/forge-api.ts` the `sdkSnippets` parameter of
+   `prepareForgeApi`, `readStainlessSnippets`, `sdkPlaceholder` and
+   `isStainlessLanguage`, with their cases in `src/forge-api.test.ts`.
+3. Point the `typescript`, `python` and `go` renderers in `src/cloudflare.ts` at
+   Forge's samples, and drop the SDK samples test in `e2e/site.e2e.ts` if they
+   change.
 
 ## Run it
 
