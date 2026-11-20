@@ -165,6 +165,80 @@ fn required_member_copies_the_fields_of_a_model() {
 }
 
 #[test]
+fn required_beside_all_of_makes_member_fields_required() {
+    let forge = parse(&responding_with_schemas(
+        r#"{
+          "type": "object",
+          "allOf": [{"properties": {"id": {"type": "string"}, "note": {"type": "string"}}}],
+          "required": ["id"]
+        }"#,
+        "{}",
+    ));
+
+    let object = object(response_type(&forge, "a.get"));
+    assert!(field(object, "id").is_required());
+    assert!(!field(object, "note").is_required());
+}
+
+#[test]
+fn required_beside_all_of_copies_the_fields_of_a_model() {
+    let forge = parse(&responding_with_schemas(
+        r##"{
+          "properties": {"own": {"type": "string"}},
+          "allOf": [{"$ref": "#/components/schemas/Rule"}],
+          "required": ["own", "name"]
+        }"##,
+        r#"{"Rule": {"type": "object", "properties": {"name": {"type": "string"}, "note": {"type": "string"}}}}"#,
+    ));
+
+    let ty = response_type(&forge, "a.get");
+    assert_eq!(kinds(ty), ["Object", "Object"]);
+    let fields: Vec<_> = intersection(ty)
+        .members()
+        .flat_map(|member| object(member).fields())
+        .map(|field| (field.wire_name().to_owned(), field.is_required()))
+        .collect();
+    assert_eq!(
+        fields,
+        [("own".into(), true), ("name".into(), true), ("note".into(), false)]
+    );
+}
+
+#[test]
+fn required_beside_all_of_of_its_own_properties_keeps_the_model() {
+    let forge = parse(&responding_with_schemas(
+        r##"{
+          "properties": {"own": {"type": "string"}},
+          "allOf": [{"$ref": "#/components/schemas/A"}],
+          "required": ["own"]
+        }"##,
+        A_AND_B,
+    ));
+
+    assert_eq!(kinds(response_type(&forge, "a.get")), ["Model(A)", "Object"]);
+}
+
+#[test]
+fn required_beside_all_of_keeps_a_model_that_requires_the_field() {
+    let forge = parse(&responding_with_schemas(
+        r##"{
+          "properties": {"own": {"type": "string"}},
+          "allOf": [{"$ref": "#/components/schemas/Rule"}],
+          "required": ["own", "name"]
+        }"##,
+        r#"{
+          "Rule": {
+            "type": "object",
+            "properties": {"name": {"type": "string"}, "note": {"type": "string"}},
+            "required": ["name"]
+          }
+        }"#,
+    ));
+
+    assert_eq!(kinds(response_type(&forge, "a.get")), ["Model(Rule)", "Object"]);
+}
+
+#[test]
 fn unevaluated_properties_is_an_object_member() {
     let forge = parse(
         r##"{

@@ -1039,6 +1039,28 @@ impl<'d> Builder<'d> {
         }
     }
 
+    /// Reports whether `ty` is an object with an optional field that
+    /// `names` lists, or a model or intersection with one.
+    fn has_optional_field(&self, ty: TypeId, names: &[&str], depth: u32) -> bool {
+        if depth > 32 {
+            return false;
+        }
+        match &self.types[ty.index()] {
+            TypeData::Object(object) => self
+                .fields
+                .get(object.fields)
+                .iter()
+                .any(|field| !field.required && names.contains(&self.strings.get(field.wire_name))),
+            TypeData::Model(id) => self.has_optional_field(self.models[id.index()].ty, names, depth + 1),
+            TypeData::Intersection(members) => self
+                .members
+                .get(*members)
+                .iter()
+                .any(|&member| self.has_optional_field(member, names, depth + 1)),
+            _ => false,
+        }
+    }
+
     /// Reports whether `ty` has a field with the name of one of `params`.
     fn shares_a_name(&self, ty: TypeId, params: &[FieldData], depth: u32) -> bool {
         if depth > 32 {
@@ -1650,7 +1672,16 @@ impl<'d> Builder<'d> {
         if !schema.properties.is_empty() || schema.additional_properties.is_some() {
             parts.push(self.object(schema));
         }
-        self.all_of(doc.list(schema.all_of), &mut parts);
+        // Names in `required` that aren't the schema's own properties name
+        // properties of its `allOf` members.
+        let properties = doc.list(schema.properties);
+        let required: Vec<&str> = doc
+            .list(schema.required)
+            .iter()
+            .map(|&name| doc.str(name))
+            .filter(|&name| !properties.iter().any(|&(property, _)| doc.str(property) == name))
+            .collect();
+        self.all_of(doc.list(schema.all_of), required, &mut parts);
         if let extra @ Schema::Object(_) = schema.unevaluated_properties {
             let extra = self.ty(extra);
             let object = ObjectData {
@@ -1675,11 +1706,10 @@ impl<'d> Builder<'d> {
     }
 
     /// Adds the types of the `allOf` `members` to `parts`, the members of
-    /// one that is an intersection, and makes the fields that a member
-    /// with only `required` lists required.
-    fn all_of(&mut self, members: &'d [Schema], parts: &mut Vec<TypeId>) {
+    /// one that is an intersection, and makes required the fields that
+    /// `required` names or that a member with only `required` lists.
+    fn all_of(&mut self, members: &'d [Schema], mut required: Vec<&'d str>, parts: &mut Vec<TypeId>) {
         let doc = self.doc;
-        let mut required: Vec<&str> = Vec::new();
         for &member in members {
             if let Schema::Object(object) = member
                 && is_required_only(doc, member)
@@ -1694,12 +1724,12 @@ impl<'d> Builder<'d> {
                 continue;
             }
             // A model's fields cannot be made required without changing
-            // the model, so it is written in place.
-            let ty = if required.is_empty() {
-                self.ty(member)
-            } else {
-                self.ty_in_place(member)
-            };
+            // the model, so it is written in place, if one of the fields
+            // `required` names is optional in it.
+            let mut ty = self.ty(member);
+            if is_reference(doc, member) && self.has_optional_field(ty, &required, 0) {
+                ty = self.ty_in_place(member);
+            }
             if let TypeData::Intersection(inner) = self.types[ty.index()] {
                 parts.extend_from_slice(self.members.get(inner));
             } else {
@@ -2301,6 +2331,11 @@ fn is_shapeless_member(doc: &Doc, member: Schema) -> bool {
             object.reference.is_empty() && is_shapeless(doc, object)
         }
     }
+}
+
+/// Reports whether `schema` is a `$ref`.
+fn is_reference(doc: &Doc, schema: Schema) -> bool {
+    matches!(schema, Schema::Object(object) if !doc.get(object).reference.is_empty())
 }
 
 /// Reports whether an `allOf` member only lists `required` properties.
