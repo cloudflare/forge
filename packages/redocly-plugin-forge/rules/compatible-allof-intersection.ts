@@ -112,10 +112,9 @@ function possibleTypes(ctx: Ctx, located: Located, seen: ReadonlySet<string>): S
   if (types === undefined) {
     const inferred = inferredTypes(schema);
     if (inferred.size > 0) {
+      // OAS 3.0 says `nullable` takes effect only when `type` is explicitly set — a nullable
+      // sibling on an inferred-type schema has no spec meaning, so we do not fold `null` in here.
       types = inferred;
-      if (foldsNullable(ctx.specVersion) && schema.nullable === true) {
-        types.add('null');
-      }
     }
   }
 
@@ -186,7 +185,8 @@ function intersectTypes(left: Set<PrimType>, right: Set<PrimType>): Set<PrimType
  * The types the enclosing schema fixes via keywords other than `allOf` — explicit `type` or the
  * `properties`/`items` inference. `oneOf`/`anyOf` siblings are not consulted here; the rule only
  * uses this to seed the intersection the `allOf` members must satisfy, and union-siblings pull
- * in cases that are better reported at their own level.
+ * in cases that are better reported at their own level. `nullable: true` is folded only via
+ * `declaredTypes` (explicit `type` keyword present), matching the OAS 3.0 spec.
  */
 function enclosingTypes(schema: Record<string, AnyNode>, specVersion: Ctx['specVersion']): Set<PrimType> | undefined {
   const declared = declaredTypes(schema, specVersion);
@@ -194,13 +194,7 @@ function enclosingTypes(schema: Record<string, AnyNode>, specVersion: Ctx['specV
     return new Set(declared);
   }
   const inferred = inferredTypes(schema);
-  if (inferred.size === 0) {
-    return undefined;
-  }
-  if (foldsNullable(specVersion) && schema.nullable === true) {
-    inferred.add('null');
-  }
-  return inferred;
+  return inferred.size > 0 ? inferred : undefined;
 }
 
 function describeTypes(types: Set<PrimType>): string {
