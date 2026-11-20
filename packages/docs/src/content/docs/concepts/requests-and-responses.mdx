@@ -19,8 +19,8 @@ built from the path and query parameters (as one object, the **parameters**) and
 | ---------------------------------------------------------------- | ----------------------------------------------- |
 | Parameters, no body                                              | The parameters object.                          |
 | A body, no parameters                                            | The body, whatever its type.                    |
-| Parameters, and a body that is an object (or a model, union or intersection of objects) | The **intersection** of the parameters and the body. |
-| Parameters, and any other body                                   | The parameters, with a `body` field holding the body. |
+| Parameters, and a body that is an object with fields (or a model, union or intersection of them) | The **intersection** of the parameters and the body. |
+| Parameters, and any other body, such as a map or an object with no fields | The parameters, with a `body` field holding the body. |
 | Neither                                                          | None.                                           |
 
 The `body` field is also used when a body field has the same name as a parameter, so nothing is
@@ -92,9 +92,11 @@ parameters in the order they are declared, the path item's before the operation'
   parameter that is not in the template is left out.
 - Path parameters are always required.
 - Only the default styles are covered: `simple` for the path, `form` for the query. Other styles,
-  and parameters with `content` instead of `schema`, are errors.
+  and parameters with `content` instead of `schema`, are errors. The exception is `in: querystring`,
+  which is read from `content`.
 - Cookie parameters are ignored.
-- From OpenAPI 3.2, the properties of an `in: querystring` object are query parameters.
+- From OpenAPI 3.2, the properties of an `in: querystring` parameter's object are query parameters.
+  The object is the schema of its first `content` entry.
 
 ## Headers
 
