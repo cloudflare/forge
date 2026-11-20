@@ -110,10 +110,10 @@ fn pack_method(b: &mut CapnBuilder, forge: &Forge, data: &MethodData) -> schema:
         let contents = pack_contents(b, forge, &body.contents);
         schema::BodyInfo {
             required: body.required,
-            _pad0: [0; 3],
             description: body_desc,
             contents,
             json: body.json.unwrap_or(schema::BodyInfo::JSON_NULL),
+            ..Default::default()
         }
     });
     let responses = b.build_slice(data.responses.len(), |i, b| pack_response(b, forge, &data.responses[i]));
@@ -137,7 +137,6 @@ fn pack_method(b: &mut CapnBuilder, forge: &Forge, data: &MethodData) -> schema:
         deprecated: data.deprecated,
         availability,
         hidden: data.hidden,
-        _pad0: [0; 1],
         confirmation,
         request: data.request.map_or(schema::MethodInfo::REQUEST_NULL, |id| id.0),
         paramsType: data.params.map_or(schema::MethodInfo::PARAMS_TYPE_NULL, |id| id.0),
@@ -147,6 +146,7 @@ fn pack_method(b: &mut CapnBuilder, forge: &Forge, data: &MethodData) -> schema:
         responses,
         errors,
         extensions,
+        ..Default::default()
     }
 }
 
@@ -160,8 +160,8 @@ fn pack_model(b: &mut CapnBuilder, forge: &Forge, data: &ModelData) -> schema::M
         group: data.group.0,
         description,
         deprecated: data.deprecated,
-        _pad0: [0; 3],
         ty: data.ty.0,
+        ..Default::default()
     }
 }
 
@@ -203,9 +203,9 @@ fn pack_type(b: &mut CapnBuilder, forge: &Forge, data: &TypeData) -> schema::Typ
         }
         TypeData::Array(array) => schema::TypeInfo::Array(schema::ArrayInfo {
             elem: array.elem.0,
-            _pad0: [0; 4],
             minItems: array.min_items.unwrap_or(schema::ArrayInfo::MIN_ITEMS_NULL),
             maxItems: array.max_items.unwrap_or(schema::ArrayInfo::MAX_ITEMS_NULL),
+            ..Default::default()
         }),
         TypeData::Object(object) => {
             let fields_slice = forge.fields.get(object.fields);
@@ -240,8 +240,8 @@ fn pack_type(b: &mut CapnBuilder, forge: &Forge, data: &TypeData) -> schema::Typ
             schema::TypeInfo::Union(schema::UnionInfo {
                 members,
                 exclusive: union.exclusive,
-                _pad0: [0; 3],
                 discriminator,
+                ..Default::default()
             })
         }
         TypeData::Intersection(members) => {

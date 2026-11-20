@@ -19,6 +19,7 @@ try {
     builder: true,
     wasmExports: 'all(target_arch = "wasm32", feature = "library")',
     unsafeSlice: false,
+    innerAllow: true,
   });
   const rust = execFileSync('rustfmt', ['--edition', '2024'], {
     cwd: repoDir,

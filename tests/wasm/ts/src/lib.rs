@@ -28,12 +28,16 @@ mod wit {
     });
 }
 
-fn capn_name(words: schema::CapnSliceReader<'_, schema::CapnStr>) -> Name {
-    Name::from_words(words.iter().map(|w| w.unwrap().to_owned()).collect())
+fn capn_name(words: schema::CapnSliceReader<'_, schema::CapnStr>) -> Result<Name, schema::CapnError> {
+    let owned: Vec<String> = words
+        .iter()
+        .map(|w| Ok(w?.to_owned()))
+        .collect::<Result<_, schema::CapnError>>()?;
+    Ok(Name::from_words(owned))
 }
 
-fn capn_u32s(ids: schema::CapnSliceReader<'_, u32>) -> Vec<u32> {
-    ids.iter().map(Result::unwrap).collect()
+fn capn_u32s(ids: schema::CapnSliceReader<'_, u32>) -> Result<Vec<u32>, schema::CapnError> {
+    ids.iter().collect()
 }
 /// `forge::plugin`: the traits from src/plugin.rs, and the `ts` library.
 #[path = "../../../../src/plugin"]
@@ -134,17 +138,21 @@ fn slots<T>(n: usize) -> Vec<OnceLock<T>> {
 
 impl Forge {
     fn from_bytes(buf: Vec<u8>) -> Self {
-        let table = schema::ForgeDoc::parse_envelope(&buf).unwrap();
-        let doc = schema::ForgeDoc::reader(&buf, &table).unwrap();
-        let version = doc.version().unwrap().to_owned();
-        let description = doc.description().unwrap().to_owned();
-        let base_url = doc.baseUrl().unwrap().to_owned();
-        let group_order = capn_u32s(doc.groupOrder().unwrap());
-        let groups_len = doc.groups().unwrap().len();
-        let methods_len = doc.methods().unwrap().len();
-        let models_len = doc.models().unwrap().len();
-        let types_len = doc.types().unwrap().len();
-        Self {
+        Self::try_from_bytes(buf).expect("valid ForgeDoc envelope")
+    }
+
+    fn try_from_bytes(buf: Vec<u8>) -> Result<Self, schema::CapnError> {
+        let table = schema::ForgeDoc::parse_envelope(&buf)?;
+        let doc = schema::ForgeDoc::reader(&buf, &table)?;
+        let version = doc.version()?.to_owned();
+        let description = doc.description()?.to_owned();
+        let base_url = doc.baseUrl()?.to_owned();
+        let group_order = capn_u32s(doc.groupOrder()?)?;
+        let groups_len = doc.groups()?.len();
+        let methods_len = doc.methods()?.len();
+        let models_len = doc.models()?.len();
+        let types_len = doc.types()?.len();
+        Ok(Self {
             buf,
             table,
             version,
@@ -155,11 +163,11 @@ impl Forge {
             method_data: slots(methods_len),
             model_data: slots(models_len),
             type_data: slots(types_len),
-        }
+        })
     }
 
-    fn doc(&self) -> schema::ForgeDocReader<'_> {
-        schema::ForgeDoc::reader(&self.buf, &self.table).unwrap()
+    fn doc(&self) -> Result<schema::ForgeDocReader<'_>, schema::CapnError> {
+        schema::ForgeDoc::reader(&self.buf, &self.table)
     }
 
     pub fn groups(&self) -> impl Iterator<Item = Group<'_>> {
@@ -188,218 +196,256 @@ impl Forge {
     }
 
     fn group_data(&self, id: u32) -> &GroupData {
-        self.group_data[id as usize].get_or_init(|| {
-            let g = self.doc().groups().unwrap().get(id as usize).unwrap().unwrap();
-            GroupData {
-                name: capn_name(g.name().unwrap()),
-                description: g.description().unwrap().to_owned(),
-                path: capn_u32s(g.path().unwrap()),
-                parent: g.parent(),
-                children: capn_u32s(g.children().unwrap()),
-                methods: capn_u32s(g.methods().unwrap()),
-                models: capn_u32s(g.models().unwrap()),
-            }
+        self.group_data[id as usize].get_or_init(|| self.read_group(id as usize).expect("valid ForgeDoc group"))
+    }
+
+    fn read_group(&self, id: usize) -> Result<GroupData, schema::CapnError> {
+        let g = self.doc()?.groups()?.at(id)?;
+        Ok(GroupData {
+            name: capn_name(g.name()?)?,
+            description: g.description()?.to_owned(),
+            path: capn_u32s(g.path()?)?,
+            parent: g.parent(),
+            children: capn_u32s(g.children()?)?,
+            methods: capn_u32s(g.methods()?)?,
+            models: capn_u32s(g.models()?)?,
         })
     }
 
     fn method_data(&self, id: u32) -> &MethodData {
-        self.method_data[id as usize].get_or_init(|| {
-            let m = self.doc().methods().unwrap().get(id as usize).unwrap().unwrap();
-            MethodData {
-                name: capn_name(m.name().unwrap()),
-                group: m.group(),
-                http_method: match m.httpMethod().unwrap() {
-                    schema::HttpMethodReader::Get => HttpMethod::Get,
-                    schema::HttpMethodReader::Put => HttpMethod::Put,
-                    schema::HttpMethodReader::Post => HttpMethod::Post,
-                    schema::HttpMethodReader::Delete => HttpMethod::Delete,
-                    schema::HttpMethodReader::Options => HttpMethod::Options,
-                    schema::HttpMethodReader::Head => HttpMethod::Head,
-                    schema::HttpMethodReader::Patch => HttpMethod::Patch,
-                    schema::HttpMethodReader::Trace => HttpMethod::Trace,
-                    schema::HttpMethodReader::Query => HttpMethod::Query,
-                    schema::HttpMethodReader::Connect => HttpMethod::Connect,
-                    schema::HttpMethodReader::Other(method) => HttpMethod::Other(method.to_owned()),
-                    schema::HttpMethodReader::Unknown(tag) => panic!("unknown HttpMethod tag {tag}"),
-                },
-                path: m.path().unwrap().to_owned(),
-                summary: m.summary().unwrap().to_owned(),
-                description: m.description().unwrap().to_owned(),
-                deprecated: m.deprecated().unwrap(),
-                availability: match m.availability().unwrap() {
-                    schema::AvailabilityReader::None => None,
-                    schema::AvailabilityReader::Alpha => Some(Availability::Alpha),
-                    schema::AvailabilityReader::Beta => Some(Availability::Beta),
-                    schema::AvailabilityReader::Preview => Some(Availability::Preview),
-                    schema::AvailabilityReader::GenerallyAvailable => Some(Availability::GenerallyAvailable),
-                    schema::AvailabilityReader::Deprecated => Some(Availability::Deprecated),
-                    schema::AvailabilityReader::Unknown(tag) => panic!("unknown Availability tag {tag}"),
-                },
-                hidden: m.hidden().unwrap(),
-                confirmation: m.confirmation().unwrap().map(str::to_owned),
-                request: m.request(),
-                params_type: m.paramsType(),
-                param_locations: m
-                    .paramLocations()
-                    .unwrap()
-                    .iter()
-                    .map(|loc| match loc.unwrap() {
-                        schema::LocationReader::Path => Location::Path,
-                        schema::LocationReader::Query(exploded) => Location::Query { exploded },
-                        schema::LocationReader::Unknown(tag) => panic!("unknown Location tag {tag}"),
-                    })
-                    .collect(),
-                headers: m.headers(),
-                body: m.body().unwrap().map(|body| BodyData {
-                    required: body.required().unwrap(),
-                    description: body.description().unwrap().to_owned(),
-                    contents: contents(body.contents().unwrap()),
+        self.method_data[id as usize].get_or_init(|| self.read_method(id as usize).expect("valid ForgeDoc method"))
+    }
+
+    fn read_method(&self, id: usize) -> Result<MethodData, schema::CapnError> {
+        let m = self.doc()?.methods()?.at(id)?;
+        let http_method = match m.httpMethod()? {
+            schema::HttpMethodReader::Get => HttpMethod::Get,
+            schema::HttpMethodReader::Put => HttpMethod::Put,
+            schema::HttpMethodReader::Post => HttpMethod::Post,
+            schema::HttpMethodReader::Delete => HttpMethod::Delete,
+            schema::HttpMethodReader::Options => HttpMethod::Options,
+            schema::HttpMethodReader::Head => HttpMethod::Head,
+            schema::HttpMethodReader::Patch => HttpMethod::Patch,
+            schema::HttpMethodReader::Trace => HttpMethod::Trace,
+            schema::HttpMethodReader::Query => HttpMethod::Query,
+            schema::HttpMethodReader::Connect => HttpMethod::Connect,
+            schema::HttpMethodReader::Other(method) => HttpMethod::Other(method.to_owned()),
+            schema::HttpMethodReader::Unknown(tag) => return Err(schema::CapnError::InvalidTag(tag)),
+        };
+        let availability = match m.availability()? {
+            schema::AvailabilityReader::None => None,
+            schema::AvailabilityReader::Alpha => Some(Availability::Alpha),
+            schema::AvailabilityReader::Beta => Some(Availability::Beta),
+            schema::AvailabilityReader::Preview => Some(Availability::Preview),
+            schema::AvailabilityReader::GenerallyAvailable => Some(Availability::GenerallyAvailable),
+            schema::AvailabilityReader::Deprecated => Some(Availability::Deprecated),
+            schema::AvailabilityReader::Unknown(tag) => return Err(schema::CapnError::InvalidTag(tag)),
+        };
+        let param_locations = m
+            .paramLocations()?
+            .iter()
+            .map(|loc| match loc? {
+                schema::LocationReader::Path => Ok(Location::Path),
+                schema::LocationReader::Query(exploded) => Ok(Location::Query { exploded }),
+                schema::LocationReader::Unknown(tag) => Err(schema::CapnError::InvalidTag(tag)),
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+        let body = m
+            .body()?
+            .map(|body| {
+                Ok::<_, schema::CapnError>(BodyData {
+                    required: body.required()?,
+                    description: body.description()?.to_owned(),
+                    contents: read_contents(body.contents()?)?,
                     json: body.json(),
-                }),
-                responses: m.responses().unwrap().iter().map(|r| response(r.unwrap())).collect(),
-                errors: m.errors().unwrap().iter().map(|r| response(r.unwrap())).collect(),
-                extensions: m
-                    .extensions()
-                    .unwrap()
-                    .iter()
-                    .map(|ext| {
-                        let ext = ext.unwrap();
-                        (ext.key().unwrap().to_owned(), Json::parse(ext.value().unwrap()))
-                    })
-                    .collect(),
-            }
+                })
+            })
+            .transpose()?;
+        let responses = m
+            .responses()?
+            .iter()
+            .map(|r| read_response(r?))
+            .collect::<Result<Vec<_>, _>>()?;
+        let errors = m
+            .errors()?
+            .iter()
+            .map(|r| read_response(r?))
+            .collect::<Result<Vec<_>, _>>()?;
+        let extensions = m
+            .extensions()?
+            .iter()
+            .map(|ext| {
+                let ext = ext?;
+                Ok((ext.key()?.to_owned(), Json::parse(ext.value()?)))
+            })
+            .collect::<Result<Vec<_>, schema::CapnError>>()?;
+        Ok(MethodData {
+            name: capn_name(m.name()?)?,
+            group: m.group(),
+            http_method,
+            path: m.path()?.to_owned(),
+            summary: m.summary()?.to_owned(),
+            description: m.description()?.to_owned(),
+            deprecated: m.deprecated()?,
+            availability,
+            hidden: m.hidden()?,
+            confirmation: m.confirmation()?.map(str::to_owned),
+            request: m.request(),
+            params_type: m.paramsType(),
+            param_locations,
+            headers: m.headers(),
+            body,
+            responses,
+            errors,
+            extensions,
         })
     }
 
     fn model_data(&self, id: u32) -> &ModelData {
-        self.model_data[id as usize].get_or_init(|| {
-            let m = self.doc().models().unwrap().get(id as usize).unwrap().unwrap();
-            ModelData {
-                schema_name: m.schemaName().unwrap().to_owned(),
-                name: capn_name(m.name().unwrap()),
-                group: m.group(),
-                description: m.description().unwrap().to_owned(),
-                deprecated: m.deprecated().unwrap(),
-                ty: m.ty(),
-            }
+        self.model_data[id as usize].get_or_init(|| self.read_model(id as usize).expect("valid ForgeDoc model"))
+    }
+
+    fn read_model(&self, id: usize) -> Result<ModelData, schema::CapnError> {
+        let m = self.doc()?.models()?.at(id)?;
+        Ok(ModelData {
+            schema_name: m.schemaName()?.to_owned(),
+            name: capn_name(m.name()?)?,
+            group: m.group(),
+            description: m.description()?.to_owned(),
+            deprecated: m.deprecated()?,
+            ty: m.ty(),
         })
     }
 
     fn type_data(&self, id: u32) -> &TypeData {
-        self.type_data[id as usize].get_or_init(|| {
-            match self.doc().types().unwrap().get(id as usize).unwrap().unwrap() {
-                schema::TypeInfoReader::Scalar(scalar) => TypeData::Scalar(match scalar {
-                    schema::ScalarReader::Unknown => Scalar::Unknown,
-                    schema::ScalarReader::Null => Scalar::Null,
-                    schema::ScalarReader::Boolean => Scalar::Boolean,
-                    schema::ScalarReader::String => Scalar::String,
-                    schema::ScalarReader::Uuid => Scalar::Uuid,
-                    schema::ScalarReader::Number(number) => Scalar::Number(match number {
-                        schema::NumberKindReader::Int => Number::Int,
-                        schema::NumberKindReader::Int8 => Number::Int8,
-                        schema::NumberKindReader::Int16 => Number::Int16,
-                        schema::NumberKindReader::Int32 => Number::Int32,
-                        schema::NumberKindReader::Int64 => Number::Int64,
-                        schema::NumberKindReader::Uint8 => Number::Uint8,
-                        schema::NumberKindReader::Uint16 => Number::Uint16,
-                        schema::NumberKindReader::Uint32 => Number::Uint32,
-                        schema::NumberKindReader::Uint64 => Number::Uint64,
-                        schema::NumberKindReader::Float => Number::Float,
-                        schema::NumberKindReader::Double => Number::Double,
-                        schema::NumberKindReader::Unknown(tag) => panic!("unknown NumberKind tag {tag}"),
-                    }),
-                    schema::ScalarReader::DateTime => Scalar::DateTime,
-                    schema::ScalarReader::Date => Scalar::Date,
-                    schema::ScalarReader::Bytes => Scalar::Bytes,
-                    schema::ScalarReader::Binary => Scalar::Binary,
-                    schema::ScalarReader::UnknownTag(tag) => panic!("unknown Scalar tag {tag}"),
+        self.type_data[id as usize].get_or_init(|| self.read_type(id as usize).expect("valid ForgeDoc type"))
+    }
+
+    fn read_type(&self, id: usize) -> Result<TypeData, schema::CapnError> {
+        match self.doc()?.types()?.at(id)? {
+            schema::TypeInfoReader::Scalar(scalar) => Ok(TypeData::Scalar(match scalar {
+                schema::ScalarReader::Unknown => Scalar::Unknown,
+                schema::ScalarReader::Null => Scalar::Null,
+                schema::ScalarReader::Boolean => Scalar::Boolean,
+                schema::ScalarReader::String => Scalar::String,
+                schema::ScalarReader::Uuid => Scalar::Uuid,
+                schema::ScalarReader::Number(number) => Scalar::Number(match number {
+                    schema::NumberKindReader::Int => Number::Int,
+                    schema::NumberKindReader::Int8 => Number::Int8,
+                    schema::NumberKindReader::Int16 => Number::Int16,
+                    schema::NumberKindReader::Int32 => Number::Int32,
+                    schema::NumberKindReader::Int64 => Number::Int64,
+                    schema::NumberKindReader::Uint8 => Number::Uint8,
+                    schema::NumberKindReader::Uint16 => Number::Uint16,
+                    schema::NumberKindReader::Uint32 => Number::Uint32,
+                    schema::NumberKindReader::Uint64 => Number::Uint64,
+                    schema::NumberKindReader::Float => Number::Float,
+                    schema::NumberKindReader::Double => Number::Double,
+                    schema::NumberKindReader::Unknown(tag) => return Err(schema::CapnError::InvalidTag(tag)),
                 }),
-                schema::TypeInfoReader::Enum(values) => TypeData::Enum(
-                    values
-                        .iter()
-                        .map(|val| match val.unwrap() {
-                            schema::EnumValueReader::String(s) => EnumData::String(s.to_owned()),
-                            schema::EnumValueReader::Number(n) => EnumData::Number(n),
-                            schema::EnumValueReader::Boolean(v) => EnumData::Boolean(v),
-                            schema::EnumValueReader::Unknown(tag) => panic!("unknown EnumValue tag {tag}"),
+                schema::ScalarReader::DateTime => Scalar::DateTime,
+                schema::ScalarReader::Date => Scalar::Date,
+                schema::ScalarReader::Bytes => Scalar::Bytes,
+                schema::ScalarReader::Binary => Scalar::Binary,
+                schema::ScalarReader::UnknownTag(tag) => return Err(schema::CapnError::InvalidTag(tag)),
+            })),
+            schema::TypeInfoReader::Enum(values) => {
+                let vals = values
+                    .iter()
+                    .map(|val| match val? {
+                        schema::EnumValueReader::String(s) => Ok(EnumData::String(s.to_owned())),
+                        schema::EnumValueReader::Number(n) => Ok(EnumData::Number(n)),
+                        schema::EnumValueReader::Boolean(v) => Ok(EnumData::Boolean(v)),
+                        schema::EnumValueReader::Unknown(tag) => Err(schema::CapnError::InvalidTag(tag)),
+                    })
+                    .collect::<Result<Vec<_>, _>>()?;
+                Ok(TypeData::Enum(vals))
+            }
+            schema::TypeInfoReader::Array(array) => Ok(TypeData::Array(ArrayData {
+                elem: array.elem(),
+                min_items: array.minItems(),
+                max_items: array.maxItems(),
+            })),
+            schema::TypeInfoReader::Object(object) => {
+                let fields = object
+                    .fields()?
+                    .iter()
+                    .map(|f| {
+                        let f = f?;
+                        Ok(FieldData {
+                            wire_name: f.wireName()?.to_owned(),
+                            name: capn_name(f.name()?)?,
+                            description: f.description()?.to_owned(),
+                            required: f.required()?,
+                            deprecated: f.deprecated()?,
+                            read_only: f.readOnly()?,
+                            sensitive: f.sensitive()?,
+                            ty: f.ty(),
+                            default: f.default()?.map(Json::parse),
                         })
-                        .collect(),
-                ),
-                schema::TypeInfoReader::Array(array) => TypeData::Array(ArrayData {
-                    elem: array.elem(),
-                    min_items: array.minItems(),
-                    max_items: array.maxItems(),
-                }),
-                schema::TypeInfoReader::Object(object) => TypeData::Object(ObjectData {
-                    fields: object
-                        .fields()
-                        .unwrap()
-                        .iter()
-                        .map(|f| {
-                            let f = f.unwrap();
-                            FieldData {
-                                wire_name: f.wireName().unwrap().to_owned(),
-                                name: capn_name(f.name().unwrap()),
-                                description: f.description().unwrap().to_owned(),
-                                required: f.required().unwrap(),
-                                deprecated: f.deprecated().unwrap(),
-                                read_only: f.readOnly().unwrap(),
-                                sensitive: f.sensitive().unwrap(),
-                                ty: f.ty(),
-                                default: f.default().unwrap().map(Json::parse),
-                            }
-                        })
-                        .collect(),
+                    })
+                    .collect::<Result<Vec<_>, schema::CapnError>>()?;
+                Ok(TypeData::Object(ObjectData {
+                    fields,
                     extra: object.extra(),
-                }),
-                schema::TypeInfoReader::Union(union) => TypeData::Union(UnionData {
-                    members: capn_u32s(union.members().unwrap()),
-                    exclusive: union.exclusive().unwrap(),
-                    discriminator: union.discriminator().unwrap().map(|d| DiscriminatorData {
-                        wire_name: d.wireName().unwrap().to_owned(),
-                        name: capn_name(d.name().unwrap()),
-                        cases: d
-                            .cases()
-                            .unwrap()
+                }))
+            }
+            schema::TypeInfoReader::Union(union) => {
+                let discriminator = union
+                    .discriminator()?
+                    .map(|d| {
+                        let cases = d
+                            .cases()?
                             .iter()
                             .map(|c| {
-                                let c = c.unwrap();
-                                (c.value().unwrap().to_owned(), c.ty())
+                                let c = c?;
+                                Ok((c.value()?.to_owned(), c.ty()))
                             })
-                            .collect(),
-                        default: d.defaultModel(),
-                    }),
-                }),
-                schema::TypeInfoReader::Intersection(members) => TypeData::Intersection(capn_u32s(members)),
-                schema::TypeInfoReader::Model(id) => TypeData::Model(id),
-                schema::TypeInfoReader::Unknown(tag) => panic!("unknown TypeInfo tag {tag}"),
+                            .collect::<Result<Vec<_>, schema::CapnError>>()?;
+                        Ok::<_, schema::CapnError>(DiscriminatorData {
+                            wire_name: d.wireName()?.to_owned(),
+                            name: capn_name(d.name()?)?,
+                            cases,
+                            default: d.defaultModel(),
+                        })
+                    })
+                    .transpose()?;
+                Ok(TypeData::Union(UnionData {
+                    members: capn_u32s(union.members()?)?,
+                    exclusive: union.exclusive()?,
+                    discriminator,
+                }))
             }
-        })
+            schema::TypeInfoReader::Intersection(members) => Ok(TypeData::Intersection(capn_u32s(members)?)),
+            schema::TypeInfoReader::Model(id) => Ok(TypeData::Model(id)),
+            schema::TypeInfoReader::Unknown(tag) => Err(schema::CapnError::InvalidTag(tag)),
+        }
     }
 }
 
-fn contents(list: schema::CapnSliceReader<'_, schema::ContentInfo>) -> Vec<ContentData> {
+fn read_contents(
+    list: schema::CapnSliceReader<'_, schema::ContentInfo>,
+) -> Result<Vec<ContentData>, schema::CapnError> {
     list.iter()
         .map(|c| {
-            let c = c.unwrap();
-            ContentData {
-                media_type: c.mediaType().unwrap().to_owned(),
+            let c = c?;
+            Ok(ContentData {
+                media_type: c.mediaType()?.to_owned(),
                 ty: c.ty(),
-                description: c.description().unwrap().to_owned(),
-            }
+                description: c.description()?.to_owned(),
+            })
         })
         .collect()
 }
 
-fn response(r: schema::ResponseInfoReader<'_>) -> ResponseData {
-    ResponseData {
-        status: r.status().unwrap().to_owned(),
-        description: r.description().unwrap().to_owned(),
-        contents: contents(r.contents().unwrap()),
+fn read_response(r: schema::ResponseInfoReader<'_>) -> Result<ResponseData, schema::CapnError> {
+    Ok(ResponseData {
+        status: r.status()?.to_owned(),
+        description: r.description()?.to_owned(),
+        contents: read_contents(r.contents()?)?,
         json: r.json(),
-    }
+    })
 }
-
 struct GroupData {
     name: Name,
     description: String,

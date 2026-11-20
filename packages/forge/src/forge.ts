@@ -375,7 +375,7 @@ class NameImpl implements Name {
   readonly words: readonly string[];
 
   constructor(words: readonly string[]) {
-    this.words = Object.freeze(Array.from(words));
+    this.words = Object.freeze(words);
   }
 
   get isEmpty(): boolean {
@@ -432,10 +432,10 @@ class ForgeImpl implements Forge {
   private groupsCur: typeof GroupInfo.$view | undefined;
   private methodsCur: typeof MethodInfo.$view | undefined;
   private modelsCur: typeof ModelInfo.$view | undefined;
+  private typesView: (typeof ForgeDoc.$view)['types'] | undefined;
   private fieldCur: typeof FieldInfo.$view | undefined;
   private respCur: typeof ResponseInfo.$view | undefined;
   private contentCur: typeof ContentInfo.$view | undefined;
-
   private _version: string | undefined;
   private _description: string | undefined;
   private _baseUrl: string | undefined;
@@ -455,11 +455,11 @@ class ForgeImpl implements Forge {
     this.groupsCur = undefined;
     this.methodsCur = undefined;
     this.modelsCur = undefined;
+    this.typesView = undefined;
     this.fieldCur = undefined;
     this.respCur = undefined;
     this.contentCur = undefined;
   }
-
   private requireDoc(): typeof ForgeDoc.$view {
     if (this.doc === undefined) {
       throw new Error('handle is not a valid "Forge" resource');
@@ -480,9 +480,8 @@ class ForgeImpl implements Forge {
   }
 
   rawType(id: number) {
-    return this.requireDoc().types.at(id);
+    return (this.typesView ??= this.requireDoc().types).at(id);
   }
-
   fieldAt(list: StructArrayView<typeof FieldInfo.schema>, index: number): typeof FieldInfo.$view {
     return this.fieldCur ? list.at(index, this.fieldCur) : (this.fieldCur = list.at(index));
   }
