@@ -60,6 +60,13 @@ export const operationProjectionFieldsSchema = z.object({
   'x-fern-sdk-method-name': nonEmptyStringSchema,
   'x-fern-availability': forgeAvailabilitySchema.optional(),
   'x-fern-ignore': z.boolean().optional(),
+  // Forge's native group / method / availability names ride alongside the Fern
+  // compatibility keys in the current release spec. Accept them so strict alias
+  // parsing does not reject the duplication; fern-forge projects from the Fern
+  // keys that astro-fern itself reads.
+  'x-forge-group-name': sdkGroupSchema.optional(),
+  'x-forge-method-name': nonEmptyStringSchema.optional(),
+  'x-forge-availability': forgeAvailabilitySchema.optional(),
   'x-forge-hidden': z.boolean().optional(),
   'x-forge-internal': z.boolean().optional(),
   'x-forge-epilogue': z.string().optional(),
@@ -68,7 +75,15 @@ export const operationProjectionFieldsSchema = z.object({
   'x-forge-require-confirmation': nonEmptyStringSchema.optional(),
 });
 
-const knownOperationForgeKeys = new Set([...operationProjectionFieldsSchema.keyof().options, 'x-forge-aliases']);
+// x-forge-oauth-scopes and x-forge-skip appear in Forge release artifacts but
+// are not projected onto documentation data today. Acknowledge them so
+// unknown-extension validation does not flag them; no shape is enforced.
+const knownOperationForgeKeys = new Set([
+  ...operationProjectionFieldsSchema.keyof().options,
+  'x-forge-aliases',
+  'x-forge-oauth-scopes',
+  'x-forge-skip',
+]);
 const unknownRecordSchema = z.record(z.string(), z.unknown());
 
 /** Removed Forge metadata that excludes an operation from generated documentation. */
