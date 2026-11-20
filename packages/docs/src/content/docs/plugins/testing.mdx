@@ -23,7 +23,7 @@ intersections, maps and nullable, and that refer to each other in a cycle. That 
 Run the plugin with the CLI, from any test runner:
 
 ```sh
-forge test/fixtures/unions.json --target wasm://plugin.wasm --out test/out/unions
+forge generate test/fixtures/unions.json --target wasm://plugin.wasm --out test/out/unions
 ```
 
 `forge -` reads the document from standard input, which is handy for inline fixtures.
@@ -35,7 +35,7 @@ regenerating does it. `git add --intent-to-add` first puts new files in the diff
 
 ```sh
 rm -rf test/out && for spec in test/fixtures/*.json; do
-  forge "$spec" --target wasm://plugin.wasm --out "test/out/$(basename "$spec" .json)"
+  forge generate "$spec" --target wasm://plugin.wasm --out "test/out/$(basename "$spec" .json)"
 done
 git add --intent-to-add test/out && git diff --exit-code test/out
 ```

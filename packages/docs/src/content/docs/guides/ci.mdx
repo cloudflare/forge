@@ -22,7 +22,7 @@ choose:
     "@cloudflare/forge": "https://pkg.pr.new/cloudflare/forge/@cloudflare/forge@<sha>"
   },
   "scripts": {
-    "generate": "rm -rf sdk && forge openapi.json --target ts --out sdk"
+    "generate": "rm -rf sdk && forge generate openapi.json --target ts --out sdk"
   }
 }
 ```
@@ -82,7 +82,7 @@ the commit:
 
 ```yaml
       - run: npx forge-plugin build plugins/docs.ts --out plugins/docs.wasm
-      - run: rm -rf docs/api && npx forge openapi.json --target wasm://plugins/docs.wasm --out docs/api
+      - run: rm -rf docs/api && npx forge generate openapi.json --target wasm://plugins/docs.wasm --out docs/api
 ```
 
 A Rust plugin needs `rustup target add wasm32-wasip2` first.
@@ -98,7 +98,7 @@ cargo install --git https://github.com/cloudflare/forge --features wasm
 Or point the package's launcher at any binary with `FORGE_BINARY`:
 
 ```sh
-FORGE_BINARY=/path/to/forge npx forge openapi.json --target ts --out sdk
+FORGE_BINARY=/path/to/forge npx forge generate openapi.json --target ts --out sdk
 ```
 
 ## Related resources

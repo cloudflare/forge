@@ -9,7 +9,7 @@ sidebar:
 Rust gets two ways in:
 
 - **As a WebAssembly component.** Build a `cdylib` against Forge's WIT for `wasm32-wasip2`, and run
-  it with `forge --target wasm://`. It is sandboxed, small (tens of KB), and runs with the `forge`
+  it with `forge generate --target wasm://`. It is sandboxed, small (tens of KB), and runs with the `forge`
   your users already have.
 - **As a library.** Depend on the `forge` crate, implement `forge::Plugin`, and ship your own binary.
   You get the full, typed Rust API, the same one the built-in targets use, and no sandbox.
@@ -114,7 +114,7 @@ Build for `wasm32-wasip2`, then pass the component to `forge`:
 
 ```sh
 cargo build --release --target wasm32-wasip2
-forge openapi.json --target wasm://target/wasm32-wasip2/release/forge_plugin_routes.wasm --out out
+forge generate openapi.json --target wasm://target/wasm32-wasip2/release/forge_plugin_routes.wasm --out out
 ```
 
 ```text title="out/routes.txt"

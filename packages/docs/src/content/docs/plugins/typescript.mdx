@@ -1,6 +1,6 @@
 ---
 title: Write a plugin in TypeScript
-description: Write a Forge plugin in TypeScript or JavaScript with definePlugin, build it into a WebAssembly component, and run it with forge --target wasm://.
+description: Write a Forge plugin in TypeScript or JavaScript with definePlugin, build it into a WebAssembly component, and run it with forge generate --target wasm://.
 content_type: how-to
 sidebar:
   order: 4
@@ -61,7 +61,7 @@ Building takes about a second, and the component is about 1.7 MB, most of it the
 engine. `--out` defaults to `plugin.wasm`. Then run it on a document, such as the pet store document
 from [Get started](/start/get-started/#1-write-a-document):
 
-<PackageManagers type="exec" pkg="forge" args="openapi.json --target wasm://plugin.wasm --out docs" />
+<PackageManagers type="exec" pkg="forge" args="generate openapi.json --target wasm://plugin.wasm --out docs" />
 
 ## 4. Check the result
 

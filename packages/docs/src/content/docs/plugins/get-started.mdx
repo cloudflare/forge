@@ -51,7 +51,7 @@ Build the plugin into a WebAssembly component, and run it:
 
 <PackageManagers type="exec" pkg="forge-plugin" args="build plugin.ts --out plugin.wasm" />
 
-<PackageManagers type="exec" pkg="forge" args="openapi.json --target wasm://plugin.wasm --out docs" />
+<PackageManagers type="exec" pkg="forge" args="generate openapi.json --target wasm://plugin.wasm --out docs" />
 
 `docs/pets.md` now has a table of the three methods:
 
