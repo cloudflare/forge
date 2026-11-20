@@ -1,0 +1,8 @@
+[
+  {
+    "ruleId": "forge/compatible-allof-intersection",
+    "severity": "error",
+    "message": "allOf $ref \"MaybeObject\" is an object; cannot intersect with only null required by allOf member at index 0.",
+    "location": "openapi.yaml#/components/schemas/Impossible/allOf/1/$ref (key)"
+  }
+]

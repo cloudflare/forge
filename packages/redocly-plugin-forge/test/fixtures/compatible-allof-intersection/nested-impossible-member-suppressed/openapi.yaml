@@ -1,0 +1,18 @@
+openapi: 3.0.3
+info:
+  title: Nested impossible allOf should only report once
+  version: 1.0.0
+paths: {}
+components:
+  schemas:
+    Impossible:
+      allOf:
+        - type: string
+        - type: object
+          properties:
+            name:
+              type: string
+    Parent:
+      type: object
+      allOf:
+        - $ref: '#/components/schemas/Impossible'

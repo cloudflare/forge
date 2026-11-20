@@ -13,7 +13,7 @@ import { isPlainObject, isRefNode, resolveNode } from '../utils/resolve.ts';
 import { refName } from '../utils/schema.ts';
 import type { AnyNode, Located, Location, RuleDefinition, UserContext } from '../utils/types.ts';
 
-type Ctx = Pick<UserContext, 'resolve'>;
+type Ctx = Pick<UserContext, 'resolve' | 'specVersion'>;
 
 type PrimType = 'object' | 'array' | 'string' | 'number' | 'integer' | 'boolean' | 'null';
 
@@ -31,7 +31,14 @@ function toPrimType(value: string): PrimType | undefined {
   return PRIMITIVE_TYPES.has(value) ? (value as PrimType) : undefined;
 }
 
-function declaredTypes(schema: Record<string, AnyNode>): PrimType[] {
+// `nullable: true` is an OAS 3.0 keyword. OAS 3.1 adopted JSON Schema 2020-12, which has no
+// `nullable` keyword; the equivalent spelling there is `type: ['X', 'null']`. Folding `nullable`
+// on 3.1+ would silently rescue schemas the spec treats as object-only.
+function foldsNullable(specVersion: Ctx['specVersion']): boolean {
+  return specVersion === 'oas3_0';
+}
+
+function declaredTypes(schema: Record<string, AnyNode>, specVersion: Ctx['specVersion']): PrimType[] {
   const result: PrimType[] = [];
   const typeField = schema.type;
   if (typeof typeField === 'string') {
@@ -49,10 +56,10 @@ function declaredTypes(schema: Record<string, AnyNode>): PrimType[] {
       }
     }
   }
-  // OAS 3.0 `nullable: true` folds `null` into an existing type; on its own (no `type` keyword),
+  // OAS 3.0 only: fold `nullable: true` into an existing type. On its own (no `type` keyword),
   // the spec gives it no meaning, so we leave the schema unconstrained rather than flipping it to
   // "only null" — the latter would turn a bare `{nullable: true}` into an intersection trap.
-  if (schema.nullable === true && result.length > 0 && !result.includes('null')) {
+  if (foldsNullable(specVersion) && schema.nullable === true && result.length > 0 && !result.includes('null')) {
     result.push('null');
   }
   return result;
@@ -99,14 +106,14 @@ function possibleTypes(ctx: Ctx, located: Located, seen: ReadonlySet<string>): S
   nextSeen.add(key);
   const schema = resolved.node;
 
-  const declared = declaredTypes(schema);
+  const declared = declaredTypes(schema, ctx.specVersion);
   let types: Set<PrimType> | undefined = declared.length > 0 ? new Set(declared) : undefined;
 
   if (types === undefined) {
     const inferred = inferredTypes(schema);
     if (inferred.size > 0) {
       types = inferred;
-      if (schema.nullable === true) {
+      if (foldsNullable(ctx.specVersion) && schema.nullable === true) {
         types.add('null');
       }
     }
@@ -123,6 +130,11 @@ function possibleTypes(ctx: Ctx, located: Located, seen: ReadonlySet<string>): S
         continue;
       }
       types = types === undefined ? new Set(memberTypes) : intersectTypes(types, memberTypes);
+      if (types.size === 0) {
+        // Early-out once the intersection is empty: every further intersect stays empty, and the
+        // Schema visitor at this node (or at a nested broken `allOf`) already reports the cause.
+        return types;
+      }
     }
   }
 
@@ -149,6 +161,9 @@ function possibleTypes(ctx: Ctx, located: Located, seen: ReadonlySet<string>): S
     }
     if (!anyUnknown) {
       types = types === undefined ? union : intersectTypes(types, union);
+      if (types.size === 0) {
+        return types;
+      }
     }
   }
 
@@ -173,8 +188,8 @@ function intersectTypes(left: Set<PrimType>, right: Set<PrimType>): Set<PrimType
  * uses this to seed the intersection the `allOf` members must satisfy, and union-siblings pull
  * in cases that are better reported at their own level.
  */
-function enclosingTypes(schema: Record<string, AnyNode>): Set<PrimType> | undefined {
-  const declared = declaredTypes(schema);
+function enclosingTypes(schema: Record<string, AnyNode>, specVersion: Ctx['specVersion']): Set<PrimType> | undefined {
+  const declared = declaredTypes(schema, specVersion);
   if (declared.length > 0) {
     return new Set(declared);
   }
@@ -182,7 +197,7 @@ function enclosingTypes(schema: Record<string, AnyNode>): Set<PrimType> | undefi
   if (inferred.size === 0) {
     return undefined;
   }
-  if (schema.nullable === true) {
+  if (foldsNullable(specVersion) && schema.nullable === true) {
     inferred.add('null');
   }
   return inferred;
@@ -230,7 +245,7 @@ export const compatibleAllofIntersection: RuleDefinition = {
         return;
       }
 
-      const enclosing = enclosingTypes(schema);
+      const enclosing = enclosingTypes(schema, ctx.specVersion);
       let running: Set<PrimType> | undefined = enclosing;
       let conflictContext: string | undefined =
         enclosing !== undefined ? `${describeTypes(enclosing)} required by the enclosing schema` : undefined;
@@ -240,6 +255,13 @@ export const compatibleAllofIntersection: RuleDefinition = {
         const memberLocation = ctx.location.child(['allOf', index]);
         const memberTypes = possibleTypes(ctx, { node: member, location: memberLocation }, new Set());
         if (memberTypes === undefined) {
+          continue;
+        }
+        if (memberTypes.size === 0) {
+          // The member is intrinsically impossible — its own `allOf`/`oneOf`/`anyOf` has no valid
+          // intersection. The Schema visitor firing on the member (or on the $ref target) already
+          // reports that root-cause conflict; emitting a derived "cannot intersect" diagnostic
+          // here would be duplicate noise and would misdescribe the empty set as "only null".
           continue;
         }
 
