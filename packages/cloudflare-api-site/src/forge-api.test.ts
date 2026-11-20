@@ -379,6 +379,83 @@ test('samples cover every target, with placeholders, one Terraform sample joinin
   assert.deepEqual(example((document.components as { responses: Responses }).responses, 'NotFound'), { code: 0 });
 });
 
+/** Returns the JSON body of the curl sample for a POST that sends `schema`, with `schemas` as components. */
+function curlBody(schema: unknown, schemas: Record<string, unknown> = {}): unknown {
+  const { document } = prepareForgeApi(
+    {
+      openapi: '3.1.0',
+      info: { title: 'Fixture' },
+      components: { schemas },
+      paths: {
+        '/reports': {
+          post: operation('reports.create', ['reports'], 'create', {
+            requestBody: { content: { 'application/json': { schema } } },
+          }),
+        },
+      },
+    },
+    new Map(),
+  );
+  const post = (document.paths as Record<string, Record<string, Record<string, unknown>>>)['/reports']!.post!;
+  const curl = (post['x-codeSamples'] as { lang: string; source: string }[]).find((sample) => sample.lang === 'curl')!;
+  return JSON.parse(curl.source.match(/-d '(.*)'$/)![1]!);
+}
+
+test('a curl sample merges a field that several allOf members declare, so its narrowest type shows', () => {
+  const base = {
+    type: 'object',
+    properties: { act: { type: 'string' }, email: { type: 'string' } },
+    required: ['act', 'email'],
+  };
+  const report = {
+    allOf: [{ $ref: '#/components/schemas/Base' }, { properties: { act: { type: 'string', enum: ['abuse_dmca'] } } }],
+  };
+  assert.deepEqual(curlBody(report, { Base: base }), { act: 'abuse_dmca', email: '<email>' });
+});
+
+test("a curl sample sends the required fields of an object's first oneOf option", () => {
+  const body = {
+    type: 'object',
+    properties: { url: { type: 'string' }, html: { type: 'string' }, timeout: { type: 'number' } },
+    oneOf: [
+      { type: 'object', properties: { url: { type: 'string' } }, required: ['url'] },
+      { type: 'object', properties: { html: { type: 'string' } }, required: ['html'] },
+    ],
+  };
+  const options = {
+    type: 'object',
+    properties: { name: { type: 'string' } },
+    required: ['name'],
+    oneOf: [
+      { type: 'object', properties: { ips: { type: 'array', items: { type: 'string' } } }, required: ['ips'] },
+      { type: 'object', properties: { identity: { type: 'string' } }, required: ['identity'] },
+    ],
+  };
+  assert.deepEqual(curlBody(body), { url: '<url>' });
+  assert.deepEqual(curlBody(options), { name: '<name>', ips: ['<value>'] });
+});
+
+test('a curl sample leaves out read-only fields', () => {
+  const policy = {
+    type: 'object',
+    properties: { id: { type: 'string', readOnly: true }, pattern: { type: 'string' } },
+    required: ['id', 'pattern'],
+  };
+  assert.deepEqual(curlBody(policy), { pattern: '<pattern>' });
+});
+
+test('a curl sample shows a field whose allOf combines arrays as an array', () => {
+  const app = {
+    type: 'object',
+    properties: {
+      hostnames: { allOf: [{ $ref: '#/components/schemas/Hostnames' }, { type: 'array', minItems: 1 }] },
+    },
+    required: ['hostnames'],
+  };
+  const hostnames = { type: 'array', items: { type: 'string' } };
+  assert.deepEqual(curlBody(app, { Hostnames: hostnames }), { hostnames: ['<value>'] });
+});
+
 test('lifecycle methods get x-nimbus-order; others get none', () => {
   const { document } = prepare();
   const paths = document.paths as Record<string, Record<string, Record<string, unknown>>>;

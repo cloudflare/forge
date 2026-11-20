@@ -133,13 +133,40 @@ function curlContent(contents: readonly Content[]): Content | undefined {
   );
 }
 
-/** Returns the fields of `type`: an object's, a model's, or every member's of an intersection. */
-function fieldsOf(type: Type, models: ReadonlySet<unknown> = new Set()): readonly Field[] {
+/** The parts of a field a sample reads. */
+type SampleField = Pick<Field, 'wireName' | 'required' | 'default' | 'type'>;
+
+/** Returns the member of a union that a sample shows: the first that isn't null. */
+function sampleMember(members: readonly Type[]): Type | undefined {
+  return members.find((member) => !(member.kind === 'scalar' && member.scalar === 'null')) ?? members[0];
+}
+
+/** Returns `type` with its models resolved to the types they name. */
+function resolveModels(type: Type): Type {
+  const models = new Set<unknown>();
+  while (type.kind === 'model' && !models.has(type.model)) {
+    models.add(type.model);
+    type = type.model.type;
+  }
+  return type;
+}
+
+/**
+ * Returns the fields a request sends in `type`: an object's, a model's, the
+ * sample member's of a union, or every member's of an intersection, with
+ * the fields that several members declare merged. Read-only fields are left
+ * out, since the server sets them.
+ */
+function fieldsOf(type: Type, models: ReadonlySet<unknown> = new Set()): readonly SampleField[] {
   switch (type.kind) {
     case 'object':
-      return type.fields;
+      return type.fields.filter((field) => !field.readOnly);
     case 'intersection':
-      return type.members.flatMap((member) => fieldsOf(member, models));
+      return mergeFields(type.members.flatMap((member) => fieldsOf(member, models)));
+    case 'union': {
+      const member = sampleMember(type.members);
+      return member ? fieldsOf(member, models) : [];
+    }
     case 'model':
       return models.has(type.model) ? [] : fieldsOf(type.model.type, new Set([...models, type.model]));
     default:
@@ -148,24 +175,53 @@ function fieldsOf(type: Type, models: ReadonlySet<unknown> = new Set()): readonl
 }
 
 /**
+ * Merges the fields that share a wire name into one, kept at the first one's
+ * position. The merged field is required if any of them is, takes the first
+ * enum among their types, else the first type, and takes the first default.
+ */
+function mergeFields(fields: readonly SampleField[]): SampleField[] {
+  const merged = new Map<string, SampleField>();
+  for (const field of fields) {
+    const seen = merged.get(field.wireName);
+    merged.set(
+      field.wireName,
+      seen
+        ? {
+            wireName: field.wireName,
+            required: seen.required || field.required,
+            default: seen.default ?? field.default,
+            type: seen.type.kind !== 'enum' && field.type.kind === 'enum' ? field.type : seen.type,
+          }
+        : field,
+    );
+  }
+  return [...merged.values()];
+}
+
+/**
  * Returns a representative value of `type`, called `name`, for a request
  * sample: the first value of an enum, else `fallback` (the field's default),
- * else the first member of a union, else an object of the required fields,
- * an array of one element, or a placeholder for a scalar.
+ * else the sample member of a union, else an object of the required fields,
+ * an array of one element, or a placeholder for a scalar. An intersection
+ * with an array member is that array.
  */
 function placeholder(type: Type, name: string, fallback: unknown, models: ReadonlySet<unknown>): unknown {
   if (type.kind === 'enum') return type.values[0];
   if (typeof fallback === 'string' || typeof fallback === 'number' || typeof fallback === 'boolean') return fallback;
   switch (type.kind) {
     case 'union': {
-      const member = type.members.find((m) => !(m.kind === 'scalar' && m.scalar === 'null')) ?? type.members[0];
+      const member = sampleMember(type.members);
       return member ? placeholder(member, name, undefined, models) : `<${name || 'value'}>`;
     }
     case 'model':
       if (models.has(type.model)) return {};
       return placeholder(type.model.type, name, undefined, new Set([...models, type.model]));
+    case 'intersection': {
+      const array = type.members.find((member) => resolveModels(member).kind === 'array');
+      if (array) return placeholder(array, name, undefined, models);
+    }
+    // falls through
     case 'object':
-    case 'intersection':
       return Object.fromEntries(
         fieldsOf(type, models)
           .filter((field) => field.required)
@@ -190,14 +246,7 @@ function sampleBody(type: Type): unknown {
   const isEmpty =
     typeof required === 'object' && required !== null && !Array.isArray(required) && Object.keys(required).length === 0;
   if (!isEmpty) return required;
-  let shape = type;
-  while (fieldsOf(shape).length === 0) {
-    const resolved = shape.kind === 'model' ? shape.model.type : shape;
-    const first = resolved.kind === 'union' ? resolved.members[0] : undefined;
-    if (!first || first === shape) break;
-    shape = first;
-  }
-  const fields = fieldsOf(shape);
+  const fields = fieldsOf(type);
   if (fields.length === 0) return required;
   return Object.fromEntries(
     fields.map((field) => [field.wireName, placeholder(field.type, field.wireName, field.default, new Set())]),
