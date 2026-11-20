@@ -1,5 +1,6 @@
 import type { RuleDefinition } from '../utils/types.ts';
 import { booleanExtensions } from './boolean-extensions.ts';
+import { compatibleAllofIntersection } from './compatible-allof-intersection.ts';
 import { contentTypeOnlyForMultipart } from './content-type-only-for-multipart.ts';
 import { explodedFormDataIsArray } from './exploded-form-data-is-array.ts';
 import { noComplexQueryParams } from './no-complex-query-params.ts';
@@ -12,7 +13,7 @@ import { noGetRequestBody } from './no-get-request-body.ts';
 import { noInvalidTagNamesOrFrontmatter } from './no-invalid-tag-names-or-frontmatter.ts';
 import { noMultipartAllofComposition } from './no-multipart-allof-composition.ts';
 import { noOpenApiV2InDocs } from './no-openapi-v2-in-docs.ts';
-import { onlyObjectAllofRefs } from './only-object-allof-refs.ts';
+import { noRedundantAllofRefWrapper } from './no-redundant-allof-ref-wrapper.ts';
 import { validAliases } from './valid-aliases.ts';
 import { validAvailability } from './valid-availability.ts';
 import { validGroupName } from './valid-group-name.ts';
@@ -21,6 +22,7 @@ import { validSchemaDefaults } from './valid-schema-defaults.ts';
 
 export const ruleDefinitions: RuleDefinition[] = [
   booleanExtensions,
+  compatibleAllofIntersection,
   contentTypeOnlyForMultipart,
   explodedFormDataIsArray,
   noComplexQueryParams,
@@ -33,7 +35,7 @@ export const ruleDefinitions: RuleDefinition[] = [
   noInvalidTagNamesOrFrontmatter,
   noMultipartAllofComposition,
   noOpenApiV2InDocs,
-  onlyObjectAllofRefs,
+  noRedundantAllofRefWrapper,
   validAliases,
   validAvailability,
   validGroupName,

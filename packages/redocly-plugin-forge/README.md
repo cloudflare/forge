@@ -44,6 +44,13 @@ Four rules catch names that are distinct on the wire but normalize to the same S
 
 Each rule honors the matching `x-forge-*-name` override (`x-forge-parameter-name`, `x-forge-property-name`, `x-forge-model-name`, `x-forge-method-name`) and uses the overridden value for collision detection.
 
+### `allOf` composition
+
+Two rules split the two things an `allOf` wrapper can get wrong:
+
+- `forge/compatible-allof-intersection` — reports `allOf` compositions whose members' types cannot all be satisfied by the same value. Traces `$ref` chains, intersects across `allOf`, unions across `oneOf`/`anyOf`, and infers `object` from `properties`/`additionalProperties` and `array` from `items`. `nullable: true` (OAS 3.0) and `type: [X, 'null']` (OAS 3.1) are treated as alternates, not additional constraints; `integer` composes with `number`. The deliberately permitted case is the OAS 3.0 sibling-escape idiom — a single-member `allOf: [{$ref}]` whose enclosing schema has only annotation siblings — since it is the only way OAS 3.0 lets you attach `description`/`example` to a `$ref`.
+- `forge/no-redundant-allof-ref-wrapper` _(opt-in, `warn`)_ — flags that same sibling-escape wrapper on OAS 3.1 and 3.2, where `$ref` composes with siblings directly and the wrapper is unnecessary. Fires only when every non-`allOf` sibling on the enclosing schema is an annotation keyword (`description`, `title`, `example`, `default`, `deprecated`, `readOnly`, `writeOnly`, …); the inheritance idiom (`{properties, allOf: [{$ref: Base}]}`) is left alone. Enable in `rules:` to opt in.
+
 ## Using in CI
 
 The plugin is designed to run in downstream lint pipelines against production OpenAPI specs. A few practical notes from running it against representative specs:
