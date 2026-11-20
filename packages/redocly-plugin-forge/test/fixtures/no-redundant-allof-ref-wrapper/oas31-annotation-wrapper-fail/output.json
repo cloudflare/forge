@@ -1,0 +1,8 @@
+[
+  {
+    "ruleId": "forge/no-redundant-allof-ref-wrapper",
+    "severity": "error",
+    "message": "`allOf` with the single member $ref \"Timestamp\" only serves to attach annotation siblings. On OpenAPI 3.1+, `$ref` composes with sibling keywords directly — drop the `allOf` wrapper and attach the siblings to the `$ref`.",
+    "location": "openapi.yaml#/components/schemas/CreatedAt/allOf (key)"
+  }
+]

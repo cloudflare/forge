@@ -1,0 +1,13 @@
+openapi: 3.1.0
+info:
+  title: allOf wrapper with no siblings
+  version: 1.0.0
+paths: {}
+components:
+  schemas:
+    Timestamp:
+      type: string
+      format: date-time
+    JustAnAlias:
+      allOf:
+        - $ref: '#/components/schemas/Timestamp'

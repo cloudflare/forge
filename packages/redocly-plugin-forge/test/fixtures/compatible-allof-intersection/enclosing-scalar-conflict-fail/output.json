@@ -1,6 +1,6 @@
 [
   {
-    "ruleId": "forge/only-object-allof-refs",
+    "ruleId": "forge/compatible-allof-intersection",
     "severity": "error",
     "message": "allOf $ref \"Timestamp\" is a string; cannot intersect with an object required by the enclosing schema.",
     "location": "openapi.yaml#/components/schemas/MisTyped/allOf/0/$ref (key)"

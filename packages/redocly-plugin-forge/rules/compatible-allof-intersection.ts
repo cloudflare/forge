@@ -219,8 +219,8 @@ function memberReport(member: AnyNode, memberLocation: Location, index: number):
   };
 }
 
-export const onlyObjectAllofRefs: RuleDefinition = {
-  name: 'only-object-allof-refs',
+export const compatibleAllofIntersection: RuleDefinition = {
+  name: 'compatible-allof-intersection',
   sourceRules: ['fern-definition/only-object-extensions'],
   severity: 'error',
   description: '`allOf` members must have compatible types; their intersection cannot be empty.',

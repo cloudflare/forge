@@ -1,6 +1,6 @@
 [
   {
-    "ruleId": "forge/only-object-allof-refs",
+    "ruleId": "forge/compatible-allof-intersection",
     "severity": "error",
     "message": "allOf $ref \"NullableString\" is a string; cannot intersect with an object required by allOf $ref \"NullableAliasOfObject\".",
     "location": "openapi.yaml#/components/schemas/Child/allOf/3/$ref (key)"
