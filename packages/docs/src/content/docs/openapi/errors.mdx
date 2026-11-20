@@ -72,7 +72,7 @@ These are only reported for the parts Forge builds: methods, and the schemas the
 | Message | Cause and fix |
 | --- | --- |
 | `query parameter "f" has style "deepObject", which is not covered: only form is` | Only the default styles are covered: `form` for the query, `simple` for the path and headers. Use the default style, or leave the operation out with `x-forge-skip` until it is covered. |
-| `query parameter "f" has content, which is not covered: only schema is` | Parameters described by `content` instead of `schema` are not covered yet. Use `schema`. |
+| `query parameter "f" has content, which is not covered: only schema is` | Path, query and header parameters described by `content` instead of `schema` are not covered yet. Use `schema`. An `in: querystring` parameter is the exception: it is read from `content`. |
 
 ### Schemas
 

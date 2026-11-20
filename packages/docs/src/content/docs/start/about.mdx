@@ -50,7 +50,7 @@ and returns files, and Forge writes them, only under `--out`. Refer to
 Forge reads all three versions into the same model, so a plugin never needs to know which one a
 document was written in. Where the versions differ, Forge follows each one's rules:
 
-- **Next to a `$ref`**, 3.0 ignores every other keyword, except Forge's own
+- **Next to a `$ref`**, 3.0 ignores every other keyword, except a few of Forge's own, such as
   `x-forge-sensitive`. From 3.1, Forge reads them: a
   `description`, `default`, `readOnly` or `nullable` beside a `$ref` applies to that use of it.
 - **Nullable values** are written `nullable: true` in 3.0 and as a list of types with `null` in 3.1.
