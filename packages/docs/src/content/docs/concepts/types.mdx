@@ -150,9 +150,11 @@ schema is a primitive. A plugin decides whether to refer to it by name or write 
 written in place. A schema `$ref` outside `components.schemas`, such as into `paths`, is not covered
 yet, and is an error, as is one to another document.
 
-In OpenAPI 3.0, keywords next to a `$ref` are ignored, except `x-forge-sensitive`. From 3.1, descriptive ones such as
-`description` keep the model, `nullable: true` makes it `Model | Null`, and anything else makes an
-intersection of the model and the rest.
+In OpenAPI 3.0, keywords next to a `$ref` are ignored, except `x-forge-sensitive` and, on a
+property, `x-forge-skip`, `x-forge-property-name` and `deprecated`, which count in every version.
+From 3.1, `nullable: true` makes it `Model | Null`, and keywords that give a shape, such as
+`properties`, `allOf` or a `type` other than `object`, make an intersection of the model and the
+rest. Others, such as `description`, keep the model.
 
 ## Related resources
 

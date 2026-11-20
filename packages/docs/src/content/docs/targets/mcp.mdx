@@ -161,7 +161,9 @@ authorize nothing.
   fits.
 - `Accept: application/json` is sent.
 
-The result is the response body as text, and a successful JSON body is also `structuredContent`. A
+The result is the response body as text. A successful JSON body is also `structuredContent` when
+the tool has an output schema, which it has only when every successful response of the method has
+a JSON body: a method with a JSON `200` and an empty `204` returns text only. A
 response that is not 2xx is an error result that starts with the status, so the model reads what
 the API said.
 
