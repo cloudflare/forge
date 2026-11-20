@@ -81,10 +81,14 @@ function parentResource(resource: string): string {
 /** The sections in the product that holds the most of them; ties go to the first. */
 function inLeadingProduct(sections: string[][]): string[][] {
   const counts = new Map<string, number>();
-  for (const [product] of sections) counts.set(product!, (counts.get(product!) ?? 0) + 1);
-  let leading: string | undefined;
-  for (const [product, count] of counts) if (!leading || count > counts.get(leading)!) leading = product;
-  return sections.filter(([product]) => product === leading);
+  for (const [product] of sections) {
+    if (product !== undefined) counts.set(product, (counts.get(product) ?? 0) + 1);
+  }
+  let leading: { product: string; count: number } | undefined;
+  for (const [product, count] of counts) {
+    if (!leading || count > leading.count) leading = { product, count };
+  }
+  return sections.filter(([product]) => product === leading?.product);
 }
 
 function commonPrefix(paths: string[][]): string[] {
@@ -108,17 +112,17 @@ function existingSection(segments: string[], sections: ReadonlySet<string>): str
   return undefined;
 }
 
-/**
- * The languages the old site prefixed its pages with. This site has no SDK
- * samples, so their pages fold onto the HTTP ones; Terraform keeps its view.
- */
+/** The languages the old site prefixed its pages with. */
 const LANGUAGE_PREFIX = /^\/(typescript|python|go|node|terraform)(?=\/)/;
+
+/** The sample each old language opens on this site; the old Node pages were TypeScript's. */
+const LANGUAGE_SAMPLE: Record<string, string> = { node: 'typescript' };
 
 /**
  * Where the middleware sends an old Stainless URL: its page; its Markdown twin;
- * or its language variant's, with Terraform in its view (`?lang=terraform`).
- * `/operations/` pages had neither twins nor variants. `path` is
- * collection-relative; `lookup` is the plan's.
+ * or its language variant's, with that language's sample selected
+ * (`?lang=python`), Terraform's in its view. `/operations/` pages had neither
+ * twins nor variants. `path` is collection-relative; `lookup` is the plan's.
  */
 export function stainlessRedirect(
   path: string,
@@ -126,7 +130,6 @@ export function stainlessRedirect(
   lookup: Readonly<Record<string, string | undefined>>,
 ): string | undefined {
   const language = LANGUAGE_PREFIX.exec(path)?.[1];
-  const terraform = language === 'terraform';
   let page = language ? path.slice(language.length + 1) : path;
   const markdown = page.endsWith('/index.md');
   if (markdown) page = page.slice(0, -'index.md'.length);
@@ -135,8 +138,8 @@ export function stainlessRedirect(
   const target = page === '/' ? (language ? '/' : undefined) : lookup[page];
   if (!target) return undefined;
   if (markdown) return `${target}index.md${search}`;
-  if (!terraform) return `${target}${search}`;
+  if (!language) return `${target}${search}`;
   const params = new URLSearchParams(search);
-  params.set('lang', 'terraform');
+  params.set('lang', LANGUAGE_SAMPLE[language] ?? language);
   return `${target}?${params}`;
 }
