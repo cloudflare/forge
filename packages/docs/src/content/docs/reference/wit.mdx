@@ -1,0 +1,87 @@
+---
+title: WIT
+description: The functions of the forge interface that a WebAssembly plugin imports, the plugin world it exports, and how their ids and records map to the model.
+content_type: reference
+sidebar:
+  order: 5
+---
+
+WebAssembly plugins are components of the `plugin` world in the `forge:plugin` package. It imports
+the `forge` interface, which reads the model the host keeps, and exports `generate`.
+
+This page summarizes the interface: how to read it, its functions and the world. The complete file,
+with every record and its doc comments, is printed by `forge-plugin wit`, ships in the package as
+`@cloudflare/forge/plugin/forge.wit`, and is `forge::wasm::WIT` in Rust. The meaning and order of every field are as the
+[Rust API](/reference/rust-api/) documents them. The WIT is the same model, flattened into ids and
+records.
+
+## How to read it
+
+- Every group, method, model and type is a `u32` id, valid for the run. The root group is the
+  first id `groups()` returns, and its `name` and `path` are empty. `get-group`, `get-method`,
+  `get-model` and `get-type` return everything the part has, with ids for its parts.
+- `forge.counts()` says how many of each there are, so a plugin can size tables up front.
+- A name is its lower-case words.
+- JSON is its text, which `JSON.parse` reads back.
+- `get-location(method, object, index)` is `Method::location` for field `index` of the object type
+  `object`.
+- An id the host never gave out traps.
+
+## The functions
+
+The `forge` interface's functions, which a plugin calls to read the model:
+
+```wit
+interface forge {
+    // ... the id types and the records they return ...
+
+    info: func() -> forge-info;
+    counts: func() -> forge-counts;
+    /// Every group, depth first, starting with the root.
+    groups: func() -> list<group-id>;
+    get-group: func(id: group-id) -> group-info;
+    get-method: func(id: method-id) -> method-info;
+    get-model: func(id: model-id) -> model-info;
+    get-type: func(id: type-id) -> type-info;
+    /// Where method `id` sends field `index` of the object type `object`,
+    /// or none if it is not one of its parameters.
+    get-location: func(id: method-id, object: type-id, index: u32) -> option<location>;
+}
+```
+
+## The world
+
+What a plugin is: it imports `forge`, and exports the one function the host calls:
+
+```wit
+world plugin {
+    import forge;
+
+    /// A generated file: its path relative to the output directory, using
+    /// `/` as a separator, and its content. A file with no content is not
+    /// written.
+    record file {
+        path: string,
+        content: list<u8>,
+    }
+
+    /// Generates every file for the forge, in a fresh instance. Called
+    /// exactly once.
+    export generate: func() -> result<list<file>, string>;
+}
+```
+
+## The complete file
+
+The copy that matches your `forge` is printed by:
+
+<PackageManagers type="exec" pkg="forge-plugin" args="wit" />
+
+It is also in the package, as `@cloudflare/forge/plugin/forge.wit`, and in the repository at
+[`packages/forge/plugin/forge.wit`](https://github.com/cloudflare/forge/blob/main/packages/forge/plugin/forge.wit).
+
+## Related resources
+
+- [Plugins in other languages](/plugins/other-languages/): what Forge expects of any component.
+- [Sandboxing](/concepts/sandbox/): what a WebAssembly plugin can reach.
+- [Write a plugin in Rust](/plugins/rust/): as a WebAssembly component, or with Forge as a library.

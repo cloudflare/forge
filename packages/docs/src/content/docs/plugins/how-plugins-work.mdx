@@ -1,0 +1,81 @@
+---
+title: How plugins work
+description: A Forge plugin is one function from Forge's model of an OpenAPI document to a list of files. The ways to write one, what it may do, and how it is run.
+content_type: concept
+sidebar:
+  order: 3
+---
+
+A plugin is one function: Forge calls it with the [model](/concepts/the-model/) of an OpenAPI
+document, and it returns the files to write. Forge does everything before that, the same way for
+every output, and writes the files after.
+
+The built-in targets are plugins too. The TypeScript SDK, the Cap'n Web server and the MCP tools are
+implementations of the same `Plugin` trait you would implement, given the same model you would get.
+Forge's own test suite compiles the TypeScript target to WebAssembly and checks that it writes
+exactly the same files as the native build. So when a built-in target is close to what you want,
+you can start from its source and change it, without changing Forge.
+
+## Two ways to write one
+
+A plugin is a WebAssembly component, in TypeScript, Rust or another language, or a Rust binary that
+uses Forge as a library. `forge-plugin build` makes the component for TypeScript and JavaScript.
+
+| | [WebAssembly, from TypeScript](/plugins/typescript/) | [WebAssembly, from Rust](/plugins/rust/) | [A Rust library](/plugins/rust/#use-forge-as-a-library) |
+| --- | --- | --- | --- |
+| You write                | A module that calls `definePlugin`          | A `cdylib` that implements the WIT          | A binary that implements `forge::Plugin` |
+| You build                | `forge-plugin build plugin.ts`              | `cargo build --target wasm32-wasip2`        | `cargo build`                            |
+| You run                  | `forge generate --target wasm://plugin.wasm`         | `forge generate --target wasm://plugin.wasm`         | Your own binary                          |
+| API                      | Objects and arrays, like the Rust API       | Raw ids and records, from the WIT           | The full Rust API                        |
+| Sandbox                  | Yes                                         | Yes                                         | No: ordinary native code                 |
+| Typical size             | About 1.7 MB (QuickJS inside)               | Tens of KB                                  | Part of your binary                      |
+| Good for                 | Most generators, text templates and JS tooling | Small, fast plugins you distribute          | Generators that need files, network, or a CLI of their own |
+
+[Plugins in other languages](/plugins/other-languages/) work through the same WebAssembly interface: anything
+that can build a component of Forge's `plugin` world, such as Go, Python or C, can be a plugin.
+
+## The contract
+
+Whatever the language, a plugin is one function:
+
+```ts
+generate(forge) // called once, with the whole model
+```
+
+It returns a list of files: a path relative to the output directory, and the content. It can fail,
+and the run stops before anything is written.
+
+That is all. A plugin does not parse OpenAPI, resolve `$ref`s, decide what is a method or name
+things. It gets a checked model, and returns files, and Forge writes them. Forge refuses a returned
+path that would leave the output directory, as [Sandboxing](/concepts/sandbox/#what-forge-checks)
+explains. A native plugin is ordinary code, with the file system and the network. A WebAssembly plugin
+reaches only what Sandboxing lists.
+
+## Where each file goes
+
+Most plugins write one set of files per [group](/concepts/groups-and-methods/), by walking
+`forge.groups`, and a few for the whole API, such as an entry point or a README.
+
+Each model is [placed in exactly one group](/concepts/models/): the deepest one that every method
+using it shares. Writing each group's `models` alongside its methods writes every model exactly
+once. The root group comes first in `forge.groups`, and holds the methods without a group name and
+the models that more than one top-level group uses.
+
+## Running a plugin
+
+Forge runs a WebAssembly plugin named by `--target`, with a `wasm://` prefix:
+
+```sh
+forge generate openapi.json --target wasm://plugin.wasm --out sdk
+```
+
+`wasm://` takes a path to a component, relative to the working directory. The `forge` package
+includes WebAssembly support. A `forge` built with Cargo needs the `wasm` feature. Refer to
+[Install Forge](/start/install/).
+
+## Related resources
+
+- To write your first plugin, refer to [Get started with plugins](/plugins/get-started/).
+- For every type and function a plugin uses, refer to the [Plugin API](/reference/plugin-api/) and
+  the [Rust API](/reference/rust-api/).
+- For what a WebAssembly plugin can reach, refer to [Sandboxing](/concepts/sandbox/).

@@ -1,0 +1,109 @@
+---
+title: Adopt Forge on an existing API
+description: Take a large OpenAPI document from no methods to a complete SDK, one group at a time, without breaking the build along the way.
+content_type: how-to
+sidebar:
+  order: 2
+---
+
+Large documents are rarely ready for a generator. They have operations nobody uses, schemas that
+collide, styles no SDK supports. Forge is built to be adopted gradually: an operation with
+`x-forge-skip: true` is left out, with the schemas only it uses, so only the methods you keep are
+checked.
+
+## 1. Convert and bundle
+
+Forge reads one JSON document. If yours is YAML, or split across files, bundle it into one JSON file
+first, with your usual OpenAPI tooling. Make it a build step, so the source stays as it is.
+
+## 2. Start with one group
+
+Pick a small resource and rename its operations' `operationId`s to
+[`<group>.<method>`](/openapi/naming/):
+
+```json
+"/zones": {
+  "get":  { "operationId": "zones.list" },
+  "post": { "operationId": "zones.create" }
+},
+"/zones/{zone_id}": {
+  "get":    { "operationId": "zones.get" },
+  "patch":  { "operationId": "zones.edit" },
+  "delete": { "operationId": "zones.delete" }
+}
+```
+
+Mark the rest of the document's operations `x-forge-skip: true` for now: they make no method, and no
+error. Without it, an operationId like `listZones` is a method of the root group, and is checked. An
+operation with `x-forge-aliases` makes its methods from the aliases, so mark each alias instead.
+
+If the document is already annotated for another tool, run
+[`forge normalize`](/reference/cli/#forge-normalize) first, which rewrites those annotations into
+Forge's own. Compatibility Modes in the sidebar lists them. Then only the operations they do not
+name need this step.
+
+Generate. Forge reports problems only in these operations and the schemas they use, so the list is
+short, and every item is yours.
+
+Two conventions keep a large SDK consistent: use the same small set of verbs everywhere (`list`,
+`get`, `create`, `edit`, `update`, `delete`), and make the group path read like the resource path,
+so `/zones/{zone_id}/dns_records` is `zones.dnsRecords` or `dns.records`, but decided once.
+
+## 3. Fix what Forge reports
+
+Most first errors are one of these:
+
+- **Collisions.** Two methods with one name: rename one's `operationId`. Properties like `user_id`
+  and `userId` that become one identifier: drop one with
+  [`x-forge-skip`](/openapi/extensions/#on-schemas), or rename the property.
+- **Unsupported parameter styles.** `deepObject` and friends are not covered. Change the parameter
+  if you can. Otherwise leave that operation out for now.
+- **References.** A `$ref` into `paths`, or to another file. Move the schema into
+  `components.schemas`.
+
+[Troubleshooting OpenAPI documents](/openapi/errors/) has the full list.
+
+## 4. Grow, and leave things out deliberately
+
+Name the next group, remove its `x-forge-skip`, generate, repeat. Operations that should never be
+in an SDK (internal, deprecated long ago, or broken) keep `x-forge-skip: true`, which says so where
+anyone reading the document can see it.
+
+For operations that should be callable but not advertised, use
+[`x-forge-hidden`](/openapi/extensions/#x-forge-hidden) instead.
+
+## 5. Add the metadata that helps users
+
+Once groups are in, the extensions that make the output better are cheap to add:
+
+- Group descriptions in [`x-forge-commands`](/openapi/extensions/#x-forge-commands).
+- [`x-forge-require-confirmation`](/openapi/extensions/#x-forge-require-confirmation) on
+  operations that delete or change things irreversibly. Agents using the MCP server see it.
+- Schema names meant for people: rename `zones_zone` to `Zone` in `components.schemas`, since the
+  model is named after its schema.
+
+## 6. Check it in CI
+
+Regenerate on every change, and fail when the committed SDK differs from what the document
+generates. With the `generate` script from [Generate in CI](/guides/ci/), run it:
+
+<PackageManagers type="run" pkg="generate" />
+
+Then compare the output with what is committed:
+
+```sh
+git add --intent-to-add sdk && git diff --exit-code -- sdk
+```
+
+It exits with status 0 when the SDK matches the document.
+
+## Related resources
+
+- [Extensions](/openapi/extensions/): every extension Forge reads.
+- [OpenAPI documents](/openapi/overview/): what Forge reads, and what each method needs.
+- [Method names](/openapi/naming/): how operationIds become groups and methods.
+- [Troubleshooting OpenAPI documents](/openapi/errors/): each error, and its fix.
+
+## Next steps
+
+- [Generate in CI](/guides/ci/): regenerate on every change, and fail on a stale SDK.

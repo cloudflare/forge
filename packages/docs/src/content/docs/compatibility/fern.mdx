@@ -1,0 +1,107 @@
+---
+title: Convert Fern extensions
+description: Rewrite the Fern extensions that Forge has an equivalent of into Forge's own, with forge normalize.
+content_type: how-to
+sidebar:
+  order: 1
+---
+
+Forge does not read the OpenAPI extensions of [Fern](https://buildwithfern.com), another SDK
+generator. Seven of them name methods, groups, models, fields and parameters, or leave operations out,
+and Forge has an extension of its own for each. `forge normalize --from fern` rewrites those seven
+into Forge's. It leaves every other Fern extension as it is.
+
+## Rewrite a document
+
+Check what would change. Nothing is written, and the command fails if there is anything to rewrite:
+
+```sh
+forge normalize --from fern --check openapi.json
+```
+
+```text
+openapi.json: would rewrite 7 keys
+forge: 1 of 1 file would be rewritten
+```
+
+Then rewrite the file in place:
+
+```sh
+forge normalize --from fern --write openapi.json
+```
+
+```text
+openapi.json: rewrote 7 keys
+forge: 1 file: 1 rewritten, 0 unchanged
+```
+
+Run the check again. It now passes, with status 0:
+
+```sh
+forge normalize --from fern --check openapi.json
+```
+
+```text
+forge: 1 file checked, none would be rewritten
+```
+
+Without `--write`, the rewritten document is printed instead. An operation written for Fern:
+
+```json
+"get": {
+  "operationId": "listPets",
+  "x-fern-sdk-group-name": ["pets"],
+  "x-fern-sdk-method-name": "list",
+  "x-fern-availability": "beta",
+  "parameters": [
+    { "name": "page_size", "in": "query", "x-fern-parameter-name": "limit", "schema": { "type": "integer" } }
+  ]
+}
+```
+
+comes out with Forge's extensions:
+
+```json
+"get": {
+  "operationId": "listPets",
+  "x-forge-group-name": "pets",
+  "x-forge-method-name": "list",
+  "x-forge-availability": "beta",
+  "parameters": [
+    { "name": "page_size", "in": "query", "x-forge-parameter-name": "limit", "schema": { "type": "integer" } }
+  ]
+}
+```
+
+The [CLI reference](/reference/cli/#forge-normalize) has every option, such as keeping the Fern keys
+beside the new ones with `--leave-old-extensions`.
+
+## What is rewritten
+
+| Fern extension           | On               | Becomes                                                       |
+| ------------------------ | ---------------- | ------------------------------------------------------------- |
+| `x-fern-sdk-group-name`  | Operation, alias | [`x-forge-group-name`](/openapi/extensions/#x-forge-method-name-and-x-forge-group-name). A list of names becomes a dotted string, unless a name is empty or has a dot in it, when the list is kept |
+| `x-fern-sdk-method-name` | Operation, alias | [`x-forge-method-name`](/openapi/extensions/#x-forge-method-name-and-x-forge-group-name) |
+| `x-fern-ignore`          | Operation, alias | [`x-forge-skip`](/openapi/extensions/#x-forge-skip)           |
+| `x-fern-availability`    | Operation, alias | [`x-forge-availability`](/openapi/extensions/#x-forge-availability) |
+| `x-fern-parameter-name`  | Parameter        | [`x-forge-parameter-name`](/openapi/extensions/#x-forge-parameter-name) |
+| `x-fern-type-name`       | Schema           | [`x-forge-model-name`](/openapi/extensions/#x-forge-model-name) |
+| `x-fern-property-name`   | Property schema  | [`x-forge-property-name`](/openapi/extensions/#x-forge-property-name) |
+
+A key is rewritten only where Forge reads its replacement. The same key anywhere else is left alone.
+If a document already has the Forge key, it is kept and the Fern one is dropped.
+
+## Everything else
+
+Other Fern extensions, such as `x-fern-pagination` and `x-fern-examples`, are left in the document,
+and Forge does not read them. On an operation they are passed to plugins, like any extension Forge
+does not read, so a plugin can use one.
+
+## Related resources
+
+- [Extensions](/openapi/extensions/): every extension Forge reads.
+- [Troubleshooting OpenAPI documents](/openapi/errors/): each error, and its fix.
+
+## Next steps
+
+- [Adopt Forge on an existing API](/guides/adopting/): a large document, a group at a time.

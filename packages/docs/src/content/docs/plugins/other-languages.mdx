@@ -1,0 +1,90 @@
+---
+title: Plugins in other languages
+description: Any language whose toolchain builds a WebAssembly component of Forge's plugin world can write a Forge plugin. What Forge expects of the component, and what that means for Go, Python and C.
+content_type: concept
+sidebar:
+  order: 7
+---
+
+Forge does not know what language a WebAssembly plugin was written in. It loads a component, checks
+that it is a component of the `plugin` world in `forge:plugin@0.4.0`, and calls its exports. So the
+question for any language is only: can its toolchain build that component?
+
+## What the host expects
+
+- **A component, not a core module.** The file passed to `wasm://` must be a WebAssembly component
+  (component model), such as what `wasm32-wasip2` toolchains produce.
+- **The `plugin` world.** It exports `generate`, and imports the `forge` interface,
+  both defined in [Forge's WIT](#the-wit).
+- **WASI preview 2, synchronously.** The host links the WASI 0.2 interfaces, so a component built by
+  a standard toolchain, which imports `wasi:cli`, `wasi:io` and friends, instantiates fine. Exports
+  are called without the async ABI. A component that requires it will not run.
+- **No other imports.** A component that imports an interface the host does not provide fails to
+  instantiate.
+
+The [sandbox](/concepts/sandbox/) is the same for every language: the model, standard error, the
+clock and random numbers, and nothing else.
+
+## The shape of every plugin
+
+Whatever its language, a plugin has the same parts:
+
+- Bindings for the `plugin` world, generated from the WIT.
+- An implementation of `generate() -> result<list<file>, string>`.
+- Code that walks the model with `groups()`, `get-group`, `get-method`, `get-model` and `get-type`.
+- The files it returns: each a path with `/` separators, and the content as bytes.
+
+[The Rust example](/plugins/rust/#as-a-webassembly-component) has all of them in about 50 lines,
+built into a component, and is a good template to port.
+
+## Notes by language
+
+These toolchains are not tested by Forge's own suite. They target the component model and WASI 0.2,
+which is what Forge needs, but check each against its own documentation for the current commands.
+
+### Go
+
+TinyGo can target `wasip2` directly, and the Bytecode Alliance's `wit-bindgen-go` generates Go
+bindings from a WIT world. Go's standard toolchain also has WebAssembly support, but check that the
+version you use can produce a WASI 0.2 component with exports, rather than a core module.
+
+A Go plugin will be larger than a Rust one, because it carries a runtime. It cannot use goroutines to
+parallelize inside the call, since the call is single-threaded.
+
+### Python
+
+`componentize-py` builds a component from Python source and a WIT world, with the interpreter
+inside. Components are large, often tens of megabytes, and the first instantiation is slower than
+for compiled languages. Forge makes one instance per run, so that cost is
+paid once.
+
+Pure-Python dependencies can be bundled. Packages with native extensions generally cannot.
+
+### C and C++
+
+`wit-bindgen c` generates C bindings, and `wasi-sdk` builds for `wasm32-wasip2`. This is the
+lowest-level route, and the smallest output.
+
+### JavaScript
+
+Use [`forge-plugin build`](/plugins/typescript/), which wraps jco's `componentize` with the right WIT,
+world and options. You can run jco yourself, but pass `--backend-qjs-disable-async`: Forge calls
+exports synchronously.
+
+## The WIT
+
+Every route to bindings starts from the WIT file, which `forge-plugin wit` prints:
+
+<PackageManagers type="exec" pkg="forge-plugin" args="wit > wit/forge.wit" />
+
+The package also exports it as `@cloudflare/forge/plugin/forge.wit`, and Rust code can read
+`forge::wasm::WIT` with the `wasm` feature. The WIT is versioned (`0.4.0` today). A plugin imports
+the version it was built against, and a `forge` with an incompatible version fails to instantiate it,
+so rebuild plugins against the WIT of the `forge` you run.
+
+## Related resources
+
+- [WIT](/reference/wit/): a summary of the interface, and where the complete file is.
+- [Sandboxing](/concepts/sandbox/): what a WebAssembly plugin can reach.
+- [Write a plugin in Rust](/plugins/rust/): as a WebAssembly component, or with Forge as a library.
+- [Test a plugin](/plugins/testing/): snapshot the output and check that it compiles.
