@@ -1,13 +1,10 @@
 import { readFileSync } from 'node:fs';
-import { defineFernExtension } from 'astro-fern';
 import { renderDescription } from './description-markdown.ts';
 import {
   canonicalTerraformEndpoint,
   indexTerraformDocs,
   renderTerraformDescriptions,
-  TERRAFORM_EXTENSION_NAME,
   terraformDocsSchema,
-  terraformOperationDataSchema,
   type TerraformDeclaration,
   type TerraformOperationData,
 } from './terraform.ts';
@@ -19,51 +16,52 @@ const HTTP_METHODS = ['get', 'post', 'put', 'patch', 'delete', 'head', 'options'
  * descriptions with the renderer the OpenAPI descriptions use, once at build time, so pages only
  * print HTML.
  */
-function loadTerraformIndex(): Map<string, TerraformDeclaration[]> {
+export function loadTerraform(): TerraformIndex {
   const file = new URL('./generated/terraform-docs.json', import.meta.url);
   const docs = terraformDocsSchema.parse(JSON.parse(readFileSync(file, 'utf8')));
   return indexTerraformDocs(renderTerraformDescriptions(docs, renderDescription));
 }
 
-/** Build-only bridge from the released Terraform provider into operation artifacts. */
-export const cloudflareTerraformExtension = defineFernExtension<
-  TerraformOperationData,
-  Map<string, TerraformDeclaration[]>
->({
-  name: TERRAFORM_EXTENSION_NAME,
-  schema: terraformOperationDataSchema,
-  prepare: (document, { logger }) => {
-    const index = loadTerraformIndex();
-    // Report provider endpoints the current OpenAPI no longer has, so drift is visible in builds.
-    const known = new Set<string>();
-    for (const [endpointPath, pathItem] of Object.entries(document.paths ?? {})) {
-      for (const method of HTTP_METHODS) {
-        if ((pathItem as Record<string, unknown> | undefined)?.[method]) {
-          known.add(canonicalTerraformEndpoint(method, endpointPath));
-        }
+/** Holds the provider's declarations by endpoint, as `canonicalTerraformEndpoint` keys them. */
+export type TerraformIndex = Map<string, TerraformDeclaration[]>;
+
+/**
+ * Returns a lookup of `index`'s declarations by HTTP method and path. Warns
+ * about declarations that match no operation of `document`, so drift between
+ * the provider and the spec shows in builds.
+ */
+export function terraformLookup(
+  index: TerraformIndex,
+  document: Record<string, unknown>,
+  warn: (message: string) => void = (message) => console.warn(`[forge-api] ${message}`),
+): (method: string, path: string) => TerraformOperationData | undefined {
+  const known = new Set<string>();
+  for (const [endpointPath, pathItem] of Object.entries((document.paths ?? {}) as Record<string, unknown>)) {
+    for (const method of HTTP_METHODS) {
+      if ((pathItem as Record<string, unknown> | undefined)?.[method]) {
+        known.add(canonicalTerraformEndpoint(method, endpointPath));
       }
     }
-    const missing = [...index.keys()].filter((key) => !known.has(key));
-    const orphaned = new Set(
-      [...index]
-        .filter(([key]) => missing.includes(key))
-        .flatMap(([, declarations]) => declarations.map(({ kind, name }) => `${kind}:${name}`)),
+  }
+  const missing = [...index.keys()].filter((key) => !known.has(key));
+  const orphaned = new Set(
+    [...index]
+      .filter(([key]) => missing.includes(key))
+      .flatMap(([, declarations]) => declarations.map(({ kind, name }) => `${kind}:${name}`)),
+  );
+  const matched = new Set(
+    [...index]
+      .filter(([key]) => known.has(key))
+      .flatMap(([, declarations]) => declarations.map(({ kind, name }) => `${kind}:${name}`)),
+  );
+  const unmatched = [...orphaned].filter((declaration) => !matched.has(declaration));
+  if (unmatched.length > 0) {
+    warn(
+      `${unmatched.length} Terraform declarations match no OpenAPI operation: ${unmatched.slice(0, 10).join(', ')}${unmatched.length > 10 ? ', …' : ''}`,
     );
-    const matched = new Set(
-      [...index]
-        .filter(([key]) => known.has(key))
-        .flatMap(([, declarations]) => declarations.map(({ kind, name }) => `${kind}:${name}`)),
-    );
-    const unmatched = [...orphaned].filter((declaration) => !matched.has(declaration));
-    if (unmatched.length > 0) {
-      logger.warn(
-        `${unmatched.length} Terraform declarations match no OpenAPI operation: ${unmatched.slice(0, 10).join(', ')}${unmatched.length > 10 ? ', …' : ''}`,
-      );
-    }
-    return index;
-  },
-  operation: ({ method, path }, index) => {
+  }
+  return (method, path) => {
     const declarations = index.get(canonicalTerraformEndpoint(method, path));
-    return declarations?.length ? { data: { declarations } } : undefined;
-  },
-});
+    return declarations?.length ? { declarations } : undefined;
+  };
+}

@@ -1,25 +1,11 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { sample } from 'openapi-sampler';
 import type { ApiSpec } from '@cloudflare/nimbus-docs/types';
-import {
-  buildFernContent,
-  defineFernManifest,
-  getOperationExtensionData,
-  type FernContentProjectData,
-  type FernManifestProvider,
-  type FernSourceOperation,
-} from 'astro-fern';
-import { forgeExtension, hasRemovedForgeOperationFields, hoistForgeCommands } from 'fern-forge';
-import {
-  CLOUDFLARE_RESPONSE_PAYLOAD_KEY,
-  CLOUDFLARE_TARGETS,
-  cloudflareFormatIdentifier,
-  cloudflareOperationRoutingPreference,
-  cloudflareSnippets,
-} from './cloudflare.ts';
+import { CLOUDFLARE_TARGETS } from './cloudflare.ts';
+import { type ContentOperation, readContent } from './forge-content.ts';
 import { loadForgeOpenApi } from './openapi-source.ts';
-import { cloudflareTerraformExtension } from './terraform-extension.ts';
-import { TERRAFORM_EXTENSION_NAME, type TerraformOperationData, terraformOperationDataSchema } from './terraform.ts';
+import { loadTerraform, type TerraformIndex, terraformLookup } from './terraform-extension.ts';
+import type { TerraformOperationData } from './terraform.ts';
 import { assertToolingRouteNamespace } from './command-reference/routing.ts';
 import { cloudflareApiVersionLabel, parseCloudflareApiVersion } from './version.ts';
 
@@ -75,9 +61,6 @@ interface Tag {
 
 const air = parseCloudflareApiVersion('2026-11-30.air');
 
-const manifest: FernManifestProvider = (_openapi, { discoverProducts }) =>
-  defineFernManifest({ targets: CLOUDFLARE_TARGETS, products: discoverProducts() });
-
 function assertSlug(slug: string, what: string): void {
   for (const segment of slug.split('/')) {
     if (!SLUG_SEGMENT.test(segment)) {
@@ -95,12 +78,13 @@ const SCHEMA_TITLES: Record<string, string> = {
   'dns-records_dns-record-with-data': 'Data records',
 };
 
-/** Rewrites the raw Forge document into the one Nimbus draws, driven by what astro-fern decided. */
-export function prepareForgeApi(
-  source: Record<string, unknown>,
-  data: FernContentProjectData,
-  snapshotId: string,
-): PreparedForgeApi {
+/**
+ * Rewrites the spec `source` into the one Nimbus draws, driven by what Forge
+ * reads of it. `terraform` holds the provider's declarations, which the
+ * spec's operations show as samples and data.
+ */
+export function prepareForgeApi(source: Record<string, unknown>, terraform: TerraformIndex): PreparedForgeApi {
+  const content = readContent(source, terraformLookup(terraform, source));
   const document = structuredClone(source);
   document.info = { ...(document.info as Record<string, unknown>), title: API_TITLE };
   const schemas =
@@ -108,15 +92,14 @@ export function prepareForgeApi(
   for (const [name, title] of Object.entries(SCHEMA_TITLES)) {
     if (schemas[name]) schemas[name] = { title, ...schemas[name] };
   }
-  const byId = new Map<string, FernSourceOperation>();
-  const aliases: FernSourceOperation[] = [];
-  for (const entry of data.operations) {
-    if (entry.snapshotId !== snapshotId) continue;
-    if ((entry.operation.placement?.projectionId ?? 'primary') !== 'primary') {
+  const byId = new Map<string, ContentOperation>();
+  const aliases: ContentOperation[] = [];
+  for (const entry of content.operations) {
+    if (entry.alias) {
       aliases.push(entry);
       continue;
     }
-    const id = entry.operation.operationId;
+    const id = entry.operationId;
     if (byId.has(id)) throw new Error(`cloudflare-api-site: operation "${id}" has two primary placements`);
     byId.set(id, entry);
   }
@@ -145,7 +128,7 @@ export function prepareForgeApi(
   };
 
   const primaryProductIds = new Set([...byId.values()].map((entry) => entry.product.id));
-  const primaryProducts = data.catalog.products.filter((product) => primaryProductIds.has(product.id));
+  const primaryProducts = content.products.filter((product) => primaryProductIds.has(product.id));
   for (const product of primaryProducts) {
     defineTag(
       { name: product.slug, 'x-displayName': product.title, description: product.description },
@@ -154,26 +137,21 @@ export function prepareForgeApi(
     section(product.slug);
   }
 
-  for (const entry of byId.values()) {
-    const { product, operation } = entry;
-    let leaf = product.slug;
+  for (const operation of byId.values()) {
+    const { product } = operation;
     let path = sectionPath(product.slug);
-    if (operation.placement) {
-      let parent = product.slug;
-      const ids: string[] = [];
-      const slugs: string[] = [];
-      for (const segment of operation.placement.resourcePath) {
-        ids.push(segment.id);
-        slugs.push(segment.slug);
-        const name = `${product.slug}-${slugs.join('-')}`;
-        defineTag({ name, 'x-displayName': segment.title, parent }, `${product.id}:${ids.join('/')}`);
-        path = section(product.slug, slugs);
-        parent = name;
-      }
-      leaf = parent;
-    } else {
-      redirects[`/${product.slug}/sections/${entry.section.id}/`] = path;
+    let parent = product.slug;
+    const ids: string[] = [];
+    const slugs: string[] = [];
+    for (const segment of operation.resourcePath) {
+      ids.push(segment.id);
+      slugs.push(segment.slug);
+      const name = `${product.slug}-${slugs.join('-')}`;
+      defineTag({ name, 'x-displayName': segment.title, parent }, `${product.id}:${ids.join('/')}`);
+      path = section(product.slug, slugs);
+      parent = name;
     }
+    const leaf = parent;
     leafTag.set(operation.operationId, leaf);
     leafPath.set(operation.operationId, path);
 
@@ -187,11 +165,12 @@ export function prepareForgeApi(
     operations[operation.operationId] = slug;
   }
   for (const alias of aliases) {
-    const primary = byId.get(alias.operation.operationId);
-    if (!primary) throw new Error(`cloudflare-api-site: alias of "${alias.operation.operationId}" has no primary page`);
-    const { product, operation } = alias;
+    const primary = byId.get(alias.operationId);
+    if (!primary) throw new Error(`cloudflare-api-site: alias of "${alias.operationId}" has no primary page`);
+    const { product } = alias;
+    const operation = alias;
     redirects[`/${product.slug}/${operation.slug}/`] = `/${operations[operation.operationId]}/`;
-    const slugs = operation.placement?.resourcePath.map((segment) => segment.slug) ?? [];
+    const slugs = operation.resourcePath.map((segment) => segment.slug);
     for (let depth = 0; depth <= slugs.length; depth++) {
       const from = `/${[product.slug, ...slugs.slice(0, depth)].join('/')}/`;
       if (sections.has(from)) continue;
@@ -214,15 +193,11 @@ export function prepareForgeApi(
         continue;
       }
       kept++;
-      op.tags = [leafTag.get(entry.operation.operationId)];
-      if (entry.operation.deprecated) op.deprecated = true;
+      op.tags = [leafTag.get(entry.operationId)];
+      if (entry.deprecated) op.deprecated = true;
       const rank = LIFECYCLE.findIndex((name) => name === op['x-fern-sdk-method-name']);
       if (rank !== -1) op['x-nimbus-order'] = rank + 1;
-      const terraform = getOperationExtensionData(
-        entry.operation,
-        TERRAFORM_EXTENSION_NAME,
-        terraformOperationDataSchema,
-      );
+      const { terraform } = entry;
       if (terraform) op[TERRAFORM_EXTENSION] = terraform;
       const snippets = new Map(entry.snippets.map((snippet) => [snippet.targetId, snippet.code]));
       op['x-codeSamples'] = CLOUDFLARE_TARGETS.flatMap((target) => {
@@ -289,20 +264,9 @@ function terraformSample(terraform: TerraformOperationData | undefined): string 
 
 /** Builds the prepared spec for every version and returns the Nimbus `api` entry. */
 export async function forgeApi(): Promise<ApiSpec> {
-  const document = hoistForgeCommands(await loadForgeOpenApi());
+  const document = (await loadForgeOpenApi()) as Record<string, unknown>;
   const label = cloudflareApiVersionLabel(air);
-  const data = buildFernContent({
-    source: { kind: 'snapshots', snapshots: [{ id: air.wire, source: document, label, default: true }] },
-    manifest,
-    responsePayloadKey: CLOUDFLARE_RESPONSE_PAYLOAD_KEY,
-    formatIdentifier: cloudflareFormatIdentifier,
-    operationRoutingPreference: cloudflareOperationRoutingPreference,
-    isOperationHidden: hasRemovedForgeOperationFields,
-    snippets: cloudflareSnippets,
-    extensions: [forgeExtension(), cloudflareTerraformExtension],
-    onWarning: (message) => console.warn(`[forge-api] ${message}`),
-  });
-  const prepared = prepareForgeApi(document, data, air.wire);
+  const prepared = prepareForgeApi(document, loadTerraform());
   assertToolingRouteNamespace(prepared.products, Object.values(prepared.operations));
 
   const dir = new URL('../.forge/', import.meta.url);

@@ -1,0 +1,20 @@
+name: Build @cloudflare/forge
+description: >-
+  Builds the workspace's @cloudflare/forge, which the docs site reads the spec
+  with. Its build compiles forge to WebAssembly with cargo, for the channel and
+  target pinned in rust-toolchain.toml.
+
+runs:
+  using: composite
+  steps:
+    - name: Install Rust toolchain
+      uses: moonrepo/setup-rust@abb2d32350334249b178c401e5ec5836e0cd88d3 # v1.3.0
+      with:
+        targets: wasm32-unknown-unknown
+        cache: false
+      env:
+        GITHUB_TOKEN: ${{ github.token }}
+
+    - name: Build @cloudflare/forge
+      shell: bash
+      run: pnpm --filter @cloudflare/forge build
