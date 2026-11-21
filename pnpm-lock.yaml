@@ -323,8 +323,8 @@ importers:
   packages/forge:
     dependencies:
       capnstruct:
-        specifier: 0.5.1
-        version: 0.5.1
+        specifier: 0.6.0
+        version: 0.6.0
     devDependencies:
       '@bytecodealliance/jco':
         specifier: 1.37.0
@@ -3037,8 +3037,8 @@ packages:
   buffer@6.0.3:
     resolution: {integrity: sha512-FTiCpNxtwiZZHEZbcbTIcZjERVICn9yq/pDFkTl95/AxzD1naBctN7YO68riM/gLSDY7sdrMby8hofADYuuqOA==}
 
-  capnstruct@0.5.1:
-    resolution: {integrity: sha512-/SndRH+gChhv47AreUn7j8vINO0YWHinnA5GbwMDn1amxNGpLPbja5NeVNwWdGazQfOCqiwimh6Aj7nvWnu1OQ==}
+  capnstruct@0.6.0:
+    resolution: {integrity: sha512-zTW5rlvkrnJHKKyggeLkPpu95AkJa1fjhjoeYBChVtxMKJ3/oVxJgBzFohA9/Ru9Uf+8HfunNe9pe+dG4pX31Q==}
     hasBin: true
 
   ccount@2.0.1:
@@ -7150,7 +7150,7 @@ snapshots:
       base64-js: 1.5.1
       ieee754: 1.2.1
 
-  capnstruct@0.5.1: {}
+  capnstruct@0.6.0: {}
 
   ccount@2.0.1: {}
 

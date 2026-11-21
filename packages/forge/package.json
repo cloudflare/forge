@@ -53,7 +53,7 @@
     "prepack": "node -e \"console.error('error: this directory has no binaries; pack the package with just pack from the repository root'); process.exit(1)\""
   },
   "dependencies": {
-    "capnstruct": "0.5.1"
+    "capnstruct": "0.6.0"
   },
   "devDependencies": {
     "@bytecodealliance/jco": "1.37.0",

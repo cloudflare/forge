@@ -5,8 +5,8 @@ import { readFileSync } from 'node:fs';
 const wasmBytes = readFileSync(new URL('./forge.wasm', import.meta.url));
 const instance = new WebAssembly.Instance(new WebAssembly.Module(wasmBytes), {});
 const { memory, capn_alloc, capn_reset, forge_parse, forge_out_ptr, forge_out_len, forge_clear_out } = instance.exports;
-
-const encoder = new TextEncoder();
+const hasNodeBuffer = typeof Buffer === 'function';
+const encoder = hasNodeBuffer ? null : new TextEncoder();
 const decoder = new TextDecoder();
 
 /**
@@ -15,11 +15,20 @@ const decoder = new TextDecoder();
  * the WASM output/scratch buffers so repeated parses never leak WASM memory.
  */
 export function parseToCapnBuffer(json) {
-  const input = encoder.encode(json);
-  const inPtr = capn_alloc(input.byteLength) >>> 0;
-  new Uint8Array(memory.buffer, inPtr, input.byteLength).set(input);
+  let inPtr;
+  let inLen;
+  if (hasNodeBuffer) {
+    inLen = Buffer.byteLength(json, 'utf8');
+    inPtr = capn_alloc(inLen) >>> 0;
+    Buffer.from(memory.buffer, inPtr, inLen).write(json, 0, inLen, 'utf8');
+  } else {
+    const input = encoder.encode(json);
+    inLen = input.byteLength;
+    inPtr = capn_alloc(inLen) >>> 0;
+    new Uint8Array(memory.buffer, inPtr, inLen).set(input);
+  }
   try {
-    const rc = forge_parse(inPtr, input.byteLength);
+    const rc = forge_parse(inPtr, inLen);
     const outPtr = forge_out_ptr() >>> 0;
     const outLen = forge_out_len() >>> 0;
     const out = new Uint8Array(memory.buffer, outPtr, outLen).slice();
