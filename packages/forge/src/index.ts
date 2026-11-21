@@ -8,7 +8,7 @@
  * ```ts
  * import { parse } from "@cloudflare/forge";
  *
- * using forge = parse(await readFile("openapi.json", "utf8"));
+ * using forge = parse(await readFile("openapi.json", "utf8"), { adapters: ["fern"] });
  * for (const group of forge.groups) {
  *   console.log(group.path.join("."), group.methods.map((m) => m.name.camel()));
  * }
@@ -22,6 +22,23 @@ import { instantiate } from './component/forge.js';
 import { type Forge, forgeOf } from './forge.js';
 
 export type * from './forge.js';
+
+/**
+ * Names another tool, so forge reads the tool's metadata extensions as its
+ * own `x-forge-*` ones. Forge rewrites them in the same way as
+ * `forge normalize --from`. With `fern`, for example, forge reads
+ * `x-fern-sdk-group-name` as `x-forge-group-name`.
+ */
+export type Adapter = 'cloudflare' | 'fern' | 'stainless';
+
+/** Says how {@link parse} reads a document. */
+export interface ParseOptions {
+  /**
+   * Lists the tools to read extensions from, besides forge's own. Without
+   * it, `parse` reads only the native `x-forge-*` extensions.
+   */
+  readonly adapters?: readonly Adapter[];
+}
 
 /**
  * Holds a parsed document's forge in forge's memory until disposed. Dispose
@@ -44,12 +61,12 @@ export interface Document extends Forge, Disposable {
  * makes forge fail leaves the other documents readable, and a disposed
  * document's memory goes with its instance.
  */
-export function parse(json: string): Document {
+export function parse(json: string, options: ParseOptions = {}): Document {
   // The component exports everything it has and imports nothing.
   const { parser } = instantiate(coreModule, {});
   let parsed: Parsed;
   try {
-    parsed = parser.parse(json);
+    parsed = parser.parse(json, [...(options.adapters ?? [])]);
   } catch (err) {
     throw new Error(componentMessage(err));
   }

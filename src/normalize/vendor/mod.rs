@@ -20,15 +20,15 @@ mod tests;
 use serde_json::Value;
 
 /// Every available compatibility source.
-pub(super) static ALL: &[&dyn Source] = &[&cloudflare::Cloudflare, &fern::Fern, &stainless::Stainless];
+pub(crate) static ALL: &[&dyn Source] = &[&cloudflare::Cloudflare, &fern::Fern, &stainless::Stainless];
 
 /// Returns the compatibility source called `name`, if there is one.
-pub(super) fn named(name: &str) -> Option<&'static dyn Source> {
+pub(crate) fn named(name: &str) -> Option<&'static dyn Source> {
     ALL.iter().find(|source| source.name() == name).copied()
 }
 
 /// A source of compatibility extensions.
-pub(super) trait Source: Sync {
+pub(crate) trait Source: Sync {
     /// The name accepted by `--from`.
     fn name(&self) -> &'static str;
 
@@ -49,19 +49,19 @@ pub(super) trait Source: Sync {
 }
 
 /// Normalizes one compatibility extension into its [`Native`] form.
-pub(super) trait Normalize: Sync {
+pub(crate) trait Normalize: Sync {
     /// The native form of an extension whose value is `value`, or none when
     /// it has no native form and the extension is left alone.
     fn normalize(&self, value: &Value) -> Option<Native>;
 }
 
 /// An extension in its native form.
-pub(super) struct Native {
+pub(crate) struct Native {
     /// The native key that replaces the compatibility key.
-    pub(super) key: &'static str,
+    pub(crate) key: &'static str,
     /// The value in its native form, or none when it is kept as it is.
-    pub(super) value: Option<Value>,
-    pub(super) change: Change,
+    pub(crate) value: Option<Value>,
+    pub(crate) change: Change,
 }
 
 impl Native {
@@ -77,25 +77,25 @@ impl Native {
 
 /// A change made by one normalizer.
 #[derive(Clone, Copy, Debug)]
-pub(super) struct Change {
-    pub(super) detail: Option<Detail>,
+pub(crate) struct Change {
+    pub(crate) detail: Option<Detail>,
 }
 
 impl Change {
-    pub(super) const fn plain() -> Change {
+    pub(crate) const fn plain() -> Change {
         Change { detail: None }
     }
 
-    pub(super) const fn described(detail: Detail) -> Change {
+    pub(crate) const fn described(detail: Detail) -> Change {
         Change { detail: Some(detail) }
     }
 }
 
 /// An optional explanation of a normalization change.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
-pub(super) struct Detail {
-    pub(super) one: &'static str,
-    pub(super) many: &'static str,
+pub(crate) struct Detail {
+    pub(crate) one: &'static str,
+    pub(crate) many: &'static str,
 }
 
 impl Detail {
@@ -113,7 +113,7 @@ impl Normalize for &'static str {
 
 /// A group path, with an array of names written as a dotted string when each
 /// name reads back as it is.
-pub(super) struct Group(pub(super) &'static str);
+pub(crate) struct Group(pub &'static str);
 
 impl Normalize for Group {
     fn normalize(&self, value: &Value) -> Option<Native> {
@@ -132,7 +132,7 @@ impl Normalize for Group {
 }
 
 /// A skip that is a boolean, or a list of targets, which has no native form.
-pub(super) struct BoolOrTargets(pub(super) &'static str);
+pub(crate) struct BoolOrTargets(pub &'static str);
 
 impl Normalize for BoolOrTargets {
     fn normalize(&self, value: &Value) -> Option<Native> {

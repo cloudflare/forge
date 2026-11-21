@@ -1,6 +1,6 @@
 //! Normalizes one JSON document.
 //!
-//! The key a tool writes is looked up in the sources of [`super::vendor`], at
+//! The key a tool writes is looked up in the adapters of [`super::vendor`], at
 //! the kinds of OpenAPI object where its native replacement belongs. A key
 //! elsewhere is left alone, since rewriting it would give it a meaning it did
 //! not have.
@@ -19,44 +19,49 @@ use serde::Serialize;
 use serde_json::Value;
 use serde_json::ser::PrettyFormatter;
 
-use super::vendor::{Change, Detail, Source};
+use super::Adapter;
+use super::vendor::{Change, Detail};
 use super::walk;
 
-/// What [`normalize`] does.
-#[derive(Clone, Copy)]
-pub(super) struct Options<'a> {
-    /// Keeps each key that is rewritten, beside the native key that replaces
-    /// it, for what still reads the old one.
-    pub(super) leave_old_extensions: bool,
-    /// The compatibility sources whose keys are rewritten.
-    pub(super) sources: &'a [&'static dyn Source],
+/// Says what [`normalize`] rewrites.
+#[derive(Clone, Copy, Debug)]
+pub struct Options<'a> {
+    /// Keeps each rewritten key beside the native key that replaces it, for
+    /// tools that still read the old key. When false, `normalize` removes
+    /// the old key.
+    pub leave_old_extensions: bool,
+    /// Lists the tools to rewrite keys for. When two adapters know a key,
+    /// the first one in the list rewrites it.
+    pub adapters: &'a [Adapter],
 }
 
-/// What [`normalize`] did.
+/// Counts what [`normalize`] rewrote.
 #[derive(Debug, Default)]
-pub(super) struct Report {
-    /// How many times each key was rewritten, or removed because a native key
-    /// already said the same thing.
-    pub(super) migrated: BTreeMap<String, usize>,
+pub struct Report {
+    /// Counts each key, as written, by how many times `normalize` rewrote it
+    /// or removed it because a native key already said the same thing.
+    pub migrated: BTreeMap<String, usize>,
     details: BTreeMap<Detail, usize>,
 }
 
 impl Report {
-    /// Returns whether the document is different from what it was.
-    pub(super) fn changed(&self) -> bool {
+    /// Reports whether the document is different from what it was.
+    pub fn changed(&self) -> bool {
         !self.migrated.is_empty()
     }
 
-    /// Returns the additional descriptions of changes, and how many times
-    /// each happened.
-    pub(super) fn details(&self) -> impl Iterator<Item = (usize, &'static str)> + '_ {
+    /// Returns the changes beyond renaming a key, each with how many times it
+    /// happened. Writing an array of group names as a dotted string is one
+    /// such change. Each description reads in the singular or the plural, to
+    /// match its count.
+    pub fn details(&self) -> impl Iterator<Item = (usize, &'static str)> + '_ {
         self.details.iter().map(|(detail, count)| {
             let description = if *count == 1 { detail.one } else { detail.many };
             (*count, description)
         })
     }
 
-    pub(super) fn record(&mut self, original: &str, change: Change) {
+    pub(crate) fn record(&mut self, original: &str, change: Change) {
         *self.migrated.entry(original.to_owned()).or_insert(0) += 1;
         if let Some(detail) = change.detail {
             *self.details.entry(detail).or_insert(0) += 1;
@@ -64,17 +69,57 @@ impl Report {
     }
 }
 
-/// A document after [`normalize`].
+/// Holds a document after [`normalize`].
 #[derive(Debug)]
-pub(super) struct Normalized {
-    /// The document, if it is different from what was read.
-    pub(super) json: Option<Vec<u8>>,
-    /// What was done to it.
-    pub(super) report: Report,
+pub struct Normalized {
+    /// Holds the document, written again, or `None` when nothing was
+    /// rewritten and the document is unchanged.
+    pub json: Option<Vec<u8>>,
+    /// Counts what was rewritten.
+    pub report: Report,
 }
 
-/// Rewrites the keys of the document `json` that a native key replaces.
-pub(super) fn normalize(json: &[u8], options: &Options) -> Result<Normalized, serde_json::Error> {
+/// Rewrites the keys of the document `json` that [`Options::adapters`]
+/// know into Forge's native keys.
+///
+/// `normalize` reads the document and writes it again. The keys stay in
+/// their order, and the document keeps the indentation of its first indented
+/// line, stays on one line if it was on one, and ends with a newline if it
+/// did. The result is not a minimal edit, because escapes are written as the
+/// characters and numbers as Rust writes them.
+///
+/// # Errors
+///
+/// Returns an error if `json` is not JSON.
+///
+/// # Examples
+///
+/// ```
+/// use forge::normalize::{normalize, Adapter, Options};
+///
+/// let fern = Adapter::named("fern").unwrap();
+/// let options = Options { leave_old_extensions: false, adapters: &[fern] };
+///
+/// let json = br#"{"paths":{"/pets":{"get":{"x-fern-sdk-group-name":["pets","owners"]}}}}"#;
+/// let normalized = normalize(json, &options)?;
+/// assert_eq!(
+///     String::from_utf8(normalized.json.unwrap()).unwrap(),
+///     r#"{"paths":{"/pets":{"get":{"x-forge-group-name":"pets.owners"}}}}"#,
+/// );
+/// // The report says the array of group names became a dotted string.
+/// assert_eq!(
+///     normalized.report.details().collect::<Vec<_>>(),
+///     [(1, "group path written as a dotted string")],
+/// );
+/// assert_eq!(normalized.report.migrated["x-fern-sdk-group-name"], 1);
+///
+/// // A document with nothing to rewrite is left as it is.
+/// let native = br#"{"paths":{"/pets":{"get":{"x-forge-group-name":"pets"}}}}"#;
+/// let normalized = normalize(native, &options)?;
+/// assert!(normalized.json.is_none() && !normalized.report.changed());
+/// # Ok::<(), serde_json::Error>(())
+/// ```
+pub fn normalize(json: &[u8], options: &Options) -> Result<Normalized, serde_json::Error> {
     let mut document: Value = serde_json::from_slice(json)?;
     let report = walk::walk(&mut document, options);
     if !report.changed() {
