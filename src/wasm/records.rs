@@ -103,6 +103,8 @@ macro_rules! records {
                         .iter()
                         .map(|(name, value)| (name.clone(), json(value)))
                         .collect(),
+                    alias_of: data.alias_of.map(|id| id.0),
+                    aliases: data.aliases.iter().map(|id| id.0).collect(),
                 }
             }
 
