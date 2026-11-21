@@ -11,12 +11,12 @@
   },
   "devDependencies": {
     "@types/node": "25.3.5",
-    "astro": "^7.0.2",
+    "astro": "^7.4.7",
     "astro-fern": "workspace:*",
     "typescript": "5.9.3"
   },
   "peerDependencies": {
-    "astro": "^7.0.2",
+    "astro": "^7.4.7",
     "astro-fern": "*"
   }
 }
