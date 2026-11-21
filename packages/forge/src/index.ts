@@ -17,7 +17,8 @@
  * @module
  */
 
-import { parser } from './component/forge.js';
+import { coreModules } from './component/core.js';
+import { instantiate } from './component/forge.js';
 import { type Forge, forgeOf } from './forge.js';
 
 export type * from './forge.js';
@@ -38,17 +39,44 @@ export interface Document extends Forge, Disposable {
  * Parses the OpenAPI JSON document `json` and returns its forge. Throws with
  * forge's message when forge doesn't read the document, such as one that is
  * not OpenAPI 3.x, or one with two methods of the same name in a group.
+ *
+ * Runs each document in an instance of forge of its own. A document that
+ * makes forge fail leaves the other documents readable, and a disposed
+ * document's memory goes with its instance.
  */
 export function parse(json: string): Document {
-  let parsed: ReturnType<typeof parser.parse>;
+  // The component exports everything it has and imports nothing.
+  const { parser } = instantiate(coreModule, {});
+  let parsed: Parsed;
   try {
     parsed = parser.parse(json);
   } catch (err) {
     throw new Error(componentMessage(err));
   }
   const forge = forgeOf(parsed);
-  const dispose = () => parsed[disposeSymbol]();
+  // jco gives every resource a dispose method, but its types leave it out.
+  const dispose = () => (parsed as Parsed & Disposable)[disposeSymbol]();
   return Object.assign(forge, { dispose, [disposeSymbol]: dispose });
+}
+
+/** Holds the `forge` resource `parse` gets from the component. */
+type Parsed = ReturnType<ReturnType<typeof instantiate>['parser']['parse']>;
+
+/** Caches the core modules, each compiled the first time a document needs it. */
+const compiled = new Map<string, WebAssembly.Module>();
+
+/** Returns the compiled core module `name`, for the component to instantiate. */
+function coreModule(name: string): WebAssembly.Module {
+  let module = compiled.get(name);
+  if (module === undefined) {
+    const base64 = coreModules[name];
+    if (base64 === undefined) {
+      throw new Error(`forge has no core module ${name}`);
+    }
+    module = new WebAssembly.Module(Uint8Array.from(atob(base64), (c) => c.charCodeAt(0)));
+    compiled.set(name, module);
+  }
+  return module;
 }
 
 /**
