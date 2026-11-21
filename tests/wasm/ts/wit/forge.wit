@@ -1,12 +1,11 @@
 package forge:plugin@0.4.0;
 
-/// Reads a forge: the groups, methods, models and types of a parsed
-/// document. A plugin reads the forge its host runs it on, and the library
-/// returns one from `parse`. Both read it through the `forge` resource.
+/// Data types of a parsed forge document: its groups, methods, models and
+/// types. Both plugins (`world plugin`) and the library (`world library`)
+/// exchange the same `forge` record value.
 ///
-/// Each id is an index the forge gave out. An id the forge never gave out
-/// traps. Everything a part has is returned in one call, and orders and
-/// meanings are as the Rust API documents them.
+/// Each id is a 0-based index into the corresponding list on `forge`. Orders
+/// and meanings are as the Rust API documents them.
 interface forge {
     type group-id = u32;
     type method-id = u32;
@@ -26,14 +25,6 @@ interface forge {
         version: string,
         description: string,
         base-url: string,
-    }
-
-    /// How many of each part the forge has. Ids run from 0 to the count.
-    record forge-counts {
-        groups: u32,
-        methods: u32,
-        models: u32,
-        types: u32,
     }
 
     record group-info {
@@ -107,6 +98,11 @@ interface forge {
         /// confirmation.
         confirmation: option<string>,
         request: option<type-id>,
+        /// The object type holding the method's path and query parameters, if any.
+        params: option<type-id>,
+        /// Where each leading field of `params` is sent, in field order.
+        /// A trailing `body` field has no entry.
+        locations: list<location>,
         /// The header parameters: an object type, with a field for each.
         /// Its fields have no location.
         headers: option<type-id>,
@@ -193,24 +189,19 @@ interface forge {
         model(model-id),
     }
 
-    /// A parsed document, read a part at a time by id.
-    resource forge {
-        info: func() -> forge-info;
-        counts: func() -> forge-counts;
-        /// Every group, depth first, starting with the root.
-        groups: func() -> list<group-id>;
-        get-group: func(id: group-id) -> group-info;
-        get-method: func(id: method-id) -> method-info;
-        get-model: func(id: model-id) -> model-info;
-        get-type: func(id: type-id) -> type-info;
-        /// Where method `id` sends field `index` of the object type `object`,
-        /// or none if it is not one of its parameters.
-        get-location: func(id: method-id, object: type-id, index: u32) -> option<location>;
+    /// A parsed document with all groups, methods, models and types indexed by id.
+    record forge {
+        info: forge-info,
+        /// Every group id, depth first, starting with the root (0).
+        group-order: list<group-id>,
+        groups: list<group-info>,
+        methods: list<method-info>,
+        models: list<model-info>,
+        types: list<type-info>,
     }
 }
 
 world plugin {
-    import forge;
     use forge.{forge};
 
     /// A generated file: its path relative to the output directory, using
@@ -222,13 +213,12 @@ world plugin {
     }
 
     /// Generates every file for `forge`, in a fresh instance. Called exactly
-    /// once. The plugin owns the `forge` handle, which holds nothing of its
-    /// own, so it can keep the handle after it returns.
+    /// once.
     export generate: func(forge: forge) -> result<list<file>, string>;
 }
 
 /// Parses documents in the caller's own process, without a host. `parse`
-/// returns the same `forge` resource a plugin reads.
+/// returns the same `forge` record a plugin receives.
 interface parser {
     use forge.{forge};
 
@@ -240,6 +230,5 @@ interface parser {
 /// Runs forge as a library. `@cloudflare/forge` uses this world to parse
 /// documents in JavaScript.
 world library {
-    export forge;
     export parser;
 }

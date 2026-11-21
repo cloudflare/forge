@@ -27,7 +27,7 @@ to WebAssembly, so it needs no binary and no plugin.
 import { readFile } from 'node:fs/promises';
 import { parse } from '@cloudflare/forge';
 
-using forge = parse(await readFile('openapi.json', 'utf8'));
+const forge = parse(await readFile('openapi.json', 'utf8'));
 for (const group of forge.groups) {
   for (const method of group.methods) {
     console.log(method.httpMethod, method.path, method.name.camel());
@@ -36,10 +36,7 @@ for (const group of forge.groups) {
 ```
 
 `parse` throws when forge doesn't read the document, such as one that is not
-OpenAPI 3.x, with the message the `forge` command prints. The parsed document
-stays in forge's memory until disposed. Declare it with `using`, or call
-`dispose()` when done. Parts already read stay readable after that, and
-reading a new part throws.
+OpenAPI 3.x, with the message the `forge` command prints.
 
 Several documents can be parsed side by side, such as one per version of an
 API; each is a forge of its own.

@@ -1,6 +1,6 @@
-// The WIT records a host's `forge` resource returns, including QuickJS's null
-// options and the bigint values used for u64 bounds. The Rust wasm tests exercise the
-// real host; this fixture checks the JavaScript projection of its records.
+// A WIT `forge` record fixture, including QuickJS's null options and bigint
+// values used for u64 bounds. The Rust wasm tests exercise the real host;
+// this fixture checks the JavaScript projection of its records.
 const types = [
   { tag: 'array', val: { elem: 3, minItems: null, maxItems: null } },
   { tag: 'array', val: { elem: 4, minItems: 0n, maxItems: 50n } },
@@ -12,19 +12,13 @@ const types = [
   { tag: 'scalar', val: { tag: 'number', val: 'int32' } },
 ];
 
-export function info() {
-  return { version: '1', description: '', baseUrl: '' };
-}
-
-// The root, group 0, holds every model, and the top-level group `pets`,
-// group 1, holds nothing.
-export function groups() {
-  return [0, 1];
-}
-
-export function getGroup(id) {
-  if (id === 0) {
-    return {
+export const forge = {
+  info: { version: '1', description: '', baseUrl: '' },
+  // The root, group 0, holds every model, and the top-level group `pets`,
+  // group 1, holds nothing.
+  groupOrder: [0, 1],
+  groups: [
+    {
       name: [],
       description: '',
       path: [],
@@ -32,15 +26,17 @@ export function getGroup(id) {
       children: [1],
       methods: [],
       models: types.map((_, model) => model),
-    };
-  }
-  return { name: ['pets'], description: '', path: [1], parent: 0, children: [], methods: [], models: [] };
-}
-
-export function getModel(id) {
-  return { schemaName: `Type${id}`, name: [`type${id}`], description: '', deprecated: false, group: 0, ty: id };
-}
-
-export function getType(id) {
-  return types[id];
-}
+    },
+    { name: ['pets'], description: '', path: [1], parent: 0, children: [], methods: [], models: [] },
+  ],
+  methods: [],
+  models: types.map((_, id) => ({
+    schemaName: `Type${id}`,
+    name: [`type${id}`],
+    description: '',
+    deprecated: false,
+    group: 0,
+    ty: id,
+  })),
+  types,
+};

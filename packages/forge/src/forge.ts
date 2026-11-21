@@ -2,10 +2,9 @@
  * Reads a forge's groups, methods, models and types, as forge's Rust API
  * has them. Plugins read this API, and `parse` returns it.
  *
- * A plugin reads the records from the host it runs in, and `parse` reads
- * them from forge compiled to WebAssembly in the same process. The WIT's
- * `forge` interface types both. Each part is fetched the first time it is
- * read, and kept, so reading a part again returns the same object.
+ * Both plugins and `parse` receive the same `forge` record defined in the
+ * WIT's `forge` interface. Each part is wrapped the first time it is read,
+ * and kept, so reading a part again returns the same object.
  *
  * @module
  */
@@ -425,47 +424,43 @@ function upperFirst(word: string): string {
   return ch.toUpperCase() + word.slice(ch.length);
 }
 
-/**
- * Supplies a forge's records through the WIT's `forge` resource. A plugin
- * gets the resource from its host, and `parse` gets it from forge compiled
- * to WebAssembly.
- *
- * @internal
- */
-export type Source = Pick<
-  host.Forge,
-  'info' | 'groups' | 'getGroup' | 'getMethod' | 'getModel' | 'getType' | 'getLocation'
->;
+/** Returns item `id` of `list`, throwing if it is out of bounds. */
+function at<T>(list: readonly T[], id: number, what: string): T {
+  const item = list[id];
+  if (item === undefined) {
+    throw new Error(`no ${what} with id ${id}`);
+  }
+  return item;
+}
 
 /**
- * Returns the forge that reads its records from `source`.
+ * Returns the forge backed by the WIT `forge` record `data`.
  *
  * @internal
  */
-export function forgeOf(source: Source): Forge {
-  return new ForgeImpl(source);
+export function forgeOf(data: host.Forge): Forge {
+  return new ForgeImpl(data);
 }
 
 class ForgeImpl implements Forge {
-  constructor(readonly source: Source) {}
+  constructor(readonly data: host.Forge) {}
 
-  private readonly info = lazy(() => this.source.info());
   private readonly groupCache: (GroupImpl | undefined)[] = [];
   private readonly methodCache: (MethodImpl | undefined)[] = [];
   private readonly modelCache: (ModelImpl | undefined)[] = [];
   private readonly typeCache: (Type | undefined)[] = [];
-  private readonly allGroups = lazy(() => ids(this.source.groups()).map((id) => this.group(id)));
+  private readonly allGroups = lazy(() => ids(this.data.groupOrder).map((id) => this.group(id)));
 
   get version(): string {
-    return this.info().version;
+    return this.data.info.version;
   }
 
   get description(): string {
-    return this.info().description;
+    return this.data.info.description;
   }
 
   get baseUrl(): string {
-    return this.info().baseUrl;
+    return this.data.info.baseUrl;
   }
 
   get groups(): readonly Group[] {
@@ -505,7 +500,7 @@ class GroupImpl implements Group {
     id: host.GroupId,
   ) {
     this.info = lazy(() => {
-      const g = forge.source.getGroup(id);
+      const g = at(forge.data.groups, id, 'group');
       return {
         name: new NameImpl(g.name),
         description: g.description,
@@ -572,6 +567,19 @@ const httpMethods: Record<Exclude<host.HttpMethod['tag'], 'other'>, string> = {
   connect: 'CONNECT',
 };
 
+function convertLocation(location: host.Location): Location {
+  switch (location.tag) {
+    case 'path':
+      return { in: 'path' };
+    case 'query':
+      return { in: 'query', exploded: location.val };
+    default: {
+      const unknown: never = location;
+      throw new Error(`a location this library doesn't know: ${JSON.stringify(unknown)}`);
+    }
+  }
+}
+
 class MethodImpl implements Method {
   private readonly info: () => {
     name: Name;
@@ -585,6 +593,8 @@ class MethodImpl implements Method {
     hidden: boolean;
     confirmation: string | undefined;
     request: host.TypeId | undefined;
+    params: host.TypeId | undefined;
+    locations: Location[];
     headers: host.TypeId | undefined;
     body: Body | undefined;
     responses: Response[];
@@ -594,10 +604,10 @@ class MethodImpl implements Method {
 
   constructor(
     private readonly forge: ForgeImpl,
-    private readonly id: host.MethodId,
+    id: host.MethodId,
   ) {
     this.info = lazy(() => {
-      const m = forge.source.getMethod(id);
+      const m = at(forge.data.methods, id, 'method');
       const body = opt(m.body);
       return {
         name: new NameImpl(m.name),
@@ -611,6 +621,8 @@ class MethodImpl implements Method {
         hidden: m.hidden,
         confirmation: opt(m.confirmation),
         request: opt(m.request),
+        params: opt(m.params),
+        locations: m.locations.map(convertLocation),
         headers: opt(m.headers),
         body: body && {
           required: body.required,
@@ -702,19 +714,11 @@ class MethodImpl implements Method {
     if (!(field instanceof FieldImpl) || field.forge !== this.forge) {
       return undefined;
     }
-    const location = opt(this.forge.source.getLocation(this.id, field.object, field.index));
-    switch (location?.tag) {
-      case undefined:
-        return undefined;
-      case 'path':
-        return { in: 'path' };
-      case 'query':
-        return { in: 'query', exploded: location.val };
-      default: {
-        const unknown: never = location;
-        throw new Error(`a location this library doesn't know: ${JSON.stringify(unknown)}`);
-      }
+    const info = this.info();
+    if (info.params !== field.object) {
+      return undefined;
     }
+    return info.locations[field.index];
   }
 }
 
@@ -772,7 +776,7 @@ class ModelImpl implements Model {
     id: host.ModelId,
   ) {
     this.info = lazy(() => {
-      const m = forge.source.getModel(id);
+      const m = at(forge.data.models, id, 'model');
       return {
         schemaName: m.schemaName,
         name: new NameImpl(m.name),
@@ -850,7 +854,7 @@ class FieldImpl implements Field {
 
 /** Returns the type `id`. Types it refers to are made when first read. */
 function makeType(forge: ForgeImpl, id: host.TypeId): Type {
-  const t = forge.source.getType(id);
+  const t = at(forge.data.types, id, 'type');
   const type = (ty: host.TypeId) => forge.type(ty);
   switch (t.tag) {
     case 'scalar':

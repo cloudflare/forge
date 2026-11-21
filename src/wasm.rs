@@ -3,16 +3,10 @@
 //!
 //! A plugin is a component of the `plugin` world in [`WIT`]. It exports
 //! `generate`, which [`WasmPlugin`] calls where [`Plugin::generate`](crate::Plugin::generate) is,
-//! and reads the [`Forge`](crate::Forge) the host runs it on through the `forge` resource
-//! that `generate` takes.
+//! receiving a `forge` record built from [`Forge`](crate::Forge).
 //!
-//! The forge is never copied into a plugin. It stays in the host, and the
-//! plugin reads it a part at a time through ids. A group, method, model or
-//! type is a `u32`, and the plugin calls `get-group`, `get-method`,
-//! `get-model` or `get-type` on the resource for the part's data. Each call of `generate`
-//! runs in an instance of its own, on one thread: unlike a native plugin,
-//! a wasm plugin can't generate groups in parallel.
-//!
+//! Each call of `generate` runs in an instance of its own, on one thread:
+//! unlike a native plugin, a wasm plugin can't generate groups in parallel.
 //! A plugin gets no files, network, environment or clock, only standard
 //! error, so it can print why it panicked.
 //!
@@ -25,17 +19,16 @@
 //! # Ok(())
 //! # }
 //! ```
-
 //!
 //! The same WIT has a `library` world, which `@cloudflare/forge` builds from
-//! this crate to parse documents in JavaScript. It exports the `forge`
-//! resource plugins read, so plugins and the library share one model.
+//! this crate to parse documents in JavaScript. Both worlds exchange the same
+//! `forge` record.
 
 #[cfg(feature = "wasm")]
 mod host;
 #[cfg(feature = "library")]
 mod library;
-mod records;
+mod types;
 
 #[cfg(feature = "wasm")]
 pub use host::{WasmFile, WasmPlugin};

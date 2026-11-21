@@ -57,7 +57,7 @@ function oneMethod(group, version = '1') {
 }
 
 test('parse reads a document into the forge plugins see', () => {
-  using forge = parse(JSON.stringify(pets));
+  const forge = parse(JSON.stringify(pets));
 
   assert.equal(forge.version, '2');
   assert.equal(forge.baseUrl, 'https://api.example.com/v1');
@@ -96,7 +96,7 @@ test('parse reads a document into the forge plugins see', () => {
 });
 
 test('the parameters of a method say where they are sent', () => {
-  using forge = parse(JSON.stringify(pets));
+  const forge = parse(JSON.stringify(pets));
   const [method] = forge.groups[1].methods;
 
   // The request is the parameters and the body, intersected.
@@ -115,7 +115,7 @@ test('the parameters of a method say where they are sent', () => {
 });
 
 test('a part read twice is the same object', () => {
-  using forge = parse(JSON.stringify(pets));
+  const forge = parse(JSON.stringify(pets));
   const method = forge.groups[1].methods[0];
   assert.equal(forge.groups[1].methods[0], method);
   assert.equal(method.group, forge.groups[1]);
@@ -146,18 +146,8 @@ test('a document forge does not read throws with forge’s message', () => {
 });
 
 test('documents parsed side by side stay apart', () => {
-  using a = parse(JSON.stringify(oneMethod('alpha', '1')));
-  using b = parse(JSON.stringify(oneMethod('beta', '2')));
+  const a = parse(JSON.stringify(oneMethod('alpha', '1')));
+  const b = parse(JSON.stringify(oneMethod('beta', '2')));
   assert.deepEqual([a.version, a.groups[1].name.kebab()], ['1', 'alpha']);
   assert.deepEqual([b.version, b.groups[1].name.kebab()], ['2', 'beta']);
-});
-
-test('a disposed document keeps what was read, and fails on what was not', () => {
-  const forge = parse(JSON.stringify(pets));
-  const group = forge.groups[1];
-  assert.equal(group.name.kebab(), 'pets');
-  forge.dispose();
-
-  assert.equal(group.name.kebab(), 'pets');
-  assert.throws(() => group.methods[0].name, /not a valid "Forge" resource/i);
 });
