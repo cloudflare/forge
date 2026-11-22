@@ -1,19 +1,23 @@
 # RFC 0003: Conditional skips
 
-Forge normalizes Stainless's "skip targets" and Fern's "keep audiences" into
-one extension, `x-forge-skip`:
+Forge filters operations and fields with two extensions driven by the active
+set of CLI conditions:
 
 ```yaml
-x-forge-skip: true                                  # always skip
-x-forge-skip: { when: [terraform] }                 # skip when terraform active
-x-forge-skip: { unless: [sdk] }                     # skip unless sdk active
-x-forge-skip: { when: [terraform], unless: [sdk] } # both; exclusion wins
+x-forge-skip: true                 # always skip
+x-forge-skip: [terraform]          # skip when terraform condition active
+x-forge-skip: [terraform, mcp]     # skip when any listed condition active
+
+x-forge-only-for: [sdk]            # keep only when sdk condition active
+x-forge-only-for: [ts, go, rust]   # keep only when any listed condition active
 ```
 
-- `when`: skip if the active condition set intersects the list.
-- `unless`: skip if the active set misses every entry.
-- Both: skip if either rule matches.
-- Missing or `false`: keep. `true`: always skip. Empty lists: no-op.
+Default (no extension): kept in every generation.
+
+An element may carry both extensions. Exclusion wins: it is kept iff
+`x-forge-only-for` matches **and** `x-forge-skip` does not.
+
+Empty lists are no-ops; use `x-forge-skip: true` to always skip.
 
 ## Conditions
 
@@ -28,14 +32,7 @@ Plugins do not declare conditions; the host keeps no registry. Prefer category
 names (`sdk`, `codegen`) over target-specific names (`ts-sdk-v2`), so new
 siblings don't force spec edits.
 
-The host resolves skips before plugins see the model. A retained element that
-references a skipped component fails generation.
+The host applies these extensions before plugins see the model. A retained
+element that references a skipped component fails generation.
 
-## Vendor compatibility
-
-- `x-stainless-skip: [terraform]` → `x-forge-skip: { when: [terraform] }`
-- `x-fern-audiences: [sdk]` → `x-forge-skip: { unless: [sdk] }`
-- Boolean vendor skips stay boolean.
-
-An explicit `x-forge-skip` is authoritative. Validation lives in
-`redocly-plugin-forge`.
+Validation lives in `redocly-plugin-forge`.
