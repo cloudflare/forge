@@ -36,3 +36,24 @@ The host applies these extensions before plugins see the model. A retained
 element that references a skipped component fails generation.
 
 Validation lives in `redocly-plugin-forge`.
+
+## Vendor normalization
+
+Forge normalizes recognized vendor extensions into the native pair as an
+opt-in step via `--from`:
+
+```console
+forge openapi.json --from=stainless,fern --target wasm://plugin.wasm --out sdk
+```
+
+| Vendor extension             | Normalizes to                |
+| ---------------------------- | ---------------------------- |
+| `x-stainless-skip: true`     | `x-forge-skip: true`         |
+| `x-stainless-skip: [names]`  | `x-forge-skip: [names]`      |
+| `x-fern-audiences: [names]`  | `x-forge-only-for: [names]`  |
+
+Consumers that don't want a vendor's extensions acted on simply omit it from
+`--from`; the extensions are then left in the spec unchanged.
+
+Native `x-forge-*` takes precedence. When both a native and a vendor
+extension appear on the same element, the vendor extension is ignored.
