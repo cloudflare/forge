@@ -50,6 +50,7 @@ forge openapi.json --from=stainless,fern --target wasm://plugin.wasm --out sdk
 | ---------------------------- | ---------------------------- |
 | `x-stainless-skip: true`     | `x-forge-skip: true`         |
 | `x-stainless-skip: [names]`  | `x-forge-skip: [names]`      |
+| `x-fern-ignore: true`        | `x-forge-skip: true`         |
 | `x-fern-audiences: [names]`  | `x-forge-only-for: [names]`  |
 
 Consumers that don't want a vendor's extensions acted on simply omit it from
