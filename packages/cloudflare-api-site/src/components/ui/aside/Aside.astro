@@ -20,11 +20,13 @@ const config: Record<string, { label: string; color: string; tint: string }> = {
 
 const c = config[type] ?? config.note;
 const displayTitle = title ?? c.label;
+// A custom title still says what kind of aside it is: "Caution: Heads up".
+const label = displayTitle === c.label ? displayTitle : `${c.label}: ${displayTitle}`;
 ---
 
 <aside
   role="note"
-  aria-label={displayTitle}
+  aria-label={label}
   class={cn("aside-card flex items-start gap-3 rounded-lg px-4 py-3 my-4", className)}
   style={`--_c: ${c.color}; --_t: ${c.tint};`}
   {...attrs}
