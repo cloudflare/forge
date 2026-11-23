@@ -3,7 +3,8 @@ import cloudflare from '@astrojs/cloudflare';
 import nimbus, { defineConfig as defineNimbusConfig } from '@cloudflare/nimbus-docs';
 import tailwindcss from '@tailwindcss/vite';
 import { defineConfig } from 'astro/config';
-import { builtForgeApi, forgeApi, isAstroPreview } from './src/forge-api.ts';
+import { forgeApi, prepareForgeSpec } from './src/forge-api.ts';
+import { forgeOpenApiSource } from './src/openapi-source.ts';
 
 const site = 'https://docs.experiments.devprod.cloudflare.dev';
 
@@ -17,9 +18,7 @@ if (internalSiteDomain) {
   allowedDomains.push({ protocol: 'https', hostname: internalSiteDomain });
 }
 
-// `astro preview` serves the last build, so it takes that build's API entry
-// instead of preparing the spec again.
-const api = (isAstroPreview() && builtForgeApi()) || (await forgeApi());
+const { sources, spec } = forgeOpenApiSource();
 
 const nimbusConfig = defineNimbusConfig({
   site,
@@ -29,7 +28,8 @@ const nimbusConfig = defineNimbusConfig({
   github: null,
   search: false,
   rendering: { default: 'request' },
-  api: [api],
+  ...(sources ? { sources } : {}),
+  api: [forgeApi(spec)],
 });
 
 export default defineConfig({
@@ -43,6 +43,8 @@ export default defineConfig({
   },
   integrations: [
     nimbus(nimbusConfig, {
+      // Nimbus prepares the spec with this in Node; it never reaches the Worker.
+      api: { api: { transform: prepareForgeSpec } },
       icons: {
         include: {
           ph: [

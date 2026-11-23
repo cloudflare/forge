@@ -16,7 +16,7 @@ import {
   cloudflareOperationRoutingPreference,
   cloudflareSnippets,
 } from './cloudflare.ts';
-import { isAstroPreview, prepareForgeApi, TERRAFORM_EXTENSION } from './forge-api.ts';
+import { prepareForgeApi, TERRAFORM_EXTENSION } from './forge-api.ts';
 import { TERRAFORM_EXTENSION_NAME, terraformOperationDataSchema } from './terraform.ts';
 
 const SNAPSHOT = '2026-11-30.air';
@@ -290,6 +290,15 @@ test("routes are today's URLs, with moved product slugs", () => {
   assert.equal(redirects['/tags/keys/methods/list/'], '/tagging/keys/methods/list/');
 });
 
+test('every operation carries its route in the spec, as x-nimbus-route', () => {
+  const { document, operations } = prepare();
+  const routes = Object.values(document.paths as Record<string, Record<string, Record<string, unknown>>>).flatMap(
+    (item) => Object.values(item).map((op) => [op.operationId, op['x-nimbus-route']]),
+  );
+  assert.ok(routes.length > 0);
+  assert.deepEqual(Object.fromEntries(routes), operations);
+});
+
 test('alias projections redirect to the primary page, in and outside its product', () => {
   const { operations, redirects, document } = prepare();
   assert.equal(operations['alpha.items.get'], 'alpha/items/methods/get');
@@ -315,13 +324,18 @@ test('tags nest product → resource and resources with one name stay apart by p
 });
 
 test("landing pages are Nimbus's section pages; section ids and moved products redirect", () => {
-  const { redirects, tagSegments } = prepare();
+  const { redirects, document } = prepare();
   assert.equal(redirects['/alpha/'], undefined);
   assert.equal(redirects['/alpha/items/'], undefined);
   assert.equal(redirects['/alpha/items/notes/'], undefined);
   assert.equal(redirects['/tags/'], '/tagging/');
   assert.equal(redirects['/tags/keys/'], '/tagging/keys/');
-  assert.deepEqual(tagSegments, { tags: 'tagging' });
+  const tags = document.tags as { name: string; 'x-nimbus-route'?: string }[];
+  assert.deepEqual(
+    tags.filter((tag) => tag['x-nimbus-route']).map((tag) => [tag.name, tag['x-nimbus-route']]),
+    [['tags', 'tagging']],
+    'a moved product sets its section segment on its tag',
+  );
   const unplaced = prepareEntries(entry('a.misc', 'a', 'misc/methods/list', { placement: undefined }));
   assert.equal(unplaced.redirects['/a/sections/a/'], '/a/');
   assert.equal(unplaced.operations['a.misc'], 'a/misc/methods/list');
@@ -459,13 +473,4 @@ test('refuses data that would give two pages one URL or one tag two meanings', (
 
 test('the prepared spec is titled for the API home', () => {
   assert.equal((prepare().document.info as { title: string }).title, 'API Reference');
-});
-
-test('only `astro preview` reuses the last build', () => {
-  const bin = '/repo/node_modules/astro/bin/astro.mjs';
-  assert.equal(isAstroPreview(['node', bin, 'preview', '--port', '8788']), true);
-  assert.equal(isAstroPreview(['node', '/repo/node_modules/.bin/astro', 'preview']), true);
-  assert.equal(isAstroPreview(['node', bin, 'build', '--mode', 'preview']), false);
-  assert.equal(isAstroPreview(['node', bin, 'dev', '--mode', 'preview']), false);
-  assert.equal(isAstroPreview(['node', '/repo/preview.mjs']), false);
 });
