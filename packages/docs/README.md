@@ -45,7 +45,8 @@ is a built-in pnpm command.) CI does this, as for the API site:
   Preview, named after its branch (`.github/workflows/preview-forge-docs.yml`). Its URL is in the
   job's log. Pull requests from forks get no secrets, so no preview.
 - **Every push to `main`** that changes the site deploys it (`deploy-forge-docs.yml`).
-- **CI** builds it on every pull request.
+- **CI** runs `astro check` on every change, and builds the pull requests the preview doesn't: those
+  from forks, and those into a branch other than `main`.
 
 Both workflows use the `FORGE_DOCS_CLOUDFLARE_ACCOUNT_ID` and `FORGE_DOCS_CLOUDFLARE_API_TOKEN`
 secrets, not the API site's. Previews work only once the Worker exists, so the first production

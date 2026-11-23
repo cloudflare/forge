@@ -9,6 +9,9 @@ on:
     paths:
       - 'packages/docs/**'
       - 'pnpm-lock.yaml'
+      - 'pnpm-workspace.yaml'
+      - 'package.json'
+      - '.github/actions/setup-workspace/**'
       - '.github/workflows/deploy-forge-docs.yml'
   workflow_dispatch:
 
