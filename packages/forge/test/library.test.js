@@ -182,8 +182,22 @@ function methodNames(forge) {
     .sort();
 }
 
-test('parse without options keeps every element (conditional filters are no-ops)', () => {
-  const forge = parse(JSON.stringify(conditional));
+test('parse without options keeps conditional elements and still drops x-forge-skip: true', () => {
+  const doc = {
+    ...conditional,
+    paths: {
+      ...conditional.paths,
+      '/always': {
+        get: {
+          'x-forge-group-name': 'c',
+          'x-forge-method-name': 'get',
+          'x-forge-skip': true,
+          responses: { 200: { description: 'ok' } },
+        },
+      },
+    },
+  };
+  const forge = parse(JSON.stringify(doc));
   assert.deepEqual(methodNames(forge), ['a.get', 'b.get']);
 });
 
@@ -194,4 +208,36 @@ test('parse with conditions filters x-forge-skip and x-forge-only-for', () => {
   assert.deepEqual(methodNames(parse(JSON.stringify(conditional), { conditions: ['sdk'] })), ['a.get', 'b.get']);
   // No conditions active: /a is kept (nothing matches skip list), /b is dropped (only-for needs a match).
   assert.deepEqual(methodNames(parse(JSON.stringify(conditional), { conditions: [] })), ['a.get']);
+});
+
+test('parse with conditions throws on dangling $ref to a conditionally skipped schema', () => {
+  const doc = {
+    openapi: '3.1.0',
+    info: { title: 't', version: '1' },
+    paths: {
+      '/x': {
+        get: {
+          'x-forge-group-name': 'x',
+          'x-forge-method-name': 'get',
+          responses: {
+            200: {
+              description: 'ok',
+              content: { 'application/json': { schema: { $ref: '#/components/schemas/Pet' } } },
+            },
+          },
+        },
+      },
+    },
+    components: {
+      schemas: {
+        Pet: { type: 'object', 'x-forge-skip': ['terraform'], properties: { name: { type: 'string' } } },
+      },
+    },
+  };
+
+  assert.throws(
+    () => parse(JSON.stringify(doc), { conditions: ['terraform'] }),
+    /points to a schema removed by x-forge-skip or x-forge-only-for/,
+  );
+  assert.deepEqual(methodNames(parse(JSON.stringify(doc), { conditions: ['sdk'] })), ['x.get']);
 });

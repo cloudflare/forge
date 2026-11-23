@@ -713,3 +713,289 @@ fn only_for_extension_is_consumed_and_not_exposed_on_method() {
     let ext_names: Vec<_> = m.extensions().map(|(k, _)| k).collect();
     assert_eq!(ext_names, ["x-other"]);
 }
+
+#[test]
+fn truth_table_of_skip_and_only_for_combinations() {
+    let cases: &[(&str, &[&str], bool)] = &[
+        // Combined distinct conditions: exclusion wins when both match.
+        (
+            r#""x-forge-only-for": ["sdk"], "x-forge-skip": ["terraform"],"#,
+            &[],
+            false,
+        ),
+        (
+            r#""x-forge-only-for": ["sdk"], "x-forge-skip": ["terraform"],"#,
+            &["sdk"],
+            true,
+        ),
+        (
+            r#""x-forge-only-for": ["sdk"], "x-forge-skip": ["terraform"],"#,
+            &["terraform"],
+            false,
+        ),
+        (
+            r#""x-forge-only-for": ["sdk"], "x-forge-skip": ["terraform"],"#,
+            &["sdk", "terraform"],
+            false,
+        ),
+        (
+            r#""x-forge-only-for": ["sdk"], "x-forge-skip": ["terraform"],"#,
+            &["terraform", "sdk"],
+            false,
+        ),
+        // Duplicates and ordering do not affect semantics.
+        (
+            r#""x-forge-only-for": ["sdk", "sdk"], "x-forge-skip": ["terraform"],"#,
+            &["sdk", "sdk"],
+            true,
+        ),
+        // `x-forge-skip: true` overrides a matching `x-forge-only-for`.
+        (r#""x-forge-only-for": ["sdk"], "x-forge-skip": true,"#, &["sdk"], false),
+        // `x-forge-skip: false` is a no-op alongside `x-forge-only-for`.
+        (r#""x-forge-only-for": ["sdk"], "x-forge-skip": false,"#, &[], false),
+        (r#""x-forge-only-for": ["sdk"], "x-forge-skip": false,"#, &["sdk"], true),
+        // Condition names are case-sensitive.
+        (r#""x-forge-skip": ["SDK"],"#, &["sdk"], true),
+        (r#""x-forge-skip": ["SDK"],"#, &["SDK"], false),
+        (r#""x-forge-only-for": ["SDK"],"#, &["sdk"], false),
+        (r#""x-forge-only-for": ["SDK"],"#, &["SDK"], true),
+    ];
+
+    for &(ext, conditions, kept) in cases {
+        let doc = two_methods(ext, "");
+        let forge = parse_with_conditions(&doc, conditions);
+        let expected: &[&str] = if kept { &["a.get", "b.get"] } else { &["b.get"] };
+        assert_eq!(method_names(&forge), expected, "ext={ext} conditions={conditions:?}");
+    }
+}
+
+#[test]
+fn deserialize_without_conditions_keeps_conditional_filters_and_drops_skip_true() {
+    let doc = r#"{
+      "openapi": "3.0.3",
+      "info": {"title": "t", "version": "1"},
+      "paths": {
+        "/always": {
+          "get": {
+            "x-forge-group-name": "a",
+            "x-forge-method-name": "always",
+            "x-forge-skip": true,
+            "responses": {"204": {"description": "ok"}}
+          }
+        },
+        "/cond-skip": {
+          "get": {
+            "x-forge-group-name": "a",
+            "x-forge-method-name": "cond_skip",
+            "x-forge-skip": ["terraform"],
+            "responses": {"204": {"description": "ok"}}
+          }
+        },
+        "/only-for": {
+          "get": {
+            "x-forge-group-name": "a",
+            "x-forge-method-name": "only_for",
+            "x-forge-only-for": ["sdk"],
+            "responses": {"204": {"description": "ok"}}
+          }
+        },
+        "/both": {
+          "get": {
+            "x-forge-group-name": "a",
+            "x-forge-method-name": "both",
+            "x-forge-only-for": ["sdk"],
+            "x-forge-skip": ["sdk"],
+            "responses": {"204": {"description": "ok"}}
+          }
+        }
+      }
+    }"#;
+
+    let forge = parse(doc);
+    assert_eq!(method_names(&forge), ["a.both", "a.cond-skip", "a.only-for"]);
+}
+
+#[test]
+fn invalid_skip_and_only_for_shapes_are_errors() {
+    let cases: &[(&str, &str)] = &[
+        (r#""x-forge-skip": "terraform","#, "boolean or an array"),
+        (r#""x-forge-skip": 123,"#, "boolean or an array"),
+        (r#""x-forge-skip": null,"#, "boolean or an array"),
+        (r#""x-forge-skip": {},"#, "boolean or an array"),
+        (r#""x-forge-skip": [""],"#, "condition name must not be empty"),
+        (r#""x-forge-skip": ["sdk", ""],"#, "condition name must not be empty"),
+        (r#""x-forge-skip": [123],"#, "string"),
+        (r#""x-forge-only-for": true,"#, "array of condition names"),
+        (r#""x-forge-only-for": "sdk","#, "array of condition names"),
+        (r#""x-forge-only-for": 123,"#, "array of condition names"),
+        (r#""x-forge-only-for": [""],"#, "condition name must not be empty"),
+        (
+            r#""x-forge-only-for": ["sdk", ""],"#,
+            "condition name must not be empty",
+        ),
+        (r#""x-forge-only-for": [true],"#, "string"),
+        (
+            r#""x-forge-only-for": ["sdk"], "x-forge-only-for": ["mcp"],"#,
+            "duplicate field `x-forge-only-for`",
+        ),
+    ];
+
+    for &(ext, want) in cases {
+        let doc = two_methods(ext, "");
+        let err = parse_with_conditions_err(&doc, &["sdk"]);
+        assert!(err.contains(want), "ext={ext}: want {want:?}, got {err:?}");
+    }
+
+    // Mid-array empty string on a schema property fails cleanly without corrupting the arena.
+    let prop_doc = response_with_property(r#""x-forge-skip": ["sdk", ""]"#);
+    let err = parse_with_conditions_err(&prop_doc, &["sdk"]);
+    assert!(err.contains("condition name must not be empty"), "{err}");
+}
+
+#[test]
+fn ref_placements_honor_skip_and_only_for_on_components() {
+    let doc = r##"{
+      "openapi": "3.1.0",
+      "info": {"title": "t", "version": "1"},
+      "paths": {
+        "/skipped-path": {"$ref": "#/components/pathItems/SkippedPath"},
+        "/x": {
+          "post": {
+            "x-forge-group-name": "x",
+            "x-forge-method-name": "post",
+            "parameters": [{"$ref": "#/components/parameters/SkippedParam"}],
+            "requestBody": {"$ref": "#/components/requestBodies/OnlySdkBody"},
+            "responses": {
+              "200": {"$ref": "#/components/responses/OnlySdkResponse"},
+              "204": {"description": "no content"}
+            }
+          }
+        }
+      },
+      "components": {
+        "pathItems": {
+          "SkippedPath": {
+            "x-forge-skip": ["terraform"],
+            "get": {
+              "x-forge-group-name": "p",
+              "x-forge-method-name": "get",
+              "responses": {"204": {"description": "ok"}}
+            }
+          }
+        },
+        "parameters": {
+          "SkippedParam": {
+            "name": "q",
+            "in": "query",
+            "x-forge-skip": ["terraform"],
+            "schema": {"type": "string"}
+          }
+        },
+        "requestBodies": {
+          "OnlySdkBody": {
+            "x-forge-only-for": ["sdk"],
+            "content": {"application/json": {"schema": {"type": "string"}}}
+          }
+        },
+        "responses": {
+          "OnlySdkResponse": {
+            "description": "ok",
+            "x-forge-only-for": ["sdk"]
+          }
+        }
+      }
+    }"##;
+
+    // Under `terraform`: pathItem, param, body, and 200 response are all filtered out.
+    let forge = parse_with_conditions(doc, &["terraform"]);
+    assert_eq!(method_names(&forge), ["x.post"]);
+    let post = method(&forge, "x.post");
+    assert!(post.request().is_none());
+    assert!(post.body().is_none());
+    let statuses: Vec<_> = post.responses().map(|r| r.status().to_owned()).collect();
+    assert_eq!(statuses, ["204"]);
+
+    // Under `sdk`: all four referenced components are kept.
+    let forge = parse_with_conditions(doc, &["sdk"]);
+    assert_eq!(method_names(&forge), ["p.get", "x.post"]);
+    let post = method(&forge, "x.post");
+    assert!(post.request().is_some());
+    assert!(post.body().is_some());
+    let statuses: Vec<_> = post.responses().map(|r| r.status().to_owned()).collect();
+    assert_eq!(statuses, ["200", "204"]);
+}
+
+#[test]
+fn skipped_required_property_is_silently_ignored_in_required() {
+    let doc = r#"{
+      "openapi": "3.0.3",
+      "info": {"title": "t", "version": "1"},
+      "paths": {
+        "/x": {
+          "get": {
+            "x-forge-group-name": "x",
+            "x-forge-method-name": "get",
+            "responses": {"200": {
+              "description": "ok",
+              "content": {"application/json": {"schema": {
+                "type": "object",
+                "required": ["a", "b"],
+                "properties": {
+                  "a": {"type": "string", "x-forge-skip": ["terraform"]},
+                  "b": {"type": "string"}
+                }
+              }}}
+            }}
+          }
+        }
+      }
+    }"#;
+
+    let forge = parse_with_conditions(doc, &["terraform"]);
+    let fields: Vec<_> = object(response_type(&forge, "x.get"))
+        .fields()
+        .map(|f| (f.wire_name(), f.is_required()))
+        .collect();
+    assert_eq!(fields, [("b", true)]);
+
+    let forge = parse_with_conditions(doc, &["sdk"]);
+    let fields: Vec<_> = object(response_type(&forge, "x.get"))
+        .fields()
+        .map(|f| (f.wire_name(), f.is_required()))
+        .collect();
+    assert_eq!(fields, [("a", true), ("b", true)]);
+}
+
+#[test]
+fn header_parameter_skip_and_override() {
+    let doc = r#"{
+      "openapi": "3.0.3",
+      "info": {"title": "t", "version": "1"},
+      "paths": {
+        "/x": {
+          "parameters": [
+            {"name": "X-Debug", "in": "header", "schema": {"type": "string"}}
+          ],
+          "get": {
+            "x-forge-group-name": "x",
+            "x-forge-method-name": "get",
+            "parameters": [
+              {"name": "x-debug", "in": "header", "x-forge-skip": ["sdk"], "schema": {"type": "string"}},
+              {"name": "X-Sdk-Trace", "in": "header", "x-forge-only-for": ["sdk"], "schema": {"type": "string"}}
+            ],
+            "responses": {"204": {"description": "ok"}}
+          }
+        }
+      }
+    }"#;
+
+    // Under `sdk`: `X-Debug` is suppressed by the case-insensitive operation override; `X-Sdk-Trace` is kept.
+    let forge = parse_with_conditions(doc, &["sdk"]);
+    let headers = method(&forge, "x.get").headers().unwrap();
+    assert_eq!(field_names(headers), ["X-Sdk-Trace"]);
+
+    // Under `terraform`: `X-Debug` (overridden as `x-debug`) is kept; `X-Sdk-Trace` is dropped.
+    let forge = parse_with_conditions(doc, &["terraform"]);
+    let headers = method(&forge, "x.get").headers().unwrap();
+    assert_eq!(field_names(headers), ["x-debug"]);
+}

@@ -855,3 +855,60 @@ fn conditional_vendor_extensions_normalize_across_all_placements() {
     let parsed = forge::parse_json(&out.stdout, &["terraform".to_owned()]).unwrap();
     assert_eq!(parsed.groups().flat_map(|g| g.methods()).count(), 0);
 }
+
+#[test]
+fn native_conditional_extensions_win_over_vendor_and_distinct_vendors_compose() {
+    let doc = r#"{
+      "openapi": "3.0.3",
+      "info": {"title": "t", "version": "1"},
+      "paths": {
+        "/native-wins": {
+          "get": {
+            "x-forge-group-name": "a",
+            "x-forge-method-name": "native",
+            "x-forge-only-for": ["cli"],
+            "x-fern-audiences": ["sdk"],
+            "x-forge-skip": ["mcp"],
+            "x-stainless-skip": ["terraform"],
+            "responses": {"204": {"description": "ok"}}
+          }
+        },
+        "/composed-vendors": {
+          "get": {
+            "x-forge-group-name": "a",
+            "x-forge-method-name": "composed",
+            "x-fern-audiences": ["sdk"],
+            "x-stainless-skip": ["terraform"],
+            "responses": {"204": {"description": "ok"}}
+          }
+        }
+      }
+    }"#;
+
+    let out = normalize(&["-"], doc);
+    succeeded(&out);
+
+    let value: Value = serde_json::from_slice(&out.stdout).unwrap();
+    let native = &value["paths"]["/native-wins"]["get"];
+    assert_eq!(native["x-forge-only-for"], serde_json::json!(["cli"]));
+    assert_eq!(native["x-forge-skip"], serde_json::json!(["mcp"]));
+    assert!(native.get("x-fern-audiences").is_none());
+    assert!(native.get("x-stainless-skip").is_none());
+
+    let composed = &value["paths"]["/composed-vendors"]["get"];
+    assert_eq!(composed["x-forge-only-for"], serde_json::json!(["sdk"]));
+    assert_eq!(composed["x-forge-skip"], serde_json::json!(["terraform"]));
+
+    let method_names = |conditions: &[&str]| -> Vec<String> {
+        let conditions: Vec<String> = conditions.iter().map(|c| (*c).to_owned()).collect();
+        let forge = forge::parse_json(&out.stdout, &conditions).unwrap();
+        forge
+            .groups()
+            .flat_map(|g| g.methods().map(|m| m.name().kebab()).collect::<Vec<_>>())
+            .collect()
+    };
+    assert_eq!(method_names(&["cli"]), ["native"]);
+    assert_eq!(method_names(&["sdk"]), ["composed"]);
+    // Exclusion wins when both composed vendor conditions are active.
+    assert!(method_names(&["sdk", "terraform"]).is_empty());
+}

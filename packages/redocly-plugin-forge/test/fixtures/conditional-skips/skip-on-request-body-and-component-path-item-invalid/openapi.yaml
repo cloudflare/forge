@@ -1,0 +1,34 @@
+openapi: 3.1.0
+info:
+  title: Skip on requestBody and component pathItem invalid
+  version: 1.0.0
+paths:
+  /thing:
+    post:
+      operationId: createThing
+      requestBody:
+        x-forge-skip: terraform
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: OK
+components:
+  requestBodies:
+    UnusedBody:
+      x-forge-only-for: sdk
+      content:
+        application/json:
+          schema:
+            type: object
+  pathItems:
+    UnusedPathItem:
+      x-forge-skip: 42
+      get:
+        operationId: unusedOp
+        x-forge-only-for: false
+        responses:
+          '200':
+            description: OK

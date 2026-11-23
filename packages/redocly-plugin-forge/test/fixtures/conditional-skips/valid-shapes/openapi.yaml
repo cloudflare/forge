@@ -29,6 +29,11 @@ paths:
       operationId: combined
       x-forge-skip: [terraform]
       x-forge-only-for: [sdk]
+      x-forge-aliases:
+        - x-forge-group-name: widgets
+          x-forge-method-name: get
+          x-forge-skip: [mcp]
+          x-forge-only-for: [sdk]
       responses:
         '200':
           description: OK

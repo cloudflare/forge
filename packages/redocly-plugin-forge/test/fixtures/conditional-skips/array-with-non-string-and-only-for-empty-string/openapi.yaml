@@ -1,0 +1,13 @@
+openapi: 3.1.0
+info:
+  title: Array with non-string and only-for empty string
+  version: 1.0.0
+paths:
+  /thing:
+    get:
+      operationId: getThing
+      x-forge-skip: [123]
+      x-forge-only-for: [sdk, ""]
+      responses:
+        '200':
+          description: OK
