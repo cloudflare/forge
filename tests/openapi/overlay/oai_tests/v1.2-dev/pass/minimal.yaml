@@ -1,0 +1,7 @@
+overlay: 1.2.0
+info:
+  title: Minimal
+  version: 1.0.0
+  description: A minimal valid overlay specification.
+actions:
+  - target: '$' # Root of document

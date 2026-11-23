@@ -1,12 +1,16 @@
-//! The `forge` command, which generates an SDK from an OpenAPI document.
+//! The `forge` command, which generates an SDK from an OpenAPI document,
+//! optionally preprocessed by one or more OpenAPI Overlay documents.
 //!
 //! ```text
 //! forge generate openapi.json --target ts --out sdk
 //! forge generate openapi.json --target capnweb --out server
 //! forge generate openapi.json --target mcp --out tools
 //! forge generate openapi.json --target wasm://plugin.wasm --out sdk
+//! forge generate openapi.json --overlay a.yaml --overlay b.yaml --target ts --out sdk
+//! forge generate overlay.yaml --target ts --out sdk   # overlay drives the spec via its `extends`
 //! forge normalize specs/*.json
 //! forge inspect methods openapi.json
+//! forge openapi overlay <spec-or-overlay> [--overlay <ov>]...   # print or write the merged spec
 //! ```
 
 use std::fs;
@@ -22,9 +26,10 @@ mod capnweb;
 mod inspect;
 mod mcp;
 mod normalize;
+mod openapi;
 mod ts;
 
-/// Generates an SDK from an OpenAPI document.
+/// Generate an SDK, apply an overlay, or run a subcommand.
 #[derive(Parser)]
 #[command(version, subcommand_required = true)]
 struct Args {
@@ -35,7 +40,8 @@ struct Args {
 /// What `forge` does.
 #[derive(clap::Subcommand)]
 enum Command {
-    /// Generate an SDK from an OpenAPI document.
+    /// Generate an SDK from an OpenAPI document, optionally preprocessed by
+    /// one or more OpenAPI Overlay documents.
     Generate(GenerateArgs),
     /// Rewrite other tools' extensions into the native x-forge-* ones.
     ///
@@ -46,12 +52,15 @@ enum Command {
     Normalize(normalize::Args),
     /// Print what forge reads in a document, as JSON.
     Inspect(inspect::Args),
+    /// OpenAPI-specific commands.
+    Openapi(openapi::Args),
 }
 
 /// What `forge generate` is given.
 #[derive(clap::Args)]
 struct GenerateArgs {
-    /// The OpenAPI JSON document, or - to read it from standard input.
+    /// The OpenAPI JSON document, an Overlay document whose `extends` names
+    /// the spec, or `-` to read a spec from standard input.
     spec: PathBuf,
     /// The language of the SDK: `ts` for TypeScript, `capnweb` for a Cap'n
     /// Web server of the TypeScript SDK, which it imports from `#sdk`, `mcp`
@@ -62,6 +71,15 @@ struct GenerateArgs {
     /// The directory to write the SDK to.
     #[arg(long)]
     out: PathBuf,
+    /// Apply this overlay to the spec before handing it to the generator.
+    /// Repeat to apply more overlays in order.
+    #[arg(long = "overlay", value_name = "OVERLAY")]
+    overlay: Vec<PathBuf>,
+    /// Print one line to stderr per overlay action as it runs: overlay path,
+    /// action index, verb, target, and node counts. Only meaningful when one
+    /// or more overlays are being applied. Generated files are unchanged.
+    #[arg(long)]
+    explain: bool,
 }
 
 /// What forge generates an SDK with.
@@ -154,46 +172,159 @@ fn hint_old_root_form(kind: clap::error::ErrorKind, first_arg: Option<&str>) -> 
 /// Does what `args` ask for.
 fn run(args: Args) -> Result<(), Err> {
     match args.command {
-        Command::Generate(args) => generate(&args.spec, args.target, &args.out),
+        Command::Generate(args) => generate(args),
         Command::Normalize(args) => normalize::run(args),
         Command::Inspect(args) => inspect::run(args),
+        Command::Openapi(args) => openapi::run(args),
     }
 }
 
-/// Generates the SDK for the document at `spec`, and writes it to `out`.
-fn generate(spec: &Path, target: Target, out: &Path) -> Result<(), Err> {
+/// Generates the SDK for `args.spec`, applying overlays beforehand when either
+/// the positional is overlay-shaped or `--overlay` flags are present.
+fn generate(args: GenerateArgs) -> Result<(), Err> {
+    let spec = args.spec.as_path();
+    let out = args.out.as_path();
+    let preloaded = (spec != Path::new("-")).then(|| fs::read(spec).ok()).flatten();
+    let input_is_overlay = preloaded.as_deref().is_some_and(bytes_look_like_overlay);
+    // Fast path: no preprocessing needed. This is the historical shape plus
+    // the wasm-target rayon parallelism, reusing the already-read bytes so
+    // the spec is never read from disk twice.
+    if !input_is_overlay && args.overlay.is_empty() {
+        return generate_from_path(spec, preloaded, args.target, out);
+    }
+    // Preprocess into an in-memory Value, then deserialize that into Forge
+    // and hand to the chosen generator. This path does not parallelize the
+    // read: overlay apply is fast enough that overlapping it with a wasm
+    // plugin compile would complicate the code without a meaningful win.
+    let (doc, reports) = openapi::overlay::apply(spec, input_is_overlay, preloaded, &args.overlay)?;
+    if args.explain {
+        openapi::overlay::print_reports(&reports);
+    }
+    let label = doc.source_path().unwrap_or(spec).to_path_buf();
+    let forge = read_value(&label, doc.into_value())?;
+    run_plugin_on(&forge, args.target, out)
+}
+
+/// Peeks at top-level mapping keys of `bytes` to decide whether to treat the
+/// input as an overlay (apply its `extends` before generating) or as a plain
+/// spec. Uses a streaming visitor that skips all values via `IgnoredAny` so
+/// sniffing a large OpenAPI spec allocates no DOM.
+///
+/// `overlay:` present AND `openapi:` absent means overlay. Otherwise the input
+/// is treated as a plain spec — the generator will produce a real parse error
+/// if the file is unusable.
+fn bytes_look_like_overlay(bytes: &[u8]) -> bool {
+    let content = bytes.strip_prefix(b"\xEF\xBB\xBF").unwrap_or(bytes);
+    let keys = serde_json::from_slice::<TopLevelKeys>(content)
+        .ok()
+        .or_else(|| serde_saphyr::from_slice::<TopLevelKeys>(content).ok());
+    matches!(
+        keys,
+        Some(TopLevelKeys {
+            has_overlay: true,
+            has_openapi: false,
+        })
+    )
+}
+
+/// Streaming deserializer that records only whether the top-level mapping
+/// contains `overlay` and `openapi`, skipping every value with `IgnoredAny`.
+struct TopLevelKeys {
+    has_overlay: bool,
+    has_openapi: bool,
+}
+
+impl<'de> serde::Deserialize<'de> for TopLevelKeys {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        struct Visitor;
+        impl<'de> serde::de::Visitor<'de> for Visitor {
+            type Value = TopLevelKeys;
+            fn expecting(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+                f.write_str("a top-level mapping")
+            }
+            fn visit_map<A: serde::de::MapAccess<'de>>(self, mut map: A) -> Result<Self::Value, A::Error> {
+                let mut keys = TopLevelKeys {
+                    has_overlay: false,
+                    has_openapi: false,
+                };
+                while let Some(key) = map.next_key::<std::borrow::Cow<'de, str>>()? {
+                    match key.as_ref() {
+                        "overlay" => keys.has_overlay = true,
+                        "openapi" => keys.has_openapi = true,
+                        _ => {}
+                    }
+                    map.next_value::<serde::de::IgnoredAny>()?;
+                }
+                Ok(keys)
+            }
+        }
+        deserializer.deserialize_map(Visitor)
+    }
+}
+
+/// Generator path that reads directly from `spec` (no overlay preprocessing).
+fn generate_from_path(spec: &Path, preloaded: Option<Vec<u8>>, target: Target, out: &Path) -> Result<(), Err> {
     match target {
-        Target::Ts => run_plugin(&ts::Generator, spec, out),
-        Target::Capnweb => run_plugin(&capnweb::Generator, spec, out),
-        Target::Mcp => run_plugin(&mcp::Generator, spec, out),
+        Target::Ts => run_plugin(&ts::Generator, spec, preloaded, out),
+        Target::Capnweb => run_plugin(&capnweb::Generator, spec, preloaded, out),
+        Target::Mcp => run_plugin(&mcp::Generator, spec, preloaded, out),
         #[cfg(feature = "wasm")]
         Target::Wasm(path) => {
             // Compiling the plugin and reading the document are both slow,
             // so they run at the same time.
-            let (plugin, forge) = rayon::join(|| forge::wasm::WasmPlugin::from_file(&path), || read(spec));
+            let (plugin, forge) = rayon::join(
+                || forge::wasm::WasmPlugin::from_file(&path),
+                || read_preloaded(spec, preloaded),
+            );
             let (plugin, forge) = (plugin?, forge?);
             forge::write(out, plugin.generate(&forge)?)
         }
     }
 }
 
-fn run_plugin(plugin: &impl Plugin, spec: &Path, out: &Path) -> Result<(), Err> {
-    forge::write(out, plugin.generate(&read(spec)?)?)
+fn run_plugin(plugin: &impl Plugin, spec: &Path, preloaded: Option<Vec<u8>>, out: &Path) -> Result<(), Err> {
+    forge::write(out, plugin.generate(&read_preloaded(spec, preloaded)?)?)
+}
+
+fn run_plugin_on(forge: &Forge, target: Target, out: &Path) -> Result<(), Err> {
+    match target {
+        Target::Ts => forge::write(out, ts::Generator.generate(forge)?),
+        Target::Capnweb => forge::write(out, capnweb::Generator.generate(forge)?),
+        Target::Mcp => forge::write(out, mcp::Generator.generate(forge)?),
+        #[cfg(feature = "wasm")]
+        Target::Wasm(path) => {
+            let plugin = forge::wasm::WasmPlugin::from_file(&path)?;
+            forge::write(out, plugin.generate(forge)?)
+        }
+    }
 }
 
 /// Reads the document at `path`, or from standard input when `path` is `-`.
 fn read(path: &Path) -> Result<Forge, Err> {
+    read_preloaded(path, None)
+}
+
+/// Like [`read`], reusing `preloaded` file bytes when already read from disk.
+fn read_preloaded(path: &Path, preloaded: Option<Vec<u8>>) -> Result<Forge, Err> {
     let parse = || -> Result<Forge, Err> {
-        let json = if path == Path::new("-") {
-            let mut json = Vec::new();
-            io::stdin().read_to_end(&mut json)?;
-            json
-        } else {
-            fs::read(path)?
+        let json = match preloaded {
+            Some(bytes) => bytes,
+            None if path == Path::new("-") => {
+                let mut json = Vec::new();
+                io::stdin().read_to_end(&mut json)?;
+                json
+            }
+            None => fs::read(path)?,
         };
         Ok(serde_json::from_slice(&json)?)
     };
     parse().map_err(|err| format!("{}: {err}", path.display()).into())
+}
+
+/// Deserializes a preprocessed (overlay-applied) document into [`Forge`].
+/// `source` is used only for the error label.
+fn read_value(source: &Path, value: serde_json::Value) -> Result<Forge, Err> {
+    serde_json::from_value(value).map_err(|err| format!("{}: {err}", source.display()).into())
 }
 
 #[cfg(test)]
@@ -248,6 +379,28 @@ mod tests {
             panic!("expected Generate");
         };
         assert_eq!(g.spec.as_path(), Path::new("./a.json"));
+        assert!(g.overlay.is_empty());
+        assert!(!g.explain);
+
+        // `generate` accepts --overlay and --explain for the overlay-as-preprocessor form.
+        let gen_overlay = parse(&[
+            "generate",
+            "./a.json",
+            "--overlay",
+            "o.yaml",
+            "--target",
+            "ts",
+            "--out",
+            "sdk",
+        ])
+        .unwrap();
+        let Command::Generate(g) = gen_overlay.command else {
+            panic!("expected Generate");
+        };
+        assert_eq!(g.overlay, vec![std::path::PathBuf::from("o.yaml")]);
+
+        let openapi = parse(&["openapi", "overlay", "a.yaml"]).unwrap();
+        assert!(matches!(openapi.command, Command::Openapi(_)));
 
         // Each subcommand still requires its own arguments.
         assert!(parse(&["normalize"]).is_err());

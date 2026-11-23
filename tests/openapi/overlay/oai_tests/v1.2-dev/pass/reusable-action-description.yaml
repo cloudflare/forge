@@ -1,0 +1,14 @@
+overlay: 1.2.0
+info:
+  title: Reusable action with description
+  version: 1.0.0
+components:
+  actions:
+    setDescription:
+      description: A reusable action that updates the info description
+      fields:
+        update:
+          description: Updated by reusable action
+actions:
+  - $ref: '#/components/actions/setDescription'
+    target: '$.info'

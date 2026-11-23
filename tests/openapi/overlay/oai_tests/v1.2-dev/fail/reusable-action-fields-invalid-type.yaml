@@ -1,0 +1,10 @@
+overlay: 1.2.0
+info:
+  title: Reusable action fields must be an object
+  version: 1.0.0
+components:
+  actions:
+    setDescription:
+      fields: not-an-object
+actions:
+  - target: '$'

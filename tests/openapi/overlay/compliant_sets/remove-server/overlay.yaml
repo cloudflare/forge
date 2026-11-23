@@ -1,0 +1,9 @@
+overlay: 1.0.0
+info:
+  title: Remove dev server
+  version: 1.0.0
+extends: openapi-with-servers.yaml
+
+actions:
+  - target: $.servers[?( @.description == 'Dev' )]
+    remove: true

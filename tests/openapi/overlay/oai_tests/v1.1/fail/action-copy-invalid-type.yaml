@@ -1,0 +1,7 @@
+overlay: 1.1.0
+info:
+  title: Action copy must be a string
+  version: 1.0.0
+actions:
+  - target: '$'
+    copy: 100

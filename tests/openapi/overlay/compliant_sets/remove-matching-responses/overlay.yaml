@@ -1,0 +1,11 @@
+overlay: 1.0.0
+info:
+  title: Response code removal test
+  version: 1.0.0
+
+actions:
+  - target: $.paths..responses['500']
+    remove: true
+
+  - target: $.paths..responses['default']
+    remove: true

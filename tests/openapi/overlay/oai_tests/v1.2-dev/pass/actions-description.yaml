@@ -1,0 +1,7 @@
+overlay: 1.2.0
+info:
+  title: Actions Description
+  version: 1.0.0
+actions:
+  - target: '$' # Root of document
+    description: this is an action description

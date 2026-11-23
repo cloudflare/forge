@@ -20,6 +20,8 @@
     "packages/redocly-plugin-forge/test/fixtures/**",
     "packages/redocly-plugin-forge/test/covered-by-redocly/**",
     "packages/docs/src/**",
-    "packages/docs/nimbus.json"
+    "packages/docs/nimbus.json",
+    "tests/openapi/overlay/oai_tests/**",
+    "tests/openapi/overlay/real_world/**"
   ]
 }

@@ -1,0 +1,18 @@
+openapi: '3.0.3'
+info:
+  title: Public API
+  version: '1.0.0'
+paths:
+  /public:
+    get:
+      operationId: publicGet
+      responses:
+        '200':
+          description: ok
+components:
+  schemas:
+    Public:
+      type: object
+      properties:
+        id:
+          type: string

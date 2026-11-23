@@ -1,0 +1,14 @@
+overlay: 1.0.0
+info:
+  title: Apply Traits
+  version: 1.0.0
+actions:
+  - target: $.paths.*.get[?@.x-oai-traits.paged]
+    update:
+      parameters:
+        - name: top
+          in: query
+          # ...
+        - name: skip
+          in: query
+          # ...

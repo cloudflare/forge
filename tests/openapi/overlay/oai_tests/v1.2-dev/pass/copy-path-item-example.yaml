@@ -1,0 +1,7 @@
+overlay: 1.2.0
+info:
+  title: Merge an existing path item with another one
+  version: 1.0.0
+actions:
+  - target: '$.paths["/bar"]'
+    copy:  '$.paths["/foo"]'

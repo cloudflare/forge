@@ -1,0 +1,12 @@
+overlay: 1.2.0
+info:
+  title: Actions Remove and Update defined
+  version: 1.0.0
+actions:
+  - target: $.paths.*.get.parameters
+    update:
+      name: newParam
+      in: query
+      schema:
+        type: string
+    remove: true

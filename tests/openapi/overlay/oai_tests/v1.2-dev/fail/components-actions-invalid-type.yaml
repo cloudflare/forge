@@ -1,0 +1,8 @@
+overlay: 1.2.0
+info:
+  title: Components actions must be an object
+  version: 1.0.0
+components:
+  actions: []
+actions:
+  - target: '$'

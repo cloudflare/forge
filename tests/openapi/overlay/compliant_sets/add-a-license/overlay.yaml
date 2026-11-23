@@ -1,0 +1,10 @@
+overlay: '1.0.0'
+info:
+  title: Add MIT license
+  version: '1.0.0'
+actions:
+  - target: '$.info'
+    update:
+      license:
+        name: MIT
+        url: https://opensource.org/licenses/MIT
