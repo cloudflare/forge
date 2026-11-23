@@ -1,8 +1,15 @@
 {
   "$schema": "https://nimbus-docs.com/schema/nimbus.json",
   "version": "0.9.0",
-  "lastReviewedNimbusVersion": "0.20.0",
+  "lastReviewedNimbusVersion": "0.20.1",
   "templatesTag": "templates-v0.9.0",
+  "templatesTagByFile": {
+    "src/components/Header.astro": "templates-v0.9.1",
+    "src/components/ui/aside/Aside.astro": "templates-v0.9.1",
+    "src/components/ui/search/providers/pagefind.ts": "templates-v0.9.1",
+    "src/components/ui/toc/MobileTOC.astro": "templates-v0.9.1",
+    "src/styles/prose.css": "templates-v0.9.1"
+  },
   "variant": "empty",
   "registry": "https://nimbus-docs.com/registry",
   "install": {
