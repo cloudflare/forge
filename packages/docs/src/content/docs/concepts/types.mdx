@@ -137,8 +137,9 @@ value is, and each value of it:
 
 - Members that give no shape (`{}`, `true`, `{ type: object }`, a description only) are left out,
   and a single member left is the type itself.
-- A member with only `required` makes those fields of the other members required (a model among
-  them becomes a copy of its object, so the model itself is unchanged).
+- A member with only `required`, or a `required` next to the `allOf`, makes those fields of the
+  members required. A model among them that leaves one of those fields optional becomes a copy of
+  its object, so the model itself is unchanged.
 - A nested `allOf` adds its own members.
 - A `properties` keyword alongside `allOf` adds one more member.
 

@@ -15,10 +15,11 @@ cargo doc --no-deps --features wasm --open
 
 ## Features
 
-| Feature | Default | Enables                                                              |
-| ------- | ------- | -------------------------------------------------------------------- |
-| `cli`   | yes     | The `forge` binary. Turn it off with `default-features = false` in a library. |
-| `wasm`  | no      | `forge::wasm`, which runs WebAssembly plugins with Wasmtime.         |
+| Feature   | Default | Enables                                                                       |
+| --------- | ------- | ----------------------------------------------------------------------------- |
+| `cli`     | yes     | The `forge` binary. Turn it off with `default-features = false` in a library. |
+| `wasm`    | no      | `forge::wasm`, which runs WebAssembly plugins with Wasmtime.                  |
+| `library` | no      | The WIT's `library` world, which `@cloudflare/forge` builds to WebAssembly for [`parse`](/guides/parse/). It adds nothing to the public API. |
 
 ## Reading a document
 
@@ -228,11 +229,16 @@ every file in parallel, and only then writes. Refer to [The pipeline](/concepts/
 With the `wasm` feature:
 
 ```rust
-pub const WIT: &str;            // the WIT package plugins are built against
+pub const WIT: &str;            // the WIT package plugins and the library are built against
 
 impl WasmPlugin {               // implements Plugin
     pub fn from_file(path: impl AsRef<Path>) -> Result<WasmPlugin, Err>;
     pub fn new(wasm: &[u8]) -> Result<WasmPlugin, Err>;
+}
+
+pub struct WasmFile {           // implements File
+    pub path: String,
+    pub content: Vec<u8>,
 }
 ```
 

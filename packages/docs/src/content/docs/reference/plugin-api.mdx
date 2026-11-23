@@ -7,8 +7,11 @@ sidebar:
 ---
 
 `@cloudflare/forge/plugin` is the library [TypeScript plugins](/plugins/typescript/) are written
-with. Its types ship with the package, in `plugin/index.d.ts`. Every property is read-only, and the
+with. Its types ship with the package, in `plugin/plugin.d.ts`. Every property is read-only, and the
 same part of the model is always the same object.
+
+`@cloudflare/forge` exports the same model types, and `parse`, which reads a document into a `Forge`
+outside a plugin. Refer to [Read a document in JavaScript](/guides/parse/).
 
 ## definePlugin
 

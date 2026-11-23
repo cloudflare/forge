@@ -53,7 +53,7 @@ strip = true
 ### Write it
 
 `wit_bindgen::generate!` makes a `Guest` trait from the `plugin` world. Implement its one function,
-`generate`, and read the model through the `forge` interface's functions.
+`generate`, which receives the model as a `Forge` record.
 
 ```rust title="src/lib.rs"
 //! Writes one `routes.txt`: every method's HTTP method, path and name.
@@ -63,20 +63,19 @@ mod wit {
 }
 
 use wit::File;
-use wit::forge::plugin::forge as host;
-use wit::forge::plugin::forge::HttpMethod;
+use wit::forge::plugin::forge::{Forge, HttpMethod};
 
 struct Plugin;
 
 impl wit::Guest for Plugin {
-    fn generate() -> Result<Vec<File>, String> {
+    fn generate(forge: Forge) -> Result<Vec<File>, String> {
         let mut lines = Vec::new();
-        for group_id in host::groups() {
-            let group = host::get_group(group_id);
+        for &group_id in &forge.group_order {
+            let group = &forge.groups[group_id as usize];
             // The names of the groups down to this one; empty for the root.
-            let path: Vec<String> = group.path.iter().map(|&id| host::get_group(id).name.join("_")).collect();
-            for method_id in group.methods {
-                let method = host::get_method(method_id);
+            let path: Vec<String> = group.path.iter().map(|&id| forge.groups[id as usize].name.join("_")).collect();
+            for &method_id in &group.methods {
+                let method = &forge.methods[method_id as usize];
                 let name = path.iter().chain([&method.name.join("_")]).cloned().collect::<Vec<_>>();
                 lines.push(format!("{:<7} {:<45} {}", http(&method.http_method), method.path, name.join(".")));
             }
@@ -126,25 +125,24 @@ GET     /accounts/{account_id}/members                accounts.members.list
 GET     /pets                                         pets.list
 ```
 
-`status` has no group name, so it is in the root group, which `groups()` lists first. The release
-build is about 60 KB.
+`status` has no group name, so it is in the root group, which `group_order` lists first. The release
+build is about 65 KB.
 
 ### Working with the WIT
 
 The WIT is lower level than the Rust or TypeScript APIs, on purpose: it is what every language
 shares.
 
-- Every part is a `u32` id. `get-group`, `get-method`, `get-model` and `get-type` return a record of
-  its data, with ids for the parts inside it.
+- Every part is a `u32` id: its index in the `groups`, `methods`, `models` or `types` list of the
+  `Forge` record. A part's record has its data, with ids for the parts inside it.
 - A name is `list<string>`, its lower-case words. Join them for the casing you want.
 - A JSON value, such as an extension or a field's default, is its JSON text.
-- `get-location(method, object, index)` says where a method sends field `index` of the object type
-  `object`.
-- A trap (a panic, or an id the host never gave out) fails the run.
+- A method's `params` is the object type of its path and query parameters, and `locations` says
+  where each of that object's leading fields is sent, in field order.
+- A trap, such as a panic, fails the run.
 
-A record holds everything a part has, so fetch each part once and keep it. Since the WIT
-mirrors the Rust API, the [Rust API docs](/reference/rust-api/) give the meaning and order of every
-field. The [WIT reference](/reference/wit/) has the whole file.
+Since the WIT mirrors the Rust API, the [Rust API docs](/reference/rust-api/) give the meaning and
+order of every field. The [WIT reference](/reference/wit/) has the whole file.
 
 Standard error is passed through, so `eprintln!` and panic messages show up in your terminal while
 you debug.

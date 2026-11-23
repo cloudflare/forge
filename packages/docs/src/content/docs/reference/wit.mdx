@@ -1,15 +1,15 @@
 ---
 title: WIT
-description: The functions of the forge interface that a WebAssembly plugin imports, the plugin world it exports, and how their ids and records map to the model.
+description: The forge record that a WebAssembly plugin receives, the plugin world it exports, and how its ids and records map to the model.
 content_type: reference
 sidebar:
   order: 5
 ---
 
-WebAssembly plugins are components of the `plugin` world in the `forge:plugin` package. It imports
-the `forge` interface, which reads the model the host keeps, and exports `generate`.
+WebAssembly plugins are components of the `plugin` world in the `forge:plugin` package. The world
+exports `generate`, which the host calls with the whole model as one `forge` record.
 
-This page summarizes the interface: how to read it, its functions and the world. The complete file,
+This page summarizes the interface: how to read it, the record and the worlds. The complete file,
 with every record and its doc comments, is printed by `forge-plugin wit`, ships in the package as
 `@cloudflare/forge/plugin/forge.wit`, and is `forge::wasm::WIT` in Rust. The meaning and order of every field are as the
 [Rust API](/reference/rust-api/) documents them. The WIT is the same model, flattened into ids and
@@ -17,45 +17,44 @@ records.
 
 ## How to read it
 
-- Every group, method, model and type is a `u32` id, valid for the run. The root group is the
-  first id `groups()` returns, and its `name` and `path` are empty. `get-group`, `get-method`,
-  `get-model` and `get-type` return everything the part has, with ids for its parts.
-- `forge.counts()` says how many of each there are, so a plugin can size tables up front.
+- Every group, method, model and type is a `u32` id: its index in the matching list of the `forge`
+  record, counting from 0. A part's record has everything the part has, with ids for its parts.
+- `group-order` has every group id, depth first, starting with the root, which is group 0. The
+  root's `name` and `path` are empty.
 - A name is its lower-case words.
 - JSON is its text, which `JSON.parse` reads back.
-- `get-location(method, object, index)` is `Method::location` for field `index` of the object type
-  `object`.
-- An id the host never gave out traps.
+- A method's `params` is the object type of its path and query parameters, and `locations` says
+  where each of that object's leading fields is sent, in field order. Together they are
+  `Method::location`.
 
-## The functions
+## The record
 
-The `forge` interface's functions, which a plugin calls to read the model:
+The `forge` interface has only types. Its last one is the record a plugin receives:
 
 ```wit
 interface forge {
-    // ... the id types and the records they return ...
+    // ... the id types and the records of each part ...
 
-    info: func() -> forge-info;
-    counts: func() -> forge-counts;
-    /// Every group, depth first, starting with the root.
-    groups: func() -> list<group-id>;
-    get-group: func(id: group-id) -> group-info;
-    get-method: func(id: method-id) -> method-info;
-    get-model: func(id: model-id) -> model-info;
-    get-type: func(id: type-id) -> type-info;
-    /// Where method `id` sends field `index` of the object type `object`,
-    /// or none if it is not one of its parameters.
-    get-location: func(id: method-id, object: type-id, index: u32) -> option<location>;
+    /// A parsed document with all groups, methods, models and types indexed by id.
+    record forge {
+        info: forge-info,
+        /// Every group id, depth first, starting with the root (0).
+        group-order: list<group-id>,
+        groups: list<group-info>,
+        methods: list<method-info>,
+        models: list<model-info>,
+        types: list<type-info>,
+    }
 }
 ```
 
-## The world
+## The plugin world
 
-What a plugin is: it imports `forge`, and exports the one function the host calls:
+What a plugin is: it exports the one function the host calls, and imports no functions from Forge:
 
 ```wit
 world plugin {
-    import forge;
+    use forge.{forge};
 
     /// A generated file: its path relative to the output directory, using
     /// `/` as a separator, and its content. A file with no content is not
@@ -65,11 +64,17 @@ world plugin {
         content: list<u8>,
     }
 
-    /// Generates every file for the forge, in a fresh instance. Called
-    /// exactly once.
-    export generate: func() -> result<list<file>, string>;
+    /// Generates every file for `forge`, in a fresh instance. Called exactly
+    /// once.
+    export generate: func(forge: forge) -> result<list<file>, string>;
 }
 ```
+
+## The library world
+
+The same file has a second world, `library`, which exports the `parser` interface. Its `parse`
+takes an OpenAPI document as JSON text and returns the same `forge` record. `parse` in
+`@cloudflare/forge` is built from it. Refer to [Read a document in JavaScript](/guides/parse/).
 
 ## The complete file
 

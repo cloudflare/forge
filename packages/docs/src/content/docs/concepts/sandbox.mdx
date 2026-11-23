@@ -14,7 +14,7 @@ the only thing it can do to your disk is return files, which Forge checks before
 
 | Capability                  | Available | Notes                                                                 |
 | --------------------------- | --------- | --------------------------------------------------------------------- |
-| The model                   | Yes       | Through the `forge` interface of the [WIT](/reference/wit/).          |
+| The model                   | Yes       | As the `forge` record of the [WIT](/reference/wit/).                  |
 | Standard error              | Yes       | Inherited, so a panic or a log line shows up in your terminal.        |
 | Standard output and input   | No        |                                                                       |
 | Files                       | No        | No directory is mounted. The plugin cannot read the document or write. |
@@ -31,15 +31,12 @@ In a JavaScript plugin, `console` is not defined. Throw an error to report a pro
 
 ## How the model is read
 
-The model is never copied into the plugin. It stays in Forge's process, and the plugin reads it a
-part at a time: a group, method, model or type is a `u32` id, and `get-group`, `get-method`,
-`get-model` or `get-type` returns the part's data, with ids for the parts inside it. A plugin that
-reads one group never pays for the rest of the document.
+Forge passes the whole model to `generate` as one value, the `forge` record of the
+[WIT](/reference/wit/). The plugin gets a copy, and never calls back into Forge to read it. A
+group, method, model or type is a `u32` id: its index in the record's list of that part.
 
-An id the host never handed out traps the plugin, rather than crashing Forge.
-
-The TypeScript library hides this: `group.methods` fetches each method the first time it is read and
-keeps it for the rest of the run, so reading it again is free.
+The TypeScript library hides the ids: `group.methods` wraps each method the first time it is read
+and keeps it for the rest of the run, so reading it again is free.
 
 ## Instances
 

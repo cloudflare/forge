@@ -14,7 +14,7 @@ question for any language is only: can its toolchain build that component?
 
 - **A component, not a core module.** The file passed to `wasm://` must be a WebAssembly component
   (component model), such as what `wasm32-wasip2` toolchains produce.
-- **The `plugin` world.** It exports `generate`, and imports the `forge` interface,
+- **The `plugin` world.** It exports `generate`, which takes the `forge` record,
   both defined in [Forge's WIT](#the-wit).
 - **WASI preview 2, synchronously.** The host links the WASI 0.2 interfaces, so a component built by
   a standard toolchain, which imports `wasi:cli`, `wasi:io` and friends, instantiates fine. Exports
@@ -30,8 +30,9 @@ clock and random numbers, and nothing else.
 Whatever its language, a plugin has the same parts:
 
 - Bindings for the `plugin` world, generated from the WIT.
-- An implementation of `generate() -> result<list<file>, string>`.
-- Code that walks the model with `groups()`, `get-group`, `get-method`, `get-model` and `get-type`.
+- An implementation of `generate(forge) -> result<list<file>, string>`.
+- Code that walks the `forge` record: `group-order`, and the `groups`, `methods`, `models` and
+  `types` lists that ids index.
 - The files it returns: each a path with `/` separators, and the content as bytes.
 
 [The Rust example](/plugins/rust/#as-a-webassembly-component) has all of them in about 50 lines,
@@ -78,9 +79,9 @@ Every route to bindings starts from the WIT file, which `forge-plugin wit` print
 <PackageManagers type="exec" pkg="forge-plugin" args="wit > wit/forge.wit" />
 
 The package also exports it as `@cloudflare/forge/plugin/forge.wit`, and Rust code can read
-`forge::wasm::WIT` with the `wasm` feature. The WIT is versioned (`0.4.0` today). A plugin imports
-the version it was built against, and a `forge` with an incompatible version fails to instantiate it,
-so rebuild plugins against the WIT of the `forge` you run.
+`forge::wasm::WIT` with the `wasm` feature. The WIT is versioned (`0.4.0` today). A plugin is built
+against one copy of it, and a `forge` with an incompatible WIT does not load it, so rebuild plugins
+against the WIT of the `forge` you run.
 
 ## Related resources
 

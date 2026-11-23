@@ -137,13 +137,12 @@ A scalar's `scalar` is one of `unknown`, `null`, `boolean`, `string`, `number`, 
 `int64`. Names have `camel()`, `pascal()`, `snake()`, `kebab()`, `words` and `equals()`. Refer to
 [Names](/concepts/names/).
 
-### Reading lazily
+### Identity
 
-The model stays in Forge's process. Each part is fetched from the host the first time the plugin
-reads it, and kept until the call ends, so reading a part twice is free, and the same part is
-always the same object. Compare groups, methods and models with `===`, and use them as `Map` keys.
-
-A plugin that only reads `group.methods` never pays for the types of their responses.
+Forge passes the whole model to the plugin when it calls it. The library wraps each part the first
+time the plugin reads it, and keeps it until the call ends, so reading a part twice is free, and the
+same part is always the same object. Compare groups, methods and models with `===`, and use them as
+`Map` keys.
 
 ## Files
 
