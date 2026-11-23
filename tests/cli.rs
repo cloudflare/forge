@@ -252,3 +252,110 @@ fn inspect_methods_of_an_invalid_document() {
     let err = failure(inspect(&["methods", "-"], spec));
     assert!(err.contains("in the same group"), "{err}");
 }
+
+#[test]
+fn inspect_methods_filters_with_conditions_flag() {
+    let spec = r#"{
+      "openapi": "3.0.3",
+      "info": {"title": "t", "version": "1"},
+      "paths": {
+        "/a": {
+          "get": {
+            "x-forge-group-name": "a",
+            "x-forge-method-name": "get",
+            "x-forge-skip": ["terraform"],
+            "responses": {"200": {"description": "ok"}}
+          }
+        },
+        "/b": {
+          "get": {
+            "x-forge-group-name": "b",
+            "x-forge-method-name": "get",
+            "x-forge-only-for": ["sdk"],
+            "responses": {"200": {"description": "ok"}}
+          }
+        },
+        "/c": {
+          "get": {
+            "x-forge-group-name": "c",
+            "x-forge-method-name": "get",
+            "x-forge-only-for": ["mcp"],
+            "responses": {"200": {"description": "ok"}}
+          }
+        }
+      }
+    }"#;
+
+    let names = |args: &[&str]| -> Vec<String> {
+        let out = inspect(args, spec);
+        assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr));
+        let list: Vec<serde_json::Value> = serde_json::from_slice(&out.stdout).unwrap();
+        list.into_iter()
+            .map(|entry| {
+                let group = entry["group"][0].as_str().unwrap();
+                let name = entry["name"].as_str().unwrap();
+                format!("{group}.{name}")
+            })
+            .collect()
+    };
+
+    // Omitted `--conditions`: active set is empty, so only `/a` is kept.
+    assert_eq!(names(&["methods", "-"]), ["a.get"]);
+    // Comma-separated conditions: `sdk,mcp` keeps all three.
+    assert_eq!(
+        names(&["methods", "--conditions=sdk,mcp", "-"]),
+        ["a.get", "b.get", "c.get"]
+    );
+    // Repeated `--conditions` flags combine.
+    assert_eq!(
+        names(&["methods", "--conditions=terraform", "--conditions=sdk", "-"]),
+        ["b.get"]
+    );
+}
+
+#[test]
+fn generate_filters_with_conditions_flag() {
+    let spec = r#"{
+      "openapi": "3.0.3",
+      "info": {"title": "t", "version": "1"},
+      "paths": {
+        "/a": {
+          "get": {
+            "x-forge-group-name": "a",
+            "x-forge-method-name": "get",
+            "x-forge-skip": ["sdk"],
+            "responses": {"200": {"description": "ok"}}
+          }
+        },
+        "/b": {
+          "get": {
+            "x-forge-group-name": "b",
+            "x-forge-method-name": "get",
+            "x-forge-only-for": ["sdk"],
+            "responses": {"200": {"description": "ok"}}
+          }
+        }
+      }
+    }"#;
+
+    let out = std::env::temp_dir().join(format!("forge-cli-conditions-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&out);
+    let result = generate(
+        &[
+            "-",
+            "--target",
+            "ts",
+            "--conditions=sdk",
+            "--out",
+            out.to_str().unwrap(),
+        ],
+        spec,
+    );
+    assert!(result.status.success(), "{}", String::from_utf8_lossy(&result.stderr));
+    assert!(
+        !out.join("a/client.ts").exists(),
+        "skipped group a should not be emitted"
+    );
+    assert!(out.join("b/client.ts").is_file(), "only-for group b should be emitted");
+    std::fs::remove_dir_all(&out).unwrap();
+}

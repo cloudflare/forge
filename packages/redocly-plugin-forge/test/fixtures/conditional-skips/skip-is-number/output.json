@@ -2,7 +2,7 @@
   {
     "ruleId": "forge/conditional-skips",
     "severity": "error",
-    "message": "x-forge-skip must be a boolean or an array of non-empty condition names; got number.",
+    "message": "x-forge-skip must be a boolean or a non-empty array of non-empty condition names; got number.",
     "location": "openapi.yaml#/paths/~1thing/get/x-forge-skip (key)"
   }
 ]

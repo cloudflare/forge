@@ -99,10 +99,12 @@ impl Walk<'_> {
             return;
         };
         match kind {
+            Kind::PathItem => self.rewrite(members, Kind::PathItem),
             Kind::Operation | Kind::Alias => self.rewrite(members, Kind::Operation),
             Kind::Parameter => self.rewrite(members, Kind::Parameter),
+            Kind::Body => self.rewrite(members, Kind::Body),
             Kind::Schema => self.rewrite(members, Kind::Schema),
-            Kind::Document | Kind::Components | Kind::PathItem | Kind::Body | Kind::Media => {}
+            Kind::Document | Kind::Components | Kind::Media => {}
         }
         for (key, member) in members.iter_mut() {
             let Some(shape) = child(kind, key, member) else {
@@ -145,10 +147,12 @@ impl Walk<'_> {
             .filter_map(|key| {
                 // The first source with a normalizer for the key wins.
                 let normalizer = self.options.sources.iter().find_map(|source| match kind {
+                    Kind::PathItem => source.path_item(key),
                     Kind::Operation => source.definition(key),
                     Kind::Parameter => source.parameter(key),
+                    Kind::Body => source.body(key),
                     Kind::Schema => source.schema(key),
-                    Kind::Document | Kind::Components | Kind::PathItem | Kind::Alias | Kind::Body | Kind::Media => None,
+                    Kind::Document | Kind::Components | Kind::Alias | Kind::Media => None,
                 });
                 normalizer.map(|normalizer| (key.clone(), normalizer))
             })

@@ -1,0 +1,29 @@
+openapi: 3.1.0
+info:
+  title: Shared component reported once
+  version: 1.0.0
+paths:
+  /a:
+    get:
+      operationId: getA
+      parameters:
+        - $ref: '#/components/parameters/Shared'
+      responses:
+        '200':
+          description: OK
+  /b:
+    get:
+      operationId: getB
+      parameters:
+        - $ref: '#/components/parameters/Shared'
+      responses:
+        '200':
+          description: OK
+components:
+  parameters:
+    Shared:
+      name: q
+      in: query
+      schema:
+        type: string
+      x-forge-skip: terraform

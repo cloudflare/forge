@@ -1,10 +1,11 @@
 //! Compatibility-source adapters for [`super::json::normalize`].
 //!
-//! A [`Source`] names the normalizers that apply to operations, parameters,
-//! and schemas. A key is listed only at the OpenAPI object kind where Forge
-//! reads its native replacement; elsewhere it is left alone. A [`Normalize`]
-//! gives the [`Native`] form of an extension: the key that replaces it and
-//! its value; the walk renames the key.
+//! A [`Source`] names the normalizers that apply to path items, operations,
+//! parameters, request bodies/responses, and schemas. A key is listed only at
+//! the OpenAPI object kinds where Forge reads its native replacement;
+//! elsewhere it is left alone. A [`Normalize`] gives the [`Native`] form of an
+//! extension: the key that replaces it and its value; the walk renames the
+//! key.
 //!
 //! To add a compatibility source, implement [`Source`] in a module here and
 //! add its value to [`ALL`]. To add a key to an existing source, return its
@@ -32,6 +33,11 @@ pub(super) trait Source: Sync {
     /// The name accepted by `--from`.
     fn name(&self) -> &'static str;
 
+    /// The normalizer for `key` on Path Item Objects, if there is one.
+    fn path_item(&self, _key: &str) -> Option<&dyn Normalize> {
+        None
+    }
+
     /// The normalizer for `key` on operations and aliases, if there is one.
     fn definition(&self, _key: &str) -> Option<&dyn Normalize> {
         None
@@ -39,6 +45,12 @@ pub(super) trait Source: Sync {
 
     /// The normalizer for `key` on Parameter Objects, if there is one.
     fn parameter(&self, _key: &str) -> Option<&dyn Normalize> {
+        None
+    }
+
+    /// The normalizer for `key` on Request Body and Response Objects, if
+    /// there is one.
+    fn body(&self, _key: &str) -> Option<&dyn Normalize> {
         None
     }
 

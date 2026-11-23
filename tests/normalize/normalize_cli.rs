@@ -765,3 +765,93 @@ fn a_file_in_a_folder_that_cannot_be_written_to_is_rewritten_in_place() {
     succeeded(&out);
     assert_eq!(fs::read_to_string(&file).unwrap(), NATIVE);
 }
+
+#[test]
+fn conditional_vendor_extensions_normalize_across_all_placements() {
+    let doc = r##"{
+      "openapi": "3.0.3",
+      "info": {"title": "t", "version": "1"},
+      "paths": {
+        "/skipped-path": {
+          "x-stainless-skip": ["terraform"],
+          "get": {
+            "x-fern-sdk-group-name": "p",
+            "x-fern-sdk-method-name": "get",
+            "responses": {"204": {"description": "ok"}}
+          }
+        },
+        "/items": {
+          "post": {
+            "x-fern-sdk-group-name": "items",
+            "x-fern-sdk-method-name": "create",
+            "x-fern-audiences": ["sdk"],
+            "parameters": [
+              {
+                "name": "debug",
+                "in": "query",
+                "x-fern-ignore": true,
+                "schema": {"type": "boolean"}
+              }
+            ],
+            "requestBody": {
+              "x-stainless-skip": ["mcp"],
+              "content": {"application/json": {"schema": {"type": "string"}}}
+            },
+            "responses": {
+              "200": {
+                "description": "ok",
+                "x-fern-audiences": ["sdk"],
+                "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Item"}}}
+              }
+            }
+          }
+        }
+      },
+      "components": {
+        "schemas": {
+          "Item": {
+            "type": "object",
+            "properties": {
+              "id": {"type": "string"},
+              "internal": {"type": "string", "x-stainless-skip": ["sdk"]},
+              "sdk_only": {"type": "string", "x-fern-audiences": ["sdk"]}
+            }
+          }
+        }
+      }
+    }"##;
+
+    let out = normalize(&["-"], doc);
+    succeeded(&out);
+
+    let text = text(&out.stdout);
+    for old in ["x-stainless-skip", "x-fern-audiences", "x-fern-ignore"] {
+        assert!(!text.contains(old), "{old} was not normalized: {text}");
+    }
+
+    // Under `sdk`: `/skipped-path` and `/items` are kept; `debug` param is
+    // skipped; requestBody is kept (`mcp` inactive); `Item` drops `internal`
+    // and keeps `id` + `sdk_only`.
+    let parsed = forge::parse_json(&out.stdout, &["sdk".to_owned()]).unwrap();
+    let items = parsed
+        .groups()
+        .find(|g| *g.name() == Name::new("items"))
+        .unwrap()
+        .methods()
+        .next()
+        .unwrap();
+    assert!(items.body().is_some());
+    assert_eq!(items.responses().count(), 1);
+    let Type::Model(model) = items.responses().next().unwrap().json().unwrap().ty() else {
+        panic!("expected model response");
+    };
+    let Type::Object(object) = model.ty() else {
+        panic!("expected object model");
+    };
+    let field_names: Vec<_> = object.fields().map(|f| f.wire_name()).collect();
+    assert_eq!(field_names, ["id", "sdk_only"]);
+
+    // Under `terraform`: `/skipped-path` is dropped, and `/items` (`only-for: [sdk]`) is dropped.
+    let parsed = forge::parse_json(&out.stdout, &["terraform".to_owned()]).unwrap();
+    assert_eq!(parsed.groups().flat_map(|g| g.methods()).count(), 0);
+}

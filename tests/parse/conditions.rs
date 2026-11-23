@@ -182,8 +182,7 @@ fn response_with_property(extensions: &str) -> String {
 
 #[test]
 fn skipped_property_is_dropped_from_fields() {
-    let doc = response_with_property(r#""x-forge-skip": ["terraform""#);
-    let doc = doc.replace("terraform\"", "terraform\"]");
+    let doc = response_with_property(r#""x-forge-skip": ["terraform"]"#);
 
     let forge = parse_with_conditions(&doc, &["terraform"]);
     let fields = object(response_type(&forge, "x.get"));
@@ -196,8 +195,7 @@ fn skipped_property_is_dropped_from_fields() {
 
 #[test]
 fn only_for_property_is_dropped_when_no_listed_condition_is_active() {
-    let doc = response_with_property(r#""x-forge-only-for": ["sdk""#);
-    let doc = doc.replace("sdk\"", "sdk\"]");
+    let doc = response_with_property(r#""x-forge-only-for": ["sdk"]"#);
 
     let forge = parse_with_conditions(&doc, &["sdk"]);
     let fields = object(response_type(&forge, "x.get"));
@@ -292,8 +290,7 @@ fn method_with_parameter(ext: &str) -> String {
 
 #[test]
 fn skip_on_a_parameter_drops_it() {
-    let doc = method_with_parameter(r#""x-forge-skip": ["terraform""#);
-    let doc = doc.replace("terraform\"", "terraform\"]");
+    let doc = method_with_parameter(r#""x-forge-skip": ["terraform"]"#);
 
     let forge = parse_with_conditions(&doc, &["terraform"]);
     let m = method(&forge, "x.get");
@@ -306,8 +303,7 @@ fn skip_on_a_parameter_drops_it() {
 
 #[test]
 fn only_for_on_a_parameter_keeps_it_only_for_matching_conditions() {
-    let doc = method_with_parameter(r#""x-forge-only-for": ["sdk""#);
-    let doc = doc.replace("sdk\"", "sdk\"]");
+    let doc = method_with_parameter(r#""x-forge-only-for": ["sdk"]"#);
 
     let forge = parse_with_conditions(&doc, &["sdk"]);
     assert!(method(&forge, "x.get").request().is_some());
@@ -385,8 +381,7 @@ fn method_with_responses(ext: &str) -> String {
 
 #[test]
 fn skip_on_a_response_drops_it() {
-    let doc = method_with_responses(r#""x-forge-skip": ["terraform""#);
-    let doc = doc.replace("terraform\"", "terraform\"]");
+    let doc = method_with_responses(r#""x-forge-skip": ["terraform"]"#);
 
     let forge = parse_with_conditions(&doc, &["terraform"]);
     let statuses: Vec<_> = method(&forge, "x.get")
@@ -405,8 +400,7 @@ fn skip_on_a_response_drops_it() {
 
 #[test]
 fn only_for_on_a_response_keeps_it_only_for_matching_conditions() {
-    let doc = method_with_responses(r#""x-forge-only-for": ["sdk""#);
-    let doc = doc.replace("sdk\"", "sdk\"]");
+    let doc = method_with_responses(r#""x-forge-only-for": ["sdk"]"#);
 
     let forge = parse_with_conditions(&doc, &["sdk"]);
     let statuses: Vec<_> = method(&forge, "x.get")
@@ -516,8 +510,7 @@ fn two_aliases(ext: &str) -> String {
 
 #[test]
 fn skip_on_an_alias_drops_only_that_alias() {
-    let doc = two_aliases(r#""x-forge-skip": ["terraform""#);
-    let doc = doc.replace("terraform\"", "terraform\"]");
+    let doc = two_aliases(r#""x-forge-skip": ["terraform"]"#);
 
     let forge = parse_with_conditions(&doc, &["terraform"]);
     assert_eq!(method_names(&forge), ["a.secondary"]);
@@ -528,12 +521,195 @@ fn skip_on_an_alias_drops_only_that_alias() {
 
 #[test]
 fn only_for_on_an_alias_keeps_it_only_for_matching_conditions() {
-    let doc = two_aliases(r#""x-forge-only-for": ["sdk""#);
-    let doc = doc.replace("sdk\"", "sdk\"]");
+    let doc = two_aliases(r#""x-forge-only-for": ["sdk"]"#);
 
     let forge = parse_with_conditions(&doc, &["sdk"]);
     assert_eq!(method_names(&forge), ["a.primary", "a.secondary"]);
 
     let forge = parse_with_conditions(&doc, &["mcp"]);
     assert_eq!(method_names(&forge), ["a.secondary"]);
+}
+
+#[test]
+fn operation_parameter_skip_overrides_path_item_parameter() {
+    let doc = r#"{
+      "openapi": "3.0.3",
+      "info": {"title": "t", "version": "1"},
+      "paths": {
+        "/x": {
+          "parameters": [
+            {"name": "debug", "in": "query", "schema": {"type": "boolean"}}
+          ],
+          "get": {
+            "x-forge-group-name": "x",
+            "x-forge-method-name": "get",
+            "parameters": [
+              {"name": "debug", "in": "query", "x-forge-skip": ["sdk"], "schema": {"type": "boolean"}}
+            ],
+            "responses": {"204": {"description": "ok"}}
+          }
+        }
+      }
+    }"#;
+
+    // When `sdk` is active, the operation's skipped override suppresses the
+    // path item's `debug` parameter instead of letting it leak through.
+    let forge = parse_with_conditions(doc, &["sdk"]);
+    assert!(method(&forge, "x.get").request().is_none());
+
+    // When `sdk` is inactive, the parameter is kept.
+    let forge = parse_with_conditions(doc, &["terraform"]);
+    assert!(method(&forge, "x.get").request().is_some());
+}
+
+#[test]
+fn operation_parameter_can_unskip_a_skipped_path_item_parameter() {
+    let doc = r#"{
+      "openapi": "3.0.3",
+      "info": {"title": "t", "version": "1"},
+      "paths": {
+        "/x": {
+          "parameters": [
+            {"name": "debug", "in": "query", "x-forge-skip": ["sdk"], "schema": {"type": "boolean"}}
+          ],
+          "get": {
+            "x-forge-group-name": "x",
+            "x-forge-method-name": "get",
+            "parameters": [
+              {"name": "debug", "in": "query", "schema": {"type": "boolean"}}
+            ],
+            "responses": {"204": {"description": "ok"}}
+          }
+        }
+      }
+    }"#;
+
+    let forge = parse_with_conditions(doc, &["sdk"]);
+    assert!(method(&forge, "x.get").request().is_some());
+}
+
+#[test]
+fn skipping_a_required_path_parameter_is_an_error() {
+    let doc = r#"{
+      "openapi": "3.0.3",
+      "info": {"title": "t", "version": "1"},
+      "paths": {
+        "/accounts/{account_id}": {
+          "get": {
+            "x-forge-group-name": "accounts",
+            "x-forge-method-name": "get",
+            "parameters": [
+              {
+                "name": "account_id",
+                "in": "path",
+                "required": true,
+                "x-forge-skip": ["terraform"],
+                "schema": {"type": "integer"}
+              }
+            ],
+            "responses": {"204": {"description": "ok"}}
+          }
+        }
+      }
+    }"#;
+
+    let err = parse_with_conditions_err(doc, &["terraform"]);
+    assert!(
+        err.contains(r#"path parameter "account_id" is required by the path template"#),
+        "unexpected error: {err}"
+    );
+
+    // When the condition is not active, the path parameter is kept normally.
+    let forge = parse_with_conditions(doc, &["sdk"]);
+    let fields = object(method(&forge, "accounts.get").request().unwrap());
+    assert_eq!(field_names(fields), ["account_id"]);
+}
+
+#[test]
+fn ref_to_skipped_defs_schema_is_an_error() {
+    let doc = r##"{
+      "openapi": "3.1.0",
+      "info": {"title": "t", "version": "1"},
+      "paths": {
+        "/x": {
+          "get": {
+            "x-forge-group-name": "x",
+            "x-forge-method-name": "get",
+            "responses": {"200": {
+              "description": "ok",
+              "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Container/$defs/Secret"}}}
+            }}
+          }
+        }
+      },
+      "components": {
+        "schemas": {
+          "Container": {
+            "type": "object",
+            "$defs": {
+              "Secret": {
+                "type": "string",
+                "x-forge-skip": ["terraform"]
+              }
+            }
+          }
+        }
+      }
+    }"##;
+
+    let err = parse_with_conditions_err(doc, &["terraform"]);
+    assert!(
+        err.contains("points to a schema removed by x-forge-skip or x-forge-only-for"),
+        "error should name the dangling $defs ref: {err}"
+    );
+
+    parse_with_conditions(doc, &["sdk"]);
+}
+
+#[test]
+fn ref_to_skipped_property_schema_is_an_error() {
+    let doc = r##"{
+      "openapi": "3.0.3",
+      "info": {"title": "t", "version": "1"},
+      "paths": {
+        "/x": {
+          "get": {
+            "x-forge-group-name": "x",
+            "x-forge-method-name": "get",
+            "responses": {"200": {
+              "description": "ok",
+              "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Thing/properties/internal"}}}
+            }}
+          }
+        }
+      },
+      "components": {
+        "schemas": {
+          "Thing": {
+            "type": "object",
+            "properties": {
+              "internal": {"type": "string", "x-forge-only-for": ["internal"]}
+            }
+          }
+        }
+      }
+    }"##;
+
+    let err = parse_with_conditions_err(doc, &["sdk"]);
+    assert!(
+        err.contains("points to a schema removed by x-forge-skip or x-forge-only-for"),
+        "error should name the dangling property ref: {err}"
+    );
+
+    parse_with_conditions(doc, &["internal"]);
+}
+
+#[test]
+fn only_for_extension_is_consumed_and_not_exposed_on_method() {
+    let doc = two_methods(r#""x-forge-only-for": ["sdk"], "x-other": 1,"#, "");
+    let forge = parse_with_conditions(&doc, &["sdk"]);
+    let m = method(&forge, "a.get");
+    assert_eq!(m.extension("x-forge-only-for"), None);
+    let ext_names: Vec<_> = m.extensions().map(|(k, _)| k).collect();
+    assert_eq!(ext_names, ["x-other"]);
 }

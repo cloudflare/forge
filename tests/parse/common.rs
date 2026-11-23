@@ -18,7 +18,8 @@ pub fn parse(json: &str) -> Forge {
 #[track_caller]
 pub fn parse_with_conditions(json: &str, conditions: &[&str]) -> Forge {
     let conditions: Vec<String> = conditions.iter().map(|c| (*c).to_owned()).collect();
-    match forge::parse_json(json.as_bytes(), &conditions) {
+    let mut de = serde_json::Deserializer::from_str(json);
+    match Forge::deserialize_with_conditions(&mut de, &conditions).and_then(|forge| de.end().map(|()| forge)) {
         Ok(forge) => forge,
         Err(err) => panic!("parse: {err}"),
     }
@@ -87,9 +88,10 @@ pub fn parse_err(json: &str) -> String {
 #[track_caller]
 pub fn parse_with_conditions_err(json: &str, conditions: &[&str]) -> String {
     let conditions: Vec<String> = conditions.iter().map(|c| (*c).to_owned()).collect();
-    match forge::parse_json(json.as_bytes(), &conditions) {
+    let mut de = serde_json::Deserializer::from_str(json);
+    match Forge::deserialize_with_conditions(&mut de, &conditions).and_then(|forge| de.end().map(|()| forge)) {
         Ok(_) => panic!("parse: want an error, got a Forge"),
-        Err(err) => err,
+        Err(err) => err.to_string(),
     }
 }
 

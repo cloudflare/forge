@@ -294,10 +294,10 @@ impl<'f> Method<'f> {
     /// the last dot, with group names separated by dots the same way, and an
     /// `operationId` with no dot makes a method of the root.
     ///
-    /// An operation or alias with `x-forge-skip: true` is not a method,
-    /// however it is named. A group name with no letters or digits, such as
-    /// the empty one in `accounts..members` or in the `operationId`
-    /// `a..b.list` or `.list`, is an error.
+    /// An operation or alias skipped by `x-forge-skip` or filtered out by
+    /// `x-forge-only-for` is not a method, however it is named. A group name
+    /// with no letters or digits, such as the empty one in `accounts..members`
+    /// or in the `operationId` `a..b.list` or `.list`, is an error.
     pub fn group(self) -> Group<'f> {
         self.forge.group(self.data().group)
     }
@@ -366,8 +366,8 @@ impl<'f> Method<'f> {
     ///
     /// Corresponds to the `x-forge-hidden` extension of the operation, a
     /// boolean, which is false without it. A value that is not a boolean
-    /// is an error, as for `x-forge-skip`. Unlike `x-forge-skip`, a
-    /// hidden operation is still a method.
+    /// is an error. Unlike `x-forge-skip`, a hidden operation is still a
+    /// method.
     pub fn is_hidden(self) -> bool {
         self.data().hidden
     }
@@ -526,9 +526,9 @@ impl<'f> Method<'f> {
     /// An extension is a key of the
     /// [Operation Object](https://spec.openapis.org/oas/latest.html#operation-object)
     /// that starts with `x-`. Those forge reads, `x-forge-method-name`,
-    /// `x-forge-group-name`, `x-forge-skip`, `x-forge-availability`,
-    /// `x-forge-hidden`, `x-forge-require-confirmation` and
-    /// `x-forge-aliases`, are left out. Other keys forge does not read, such as
+    /// `x-forge-group-name`, `x-forge-skip`, `x-forge-only-for`,
+    /// `x-forge-availability`, `x-forge-hidden`,
+    /// `x-forge-require-confirmation` and `x-forge-aliases`, are left out. Other keys forge does not read, such as
     /// the extensions other tools write, are kept, and `forge normalize` is
     /// what rewrites those it knows into the ones forge reads. An extension
     /// written more than once is there once,

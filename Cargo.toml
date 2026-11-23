@@ -55,10 +55,6 @@ name = "cli"
 required-features = ["cli"]
 
 [[test]]
-name = "parse"
-required-features = ["cli"]
-
-[[test]]
 name = "wasm"
 required-features = ["cli", "wasm"]
 

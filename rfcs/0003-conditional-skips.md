@@ -49,12 +49,15 @@ option leaves conditional filters as no-ops and keeps every element:
 `x-forge-only-for` have no effect. Pass conditions through the options
 argument to filter: `parse(json, { conditions: ['sdk'] })`.
 
-A retained element whose `$ref` points to a schema definition dropped by
-`x-forge-skip` or `x-forge-only-for` is a parse error naming the dangling
-reference, so a stale ref fails the build rather than silently losing a
-model.
+A retained element whose `$ref` points to a schema definition (including a
+`$defs` entry or sub-schema) dropped by `x-forge-skip` or `x-forge-only-for`
+is a parse error naming the dangling reference, so a stale ref fails the
+build rather than silently losing a model. Likewise, dropping a path
+parameter that a retained operation's path template still references as a
+`{placeholder}` is a parse error.
 
-Validation lives in `redocly-plugin-forge`.
+Validation lives in `redocly-plugin-forge` (`forge/conditional-skips`
+rejects invalid shapes and empty arrays for both extensions).
 
 ## Vendor normalization
 

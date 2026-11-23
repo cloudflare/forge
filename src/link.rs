@@ -11,7 +11,6 @@ mod read;
 
 use std::borrow::Cow;
 use std::collections::HashMap;
-use std::collections::HashSet;
 use std::collections::hash_map::Entry;
 use std::{fmt, mem, slice};
 
@@ -74,6 +73,26 @@ impl<'de> Deserialize<'de> for Forge {
     }
 }
 
+impl Forge {
+    /// Reads a `Forge` from `deserializer` with `conditions` active.
+    ///
+    /// A condition changes what elements marked `x-forge-skip` or
+    /// `x-forge-only-for` are kept: see RFC 0003. Unlike
+    /// [`Forge::deserialize`], an empty slice still enables conditional
+    /// filtering with no conditions active, so elements carrying
+    /// `x-forge-only-for` are dropped.
+    pub fn deserialize_with_conditions<'de, D: Deserializer<'de>>(
+        deserializer: D,
+        conditions: &[String],
+    ) -> Result<Forge, D::Error> {
+        let doc = Doc::read(deserializer)?;
+        match build(doc, Some(conditions)) {
+            Ok(forge) => Ok(forge),
+            Err(errors) => Err(de::Error::custom(errors.join("\n"))),
+        }
+    }
+}
+
 /// Reads a `Forge` from an OpenAPI JSON document with the given conditions
 /// active. A condition changes what elements marked `x-forge-skip` or
 /// `x-forge-only-for` are kept: see RFC 0003.
@@ -118,22 +137,18 @@ fn is_kept(doc: &Doc, conditions: Option<&[String]>, skip: &Skip, only_for: Span
         .any(|&name| active.iter().any(|c| c == doc.str(name)))
 }
 
-/// Returns the names of component schemas filtered out by `x-forge-skip` or
-/// `x-forge-only-for` under `conditions`. The set is populated once so
-/// `$ref` resolution can report a dangling reference in O(1). Empty when
-/// `conditions` is `None` (the library path leaves conditional filters as
-/// no-ops), apart from schemas marked `x-forge-skip: true`, which are
-/// always dropped.
-fn skipped_schema_names<'d>(doc: &'d Doc, conditions: Option<&[String]>) -> HashSet<&'d str> {
-    let mut names = HashSet::new();
-    for &(name, schema) in doc.list(doc.components.schemas) {
-        let Schema::Object(object) = schema else { continue };
+/// Returns an error if `schema` was removed by `x-forge-skip` or
+/// `x-forge-only-for` under `conditions`.
+fn check_kept_schema(doc: &Doc, conditions: Option<&[String]>, schema: Schema, reference: &str) -> Result<(), String> {
+    if let Schema::Object(object) = schema {
         let object = doc.get(object);
         if !is_kept(doc, conditions, &object.skip, object.only_for) {
-            names.insert(doc.str(name));
+            return Err(format!(
+                "$ref {reference:?} points to a schema removed by x-forge-skip or x-forge-only-for"
+            ));
         }
     }
-    names
+    Ok(())
 }
 
 /// Returns the `Forge` of `doc`, or every error in it.
@@ -461,10 +476,6 @@ struct Builder<'d> {
     /// filtering (the `Deserialize` path); `Some(&[])` means CLI-mode
     /// filtering with no condition active.
     conditions: Option<&'d [String]>,
-    /// Names of component schemas filtered out by `x-forge-skip` or
-    /// `x-forge-only-for`. A `$ref` into one is an error. Empty when
-    /// conditional filtering is off.
-    skipped_schemas: HashSet<&'d str>,
 
     groups: Groups,
     /// Each group but the root by its parent and name.
@@ -521,13 +532,11 @@ enum Context<'d> {
 
 impl<'d> Builder<'d> {
     fn new(doc: &'d Doc, index: &'d Index<'d>, v30: bool, conditions: Option<&'d [String]>) -> Builder<'d> {
-        let skipped_schemas = skipped_schema_names(doc, conditions);
         Builder {
             doc,
             index,
             v30,
             conditions,
-            skipped_schemas,
             groups: Groups::default(),
             group_index: HashMap::new(),
             methods: Vec::new(),
@@ -718,7 +727,7 @@ impl<'d> Builder<'d> {
         if let Context::Alias(method, path, _) = self.context {
             self.context = Context::Operation(method, path);
         }
-        let declared = self.declared(item, operation);
+        let declared = self.declared(path, item, operation);
         let (mut fields, locations) = self.params(path, &declared);
         let headers = self.headers(&declared);
         let mut body = None;
@@ -814,14 +823,18 @@ impl<'d> Builder<'d> {
         id
     }
 
-    /// Returns each parameter of `operation` and of its path item `item`,
+    /// Returns each kept parameter of `operation` and of its path item `item`,
     /// with its own description, as [`param`](Builder::param) gives them:
     /// the path item's in the order they are declared, then the
     /// operation's. An operation's parameter that is the same as one
-    /// before it, as [`same_param`] says, takes its place instead.
-    fn declared(&mut self, item: &'d PathItem, operation: &'d Operation) -> Vec<(&'d Parameter, Str)> {
+    /// before it, as [`same_param`] says, takes its place instead — including
+    /// when the operation overrides a path-item parameter only to skip it.
+    ///
+    /// Removing a path parameter whose name appears as a `{placeholder}` in
+    /// `path` is an error, since the path template still requires it.
+    fn declared(&mut self, path: &'d str, item: &'d PathItem, operation: &'d Operation) -> Vec<(&'d Parameter, Str)> {
         let doc = self.doc;
-        let mut declared: Vec<(&'d Parameter, Str)> = Vec::new();
+        let mut declared: Vec<(&'d Parameter, Str, bool)> = Vec::new();
         for &param in doc.list(item.parameters) {
             if let Some(declaration) = self.param(param) {
                 declared.push(declaration);
@@ -831,15 +844,37 @@ impl<'d> Builder<'d> {
             let Some(declaration) = self.param(param) else {
                 continue;
             };
-            match declared
-                .iter_mut()
-                .find(|other| same_param(doc, other.0, declaration.0))
-            {
+            let matched = if !declaration.0.name.is_empty() && declaration.0.location.is_some() {
+                declared
+                    .iter_mut()
+                    .find(|other| same_param(doc, other.0, declaration.0))
+            } else {
+                None
+            };
+            match matched {
                 Some(other) => *other = declaration,
                 None => declared.push(declaration),
             }
         }
-        declared
+        let path_placeholders = placeholders(path);
+        let mut kept = Vec::with_capacity(declared.len());
+        for (param, description, is_kept) in declared {
+            if is_kept {
+                if param.name.is_empty() || param.location.is_none() {
+                    self.error("a parameter has no name or no in");
+                    continue;
+                }
+                kept.push((param, description));
+            } else if param.location == Some(ParameterLocation::Path)
+                && path_placeholders.contains(&doc.str(param.name))
+            {
+                self.error(format_args!(
+                    "path parameter {:?} is required by the path template and cannot be removed by x-forge-skip or x-forge-only-for",
+                    doc.str(param.name)
+                ));
+            }
+        }
+        kept
     }
 
     /// Returns a field for each path and query parameter in `declared`,
@@ -952,14 +987,15 @@ impl<'d> Builder<'d> {
         Some(self.object_of(fields, None))
     }
 
-    /// Returns `param`, after following its `$ref`, and its own
-    /// description, or `None` if it has no name or location.
+    /// Returns `param`, after following its `$ref`, its own description, and
+    /// whether it is kept under the active conditions, or `None` if its `$ref`
+    /// could not be followed.
     ///
     /// From OpenAPI 3.1, a Reference Object's `description` overrides the
     /// referenced parameter's, so the description is the first one next
     /// to a `$ref` along the way, or else the parameter's. In 3.0 the
     /// keywords next to a `$ref` are ignored.
-    fn param(&mut self, param: Id<Parameter>) -> Option<(&'d Parameter, Str)> {
+    fn param(&mut self, param: Id<Parameter>) -> Option<(&'d Parameter, Str, bool)> {
         let index = self.index;
         let v30 = self.v30;
         let mut description = Str::default();
@@ -968,17 +1004,11 @@ impl<'d> Builder<'d> {
                 description = reference.description;
             }
         })?;
-        if !is_kept(self.doc, self.conditions, &param.skip, param.only_for) {
-            return None;
-        }
-        if param.name.is_empty() || param.location.is_none() {
-            self.error("a parameter has no name or no in");
-            return None;
-        }
+        let kept = is_kept(self.doc, self.conditions, &param.skip, param.only_for);
         if description.is_empty() {
             description = param.description;
         }
-        Some((param, description))
+        Some((param, description, kept))
     }
 
     /// Reports whether `param` is covered: it has a `schema` rather than
@@ -2242,11 +2272,7 @@ impl<'d> Builder<'d> {
         let Some(&(mut schema)) = self.index.schemas.get(name.as_ref()) else {
             return Err(points_to_nothing());
         };
-        if self.skipped_schemas.contains(name.as_ref()) {
-            return Err(format!(
-                "$ref {reference:?} points to a schema removed by x-forge-skip or x-forge-only-for"
-            ));
-        }
+        check_kept_schema(doc, self.conditions, schema, reference)?;
         // The schema name, while every segment so far is in `$defs`.
         let mut schema_name = Some(name);
         let mut rest = segments.peekable();
@@ -2284,6 +2310,7 @@ impl<'d> Builder<'d> {
                 }
             }
             schema = child;
+            check_kept_schema(doc, self.conditions, schema, reference)?;
         }
         Ok((schema, schema_name))
     }
