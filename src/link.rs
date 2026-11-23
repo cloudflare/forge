@@ -1350,7 +1350,7 @@ impl<'d> Builder<'d> {
         let doc = self.doc;
         let schema = doc.get(schema);
         if schema.reference.is_empty() {
-            self.object_ty(schema, schema.nullable)
+            self.object_ty(schema, schema.nullable, &[])
         } else {
             self.ref_with_siblings(schema, doc.str(schema.reference))
         }
@@ -1369,15 +1369,16 @@ impl<'d> Builder<'d> {
         } else {
             // The rest of the schema, as if it had no `$ref` and was not
             // nullable.
-            let rest = self.object_ty(schema, false);
+            let rest = self.object_ty(schema, false, &[]);
             self.intersection(&[ty, rest])
         };
         self.nullable(ty, schema.nullable)
     }
 
     /// Returns the type of `schema`, leaving out its `$ref`, made nullable
-    /// by `nullable`.
-    fn object_ty(&mut self, schema: &'d SchemaObject, mut nullable: bool) -> TypeId {
+    /// by `nullable`. When `schema` has `allOf`, `anyOf` or `oneOf`, the
+    /// fields `required` names are required, as if `schema` listed them.
+    fn object_ty(&mut self, schema: &'d SchemaObject, mut nullable: bool, required: &[&'d str]) -> TypeId {
         let doc = self.doc;
         let null_type = doc.list(schema.types).contains(&SchemaType::Null);
         if null_type {
@@ -1391,7 +1392,7 @@ impl<'d> Builder<'d> {
             return self.enum_ty(slice::from_ref(value), nullable);
         }
         let ty = if is_composed(schema) {
-            self.composed(schema, null_type)
+            self.composed(schema, null_type, required)
         } else {
             self.typed(schema, null_type)
         };
@@ -1474,8 +1475,8 @@ impl<'d> Builder<'d> {
     }
 
     /// Returns the type of `schema`, writing a model it refers to in
-    /// place, so that its fields can be changed.
-    fn ty_in_place(&mut self, schema: Schema) -> TypeId {
+    /// place, so that the fields `required` names can be made required.
+    fn ty_in_place(&mut self, schema: Schema, required: &[&'d str]) -> TypeId {
         let Schema::Object(object) = schema else {
             return self.ty(schema);
         };
@@ -1491,9 +1492,36 @@ impl<'d> Builder<'d> {
             return self.ty(schema);
         }
         self.inline_refs.push(reference.to_string());
-        let ty = self.ty(target);
+        let ty = self.target_in_place(target, required);
         self.inline_refs.pop();
         ty
+    }
+
+    /// Returns the type of `target`, the schema of a model written in
+    /// place. A model it is only a `$ref` to, or that its `allOf` refers
+    /// to, is written in place too if it leaves a field `required` names
+    /// optional, so that the field can be made required.
+    fn target_in_place(&mut self, target: Schema, required: &[&'d str]) -> TypeId {
+        let Schema::Object(object) = target else {
+            return self.ty(target);
+        };
+        let doc = self.doc;
+        let object = doc.get(object);
+        if object.reference.is_empty() {
+            return self.object_ty(object, object.nullable, required);
+        }
+        // From 3.1, keywords beside the `$ref` that give a shape make it
+        // more than another name for the model.
+        let ty = self.ty(target);
+        if !(self.v30 || is_shapeless(doc, object)) || !self.has_optional_field(ty, required, 0) {
+            return ty;
+        }
+        let ty = self.ty_in_place(target, required);
+        if self.v30 {
+            ty
+        } else {
+            self.nullable(ty, object.nullable)
+        }
     }
 
     /// Returns the type of an `enum` of `values`, made nullable by `null`
@@ -1665,8 +1693,9 @@ impl<'d> Builder<'d> {
     /// Returns the type of a schema with `allOf`, `anyOf` or `oneOf`: the
     /// intersection of its own object, its `allOf` members, its
     /// `unevaluatedProperties`, and a union for each of `anyOf` and
-    /// `oneOf`. With none of them, its `type` gives the type.
-    fn composed(&mut self, schema: &'d SchemaObject, null_type: bool) -> TypeId {
+    /// `oneOf`. With none of them, its `type` gives the type. The fields
+    /// `required` names are required, as if `schema` listed them.
+    fn composed(&mut self, schema: &'d SchemaObject, null_type: bool, required: &[&'d str]) -> TypeId {
         let doc = self.doc;
         let mut parts = Vec::new();
         if !schema.properties.is_empty() || schema.additional_properties.is_some() {
@@ -1675,13 +1704,14 @@ impl<'d> Builder<'d> {
         // Names in `required` that aren't the schema's own properties name
         // properties of its `allOf` members.
         let properties = doc.list(schema.properties);
-        let required: Vec<&str> = doc
+        let mut names: Vec<&str> = doc
             .list(schema.required)
             .iter()
             .map(|&name| doc.str(name))
             .filter(|&name| !properties.iter().any(|&(property, _)| doc.str(property) == name))
             .collect();
-        self.all_of(doc.list(schema.all_of), required, &mut parts);
+        names.extend_from_slice(required);
+        self.all_of(doc.list(schema.all_of), names, &mut parts);
         if let extra @ Schema::Object(_) = schema.unevaluated_properties {
             let extra = self.ty(extra);
             let object = ObjectData {
@@ -1728,7 +1758,7 @@ impl<'d> Builder<'d> {
             // `required` names is optional in it.
             let mut ty = self.ty(member);
             if is_reference(doc, member) && self.has_optional_field(ty, &required, 0) {
-                ty = self.ty_in_place(member);
+                ty = self.ty_in_place(member, &required);
             }
             if let TypeData::Intersection(inner) = self.types[ty.index()] {
                 parts.extend_from_slice(self.members.get(inner));
