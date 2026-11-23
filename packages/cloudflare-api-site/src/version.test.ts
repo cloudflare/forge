@@ -2,7 +2,6 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import {
   CLOUDFLARE_API_VERSION_CODENAMES,
-  cloudflareApiVersionLabel,
   cloudflareApiVersionSortKey,
   compareCloudflareApiVersions,
   isDated,
@@ -144,7 +143,7 @@ test('predicates classify each channel', () => {
 });
 
 test('labels render for display', () => {
-  const label = (wire: string): string => cloudflareApiVersionLabel(parseCloudflareApiVersion(wire));
+  const label = (wire: string): string => parseCloudflareApiVersion(wire).label;
   assert.equal(label('legacy'), 'Legacy');
   assert.equal(label('2027-01-01.air'), '2027-01-01 (Air)');
   assert.equal(label('2027-02-01.preview'), '2027-02-01 (Preview)');
