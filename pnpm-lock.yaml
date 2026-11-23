@@ -309,13 +309,22 @@ importers:
         version: 5.9.3
 
   packages/docs:
-    dependencies:
+    devDependencies:
+      '@astrojs/check':
+        specifier: ^0.9.12
+        version: 0.9.12(prettier@3.9.6)(typescript@5.9.3)
       '@astrojs/cloudflare':
         specifier: ^15.0.0-beta.2
         version: 15.0.0-beta.2(@types/node@26.0.1)(astro@7.4.2(@types/node@26.0.1)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.22.4)(yaml@2.9.1))(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.22.4)(workerd@1.20261101.1)(yaml@2.9.1)
+      '@astrojs/language-server':
+        specifier: 2.17.3
+        version: 2.17.3(prettier@3.9.6)(typescript@5.9.3)
       '@cloudflare/nimbus-docs':
         specifier: ^0.20.0
         version: 0.20.0(@modelcontextprotocol/server@2.3.1)(@resvg/resvg-js@2.6.2)(@scalar/openapi-parser@0.28.12)(@types/node@26.0.1)(astro@7.4.2(@types/node@26.0.1)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.22.4)(yaml@2.9.1))(esbuild@0.28.2)(jiti@2.7.0)(openapi-sampler@1.7.4)(satori@0.63.2)(supports-color@10.2.2)(tsx@4.22.4)
+      '@emnapi/runtime':
+        specifier: 1.11.3
+        version: 1.11.3
       '@fontsource-variable/inter':
         specifier: ^5.3.0
         version: 5.3.0
@@ -331,12 +340,21 @@ importers:
       '@resvg/resvg-js':
         specifier: ^2.6.2
         version: 2.6.2
+      '@tailwindcss/vite':
+        specifier: ^4.3.3
+        version: 4.3.3(vite@8.3.4(@types/node@26.0.1)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.22.4)(yaml@2.9.1))
       astro:
         specifier: 7.4.2
         version: 7.4.2(@types/node@26.0.1)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.22.4)(yaml@2.9.1)
+      cf:
+        specifier: 1.0.0-beta.27
+        version: 1.0.0-beta.27(@types/node@26.0.1)
       clsx:
         specifier: ^2.1.1
         version: 2.1.1
+      pagefind:
+        specifier: ^1.5.2
+        version: 1.6.0
       satori:
         specifier: ^0.63.2
         version: 0.63.2
@@ -346,25 +364,6 @@ importers:
       tailwind-merge:
         specifier: ^3.7.0
         version: 3.7.0
-    devDependencies:
-      '@astrojs/check':
-        specifier: ^0.9.12
-        version: 0.9.12(prettier@3.9.6)(typescript@5.9.3)
-      '@astrojs/language-server':
-        specifier: 2.17.3
-        version: 2.17.3(prettier@3.9.6)(typescript@5.9.3)
-      '@emnapi/runtime':
-        specifier: 1.11.3
-        version: 1.11.3
-      '@tailwindcss/vite':
-        specifier: ^4.3.3
-        version: 4.3.3(vite@8.3.4(@types/node@26.0.1)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.22.4)(yaml@2.9.1))
-      cf:
-        specifier: 1.0.0-beta.27
-        version: 1.0.0-beta.27(@types/node@26.0.1)
-      pagefind:
-        specifier: ^1.5.2
-        version: 1.6.0
       tailwindcss:
         specifier: ^4.3.3
         version: 4.3.3
