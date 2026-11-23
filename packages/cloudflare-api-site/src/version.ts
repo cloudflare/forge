@@ -197,11 +197,6 @@ export function compareCloudflareApiVersions(a: CloudflareApiVersion, b: Cloudfl
   return 0;
 }
 
-/** Human-facing display label, e.g. "Legacy", "2027-01-01 (Air)", "2027-02-01 (Preview)". */
-export function cloudflareApiVersionLabel(version: CloudflareApiVersion): string {
-  return version.label;
-}
-
 function capitalize(value: string): string {
   return value.charAt(0).toUpperCase() + value.slice(1);
 }
