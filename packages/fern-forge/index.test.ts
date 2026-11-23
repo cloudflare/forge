@@ -118,7 +118,8 @@ test('accepts the Forge-native operation extensions carried alongside the Fern k
     'x-forge-method-name': 'update',
     'x-forge-availability': 'generally-available',
     'x-forge-oauth-scopes': ['widgets.read', 'widgets.write'],
-    'x-forge-skip': true,
+    'x-forge-skip': ['terraform'],
+    'x-forge-only-for': ['sdk'],
     'x-forge-aliases': [
       {
         'x-fern-sdk-group-name': 'widgets.legacy_items',
@@ -126,6 +127,8 @@ test('accepts the Forge-native operation extensions carried alongside the Fern k
         'x-forge-group-name': 'widgets.legacy_items',
         'x-forge-method-name': 'update',
         'x-forge-availability': 'deprecated',
+        'x-forge-skip': true,
+        'x-forge-only-for': ['sdk', 'mcp'],
       },
     ],
   });

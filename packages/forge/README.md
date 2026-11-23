@@ -82,9 +82,10 @@ What is rewritten:
 
 - A group path written as an array becomes the names joined by dots
   (`["a", "b"]` becomes `"a.b"`), unless a name has a dot in it.
-- A skip for only some targets, written as a list, has no native form, since
-  `x-forge-skip` is for every target: it is left as it is. A skip that is plainly
-  true or false is rewritten.
+- A skip for only some targets, written as a list, is rewritten as the
+  native array (`x-forge-skip: [names]`), which `--conditions` filters
+  against; `x-fern-audiences` becomes `x-forge-only-for`. See
+  [RFC 0003](../../rfcs/0003-conditional-skips.md).
 - Native keys always win: when a document says the same thing twice, the native
   key is kept.
 

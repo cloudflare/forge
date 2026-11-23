@@ -34,7 +34,7 @@ Conditions are a social contract between the spec and its consumers. Each
 consumer repo pins them on the CLI:
 
 ```console
-forge openapi.json --target wasm://plugin.wasm --conditions=sdk --out sdk
+forge generate openapi.json --target wasm://plugin.wasm --conditions=sdk --out sdk
 ```
 
 Condition names are case-sensitive, non-empty strings; order and duplicates
@@ -56,11 +56,12 @@ Validation lives in `redocly-plugin-forge`.
 
 ## Vendor normalization
 
-Forge normalizes recognized vendor extensions into the native pair as an
-opt-in step via `--from`:
+`forge normalize` rewrites recognized vendor extensions into the native
+pair in place, as a separate step before `forge generate`:
 
 ```console
-forge openapi.json --from=stainless,fern --target wasm://plugin.wasm --out sdk
+forge normalize --write --from=stainless --from=fern openapi.json
+forge generate openapi.json --target wasm://plugin.wasm --conditions=sdk --out sdk
 ```
 
 | Vendor extension            | Normalizes to               |
