@@ -176,10 +176,7 @@ fn generate(spec: &Path, target: Target, out: &Path, conditions: &[String]) -> R
         Target::Wasm(path) => {
             // Compiling the plugin and reading the document are both slow,
             // so they run at the same time.
-            let (plugin, forge) = rayon::join(
-                || forge::wasm::WasmPlugin::from_file(&path),
-                || read(spec, conditions),
-            );
+            let (plugin, forge) = rayon::join(|| forge::wasm::WasmPlugin::from_file(&path), || read(spec, conditions));
             let (plugin, forge) = (plugin?, forge?);
             forge::write(out, plugin.generate(&forge)?)
         }

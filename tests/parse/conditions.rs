@@ -42,7 +42,7 @@ fn method_names(forge: &forge::Forge) -> Vec<String> {
                 .methods()
                 .map(|method| {
                     if prefix.is_empty() {
-                        method.name().kebab().to_string()
+                        method.name().kebab()
                     } else {
                         format!("{prefix}.{}", method.name().kebab())
                     }
@@ -130,10 +130,7 @@ fn only_for_empty_list_is_a_no_op() {
 #[test]
 fn skip_wins_over_only_for() {
     // The method matches only_for, but also matches skip: skip wins.
-    let doc = two_methods(
-        r#""x-forge-only-for": ["sdk"], "x-forge-skip": ["sdk"],"#,
-        "",
-    );
+    let doc = two_methods(r#""x-forge-only-for": ["sdk"], "x-forge-skip": ["sdk"],"#, "");
 
     let forge = parse_with_conditions(&doc, &["sdk"]);
     assert_eq!(method_names(&forge), ["b.get"]);

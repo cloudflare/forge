@@ -948,7 +948,11 @@ impl Read for ReadSkip {
 
             fn visit_seq<A: SeqAccess<'de>>(self, seq: A) -> Result<Skip, A::Error> {
                 let names = SeqOfStrs(self.0).visit_seq(seq)?;
-                Ok(if names.is_empty() { Skip::Never } else { Skip::Any(names) })
+                Ok(if names.is_empty() {
+                    Skip::Never
+                } else {
+                    Skip::Any(names)
+                })
             }
         }
 
