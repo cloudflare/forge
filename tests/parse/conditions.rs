@@ -489,3 +489,51 @@ fn always_skipped_component_schema_is_dangling_even_in_library_mode() {
         "error should name the dangling ref: {err}"
     );
 }
+
+/// A document with one operation and two aliases: the first alias carries
+/// `ext`, the second does not.
+fn two_aliases(ext: &str) -> String {
+    format!(
+        r#"{{
+          "openapi": "3.0.3",
+          "info": {{"title": "t", "version": "1"}},
+          "paths": {{
+            "/a": {{
+              "get": {{
+                "x-forge-group-name": "a",
+                "x-forge-method-name": "list",
+                "x-forge-aliases": [
+                  {{"x-forge-group-name": "a", "x-forge-method-name": "primary", {ext}}},
+                  {{"x-forge-group-name": "a", "x-forge-method-name": "secondary"}}
+                ],
+                "responses": {{"204": {{"description": "ok"}}}}
+              }}
+            }}
+          }}
+        }}"#
+    )
+}
+
+#[test]
+fn skip_on_an_alias_drops_only_that_alias() {
+    let doc = two_aliases(r#""x-forge-skip": ["terraform""#);
+    let doc = doc.replace("terraform\"", "terraform\"]");
+
+    let forge = parse_with_conditions(&doc, &["terraform"]);
+    assert_eq!(method_names(&forge), ["a.secondary"]);
+
+    let forge = parse_with_conditions(&doc, &["sdk"]);
+    assert_eq!(method_names(&forge), ["a.primary", "a.secondary"]);
+}
+
+#[test]
+fn only_for_on_an_alias_keeps_it_only_for_matching_conditions() {
+    let doc = two_aliases(r#""x-forge-only-for": ["sdk""#);
+    let doc = doc.replace("sdk\"", "sdk\"]");
+
+    let forge = parse_with_conditions(&doc, &["sdk"]);
+    assert_eq!(method_names(&forge), ["a.primary", "a.secondary"]);
+
+    let forge = parse_with_conditions(&doc, &["mcp"]);
+    assert_eq!(method_names(&forge), ["a.secondary"]);
+}

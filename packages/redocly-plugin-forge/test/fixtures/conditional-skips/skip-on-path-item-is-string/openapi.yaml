@@ -1,0 +1,12 @@
+openapi: 3.1.0
+info:
+  title: Skip on path item is string
+  version: 1.0.0
+paths:
+  /thing:
+    x-forge-skip: terraform
+    get:
+      operationId: getThing
+      responses:
+        '200':
+          description: OK

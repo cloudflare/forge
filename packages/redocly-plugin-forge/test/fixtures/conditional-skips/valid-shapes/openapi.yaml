@@ -32,6 +32,29 @@ paths:
       responses:
         '200':
           description: OK
+  /path-item-skipped:
+    x-forge-skip: [terraform]
+    parameters:
+      - name: trace
+        in: query
+        schema: {type: string}
+        x-forge-skip: [mcp]
+    get:
+      operationId: pathItemSkipped
+      parameters:
+        - name: filter
+          in: query
+          schema: {type: string}
+          x-forge-only-for: [sdk]
+      requestBody:
+        x-forge-skip: [terraform]
+        content:
+          application/json:
+            schema: {type: object}
+      responses:
+        '200':
+          description: OK
+          x-forge-only-for: [sdk]
 components:
   schemas:
     Thing:

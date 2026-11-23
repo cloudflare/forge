@@ -1,0 +1,12 @@
+openapi: 3.1.0
+info:
+  title: Only-for on response is boolean
+  version: 1.0.0
+paths:
+  /thing:
+    get:
+      operationId: getThing
+      responses:
+        '200':
+          description: OK
+          x-forge-only-for: true

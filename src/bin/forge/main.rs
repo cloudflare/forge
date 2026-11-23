@@ -189,6 +189,11 @@ fn run_plugin(plugin: &impl Plugin, spec: &Path, out: &Path, conditions: &[Strin
 
 /// Reads the document at `path`, or from standard input when `path` is `-`,
 /// with `conditions` active for filtering.
+///
+/// Semantic errors from the build pass (`forge::parse_json`) surface as plain
+/// strings prefixed by the file path, without the `at line N column M` suffix
+/// that serde_json adds to JSON-parse errors: build errors have no source
+/// position, so the previous format's position suffix was always 0:0.
 fn read(path: &Path, conditions: &[String]) -> Result<Forge, Err> {
     let parse = || -> Result<Forge, Err> {
         let json = if path == Path::new("-") {

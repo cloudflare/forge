@@ -1822,14 +1822,18 @@ impl<'de> Visitor<'de> for ConditionNames<'_> {
 
     fn visit_seq<A: SeqAccess<'de>>(self, mut seq: A) -> Result<Span<Str>, A::Error> {
         let doc = self.0;
-        let start = doc.str_lists.start();
+        // Collect into a local vec first, then hand the whole list to the arena: an early error
+        // in the middle of the array (an empty string) must not leave half a list in the arena's
+        // scratch buffer, where a parent list's `finish` would then drain stale items into its
+        // own span.
+        let mut names: Vec<Str> = Vec::new();
         while let Some(s) = seq.next_element_seed(seed::<ReadStr>(doc))? {
             if s.is_empty() {
                 return Err(de::Error::custom("condition name must not be empty"));
             }
-            doc.str_lists.push(s);
+            names.push(s);
         }
-        Ok(doc.str_lists.finish(start))
+        Ok(doc.str_lists.extend(names))
     }
 }
 

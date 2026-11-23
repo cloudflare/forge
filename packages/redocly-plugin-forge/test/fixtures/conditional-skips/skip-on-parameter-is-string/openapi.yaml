@@ -1,0 +1,16 @@
+openapi: 3.1.0
+info:
+  title: Skip on parameter is string
+  version: 1.0.0
+paths:
+  /thing:
+    get:
+      operationId: getThing
+      parameters:
+        - name: q
+          in: query
+          schema: {type: string}
+          x-forge-skip: terraform
+      responses:
+        '200':
+          description: OK
