@@ -12,12 +12,17 @@ x-forge-only-for: [sdk]            # keep only when sdk condition active
 x-forge-only-for: [ts, go, rust]   # keep only when any listed condition active
 ```
 
+Both extensions can be placed on path items, operations, parameters, request
+bodies, responses, schema definitions, and schema properties.
+
 Default (no extension): kept in every generation.
 
 An element may carry both extensions. Exclusion wins: it is kept iff
 `x-forge-only-for` matches **and** `x-forge-skip` does not.
 
-Empty lists are no-ops; use `x-forge-skip: true` to always skip.
+Empty lists and `x-forge-skip: false` are no-ops; use `x-forge-skip: true` to
+always skip. When a skipped property appears in its schema's `required`
+array, it is removed from that array as part of filtering.
 
 ## Conditions
 
@@ -28,12 +33,16 @@ consumer repo pins them on the CLI:
 forge openapi.json --target wasm://plugin.wasm --conditions=sdk --out sdk
 ```
 
-Plugins do not declare conditions; the host keeps no registry. Prefer category
-names (`sdk`, `codegen`) over target-specific names (`ts-sdk-v2`), so new
-siblings don't force spec edits.
+Condition names are case-sensitive, non-empty strings; order and duplicates
+in a list don't affect semantics.
+
+Plugins do not declare conditions; the host keeps no registry. Prefer
+category names (`sdk`, `codegen`) over target-specific names (`ts-sdk-v2`),
+so new siblings don't force spec edits.
 
 The host applies these extensions before plugins see the model. A retained
-element that references a skipped component fails generation.
+element that references a skipped component fails generation, including
+references to schemas marked `x-forge-skip`.
 
 Validation lives in `redocly-plugin-forge`.
 
@@ -58,3 +67,5 @@ Consumers that don't want a vendor's extensions acted on simply omit it from
 
 Native `x-forge-*` takes precedence. When both a native and a vendor
 extension appear on the same element, the vendor extension is ignored.
+Vendor extensions from different sources on the same element each normalize
+to their native form and both apply, with exclusion winning as usual.
