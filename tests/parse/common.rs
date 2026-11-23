@@ -82,6 +82,17 @@ pub fn parse_err(json: &str) -> String {
     }
 }
 
+/// Parses `json` with `conditions` active, which must fail, and returns the
+/// error message.
+#[track_caller]
+pub fn parse_with_conditions_err(json: &str, conditions: &[&str]) -> String {
+    let conditions: Vec<String> = conditions.iter().map(|c| (*c).to_owned()).collect();
+    match forge::parse_json(json.as_bytes(), &conditions) {
+        Ok(_) => panic!("parse: want an error, got a Forge"),
+        Err(err) => err,
+    }
+}
+
 /// Returns the group at `path`: the names from the top level down,
 /// separated by dots, such as `zones` or `zones.settings`, or the root for
 /// the empty path.

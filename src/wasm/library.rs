@@ -42,4 +42,9 @@ impl exports::Guest for Library {
         let forge: Forge = serde_json::from_str(&json).map_err(|err| err.to_string())?;
         Ok(ForgeWasm::from(&forge))
     }
+
+    fn parse_with_conditions(json: String, conditions: Vec<String>) -> Result<ForgeWasm, String> {
+        let forge = crate::parse_json(json.as_bytes(), &conditions)?;
+        Ok(ForgeWasm::from(&forge))
+    }
 }

@@ -11,6 +11,7 @@ mod read;
 
 use std::borrow::Cow;
 use std::collections::HashMap;
+use std::collections::HashSet;
 use std::collections::hash_map::Entry;
 use std::{fmt, mem, slice};
 
@@ -115,6 +116,24 @@ fn is_kept(doc: &Doc, conditions: Option<&[String]>, skip: &Skip, only_for: Span
     doc.list(only_for)
         .iter()
         .any(|&name| active.iter().any(|c| c == doc.str(name)))
+}
+
+/// Returns the names of component schemas filtered out by `x-forge-skip` or
+/// `x-forge-only-for` under `conditions`. The set is populated once so
+/// `$ref` resolution can report a dangling reference in O(1). Empty when
+/// `conditions` is `None` (the library path leaves conditional filters as
+/// no-ops), apart from schemas marked `x-forge-skip: true`, which are
+/// always dropped.
+fn skipped_schema_names<'d>(doc: &'d Doc, conditions: Option<&[String]>) -> HashSet<&'d str> {
+    let mut names = HashSet::new();
+    for &(name, schema) in doc.list(doc.components.schemas) {
+        let Schema::Object(object) = schema else { continue };
+        let object = doc.get(object);
+        if !is_kept(doc, conditions, &object.skip, object.only_for) {
+            names.insert(doc.str(name));
+        }
+    }
+    names
 }
 
 /// Returns the `Forge` of `doc`, or every error in it.
@@ -442,6 +461,10 @@ struct Builder<'d> {
     /// filtering (the `Deserialize` path); `Some(&[])` means CLI-mode
     /// filtering with no condition active.
     conditions: Option<&'d [String]>,
+    /// Names of component schemas filtered out by `x-forge-skip` or
+    /// `x-forge-only-for`. A `$ref` into one is an error. Empty when
+    /// conditional filtering is off.
+    skipped_schemas: HashSet<&'d str>,
 
     groups: Groups,
     /// Each group but the root by its parent and name.
@@ -498,11 +521,13 @@ enum Context<'d> {
 
 impl<'d> Builder<'d> {
     fn new(doc: &'d Doc, index: &'d Index<'d>, v30: bool, conditions: Option<&'d [String]>) -> Builder<'d> {
+        let skipped_schemas = skipped_schema_names(doc, conditions);
         Builder {
             doc,
             index,
             v30,
             conditions,
+            skipped_schemas,
             groups: Groups::default(),
             group_index: HashMap::new(),
             methods: Vec::new(),
@@ -536,6 +561,9 @@ impl<'d> Builder<'d> {
             let Some(item) = self.follow(item, &index.path_items, "pathItems") else {
                 continue;
             };
+            if !is_kept(doc, self.conditions, &item.skip, item.only_for) {
+                continue;
+            }
             let fixed = [
                 (item.get, HttpMethod::Get, "GET"),
                 (item.put, HttpMethod::Put, "PUT"),
@@ -696,7 +724,9 @@ impl<'d> Builder<'d> {
         let mut body = None;
         if let Some(request_body) = operation.request_body {
             let index = self.index;
-            if let Some(request_body) = self.follow(request_body, &index.request_bodies, "requestBodies") {
+            if let Some(request_body) = self.follow(request_body, &index.request_bodies, "requestBodies")
+                && is_kept(doc, self.conditions, &request_body.skip, request_body.only_for)
+            {
                 body = Some(self.body(request_body));
             }
         }
@@ -938,6 +968,9 @@ impl<'d> Builder<'d> {
                 description = reference.description;
             }
         })?;
+        if !is_kept(self.doc, self.conditions, &param.skip, param.only_for) {
+            return None;
+        }
         if param.name.is_empty() || param.location.is_none() {
             self.error("a parameter has no name or no in");
             return None;
@@ -1165,6 +1198,9 @@ impl<'d> Builder<'d> {
             let Some(response) = self.follow(response, &index.responses, "responses") else {
                 continue;
             };
+            if !is_kept(doc, self.conditions, &response.skip, response.only_for) {
+                continue;
+            }
             let status = doc.str(status);
             let (contents, json) = self.contents(response.content);
             let data = ResponseData {
@@ -2206,6 +2242,11 @@ impl<'d> Builder<'d> {
         let Some(&(mut schema)) = self.index.schemas.get(name.as_ref()) else {
             return Err(points_to_nothing());
         };
+        if self.skipped_schemas.contains(name.as_ref()) {
+            return Err(format!(
+                "$ref {reference:?} points to a schema removed by x-forge-skip or x-forge-only-for"
+            ));
+        }
         // The schema name, while every segment so far is in `$defs`.
         let mut schema_name = Some(name);
         let mut rest = segments.peekable();

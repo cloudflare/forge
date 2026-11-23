@@ -151,3 +151,47 @@ test('documents parsed side by side stay apart', () => {
   assert.deepEqual([a.version, a.groups[1].name.kebab()], ['1', 'alpha']);
   assert.deepEqual([b.version, b.groups[1].name.kebab()], ['2', 'beta']);
 });
+
+/** A document with two methods, each marked with one condition under x-forge-skip and x-forge-only-for. */
+const conditional = {
+  openapi: '3.1.0',
+  info: { title: 't', version: '1' },
+  paths: {
+    '/a': {
+      get: {
+        'x-forge-group-name': 'a',
+        'x-forge-method-name': 'get',
+        'x-forge-skip': ['terraform'],
+        responses: { 200: { description: 'ok' } },
+      },
+    },
+    '/b': {
+      get: {
+        'x-forge-group-name': 'b',
+        'x-forge-method-name': 'get',
+        'x-forge-only-for': ['sdk'],
+        responses: { 200: { description: 'ok' } },
+      },
+    },
+  },
+};
+
+function methodNames(forge) {
+  return forge.groups
+    .flatMap((group) => group.methods.map((m) => [group.name.kebab(), m.name.kebab()].filter(Boolean).join('.')))
+    .sort();
+}
+
+test('parse without options keeps every element (conditional filters are no-ops)', () => {
+  const forge = parse(JSON.stringify(conditional));
+  assert.deepEqual(methodNames(forge), ['a.get', 'b.get']);
+});
+
+test('parse with conditions filters x-forge-skip and x-forge-only-for', () => {
+  // terraform: /a is skipped (its condition matches), /b is dropped (sdk not active).
+  assert.deepEqual(methodNames(parse(JSON.stringify(conditional), { conditions: ['terraform'] })), []);
+  // sdk: /a is kept (terraform not active), /b is kept (its only-for matches).
+  assert.deepEqual(methodNames(parse(JSON.stringify(conditional), { conditions: ['sdk'] })), ['a.get', 'b.get']);
+  // No conditions active: /a is kept (nothing matches skip list), /b is dropped (only-for needs a match).
+  assert.deepEqual(methodNames(parse(JSON.stringify(conditional), { conditions: [] })), ['a.get']);
+});

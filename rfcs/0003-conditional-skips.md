@@ -12,11 +12,9 @@ x-forge-only-for: [sdk] # keep only when sdk condition active
 x-forge-only-for: [ts, go, rust] # keep only when any listed condition active
 ```
 
-Both extensions can be placed on operations (and each entry of
-`x-forge-aliases`) and on schema properties. Other placements (path items,
-parameters, request bodies, responses, and schema definitions) are reserved
-for a later change; writing the extensions there today has no effect on
-filtering.
+Both extensions can be placed on path items, operations (and each entry
+of `x-forge-aliases`), parameters, request bodies, responses, schema
+definitions, and schema properties.
 
 Default (no extension): kept in every generation.
 
@@ -45,12 +43,16 @@ category names (`sdk`, `codegen`) over target-specific names (`ts-sdk-v2`),
 so new siblings don't force spec edits.
 
 The host applies these extensions before plugins see the model. In the
-JavaScript library (`@cloudflare/forge`), `parse(json)` with no conditions
-leaves conditional filters as no-ops and keeps every element: `x-forge-skip:
-true` still drops, but `x-forge-skip: [names]` and `x-forge-only-for` have
-no effect. A later change will teach retained elements that reference a
-skipped component to fail generation, including references to schemas
-marked `x-forge-skip`.
+JavaScript library (`@cloudflare/forge`), `parse(json)` with no `conditions`
+option leaves conditional filters as no-ops and keeps every element:
+`x-forge-skip: true` still drops, but `x-forge-skip: [names]` and
+`x-forge-only-for` have no effect. Pass conditions through the options
+argument to filter: `parse(json, { conditions: ['sdk'] })`.
+
+A retained element whose `$ref` points to a schema definition dropped by
+`x-forge-skip` or `x-forge-only-for` is a parse error naming the dangling
+reference, so a stale ref fails the build rather than silently losing a
+model.
 
 Validation lives in `redocly-plugin-forge`.
 

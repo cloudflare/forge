@@ -215,6 +215,10 @@ pub(super) struct PathItem {
     /// The operations of other methods, by method, in the order they are
     /// written.
     pub(super) additional_operations: Span<(Str, Id<Operation>)>,
+    /// `x-forge-skip`.
+    pub(super) skip: Skip,
+    /// `x-forge-only-for`.
+    pub(super) only_for: Span<Str>,
 }
 
 /// An Operation Object.
@@ -288,6 +292,10 @@ pub(super) struct Parameter {
     pub(super) content: Span<(Str, Schema)>,
     /// The `x-forge-parameter-name`, or empty for none.
     pub(super) field_name: Str,
+    /// `x-forge-skip`.
+    pub(super) skip: Skip,
+    /// `x-forge-only-for`.
+    pub(super) only_for: Span<Str>,
 }
 
 /// Where a parameter is sent: the `in` of a Parameter Object.
@@ -323,6 +331,10 @@ pub(super) struct RequestBody {
     pub(super) required: bool,
     /// The schema of each media type, in the order they are written.
     pub(super) content: Span<(Str, Schema)>,
+    /// `x-forge-skip`.
+    pub(super) skip: Skip,
+    /// `x-forge-only-for`.
+    pub(super) only_for: Span<Str>,
 }
 
 /// A Response Object, or a `$ref` to one.
@@ -333,6 +345,10 @@ pub(super) struct Response {
     pub(super) description: Str,
     /// The schema of each media type, in the order they are written.
     pub(super) content: Span<(Str, Schema)>,
+    /// `x-forge-skip`.
+    pub(super) skip: Skip,
+    /// `x-forge-only-for`.
+    pub(super) only_for: Span<Str>,
 }
 
 /// A Schema Object, or, from OpenAPI 3.1, `true` for any value or `false`
@@ -1190,6 +1206,8 @@ keys! {
         Query = "query",
         Connect = "connect",
         AdditionalOperations = "additionalOperations",
+        Skip = "x-forge-skip",
+        OnlyFor = "x-forge-only-for",
     }
 }
 
@@ -1213,6 +1231,14 @@ impl ReadObject for PathItem {
                 }
                 PathItemKey::AdditionalOperations => {
                     item.additional_operations = map.next_value_seed(seed::<AllEntries<Operation>>(doc))?;
+                    continue;
+                }
+                PathItemKey::Skip => {
+                    item.skip = map.next_value_seed(seed::<ReadSkip>(doc))?;
+                    continue;
+                }
+                PathItemKey::OnlyFor => {
+                    item.only_for = map.next_value_seed(ConditionNamesSeed(doc))?;
                     continue;
                 }
                 PathItemKey::Other => {
@@ -1548,6 +1574,8 @@ keys! {
         Schema = "schema",
         Content = "content",
         FieldName = "x-forge-parameter-name",
+        Skip = "x-forge-skip",
+        OnlyFor = "x-forge-only-for",
     }
 }
 
@@ -1576,6 +1604,8 @@ impl ReadObject for Parameter {
                     param.content = map.next_value_seed(seed::<AllEntries<MediaType>>(doc))?;
                 }
                 ParameterKey::FieldName => param.field_name = map.next_value_seed(seed::<ReadStr>(doc))?,
+                ParameterKey::Skip => param.skip = map.next_value_seed(seed::<ReadSkip>(doc))?,
+                ParameterKey::OnlyFor => param.only_for = map.next_value_seed(ConditionNamesSeed(doc))?,
                 ParameterKey::Other => skip(&mut map)?,
             }
         }
@@ -1589,6 +1619,8 @@ keys! {
         Description = "description",
         Required = "required",
         Content = "content",
+        Skip = "x-forge-skip",
+        OnlyFor = "x-forge-only-for",
     }
 }
 
@@ -1610,6 +1642,8 @@ impl ReadObject for RequestBody {
                 RequestBodyKey::Content => {
                     body.content = map.next_value_seed(seed::<AllEntries<MediaType>>(doc))?;
                 }
+                RequestBodyKey::Skip => body.skip = map.next_value_seed(seed::<ReadSkip>(doc))?,
+                RequestBodyKey::OnlyFor => body.only_for = map.next_value_seed(ConditionNamesSeed(doc))?,
                 RequestBodyKey::Other => skip(&mut map)?,
             }
         }
@@ -1622,6 +1656,8 @@ keys! {
         Ref = "$ref",
         Description = "description",
         Content = "content",
+        Skip = "x-forge-skip",
+        OnlyFor = "x-forge-only-for",
     }
 }
 
@@ -1642,6 +1678,8 @@ impl ReadObject for Response {
                 ResponseKey::Content => {
                     response.content = map.next_value_seed(seed::<AllEntries<MediaType>>(doc))?;
                 }
+                ResponseKey::Skip => response.skip = map.next_value_seed(seed::<ReadSkip>(doc))?,
+                ResponseKey::OnlyFor => response.only_for = map.next_value_seed(ConditionNamesSeed(doc))?,
                 ResponseKey::Other => skip(&mut map)?,
             }
         }

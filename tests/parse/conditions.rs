@@ -1,7 +1,9 @@
 //! Tests for `x-forge-skip` with a list of conditions and `x-forge-only-for`.
 //! See RFC 0003.
 
-use crate::common::{field_names, method, object, parse, parse_with_conditions, response_type};
+use crate::common::{
+    field_names, method, object, parse, parse_with_conditions, parse_with_conditions_err, response_type,
+};
 
 /// A document with two methods named by `a.get` and `b.get`, the first with
 /// the extensions in `a_ext` and the second with those in `b_ext`.
@@ -215,4 +217,275 @@ fn methods_helper_is_named() {
     assert_eq!(names, ["a.get", "b.get"]);
     // `method(…, "a.get")` resolves the same path the helper produces.
     let _ = method(&forge, "a.get");
+}
+
+/// A document with two path items; the first one carries `ext`.
+fn two_path_items(ext: &str) -> String {
+    format!(
+        r#"{{
+          "openapi": "3.0.3",
+          "info": {{"title": "t", "version": "1"}},
+          "paths": {{
+            "/a": {{
+              {ext}
+              "get": {{
+                "x-forge-group-name": "a",
+                "x-forge-method-name": "get",
+                "responses": {{"204": {{"description": "ok"}}}}
+              }}
+            }},
+            "/b": {{
+              "get": {{
+                "x-forge-group-name": "b",
+                "x-forge-method-name": "get",
+                "responses": {{"204": {{"description": "ok"}}}}
+              }}
+            }}
+          }}
+        }}"#
+    )
+}
+
+#[test]
+fn skip_on_a_path_item_drops_every_method_in_it() {
+    let doc = two_path_items(r#""x-forge-skip": ["terraform"],"#);
+
+    let forge = parse_with_conditions(&doc, &["terraform"]);
+    assert_eq!(method_names(&forge), ["b.get"]);
+
+    let forge = parse_with_conditions(&doc, &["sdk"]);
+    assert_eq!(method_names(&forge), ["a.get", "b.get"]);
+}
+
+#[test]
+fn only_for_on_a_path_item_keeps_only_matching_conditions() {
+    let doc = two_path_items(r#""x-forge-only-for": ["sdk"],"#);
+
+    let forge = parse_with_conditions(&doc, &["sdk"]);
+    assert_eq!(method_names(&forge), ["a.get", "b.get"]);
+
+    let forge = parse_with_conditions(&doc, &[]);
+    assert_eq!(method_names(&forge), ["b.get"]);
+}
+
+/// A document with one method whose single parameter carries `ext`.
+fn method_with_parameter(ext: &str) -> String {
+    format!(
+        r#"{{
+          "openapi": "3.0.3",
+          "info": {{"title": "t", "version": "1"}},
+          "paths": {{
+            "/x": {{
+              "get": {{
+                "x-forge-group-name": "x",
+                "x-forge-method-name": "get",
+                "parameters": [
+                  {{"name": "p", "in": "query", "schema": {{"type": "string"}}, {ext}}}
+                ],
+                "responses": {{"204": {{"description": "ok"}}}}
+              }}
+            }}
+          }}
+        }}"#
+    )
+}
+
+#[test]
+fn skip_on_a_parameter_drops_it() {
+    let doc = method_with_parameter(r#""x-forge-skip": ["terraform""#);
+    let doc = doc.replace("terraform\"", "terraform\"]");
+
+    let forge = parse_with_conditions(&doc, &["terraform"]);
+    let m = method(&forge, "x.get");
+    assert!(m.request().is_none(), "parameter should be dropped: {:?}", m.request());
+
+    let forge = parse_with_conditions(&doc, &["sdk"]);
+    let m = method(&forge, "x.get");
+    assert!(m.request().is_some(), "parameter should be kept");
+}
+
+#[test]
+fn only_for_on_a_parameter_keeps_it_only_for_matching_conditions() {
+    let doc = method_with_parameter(r#""x-forge-only-for": ["sdk""#);
+    let doc = doc.replace("sdk\"", "sdk\"]");
+
+    let forge = parse_with_conditions(&doc, &["sdk"]);
+    assert!(method(&forge, "x.get").request().is_some());
+
+    let forge = parse_with_conditions(&doc, &[]);
+    assert!(method(&forge, "x.get").request().is_none());
+}
+
+/// A document with one method whose request body carries `ext`.
+fn method_with_body(ext: &str) -> String {
+    format!(
+        r#"{{
+          "openapi": "3.0.3",
+          "info": {{"title": "t", "version": "1"}},
+          "paths": {{
+            "/x": {{
+              "post": {{
+                "x-forge-group-name": "x",
+                "x-forge-method-name": "post",
+                "requestBody": {{
+                  {ext}
+                  "content": {{"application/json": {{"schema": {{"type": "string"}}}}}}
+                }},
+                "responses": {{"204": {{"description": "ok"}}}}
+              }}
+            }}
+          }}
+        }}"#
+    )
+}
+
+#[test]
+fn skip_on_a_request_body_drops_it() {
+    let doc = method_with_body(r#""x-forge-skip": ["terraform"],"#);
+
+    let forge = parse_with_conditions(&doc, &["terraform"]);
+    assert!(method(&forge, "x.post").body().is_none());
+
+    let forge = parse_with_conditions(&doc, &["sdk"]);
+    assert!(method(&forge, "x.post").body().is_some());
+}
+
+#[test]
+fn only_for_on_a_request_body_keeps_it_only_for_matching_conditions() {
+    let doc = method_with_body(r#""x-forge-only-for": ["sdk"],"#);
+
+    let forge = parse_with_conditions(&doc, &["sdk"]);
+    assert!(method(&forge, "x.post").body().is_some());
+
+    let forge = parse_with_conditions(&doc, &[]);
+    assert!(method(&forge, "x.post").body().is_none());
+}
+
+/// A document with one method with two responses: 200 (carries `ext`) and 204.
+fn method_with_responses(ext: &str) -> String {
+    format!(
+        r#"{{
+          "openapi": "3.0.3",
+          "info": {{"title": "t", "version": "1"}},
+          "paths": {{
+            "/x": {{
+              "get": {{
+                "x-forge-group-name": "x",
+                "x-forge-method-name": "get",
+                "responses": {{
+                  "200": {{"description": "ok", {ext}}},
+                  "204": {{"description": "no content"}}
+                }}
+              }}
+            }}
+          }}
+        }}"#
+    )
+}
+
+#[test]
+fn skip_on_a_response_drops_it() {
+    let doc = method_with_responses(r#""x-forge-skip": ["terraform""#);
+    let doc = doc.replace("terraform\"", "terraform\"]");
+
+    let forge = parse_with_conditions(&doc, &["terraform"]);
+    let statuses: Vec<_> = method(&forge, "x.get")
+        .responses()
+        .map(|r| r.status().to_owned())
+        .collect();
+    assert_eq!(statuses, ["204"]);
+
+    let forge = parse_with_conditions(&doc, &["sdk"]);
+    let statuses: Vec<_> = method(&forge, "x.get")
+        .responses()
+        .map(|r| r.status().to_owned())
+        .collect();
+    assert_eq!(statuses, ["200", "204"]);
+}
+
+#[test]
+fn only_for_on_a_response_keeps_it_only_for_matching_conditions() {
+    let doc = method_with_responses(r#""x-forge-only-for": ["sdk""#);
+    let doc = doc.replace("sdk\"", "sdk\"]");
+
+    let forge = parse_with_conditions(&doc, &["sdk"]);
+    let statuses: Vec<_> = method(&forge, "x.get")
+        .responses()
+        .map(|r| r.status().to_owned())
+        .collect();
+    assert_eq!(statuses, ["200", "204"]);
+
+    let forge = parse_with_conditions(&doc, &[]);
+    let statuses: Vec<_> = method(&forge, "x.get")
+        .responses()
+        .map(|r| r.status().to_owned())
+        .collect();
+    assert_eq!(statuses, ["204"]);
+}
+
+/// A document with one method that references the component schema `Pet`,
+/// which carries `ext`.
+fn method_referencing_schema(ext: &str) -> String {
+    format!(
+        r##"{{
+          "openapi": "3.0.3",
+          "info": {{"title": "t", "version": "1"}},
+          "paths": {{
+            "/x": {{
+              "get": {{
+                "x-forge-group-name": "x",
+                "x-forge-method-name": "get",
+                "responses": {{"200": {{
+                  "description": "ok",
+                  "content": {{"application/json": {{"schema": {{"$ref": "#/components/schemas/Pet"}}}}}}
+                }}}}
+              }}
+            }}
+          }},
+          "components": {{
+            "schemas": {{
+              "Pet": {{"type": "object", {ext} "properties": {{"name": {{"type": "string"}}}}}}
+            }}
+          }}
+        }}"##
+    )
+}
+
+#[test]
+fn ref_to_skipped_component_schema_is_an_error() {
+    let doc = method_referencing_schema(r#""x-forge-skip": ["terraform"],"#);
+
+    let err = parse_with_conditions_err(&doc, &["terraform"]);
+    assert!(
+        err.contains("points to a schema removed by x-forge-skip"),
+        "error should name the dangling ref: {err}"
+    );
+
+    // When conditions don't match, the schema is kept and parsing succeeds.
+    parse_with_conditions(&doc, &["sdk"]);
+}
+
+#[test]
+fn ref_to_only_for_component_schema_is_an_error_when_no_condition_matches() {
+    let doc = method_referencing_schema(r#""x-forge-only-for": ["sdk"],"#);
+
+    let err = parse_with_conditions_err(&doc, &[]);
+    assert!(
+        err.contains("points to a schema removed by x-forge-skip or x-forge-only-for"),
+        "error should name the dangling ref: {err}"
+    );
+
+    parse_with_conditions(&doc, &["sdk"]);
+}
+
+#[test]
+fn always_skipped_component_schema_is_dangling_even_in_library_mode() {
+    // `x-forge-skip: true` drops unconditionally; the library path (no
+    // conditions) still errors on refs into it.
+    let doc = method_referencing_schema(r#""x-forge-skip": true,"#);
+    let err = crate::common::parse_err(&doc);
+    assert!(
+        err.contains("points to a schema removed by x-forge-skip"),
+        "error should name the dangling ref: {err}"
+    );
 }
