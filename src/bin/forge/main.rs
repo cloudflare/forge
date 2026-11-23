@@ -62,6 +62,12 @@ struct GenerateArgs {
     /// The directory to write the SDK to.
     #[arg(long)]
     out: PathBuf,
+    /// Conditions that are active for this generation, as a comma-separated
+    /// list. Elements marked `x-forge-skip: [name]` or
+    /// `x-forge-only-for: [name]` are filtered against them. The flag may be
+    /// repeated. See RFC 0003.
+    #[arg(long = "conditions", value_delimiter = ',', value_name = "NAME")]
+    conditions: Vec<String>,
 }
 
 /// What forge generates an SDK with.
@@ -154,35 +160,39 @@ fn hint_old_root_form(kind: clap::error::ErrorKind, first_arg: Option<&str>) -> 
 /// Does what `args` ask for.
 fn run(args: Args) -> Result<(), Err> {
     match args.command {
-        Command::Generate(args) => generate(&args.spec, args.target, &args.out),
+        Command::Generate(args) => generate(&args.spec, args.target, &args.out, &args.conditions),
         Command::Normalize(args) => normalize::run(args),
         Command::Inspect(args) => inspect::run(args),
     }
 }
 
 /// Generates the SDK for the document at `spec`, and writes it to `out`.
-fn generate(spec: &Path, target: Target, out: &Path) -> Result<(), Err> {
+fn generate(spec: &Path, target: Target, out: &Path, conditions: &[String]) -> Result<(), Err> {
     match target {
-        Target::Ts => run_plugin(&ts::Generator, spec, out),
-        Target::Capnweb => run_plugin(&capnweb::Generator, spec, out),
-        Target::Mcp => run_plugin(&mcp::Generator, spec, out),
+        Target::Ts => run_plugin(&ts::Generator, spec, out, conditions),
+        Target::Capnweb => run_plugin(&capnweb::Generator, spec, out, conditions),
+        Target::Mcp => run_plugin(&mcp::Generator, spec, out, conditions),
         #[cfg(feature = "wasm")]
         Target::Wasm(path) => {
             // Compiling the plugin and reading the document are both slow,
             // so they run at the same time.
-            let (plugin, forge) = rayon::join(|| forge::wasm::WasmPlugin::from_file(&path), || read(spec));
+            let (plugin, forge) = rayon::join(
+                || forge::wasm::WasmPlugin::from_file(&path),
+                || read(spec, conditions),
+            );
             let (plugin, forge) = (plugin?, forge?);
             forge::write(out, plugin.generate(&forge)?)
         }
     }
 }
 
-fn run_plugin(plugin: &impl Plugin, spec: &Path, out: &Path) -> Result<(), Err> {
-    forge::write(out, plugin.generate(&read(spec)?)?)
+fn run_plugin(plugin: &impl Plugin, spec: &Path, out: &Path, conditions: &[String]) -> Result<(), Err> {
+    forge::write(out, plugin.generate(&read(spec, conditions)?)?)
 }
 
-/// Reads the document at `path`, or from standard input when `path` is `-`.
-fn read(path: &Path) -> Result<Forge, Err> {
+/// Reads the document at `path`, or from standard input when `path` is `-`,
+/// with `conditions` active for filtering.
+fn read(path: &Path, conditions: &[String]) -> Result<Forge, Err> {
     let parse = || -> Result<Forge, Err> {
         let json = if path == Path::new("-") {
             let mut json = Vec::new();
@@ -191,7 +201,7 @@ fn read(path: &Path) -> Result<Forge, Err> {
         } else {
             fs::read(path)?
         };
-        Ok(serde_json::from_slice(&json)?)
+        forge::parse_json(&json, conditions).map_err(Into::into)
     };
     parse().map_err(|err| format!("{}: {err}", path.display()).into())
 }

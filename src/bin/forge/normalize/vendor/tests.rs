@@ -11,11 +11,12 @@ enum Level {
 
 /// Every compatibility key, with the source it is from and the level it is
 /// read at.
-const KEYS: [(&str, Level, &str); 9] = [
+const KEYS: [(&str, Level, &str); 10] = [
     ("cloudflare", Level::Schema, "x-sensitive"),
     ("fern", Level::Definition, "x-fern-sdk-method-name"),
     ("fern", Level::Definition, "x-fern-sdk-group-name"),
     ("fern", Level::Definition, "x-fern-ignore"),
+    ("fern", Level::Definition, "x-fern-audiences"),
     ("fern", Level::Definition, "x-fern-availability"),
     ("fern", Level::Parameter, "x-fern-parameter-name"),
     ("fern", Level::Schema, "x-fern-type-name"),
@@ -84,13 +85,16 @@ fn every_normalizer_writes_a_native_key() {
 }
 
 #[test]
-fn only_the_stainless_skip_may_have_no_native_value() {
+fn every_normalizer_writes_a_native_key_for_an_array_too() {
+    // Now that `x-forge-skip` takes an array of conditions natively and
+    // `x-forge-only-for` takes an array of conditions, every compatibility
+    // normalizer rewrites arrays into their native form.
     for (_, level, original) in KEYS {
         let normalizer = read_all(level, original).unwrap();
+        let native = normalizer.normalize(&serde_json::json!(["terraform"]));
 
-        assert_eq!(
-            normalizer.normalize(&serde_json::json!(["terraform"])).is_none(),
-            original == "x-stainless-skip",
+        assert!(
+            native.is_some_and(|native| native.key.starts_with("x-forge-")),
             "{original}"
         );
     }
@@ -100,12 +104,12 @@ fn only_the_stainless_skip_may_have_no_native_value() {
 fn the_other_extensions_of_these_tools_are_not_read() {
     for key in [
         "x-fern-enum",
-        "x-fern-audiences",
         "x-fern-pagination",
         "x-fern-sdk-variables",
         "x-stainless-terraform-configurability",
         "x-stainless-deprecation-message",
         "x-forge-skip",
+        "x-forge-only-for",
         "x-forge-method-name",
     ] {
         for level in [Level::Definition, Level::Parameter, Level::Schema] {

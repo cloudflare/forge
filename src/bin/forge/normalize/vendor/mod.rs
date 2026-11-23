@@ -131,15 +131,6 @@ impl Normalize for Group {
     }
 }
 
-/// A skip that is a boolean, or a list of targets, which has no native form.
-pub(super) struct BoolOrTargets(pub(super) &'static str);
-
-impl Normalize for BoolOrTargets {
-    fn normalize(&self, value: &Value) -> Option<Native> {
-        (!value.is_array()).then(|| Native::renamed(self.0))
-    }
-}
-
 /// Returns the names of an array joined by dots, if each is a name that a
 /// dotted string reads back as it is.
 fn dotted(names: &[Value]) -> Option<String> {

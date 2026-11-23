@@ -14,6 +14,7 @@ impl Source for Fern {
             "x-fern-sdk-method-name" => Some(&"x-forge-method-name"),
             "x-fern-sdk-group-name" => Some(&Group("x-forge-group-name")),
             "x-fern-ignore" => Some(&"x-forge-skip"),
+            "x-fern-audiences" => Some(&"x-forge-only-for"),
             "x-fern-availability" => Some(&"x-forge-availability"),
             _ => None,
         }

@@ -4,6 +4,7 @@
 mod aliases;
 mod bodies;
 mod common;
+mod conditions;
 mod document;
 mod extensions;
 mod groups;

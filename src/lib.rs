@@ -14,6 +14,8 @@ pub mod wasm;
 #[cfg(all(feature = "library", not(feature = "wasm")))]
 mod wasm;
 pub use json::Json;
+#[cfg(any(feature = "cli", feature = "library"))]
+pub use link::parse_json;
 pub use method::{Body, Content, Location, Response};
 pub use name::Name;
 pub use plugin::{Err, File, Plugin, ts, write};

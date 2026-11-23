@@ -249,7 +249,10 @@ pub(super) struct Definition {
     /// `x-forge-group-name` and `x-forge-method-name` do not.
     pub(super) operation_id: Str,
     /// `x-forge-skip`.
-    pub(super) skip: bool,
+    pub(super) skip: Skip,
+    /// `x-forge-only-for`: when not empty, the method is kept only when one
+    /// of the listed conditions is active.
+    pub(super) only_for: Span<Str>,
     /// `x-forge-hidden`.
     pub(super) hidden: bool,
     /// The `x-forge-require-confirmation`, or `None` for none. An empty
@@ -408,9 +411,12 @@ pub(super) struct SchemaObject {
     /// The `x-forge-property-name`: the name of the field, for a property's
     /// schema, or empty for none.
     pub(super) field_name: Str,
-    /// Whether a property's schema is marked `x-forge-skip: true`: it makes no
-    /// field.
-    pub(super) skip: bool,
+    /// `x-forge-skip` on a property's schema: it makes no field when it is
+    /// always skipped, or when any of its listed conditions is active.
+    pub(super) skip: Skip,
+    /// `x-forge-only-for` on a property's schema: when not empty, the field
+    /// is kept only when one of the listed conditions is active.
+    pub(super) only_for: Span<Str>,
 }
 
 /// A value of `type` in a Schema Object.
@@ -910,6 +916,46 @@ impl<'de> Visitor<'de> for SeqOfStrs<'_> {
     }
 }
 
+/// `x-forge-skip`: never, always, or when any of a list of condition names
+/// is active. `false` and an empty list are the same as no extension.
+#[derive(Default)]
+pub(super) enum Skip {
+    #[default]
+    Never,
+    Always,
+    Any(Span<Str>),
+}
+
+/// Reads an `x-forge-skip`: a boolean, or an array of condition names.
+struct ReadSkip;
+
+impl Read for ReadSkip {
+    type Out = Skip;
+
+    fn read<'de, D: Deserializer<'de>>(doc: &mut Doc, deserializer: D) -> Result<Skip, D::Error> {
+        struct SkipVisitor<'a>(&'a mut Doc);
+
+        impl<'de> Visitor<'de> for SkipVisitor<'_> {
+            type Value = Skip;
+
+            fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                f.write_str("a boolean or an array of condition names")
+            }
+
+            fn visit_bool<E: de::Error>(self, v: bool) -> Result<Skip, E> {
+                Ok(if v { Skip::Always } else { Skip::Never })
+            }
+
+            fn visit_seq<A: SeqAccess<'de>>(self, seq: A) -> Result<Skip, A::Error> {
+                let names = SeqOfStrs(self.0).visit_seq(seq)?;
+                Ok(if names.is_empty() { Skip::Never } else { Skip::Any(names) })
+            }
+        }
+
+        deserializer.deserialize_any(SkipVisitor(doc))
+    }
+}
+
 /// Reads a value in an `enum` or `const`.
 impl Read for Literal {
     type Out = Literal;
@@ -1193,6 +1239,7 @@ keys! {
         GroupNames = "x-forge-group-name",
         OperationId = "operationId",
         Skip = "x-forge-skip",
+        OnlyFor = "x-forge-only-for",
         Hidden = "x-forge-hidden",
         Confirmation = "x-forge-require-confirmation",
         Availability = "x-forge-availability",
@@ -1211,7 +1258,8 @@ impl Definition {
             DefinitionKey::MethodName => self.method_name = map.next_value_seed(seed::<ReadStr>(doc))?,
             DefinitionKey::GroupNames => self.group_names = map.next_value_seed(seed::<GroupNames>(doc))?,
             DefinitionKey::OperationId => self.operation_id = map.next_value_seed(seed::<ReadStr>(doc))?,
-            DefinitionKey::Skip => self.skip = map.next_value()?,
+            DefinitionKey::Skip => self.skip = map.next_value_seed(seed::<ReadSkip>(doc))?,
+            DefinitionKey::OnlyFor => self.only_for = map.next_value_seed(SeqOfStrsSeed(doc))?,
             DefinitionKey::Hidden => self.hidden = map.next_value()?,
             DefinitionKey::Confirmation => {
                 self.confirmation = Some(map.next_value_seed(seed::<ReadStr>(doc))?);
@@ -1629,6 +1677,7 @@ keys! {
         ModelName = "x-forge-model-name",
         FieldName = "x-forge-property-name",
         Skip = "x-forge-skip",
+        OnlyFor = "x-forge-only-for",
     }
 }
 
@@ -1685,7 +1734,8 @@ impl ReadObject for SchemaObject {
                 SchemaKey::Sensitive => schema.sensitive = map.next_value()?,
                 SchemaKey::ModelName => schema.model_name = map.next_value_seed(seed::<ReadStr>(doc))?,
                 SchemaKey::FieldName => schema.field_name = map.next_value_seed(seed::<ReadStr>(doc))?,
-                SchemaKey::Skip => schema.skip = map.next_value()?,
+                SchemaKey::Skip => schema.skip = map.next_value_seed(seed::<ReadSkip>(doc))?,
+                SchemaKey::OnlyFor => schema.only_for = map.next_value_seed(SeqOfStrsSeed(doc))?,
                 SchemaKey::Other => skip(&mut map)?,
             }
         }

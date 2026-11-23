@@ -1,0 +1,48 @@
+openapi: 3.1.0
+info:
+  title: Valid shapes
+  version: 1.0.0
+paths:
+  /always:
+    get:
+      operationId: alwaysSkip
+      x-forge-skip: true
+      responses:
+        '200':
+          description: OK
+  /sometimes:
+    get:
+      operationId: sometimesSkip
+      x-forge-skip: [terraform, mcp]
+      responses:
+        '200':
+          description: OK
+  /only-sdk:
+    get:
+      operationId: onlySdk
+      x-forge-only-for: [sdk]
+      responses:
+        '200':
+          description: OK
+  /combined:
+    get:
+      operationId: combined
+      x-forge-skip: [terraform]
+      x-forge-only-for: [sdk]
+      responses:
+        '200':
+          description: OK
+components:
+  schemas:
+    Thing:
+      type: object
+      properties:
+        a:
+          type: string
+          x-forge-skip: true
+        b:
+          type: string
+          x-forge-skip: [terraform]
+        c:
+          type: string
+          x-forge-only-for: [sdk]

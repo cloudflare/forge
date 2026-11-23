@@ -31,7 +31,7 @@ use crate::{
 use openapi::{
     Commands, ContentEncoding, Definition, Discriminator, Doc, Format, Info, Item, Literal, Operation, Parameter,
     ParameterLocation, ParameterStyle, PathItem, Referable, RequestBody, Response, Schema, SchemaObject, SchemaType,
-    Server,
+    Server, Skip,
 };
 
 /// Reads a `Forge` from an OpenAPI document of version 3.0, 3.1 or 3.2,
@@ -63,15 +63,53 @@ use openapi::{
 impl<'de> Deserialize<'de> for Forge {
     fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Forge, D::Error> {
         let doc = Doc::read(deserializer)?;
-        match build(doc) {
+        match build(doc, &[]) {
             Ok(forge) => Ok(forge),
             Err(errors) => Err(de::Error::custom(errors.join("\n"))),
         }
     }
 }
 
+/// Reads a `Forge` from an OpenAPI JSON document with the given conditions
+/// active. A condition changes what elements marked `x-forge-skip` or
+/// `x-forge-only-for` are kept: see RFC 0003.
+#[cfg(any(feature = "cli", feature = "library"))]
+pub fn parse_json(json: &[u8], conditions: &[String]) -> Result<Forge, String> {
+    let doc = {
+        let mut de = serde_json::Deserializer::from_slice(json);
+        Doc::read(&mut de).map_err(|err| err.to_string())?
+    };
+    build(doc, conditions).map_err(|errors| errors.join("\n"))
+}
+
+/// Returns whether an element with `skip` and `only_for` extensions is kept
+/// in a generation where `conditions` are active. See RFC 0003 for the full
+/// semantics; `x-forge-skip` wins over `x-forge-only-for`.
+fn is_kept(doc: &Doc, conditions: &[String], skip: &Skip, only_for: Span<Str>) -> bool {
+    if matches_skip(doc, conditions, skip) {
+        return false;
+    }
+    if only_for.is_empty() {
+        return true;
+    }
+    doc.list(only_for)
+        .iter()
+        .any(|&name| conditions.iter().any(|c| c == doc.str(name)))
+}
+
+fn matches_skip(doc: &Doc, conditions: &[String], skip: &Skip) -> bool {
+    match skip {
+        Skip::Never => false,
+        Skip::Always => true,
+        Skip::Any(names) => doc
+            .list(*names)
+            .iter()
+            .any(|&name| conditions.iter().any(|c| c == doc.str(name))),
+    }
+}
+
 /// Returns the `Forge` of `doc`, or every error in it.
-fn build(mut doc: Doc) -> Result<Forge, Vec<String>> {
+fn build(mut doc: Doc, conditions: &[String]) -> Result<Forge, Vec<String>> {
     let version = mem::take(&mut doc.openapi);
     if version.is_empty() {
         return Err(vec![
@@ -93,7 +131,7 @@ fn build(mut doc: Doc) -> Result<Forge, Vec<String>> {
     // Taken whole too: a field keeps the `Id` of its schema's default.
     let defaults = mem::take(&mut doc.defaults);
     let index = Index::new(&doc);
-    let mut builder = Builder::new(&doc, &index, v30);
+    let mut builder = Builder::new(&doc, &index, v30, conditions);
     let url = match base_url(&servers) {
         Ok(url) => url,
         Err(err) => {
@@ -390,6 +428,9 @@ struct Builder<'d> {
     /// Whether the document is OpenAPI 3.0, where the keywords next to a
     /// `$ref` are ignored.
     v30: bool,
+    /// The conditions pinned on the CLI, used to filter elements marked
+    /// `x-forge-skip` or `x-forge-only-for`.
+    conditions: &'d [String],
 
     groups: Groups,
     /// Each group but the root by its parent and name.
@@ -445,11 +486,12 @@ enum Context<'d> {
 }
 
 impl<'d> Builder<'d> {
-    fn new(doc: &'d Doc, index: &'d Index<'d>, v30: bool) -> Builder<'d> {
+    fn new(doc: &'d Doc, index: &'d Index<'d>, v30: bool, conditions: &'d [String]) -> Builder<'d> {
         Builder {
             doc,
             index,
             v30,
+            conditions,
             groups: Groups::default(),
             group_index: HashMap::new(),
             methods: Vec::new(),
@@ -557,7 +599,7 @@ impl<'d> Builder<'d> {
         http_method: HttpMethod,
     ) {
         let doc = self.doc;
-        if definition.skip {
+        if !is_kept(doc, self.conditions, &definition.skip, definition.only_for) {
             return;
         }
         // `x-forge-method-name` names the method, with `x-forge-group-name`
@@ -1655,7 +1697,7 @@ impl<'d> Builder<'d> {
                 Schema::Bool(true) => {}
                 Schema::Object(object) => {
                     let object = doc.get(object);
-                    if object.skip {
+                    if !is_kept(doc, self.conditions, &object.skip, object.only_for) {
                         continue;
                     }
                     extension = object.field_name;

@@ -1,8 +1,0 @@
-[
-  {
-    "ruleId": "forge/boolean-extensions",
-    "severity": "error",
-    "message": "x-forge-skip must be boolean; got string.",
-    "location": "openapi.yaml#/paths/~1thing/get/x-forge-skip (key)"
-  }
-]
