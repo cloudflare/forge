@@ -4,16 +4,12 @@
 //! The generator's source, in src/bin/forge/ts, and the `forge::ts`
 //! library it prints with, in src/plugin/ts, compile here unchanged. This
 //! crate calls itself `forge` and mirrors forge's public API on top of the
-//! host's `forge` interface (see `forge::wasm::WIT`).
-//!
-//! The forge stays in the host. A part is fetched the first time the
-//! plugin reads it, and kept for the rest of the call.
+//! `forge` record that `generate` receives (see `forge::wasm::WIT`).
 
 #![allow(dead_code)]
 
 extern crate self as forge;
 
-use std::sync::{LazyLock, OnceLock};
 use std::{fmt, iter};
 mod json;
 mod name;
@@ -26,28 +22,6 @@ mod wit {
 }
 
 use wit::forge::plugin::forge as host;
-
-thread_local! {
-    /// The `forge` resource the running `generate` reads, null between calls.
-    static HOST: std::cell::Cell<*const host::Forge> = const { std::cell::Cell::new(std::ptr::null()) };
-}
-
-/// Returns the `forge` resource the running `generate` reads.
-fn host() -> &'static host::Forge {
-    let forge = HOST.get();
-    assert!(!forge.is_null(), "the forge is read only during generate");
-    // SAFETY: `with_host` sets the pointer from a borrow that outlives the
-    // call, and resets it before the borrow ends. A plugin has one thread.
-    unsafe { &*forge }
-}
-
-/// Runs `f` with `forge` as the resource `host` returns.
-fn with_host<T>(forge: &host::Forge, f: impl FnOnce() -> T) -> T {
-    HOST.set(forge);
-    let result = f();
-    HOST.set(std::ptr::null());
-    result
-}
 
 /// `forge::plugin`: the traits from src/plugin.rs, and the `ts` library.
 #[path = "../../../../src/plugin"]
@@ -97,19 +71,17 @@ impl wit::Guest for Component {
     /// `dump.txt`.
     #[cfg(feature = "dump")]
     fn generate(forge: host::Forge) -> Result<Vec<wit::File>, String> {
-        with_host(&forge, || {
-            Ok(vec![wit::File {
-                path: "dump.txt".to_owned(),
-                content: dump::dump(&FORGE).into_bytes(),
-            }])
-        })
+        let forge = Forge::from_wit(forge);
+        Ok(vec![wit::File {
+            path: "dump.txt".to_owned(),
+            content: dump::dump(&forge).into_bytes(),
+        }])
     }
 
     #[cfg(not(feature = "dump"))]
     fn generate(forge: host::Forge) -> Result<Vec<wit::File>, String> {
-        with_host(&forge, || {
-            render(bin::ts::Generator.generate(&FORGE).map_err(|err| err.to_string())?)
-        })
+        let forge = Forge::from_wit(forge);
+        render(bin::ts::Generator.generate(&forge).map_err(|err| err.to_string())?)
     }
 }
 
@@ -129,49 +101,38 @@ fn render<F: File>(files: impl Iterator<Item = F>) -> Result<Vec<wit::File>, Str
 }
 
 // ---------------------------------------------------------------------------
-// The forge, read from the host.
+// The forge, built from the WIT `forge` record.
 
-/// `forge::Forge`, read from the host a part at a time.
+/// `forge::Forge`, constructed from `host::Forge`.
 pub struct Forge {
     pub version: String,
     pub description: String,
     pub base_url: String,
 
-    groups: OnceLock<Vec<u32>>,
+    groups: Vec<u32>,
 
-    group_data: Vec<OnceLock<GroupData>>,
-    method_data: Vec<OnceLock<MethodData>>,
-    model_data: Vec<OnceLock<ModelData>>,
-    type_data: Vec<OnceLock<TypeData>>,
-}
-
-static FORGE: LazyLock<Forge> = LazyLock::new(Forge::fetch);
-
-fn slots<T>(n: u32) -> Vec<OnceLock<T>> {
-    (0..n).map(|_| OnceLock::new()).collect()
+    group_data: Vec<GroupData>,
+    method_data: Vec<MethodData>,
+    model_data: Vec<ModelData>,
+    type_data: Vec<TypeData>,
 }
 
 impl Forge {
-    fn fetch() -> Forge {
-        let info = host().info();
-        let counts = host().counts();
+    fn from_wit(forge: host::Forge) -> Forge {
         Forge {
-            version: info.version,
-            description: info.description,
-            base_url: info.base_url,
-            groups: OnceLock::new(),
-            group_data: slots(counts.groups),
-            method_data: slots(counts.methods),
-            model_data: slots(counts.models),
-            type_data: slots(counts.types),
+            version: forge.info.version,
+            description: forge.info.description,
+            base_url: forge.info.base_url,
+            groups: forge.group_order,
+            group_data: forge.groups.into_iter().map(convert_group).collect(),
+            method_data: forge.methods.into_iter().map(convert_method).collect(),
+            model_data: forge.models.into_iter().map(convert_model).collect(),
+            type_data: forge.types.into_iter().map(convert_type).collect(),
         }
     }
 
     pub fn groups(&self) -> impl Iterator<Item = Group<'_>> {
-        self.groups
-            .get_or_init(|| host().groups())
-            .iter()
-            .map(|&id| self.group(id))
+        self.groups.iter().map(|&id| self.group(id))
     }
 
     fn group(&self, id: u32) -> Group<'_> {
@@ -196,157 +157,173 @@ impl Forge {
     }
 
     fn group_data(&self, id: u32) -> &GroupData {
-        self.group_data[id as usize].get_or_init(|| {
-            let g = host().get_group(id);
-            GroupData {
-                name: Name::from_words(g.name),
-                description: g.description,
-                path: g.path,
-                parent: g.parent,
-                children: g.children,
-                methods: g.methods,
-                models: g.models,
-            }
-        })
+        &self.group_data[id as usize]
     }
 
     fn method_data(&self, id: u32) -> &MethodData {
-        self.method_data[id as usize].get_or_init(|| {
-            let m = host().get_method(id);
-            MethodData {
-                name: Name::from_words(m.name),
-                group: m.group,
-                http_method: match m.http_method {
-                    host::HttpMethod::Get => HttpMethod::Get,
-                    host::HttpMethod::Put => HttpMethod::Put,
-                    host::HttpMethod::Post => HttpMethod::Post,
-                    host::HttpMethod::Delete => HttpMethod::Delete,
-                    host::HttpMethod::Options => HttpMethod::Options,
-                    host::HttpMethod::Head => HttpMethod::Head,
-                    host::HttpMethod::Patch => HttpMethod::Patch,
-                    host::HttpMethod::Trace => HttpMethod::Trace,
-                    host::HttpMethod::Query => HttpMethod::Query,
-                    host::HttpMethod::Connect => HttpMethod::Connect,
-                    host::HttpMethod::Other(method) => HttpMethod::Other(method),
-                },
-                path: m.path,
-                summary: m.summary,
-                description: m.description,
-                deprecated: m.deprecated,
-                availability: m.availability.map(|availability| match availability {
-                    host::Availability::Alpha => Availability::Alpha,
-                    host::Availability::Beta => Availability::Beta,
-                    host::Availability::Preview => Availability::Preview,
-                    host::Availability::GenerallyAvailable => Availability::GenerallyAvailable,
-                    host::Availability::Deprecated => Availability::Deprecated,
-                }),
-                hidden: m.hidden,
-                confirmation: m.confirmation,
-                request: m.request,
-                headers: m.headers,
-                body: m.body.map(|b| BodyData {
-                    required: b.required,
-                    description: b.description,
-                    contents: contents(b.contents),
-                    json: b.json,
-                }),
-                responses: m.responses.into_iter().map(response).collect(),
-                errors: m.errors.into_iter().map(response).collect(),
-                extensions: m
-                    .extensions
-                    .into_iter()
-                    .map(|(name, value)| (name, Json::parse(&value)))
-                    .collect(),
-            }
-        })
+        &self.method_data[id as usize]
     }
 
     fn model_data(&self, id: u32) -> &ModelData {
-        self.model_data[id as usize].get_or_init(|| {
-            let m = host().get_model(id);
-            ModelData {
-                schema_name: m.schema_name,
-                name: Name::from_words(m.name),
-                group: m.group,
-                description: m.description,
-                deprecated: m.deprecated,
-                ty: m.ty,
-            }
-        })
+        &self.model_data[id as usize]
     }
 
     fn type_data(&self, id: u32) -> &TypeData {
-        self.type_data[id as usize].get_or_init(|| match host().get_type(id) {
-            host::TypeInfo::Scalar(scalar) => TypeData::Scalar(match scalar {
-                host::Scalar::Unknown => Scalar::Unknown,
-                host::Scalar::Null => Scalar::Null,
-                host::Scalar::Boolean => Scalar::Boolean,
-                host::Scalar::String => Scalar::String,
-                host::Scalar::Uuid => Scalar::Uuid,
-                host::Scalar::Number(number) => Scalar::Number(match number {
-                    host::Number::Int => Number::Int,
-                    host::Number::Int8 => Number::Int8,
-                    host::Number::Int16 => Number::Int16,
-                    host::Number::Int32 => Number::Int32,
-                    host::Number::Int64 => Number::Int64,
-                    host::Number::Uint8 => Number::Uint8,
-                    host::Number::Uint16 => Number::Uint16,
-                    host::Number::Uint32 => Number::Uint32,
-                    host::Number::Uint64 => Number::Uint64,
-                    host::Number::Float => Number::Float,
-                    host::Number::Double => Number::Double,
-                }),
-                host::Scalar::DateTime => Scalar::DateTime,
-                host::Scalar::Date => Scalar::Date,
-                host::Scalar::Bytes => Scalar::Bytes,
-                host::Scalar::Binary => Scalar::Binary,
+        &self.type_data[id as usize]
+    }
+}
+
+fn convert_group(g: host::GroupInfo) -> GroupData {
+    GroupData {
+        name: Name::from_words(g.name),
+        description: g.description,
+        path: g.path,
+        parent: g.parent,
+        children: g.children,
+        methods: g.methods,
+        models: g.models,
+    }
+}
+
+fn convert_method(m: host::MethodInfo) -> MethodData {
+    MethodData {
+        name: Name::from_words(m.name),
+        group: m.group,
+        http_method: match m.http_method {
+            host::HttpMethod::Get => HttpMethod::Get,
+            host::HttpMethod::Put => HttpMethod::Put,
+            host::HttpMethod::Post => HttpMethod::Post,
+            host::HttpMethod::Delete => HttpMethod::Delete,
+            host::HttpMethod::Options => HttpMethod::Options,
+            host::HttpMethod::Head => HttpMethod::Head,
+            host::HttpMethod::Patch => HttpMethod::Patch,
+            host::HttpMethod::Trace => HttpMethod::Trace,
+            host::HttpMethod::Query => HttpMethod::Query,
+            host::HttpMethod::Connect => HttpMethod::Connect,
+            host::HttpMethod::Other(method) => HttpMethod::Other(method),
+        },
+        path: m.path,
+        summary: m.summary,
+        description: m.description,
+        deprecated: m.deprecated,
+        availability: m.availability.map(|availability| match availability {
+            host::Availability::Alpha => Availability::Alpha,
+            host::Availability::Beta => Availability::Beta,
+            host::Availability::Preview => Availability::Preview,
+            host::Availability::GenerallyAvailable => Availability::GenerallyAvailable,
+            host::Availability::Deprecated => Availability::Deprecated,
+        }),
+        hidden: m.hidden,
+        confirmation: m.confirmation,
+        request: m.request,
+        params: m.params,
+        locations: m
+            .locations
+            .into_iter()
+            .map(|location| match location {
+                host::Location::Path => Location::Path,
+                host::Location::Query(exploded) => Location::Query { exploded },
+            })
+            .collect(),
+        headers: m.headers,
+        body: m.body.map(|b| BodyData {
+            required: b.required,
+            description: b.description,
+            contents: contents(b.contents),
+            json: b.json,
+        }),
+        responses: m.responses.into_iter().map(response).collect(),
+        errors: m.errors.into_iter().map(response).collect(),
+        extensions: m
+            .extensions
+            .into_iter()
+            .map(|(name, value)| (name, Json::parse(&value)))
+            .collect(),
+    }
+}
+
+fn convert_model(m: host::ModelInfo) -> ModelData {
+    ModelData {
+        schema_name: m.schema_name,
+        name: Name::from_words(m.name),
+        group: m.group,
+        description: m.description,
+        deprecated: m.deprecated,
+        ty: m.ty,
+    }
+}
+
+fn convert_type(t: host::TypeInfo) -> TypeData {
+    match t {
+        host::TypeInfo::Scalar(scalar) => TypeData::Scalar(match scalar {
+            host::Scalar::Unknown => Scalar::Unknown,
+            host::Scalar::Null => Scalar::Null,
+            host::Scalar::Boolean => Scalar::Boolean,
+            host::Scalar::String => Scalar::String,
+            host::Scalar::Uuid => Scalar::Uuid,
+            host::Scalar::Number(number) => Scalar::Number(match number {
+                host::Number::Int => Number::Int,
+                host::Number::Int8 => Number::Int8,
+                host::Number::Int16 => Number::Int16,
+                host::Number::Int32 => Number::Int32,
+                host::Number::Int64 => Number::Int64,
+                host::Number::Uint8 => Number::Uint8,
+                host::Number::Uint16 => Number::Uint16,
+                host::Number::Uint32 => Number::Uint32,
+                host::Number::Uint64 => Number::Uint64,
+                host::Number::Float => Number::Float,
+                host::Number::Double => Number::Double,
             }),
-            host::TypeInfo::Enum(values) => TypeData::Enum(
-                values
-                    .into_iter()
-                    .map(|value| match value {
-                        host::EnumValue::String(s) => EnumData::String(s),
-                        host::EnumValue::Number(n) => EnumData::Number(n),
-                        host::EnumValue::Boolean(b) => EnumData::Boolean(b),
-                    })
-                    .collect(),
-            ),
-            host::TypeInfo::Array(array) => TypeData::Array(ArrayData {
-                elem: array.elem,
-                min_items: array.min_items,
-                max_items: array.max_items,
+            host::Scalar::DateTime => Scalar::DateTime,
+            host::Scalar::Date => Scalar::Date,
+            host::Scalar::Bytes => Scalar::Bytes,
+            host::Scalar::Binary => Scalar::Binary,
+        }),
+        host::TypeInfo::Enum(values) => TypeData::Enum(
+            values
+                .into_iter()
+                .map(|value| match value {
+                    host::EnumValue::String(s) => EnumData::String(s),
+                    host::EnumValue::Number(n) => EnumData::Number(n),
+                    host::EnumValue::Boolean(b) => EnumData::Boolean(b),
+                })
+                .collect(),
+        ),
+        host::TypeInfo::Array(array) => TypeData::Array(ArrayData {
+            elem: array.elem,
+            min_items: array.min_items,
+            max_items: array.max_items,
+        }),
+        host::TypeInfo::Object(object) => TypeData::Object(ObjectData {
+            fields: object
+                .fields
+                .into_iter()
+                .map(|f| FieldData {
+                    wire_name: f.wire_name,
+                    name: Name::from_words(f.name),
+                    required: f.required,
+                    ty: f.ty,
+                    description: f.description,
+                    deprecated: f.deprecated,
+                    read_only: f.read_only,
+                    sensitive: f.sensitive,
+                    default: f.default.as_deref().map(Json::parse),
+                })
+                .collect(),
+            extra: object.extra,
+        }),
+        host::TypeInfo::Union(union) => TypeData::Union(UnionData {
+            members: union.members,
+            exclusive: union.exclusive,
+            discriminator: union.discriminator.map(|d| DiscriminatorData {
+                wire_name: d.wire_name,
+                name: Name::from_words(d.name),
+                cases: d.cases,
+                default: d.default,
             }),
-            host::TypeInfo::Object(object) => TypeData::Object(ObjectData {
-                fields: object
-                    .fields
-                    .into_iter()
-                    .map(|f| FieldData {
-                        wire_name: f.wire_name,
-                        name: Name::from_words(f.name),
-                        required: f.required,
-                        ty: f.ty,
-                        description: f.description,
-                        deprecated: f.deprecated,
-                        read_only: f.read_only,
-                        sensitive: f.sensitive,
-                        default: f.default.as_deref().map(Json::parse),
-                    })
-                    .collect(),
-                extra: object.extra,
-            }),
-            host::TypeInfo::Union(union) => TypeData::Union(UnionData {
-                members: union.members,
-                exclusive: union.exclusive,
-                discriminator: union.discriminator.map(|d| DiscriminatorData {
-                    wire_name: d.wire_name,
-                    name: Name::from_words(d.name),
-                    cases: d.cases,
-                    default: d.default,
-                }),
-            }),
-            host::TypeInfo::Intersection(members) => TypeData::Intersection(members),
-            host::TypeInfo::Model(id) => TypeData::Model(id),
-        })
+        }),
+        host::TypeInfo::Intersection(members) => TypeData::Intersection(members),
+        host::TypeInfo::Model(id) => TypeData::Model(id),
     }
 }
 
@@ -392,6 +369,8 @@ struct MethodData {
     hidden: bool,
     confirmation: Option<String>,
     request: Option<u32>,
+    params: Option<u32>,
+    locations: Vec<Location>,
     headers: Option<u32>,
     body: Option<BodyData>,
     responses: Vec<ResponseData>,
@@ -618,12 +597,11 @@ impl<'f> Method<'f> {
     }
 
     pub fn location(self, field: Field<'f>) -> Option<Location> {
-        host()
-            .get_location(self.id, field.object, field.index)
-            .map(|location| match location {
-                host::Location::Path => Location::Path,
-                host::Location::Query(exploded) => Location::Query { exploded },
-            })
+        let data = self.data();
+        if data.params != Some(field.object) {
+            return None;
+        }
+        data.locations.get(field.index as usize).copied()
     }
 
     pub fn body(self) -> Option<Body<'f>> {

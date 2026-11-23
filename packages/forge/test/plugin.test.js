@@ -2,11 +2,10 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
 import { definePlugin } from '../plugin/plugin.js';
-import * as host from './fixtures/metadata-host.js';
+import { forge as host } from './fixtures/metadata-host.js';
 
-// The fixture's functions stand in for the methods of the `forge` resource
-// the host passes to `generate`, so the built plugin library reads it as it
-// reads a component's.
+// The fixture stands in for the `forge` record the host passes to `generate`,
+// so the built plugin library reads it as it reads a component's.
 test('array bounds distinguish absent, zero and one through the plugin API', () => {
   definePlugin({
     generate(forge) {

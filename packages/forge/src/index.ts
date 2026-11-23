@@ -8,7 +8,7 @@
  * ```ts
  * import { parse } from "@cloudflare/forge";
  *
- * using forge = parse(await readFile("openapi.json", "utf8"));
+ * const forge = parse(await readFile("openapi.json", "utf8"));
  * for (const group of forge.groups) {
  *   console.log(group.path.join("."), group.methods.map((m) => m.name.camel()));
  * }
@@ -23,39 +23,19 @@ import { type Forge, forgeOf } from './forge.js';
 export type * from './forge.js';
 
 /**
- * Holds a parsed document's forge in forge's memory until disposed. Dispose
- * it, or declare it with `using`, when done.
- */
-export interface Document extends Forge, Disposable {
-  /**
-   * Frees the document. A part already read stays readable; reading one
-   * for the first time afterwards throws.
-   */
-  dispose(): void;
-}
-
-/**
  * Parses the OpenAPI JSON document `json` and returns its forge. Throws with
  * forge's message when forge doesn't read the document, such as one that is
  * not OpenAPI 3.x, or one with two methods of the same name in a group.
  */
-export function parse(json: string): Document {
+export function parse(json: string): Forge {
   let parsed: ReturnType<typeof parser.parse>;
   try {
     parsed = parser.parse(json);
   } catch (err) {
     throw new Error(componentMessage(err));
   }
-  const forge = forgeOf(parsed);
-  const dispose = () => parsed[disposeSymbol]();
-  return Object.assign(forge, { dispose, [disposeSymbol]: dispose });
+  return forgeOf(parsed);
 }
-
-/**
- * Holds `Symbol.dispose`. Node added it in 18.18 and 20.4, so older versions
- * get the symbol jco's resources use instead.
- */
-const disposeSymbol: typeof Symbol.dispose = Symbol.dispose ?? (Symbol.for('dispose') as typeof Symbol.dispose);
 
 /** Returns the message of a component's error case, or of what was thrown. */
 function componentMessage(err: unknown): string {

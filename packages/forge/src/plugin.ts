@@ -20,10 +20,9 @@
  * });
  * ```
  *
- * The forge stays in forge's process. Each part is fetched the first time
- * a plugin reads it, and kept for the rest of the call, so reading a part
- * again is free, and the same part is always the same object: compare
- * groups, methods and models with `===`.
+ * Each part is wrapped the first time a plugin reads it, and kept for the
+ * rest of the call, so reading a part again is free, and the same part is
+ * always the same object: compare groups, methods and models with `===`.
  *
  * @module
  */
@@ -71,7 +70,7 @@ export interface File {
 
 /** What the entry module of a plugin exports, under these names. */
 export interface Exports {
-  /** Takes the `forge` resource the host passes. */
+  /** Takes the `forge` record the host passes. */
   generate(forge: object): Array<{ path: string; content: Uint8Array }>;
 }
 
