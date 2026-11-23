@@ -947,7 +947,7 @@ impl Read for ReadSkip {
             }
 
             fn visit_seq<A: SeqAccess<'de>>(self, seq: A) -> Result<Skip, A::Error> {
-                let names = SeqOfStrs(self.0).visit_seq(seq)?;
+                let names = ConditionNames(self.0).visit_seq(seq)?;
                 Ok(if names.is_empty() {
                     Skip::Never
                 } else {
@@ -1263,7 +1263,7 @@ impl Definition {
             DefinitionKey::GroupNames => self.group_names = map.next_value_seed(seed::<GroupNames>(doc))?,
             DefinitionKey::OperationId => self.operation_id = map.next_value_seed(seed::<ReadStr>(doc))?,
             DefinitionKey::Skip => self.skip = map.next_value_seed(seed::<ReadSkip>(doc))?,
-            DefinitionKey::OnlyFor => self.only_for = map.next_value_seed(SeqOfStrsSeed(doc))?,
+            DefinitionKey::OnlyFor => self.only_for = map.next_value_seed(ConditionNamesSeed(doc))?,
             DefinitionKey::Hidden => self.hidden = map.next_value()?,
             DefinitionKey::Confirmation => {
                 self.confirmation = Some(map.next_value_seed(seed::<ReadStr>(doc))?);
@@ -1739,7 +1739,7 @@ impl ReadObject for SchemaObject {
                 SchemaKey::ModelName => schema.model_name = map.next_value_seed(seed::<ReadStr>(doc))?,
                 SchemaKey::FieldName => schema.field_name = map.next_value_seed(seed::<ReadStr>(doc))?,
                 SchemaKey::Skip => schema.skip = map.next_value_seed(seed::<ReadSkip>(doc))?,
-                SchemaKey::OnlyFor => schema.only_for = map.next_value_seed(SeqOfStrsSeed(doc))?,
+                SchemaKey::OnlyFor => schema.only_for = map.next_value_seed(ConditionNamesSeed(doc))?,
                 SchemaKey::Other => skip(&mut map)?,
             }
         }
@@ -1755,6 +1755,43 @@ impl<'de> DeserializeSeed<'de> for SeqOfStrsSeed<'_> {
 
     fn deserialize<D: Deserializer<'de>>(self, deserializer: D) -> Result<Span<Str>, D::Error> {
         deserializer.deserialize_seq(SeqOfStrs(self.0))
+    }
+}
+
+/// What reads an array of condition names: an array of non-empty strings,
+/// used for `x-forge-only-for` and the array form of `x-forge-skip`. See
+/// RFC 0003.
+struct ConditionNamesSeed<'a>(&'a mut Doc);
+
+impl<'de> DeserializeSeed<'de> for ConditionNamesSeed<'_> {
+    type Value = Span<Str>;
+
+    fn deserialize<D: Deserializer<'de>>(self, deserializer: D) -> Result<Span<Str>, D::Error> {
+        deserializer.deserialize_seq(ConditionNames(self.0))
+    }
+}
+
+/// Visits an array of condition names: non-empty strings. Empties fail with
+/// a serde error.
+struct ConditionNames<'a>(&'a mut Doc);
+
+impl<'de> Visitor<'de> for ConditionNames<'_> {
+    type Value = Span<Str>;
+
+    fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("an array of condition names")
+    }
+
+    fn visit_seq<A: SeqAccess<'de>>(self, mut seq: A) -> Result<Span<Str>, A::Error> {
+        let doc = self.0;
+        let start = doc.str_lists.start();
+        while let Some(s) = seq.next_element_seed(seed::<ReadStr>(doc))? {
+            if s.is_empty() {
+                return Err(de::Error::custom("condition name must not be empty"));
+            }
+            doc.str_lists.push(s);
+        }
+        Ok(doc.str_lists.finish(start))
     }
 }
 

@@ -12,8 +12,11 @@ x-forge-only-for: [sdk] # keep only when sdk condition active
 x-forge-only-for: [ts, go, rust] # keep only when any listed condition active
 ```
 
-Both extensions can be placed on path items, operations, parameters, request
-bodies, responses, schema definitions, and schema properties.
+Both extensions can be placed on operations (and each entry of
+`x-forge-aliases`) and on schema properties. Other placements (path items,
+parameters, request bodies, responses, and schema definitions) are reserved
+for a later change; writing the extensions there today has no effect on
+filtering.
 
 Default (no extension): kept in every generation.
 
@@ -21,8 +24,9 @@ An element may carry both extensions. Exclusion wins: it is kept iff
 `x-forge-only-for` matches **and** `x-forge-skip` does not.
 
 Empty lists and `x-forge-skip: false` are no-ops; use `x-forge-skip: true` to
-always skip. When a skipped property appears in its schema's `required`
-array, it is removed from that array as part of filtering.
+always skip. A skipped property's name is left in its schema's `required`
+array verbatim; the field-building loop silently ignores required names that
+match no property.
 
 ## Conditions
 
@@ -40,9 +44,13 @@ Plugins do not declare conditions; the host keeps no registry. Prefer
 category names (`sdk`, `codegen`) over target-specific names (`ts-sdk-v2`),
 so new siblings don't force spec edits.
 
-The host applies these extensions before plugins see the model. A retained
-element that references a skipped component fails generation, including
-references to schemas marked `x-forge-skip`.
+The host applies these extensions before plugins see the model. In the
+JavaScript library (`@cloudflare/forge`), `parse(json)` with no conditions
+leaves conditional filters as no-ops and keeps every element: `x-forge-skip:
+true` still drops, but `x-forge-skip: [names]` and `x-forge-only-for` have
+no effect. A later change will teach retained elements that reference a
+skipped component to fail generation, including references to schemas
+marked `x-forge-skip`.
 
 Validation lives in `redocly-plugin-forge`.
 

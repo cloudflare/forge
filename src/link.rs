@@ -63,7 +63,10 @@ use openapi::{
 impl<'de> Deserialize<'de> for Forge {
     fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Forge, D::Error> {
         let doc = Doc::read(deserializer)?;
-        match build(doc, &[]) {
+        // Without conditions, conditional filters (`x-forge-skip: [names]`
+        // and `x-forge-only-for`) are no-ops; `x-forge-skip: true` still
+        // drops the element.
+        match build(doc, None) {
             Ok(forge) => Ok(forge),
             Err(errors) => Err(de::Error::custom(errors.join("\n"))),
         }
@@ -77,39 +80,45 @@ impl<'de> Deserialize<'de> for Forge {
 pub fn parse_json(json: &[u8], conditions: &[String]) -> Result<Forge, String> {
     let doc = {
         let mut de = serde_json::Deserializer::from_slice(json);
-        Doc::read(&mut de).map_err(|err| err.to_string())?
+        let doc = Doc::read(&mut de).map_err(|err| err.to_string())?;
+        de.end().map_err(|err| err.to_string())?;
+        doc
     };
-    build(doc, conditions).map_err(|errors| errors.join("\n"))
+    build(doc, Some(conditions)).map_err(|errors| errors.join("\n"))
 }
 
 /// Returns whether an element with `skip` and `only_for` extensions is kept
-/// in a generation where `conditions` are active. See RFC 0003 for the full
-/// semantics; `x-forge-skip` wins over `x-forge-only-for`.
-fn is_kept(doc: &Doc, conditions: &[String], skip: &Skip, only_for: Span<Str>) -> bool {
-    if matches_skip(doc, conditions, skip) {
-        return false;
+/// in a generation where `conditions` are active, or kept without
+/// conditional filtering when `conditions` is `None`. See RFC 0003 for the
+/// full semantics; `x-forge-skip` wins over `x-forge-only-for`.
+fn is_kept(doc: &Doc, conditions: Option<&[String]>, skip: &Skip, only_for: Span<Str>) -> bool {
+    match skip {
+        Skip::Always => return false,
+        Skip::Never => {}
+        Skip::Any(names) => {
+            if let Some(active) = conditions
+                && doc
+                    .list(*names)
+                    .iter()
+                    .any(|&name| active.iter().any(|c| c == doc.str(name)))
+            {
+                return false;
+            }
+        }
     }
+    let Some(active) = conditions else {
+        return true;
+    };
     if only_for.is_empty() {
         return true;
     }
     doc.list(only_for)
         .iter()
-        .any(|&name| conditions.iter().any(|c| c == doc.str(name)))
-}
-
-fn matches_skip(doc: &Doc, conditions: &[String], skip: &Skip) -> bool {
-    match skip {
-        Skip::Never => false,
-        Skip::Always => true,
-        Skip::Any(names) => doc
-            .list(*names)
-            .iter()
-            .any(|&name| conditions.iter().any(|c| c == doc.str(name))),
-    }
+        .any(|&name| active.iter().any(|c| c == doc.str(name)))
 }
 
 /// Returns the `Forge` of `doc`, or every error in it.
-fn build(mut doc: Doc, conditions: &[String]) -> Result<Forge, Vec<String>> {
+fn build(mut doc: Doc, conditions: Option<&[String]>) -> Result<Forge, Vec<String>> {
     let version = mem::take(&mut doc.openapi);
     if version.is_empty() {
         return Err(vec![
@@ -429,8 +438,10 @@ struct Builder<'d> {
     /// `$ref` are ignored.
     v30: bool,
     /// The conditions pinned on the CLI, used to filter elements marked
-    /// `x-forge-skip` or `x-forge-only-for`.
-    conditions: &'d [String],
+    /// `x-forge-skip` or `x-forge-only-for`. `None` means no conditional
+    /// filtering (the `Deserialize` path); `Some(&[])` means CLI-mode
+    /// filtering with no condition active.
+    conditions: Option<&'d [String]>,
 
     groups: Groups,
     /// Each group but the root by its parent and name.
@@ -486,7 +497,7 @@ enum Context<'d> {
 }
 
 impl<'d> Builder<'d> {
-    fn new(doc: &'d Doc, index: &'d Index<'d>, v30: bool, conditions: &'d [String]) -> Builder<'d> {
+    fn new(doc: &'d Doc, index: &'d Index<'d>, v30: bool, conditions: Option<&'d [String]>) -> Builder<'d> {
         Builder {
             doc,
             index,
