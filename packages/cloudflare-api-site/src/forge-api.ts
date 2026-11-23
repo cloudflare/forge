@@ -20,7 +20,7 @@ import {
 import { cloudflareTerraformExtension } from './terraform-extension.ts';
 import { TERRAFORM_EXTENSION_NAME, type TerraformOperationData, terraformOperationDataSchema } from './terraform.ts';
 import { assertToolingRouteNamespace } from './command-reference/routing.ts';
-import { cloudflareApiVersionLabel, parseCloudflareApiVersion } from './version.ts';
+import { parseCloudflareApiVersion } from './version.ts';
 
 export const TERRAFORM_EXTENSION = 'x-cloudflare-terraform';
 const HTTP_METHODS = ['get', 'put', 'post', 'delete', 'options', 'head', 'patch', 'trace'] as const;
@@ -71,7 +71,6 @@ interface Tag {
 }
 
 const air = parseCloudflareApiVersion('2026-11-30.air');
-const AIR_LABEL = cloudflareApiVersionLabel(air);
 
 const manifest: FernManifestProvider = (_openapi, { discoverProducts }) =>
   defineFernManifest({ targets: CLOUDFLARE_TARGETS, products: discoverProducts() });
@@ -293,7 +292,7 @@ function terraformSample(terraform: TerraformOperationData | undefined): string 
 export function prepareForgeSpec(source: Record<string, unknown>): Record<string, unknown> {
   const document = hoistForgeCommands(source);
   const data = buildFernContent({
-    source: { kind: 'snapshots', snapshots: [{ id: air.wire, source: document, label: AIR_LABEL, default: true }] },
+    source: { kind: 'snapshots', snapshots: [{ id: air.wire, source: document, label: air.label, default: true }] },
     manifest,
     responsePayloadKey: CLOUDFLARE_RESPONSE_PAYLOAD_KEY,
     formatIdentifier: cloudflareFormatIdentifier,
@@ -331,7 +330,7 @@ export function forgeApi(spec: ApiVersionSpec['spec']): ApiSpec {
     versions: [
       {
         version: air.wire,
-        label: AIR_LABEL,
+        label: air.label,
         default: true,
         spec,
         routes: { convention: 'resource-action-v2', sections: 'hierarchical' },
