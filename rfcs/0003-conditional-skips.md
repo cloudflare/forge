@@ -4,12 +4,12 @@ Forge filters operations and fields with two extensions driven by the active
 set of CLI conditions:
 
 ```yaml
-x-forge-skip: true                 # always skip
-x-forge-skip: [terraform]          # skip when terraform condition active
-x-forge-skip: [terraform, mcp]     # skip when any listed condition active
+x-forge-skip: true # always skip
+x-forge-skip: [terraform] # skip when terraform condition active
+x-forge-skip: [terraform, mcp] # skip when any listed condition active
 
-x-forge-only-for: [sdk]            # keep only when sdk condition active
-x-forge-only-for: [ts, go, rust]   # keep only when any listed condition active
+x-forge-only-for: [sdk] # keep only when sdk condition active
+x-forge-only-for: [ts, go, rust] # keep only when any listed condition active
 ```
 
 Both extensions can be placed on path items, operations, parameters, request
@@ -55,12 +55,12 @@ opt-in step via `--from`:
 forge openapi.json --from=stainless,fern --target wasm://plugin.wasm --out sdk
 ```
 
-| Vendor extension             | Normalizes to                |
-| ---------------------------- | ---------------------------- |
-| `x-stainless-skip: true`     | `x-forge-skip: true`         |
-| `x-stainless-skip: [names]`  | `x-forge-skip: [names]`      |
-| `x-fern-ignore: true`        | `x-forge-skip: true`         |
-| `x-fern-audiences: [names]`  | `x-forge-only-for: [names]`  |
+| Vendor extension            | Normalizes to               |
+| --------------------------- | --------------------------- |
+| `x-stainless-skip: true`    | `x-forge-skip: true`        |
+| `x-stainless-skip: [names]` | `x-forge-skip: [names]`     |
+| `x-fern-ignore: true`       | `x-forge-skip: true`        |
+| `x-fern-audiences: [names]` | `x-forge-only-for: [names]` |
 
 Consumers that don't want a vendor's extensions acted on simply omit it from
 `--from`; the extensions are then left in the spec unchanged.
