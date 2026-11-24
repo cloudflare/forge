@@ -119,6 +119,48 @@ function toSdkGroupPath(groupName: unknown, operationId: string): string[] {
   throw new Error(`astro-fern: operation "${operationId}" has an invalid x-fern-sdk-group-name`);
 }
 
+/**
+ * Returns the ID that identifies an operation in the docs model.
+ *
+ * Most operations have an `operationId`, and that is used as is. An operation without one is named
+ * the way Forge names its SDK method, by joining the SDK group path and the method name with dots,
+ * as in `zero-trust.access.applications.list`. An operation with neither gets no ID and is
+ * left out of the docs, just as Forge makes no SDK method for it.
+ *
+ * `method` and `path` are only used to name the operation in error messages.
+ */
+export function fernOperationId(operation: OperationSchema, method: string, path: string): string | undefined {
+  if (operation.operationId) return operation.operationId;
+  const methodName = sdkMethodNameSchema.safeParse(operation['x-fern-sdk-method-name']);
+  if (!methodName.success) return undefined;
+  const groupPath = toSdkGroupPath(operation['x-fern-sdk-group-name'], `${method.toUpperCase()} ${path}`);
+  return [...groupPath, methodName.data].join('.');
+}
+
+/**
+ * Returns the tag that decides an operation's section in each product it belongs to, keyed by
+ * product.
+ *
+ * Usually this is the operation's first OpenAPI tag. Some operations have no tags, and Forge
+ * doesn't need them, because it groups methods by their SDK group path. For those, the SDK group
+ * path stands in for the tag, so `zero_trust.access.applications` gets a section of its own. When
+ * an operation appears in one product more than once, through aliases, the first one decides.
+ */
+function sectionTags(
+  operation: OperationSchema,
+  variants: readonly OperationSdkMetadata[],
+  operationId: string,
+): Map<string, string> {
+  const tags = new Map<string, string>();
+  for (const variant of variants) {
+    const groupPath = toSdkGroupPath(variant.groupName, operationId);
+    const [product] = groupPath;
+    if (!product || tags.has(product)) continue;
+    tags.set(product, operation.tags?.[0] ?? groupPath.join('.'));
+  }
+  return tags;
+}
+
 interface OperationSdkMetadata {
   projectionId: string;
   groupName: unknown;
@@ -165,7 +207,9 @@ function operationSdkMetadata(
   context: FernOperationExtensionContext,
   preparedExtensions: readonly PreparedFernExtension[],
 ): OperationSdkMetadata[] {
-  const operationId = context.operation.operationId ?? '<unknown>';
+  const operationId =
+    fernOperationId(context.operation, context.method, context.path) ??
+    `${context.method.toUpperCase()} ${context.path}`;
   const contributions = preparedExtensions.map(({ name, schema, operation }) => {
     let contribution;
     try {
@@ -283,13 +327,11 @@ function placementSlug(placement: OperationPlacementSchema): string {
 function productOwnsOperation(
   product: FernProductConfig,
   pathTemplate: string,
-  operation: OperationSchema,
+  operationId: string,
   variants: OperationSdkMetadata[],
 ): boolean {
   if (product.sdkGroup) {
-    return variants.some(
-      (metadata) => toSdkGroupPath(metadata.groupName, operation.operationId ?? '<unknown>')[0] === product.sdkGroup,
-    );
+    return variants.some((metadata) => toSdkGroupPath(metadata.groupName, operationId)[0] === product.sdkGroup);
   }
   if (!product.pathPrefixes) return true;
   return product.pathPrefixes.some(
@@ -320,37 +362,42 @@ export function discoverFernProductsWithPrepared(
   preparedExtensions: readonly PreparedFernExtension[],
 ): FernProductConfig[] {
   const products = new Map<string, Map<string, FernSectionConfig>>();
+  /**
+   * Sections created for untagged operations from their SDK group path. If a real OpenAPI tag later
+   * produces the same section ID, it takes the section over instead of colliding with it.
+   */
+  const groupPathSections = new Set<string>();
 
   for (const [path, pathItem] of Object.entries(source.paths ?? {})) {
     if (!pathItem) continue;
     for (const method of HTTP_METHODS) {
       const operation = pathItem[method];
-      if (!operation?.operationId || operation['x-fern-ignore'] === true) continue;
-      const operationId = operation.operationId;
-      const tags = operation.tags ?? [];
-      const tag = tags[0];
+      if (!operation || operation['x-fern-ignore'] === true) continue;
+      const operationId = fernOperationId(operation, method, path);
+      if (!operationId) continue;
       const metadata = operationSdkMetadata({ document: source, path, method, operation }, preparedExtensions);
-      const projected = metadata.filter((variant) => toSdkGroupPath(variant.groupName, operationId).length > 0);
-      if (projected.length === 0) continue;
-      if (!tag) {
-        throw new Error(`astro-fern: operation "${operationId}" has Fern SDK metadata but no OpenAPI tag`);
-      }
-
-      for (const variant of projected) {
-        const productId = toSdkGroupPath(variant.groupName, operationId)[0];
-        if (!productId) continue;
+      const untagged = !operation.tags?.length;
+      for (const [productId, tag] of sectionTags(operation, metadata, operationId)) {
         let sections = products.get(productId);
         if (!sections) {
           sections = new Map();
           products.set(productId, sections);
         }
-        const sectionId = routeSegment(tag, 'OpenAPI tag');
+        const sectionId = routeSegment(tag, untagged ? 'SDK group path' : 'OpenAPI tag');
+        const key = `${productId}\0${sectionId}`;
         const existing = sections.get(sectionId);
         if (existing && existing.tag !== tag) {
-          throw new Error(
-            `astro-fern: OpenAPI tags "${existing.tag}" and "${tag}" collide at section "${productId}.${sectionId}"`,
-          );
+          // The SDK group path lands on a section a real tag already created, so the untagged
+          // operation joins that section.
+          if (untagged) continue;
+          if (!groupPathSections.has(key)) {
+            throw new Error(
+              `astro-fern: OpenAPI tags "${existing.tag}" and "${tag}" collide at section "${productId}.${sectionId}"`,
+            );
+          }
         }
+        if (untagged && !existing) groupPathSections.add(key);
+        if (!untagged) groupPathSections.delete(key);
         sections.set(sectionId, { id: sectionId, tag });
       }
     }
@@ -503,18 +550,38 @@ export function buildDocsModelResult(
     if (!pathItem) continue;
     for (const method of HTTP_METHODS) {
       const op = pathItem[method];
-      if (!op?.operationId) continue;
-      if (op['x-fern-ignore'] === true) continue;
+      if (!op || op['x-fern-ignore'] === true) continue;
+      const operationId = fernOperationId(op, method, pathTemplate);
+      if (!operationId) continue;
       const variants = operationSdkMetadata(
         { document: doc, path: pathTemplate, method, operation: op },
         activeExtensions,
       );
 
-      const pathOwners = productConfigs.filter((product) => productOwnsOperation(product, pathTemplate, op, variants));
+      const pathOwners = productConfigs.filter((product) =>
+        productOwnsOperation(product, pathTemplate, operationId, variants),
+      );
       if (pathOwners.length === 0) continue;
       const tags = new Set(op.tags ?? []);
+      // An untagged operation has no tag to match on, so it is matched to its section by ID.
+      // Discovery gave that section an ID from the SDK group path, though a real tag with the
+      // same ID may have taken it over since.
+      const groupPathSectionIds = tags.size
+        ? undefined
+        : new Map(
+            [...sectionTags(op, variants, operationId)].map(([sdkGroup, tag]) => [
+              sdkGroup,
+              routeSegment(tag, 'SDK group path'),
+            ]),
+          );
       const owners = pathOwners.flatMap((product) =>
-        product.sections.filter((section) => tags.has(section.tag)).map((section) => ({ product, section })),
+        product.sections
+          .filter((section) =>
+            groupPathSectionIds
+              ? product.sdkGroup !== undefined && groupPathSectionIds.get(product.sdkGroup) === section.id
+              : tags.has(section.tag),
+          )
+          .map((section) => ({ product, section })),
       );
       if (owners.length === 0) continue;
       const uniqueOwners = new Map(owners.map((owner) => [`${owner.product.id}\0${owner.section.id}`, owner]));
@@ -523,7 +590,7 @@ export function buildDocsModelResult(
       const ambiguousWithinProduct = [...ownersByProduct.values()].some((productOwners) => productOwners.length > 1);
       const mayDuplicateAcrossProducts = ownerValues.every((owner) => owner.product.sdkGroup !== undefined);
       if (ambiguousWithinProduct || (uniqueOwners.size > 1 && !mayDuplicateAcrossProducts)) {
-        throw new Error(`astro-fern: operation "${op.operationId}" matches more than one configured section`);
+        throw new Error(`astro-fern: operation "${operationId}" matches more than one configured section`);
       }
       for (const { product, section } of ownerValues) {
         knownProducts.add(product.id);
@@ -535,9 +602,9 @@ export function buildDocsModelResult(
 
       const resolved = resolveOperation(doc, pathItem, method, op, opts.responsePayloadKey);
       for (const { product: productConfig, section: sectionConfig } of ownerValues) {
-        const operationKey = `${productConfig.id}\0${op.operationId}`;
+        const operationKey = `${productConfig.id}\0${operationId}`;
         if (operationIds.has(operationKey)) {
-          throw new Error(`astro-fern: duplicate operationId "${op.operationId}" in product "${productConfig.id}"`);
+          throw new Error(`astro-fern: duplicate operationId "${operationId}" in product "${productConfig.id}"`);
         }
         operationIds.add(operationKey);
 
@@ -567,11 +634,11 @@ export function buildDocsModelResult(
         const metadatas = metadataForProduct(variants, productConfig);
         for (const metadata of metadatas) {
           const placement = productConfig.sdkGroup
-            ? operationPlacement(metadata, productConfig, op.operationId, formatIdentifier)
+            ? operationPlacement(metadata, productConfig, operationId, formatIdentifier)
             : undefined;
           const slug = placement
             ? placementSlug(placement)
-            : `sections/${sectionConfig.id}/operations/${routeSegment(op.operationId)}`;
+            : `sections/${sectionConfig.id}/operations/${routeSegment(operationId)}`;
           const routeKey = `${productConfig.id}/${slug}`;
 
           if (placement) {
@@ -595,10 +662,10 @@ export function buildDocsModelResult(
           const availability = toAvailability(metadata.availability);
           const deprecated = op.deprecated === true || availability?.status === 'deprecated';
           const docOp: DocOperation = {
-            operationId: op.operationId,
+            operationId: operationId,
             slug,
             ...(placement ? { placement } : {}),
-            title: op.summary?.trim() || formatIdentifier(op.operationId),
+            title: op.summary?.trim() || formatIdentifier(operationId),
             httpMethod: resolved.method.toUpperCase(),
             path: pathTemplate,
             description: resolved.description,
@@ -616,9 +683,9 @@ export function buildDocsModelResult(
             docOp.requireConfirmation = metadata.presentation.requireConfirmation;
           }
           if (renderSnippets) {
-            const accessorPath = toSdkGroupPath(metadata.groupName, op.operationId);
+            const accessorPath = toSdkGroupPath(metadata.groupName, operationId);
             const parsedMethodName = sdkMethodNameSchema.safeParse(metadata.methodName);
-            const methodName = parsedMethodName.success ? parsedMethodName.data : op.operationId;
+            const methodName = parsedMethodName.success ? parsedMethodName.data : operationId;
             const snippetInput = { op: toSnippetOp(docOp), accessorPath, methodName };
             docOp.snippets = opts.snippetSnapshotIds
               ? opts.snippetSnapshotIds.flatMap((snapshotId) =>
@@ -643,7 +710,7 @@ export function buildDocsModelResult(
               routingPriority: priority,
             }) ?? 0;
           if (!Number.isFinite(preference)) {
-            throw new Error(`astro-fern: operation routing preference for "${op.operationId}" must be a finite number`);
+            throw new Error(`astro-fern: operation routing preference for "${operationId}" must be a finite number`);
           }
           const pending = pendingPlacements.get(routeKey) ?? [];
           pending.push({

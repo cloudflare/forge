@@ -201,9 +201,9 @@ const terraform = defineFernExtension({
 const manifest: FernManifestProvider = (_openapi, { discoverProducts }) =>
   defineFernManifest({ targets: CLOUDFLARE_TARGETS, products: discoverProducts() });
 
-function prepare(sdkSnippets?: Map<string, Record<string, string>>) {
+function prepare(source: Record<string, unknown> = spec, sdkSnippets?: Map<string, Record<string, string>>) {
   const data = buildFernContent({
-    source: { kind: 'snapshots', snapshots: [{ id: SNAPSHOT, source: spec as never, default: true }] },
+    source: { kind: 'snapshots', snapshots: [{ id: SNAPSHOT, source: source as never, default: true }] },
     manifest,
     responsePayloadKey: CLOUDFLARE_RESPONSE_PAYLOAD_KEY,
     formatIdentifier: cloudflareFormatIdentifier,
@@ -213,7 +213,7 @@ function prepare(sdkSnippets?: Map<string, Record<string, string>>) {
     extensions: [forgeExtension(), terraform],
     onWarning: () => {},
   });
-  return { ...prepareForgeApi(spec, data, SNAPSHOT, sdkSnippets), data };
+  return { ...prepareForgeApi(source, data, SNAPSHOT, sdkSnippets), data };
 }
 
 const ops = (doc: Record<string, unknown>) =>
@@ -259,6 +259,29 @@ function prepareEntries(...entries: FernSourceOperation[]) {
   const data = { catalog: { products }, operations: entries } as unknown as FernContentProjectData;
   return prepareForgeApi({ paths: {} }, data, SNAPSHOT);
 }
+
+test('an operation without an operationId gets its page, and the spec gets the id astro-fern derives from its SDK address', () => {
+  const source = structuredClone(spec);
+  const { operationId: _operationId, ...apps } = operation('alpha.apps.list', ['alpha', 'apps'], 'list');
+  (source.paths as Record<string, unknown>)['/{account_or_zone}/{account_or_zone_id}/alpha/apps'] = { get: apps };
+  const { document, operations } = prepare(source);
+  assert.equal(operations['alpha.apps.list'], 'alpha/apps/methods/list');
+  const paths = document.paths as Record<string, Record<string, { operationId?: string }>>;
+  assert.equal(paths['/{account_or_zone}/{account_or_zone_id}/alpha/apps']?.get?.operationId, 'alpha.apps.list');
+});
+
+test('a derived id in a product Nimbus keeps is renamed as the product slug is; a written one stays', () => {
+  const source = structuredClone(spec);
+  const { operationId: _operationId, ...resources } = operation('tags.resources.list', ['tags', 'resources'], 'list');
+  (source.paths as Record<string, unknown>)['/{account_or_zone}/{account_or_zone_id}/tags'] = { get: resources };
+  const { document, operations } = prepare(source);
+  assert.equal(operations['tagging.resources.list'], 'tagging/resources/methods/list');
+  assert.equal(operations['tags.resources.list'], undefined);
+  // The spec's own id is the author's, so Nimbus reports it instead.
+  assert.equal(operations['tags.keys.list'], 'tagging/keys/methods/list');
+  const paths = document.paths as Record<string, Record<string, { operationId?: string }>>;
+  assert.equal(paths['/{account_or_zone}/{account_or_zone_id}/tags']?.get?.operationId, 'tagging.resources.list');
+});
 
 test('keeps exactly the operations astro-fern gives a primary page, keyed by operationId', () => {
   const { document, operations, data } = prepare();
@@ -342,6 +365,7 @@ test('an alias path that is also a real section keeps the real page', () => {
 
 test('the SDK samples are the Stainless snippets of their operation, else a comment that the SDK lacks it', () => {
   const { document } = prepare(
+    spec,
     new Map([['beta.zones.list', { typescript: 'client.zones.list();', go: 'client.Zones.List()' }]]),
   );
   const paths = document.paths as Record<string, Record<string, Record<string, unknown>>>;

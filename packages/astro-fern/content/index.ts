@@ -5,6 +5,7 @@ export {
   buildDocsModel,
   defaultFormatIdentifier,
   discoverFernProducts,
+  fernOperationId,
   loadOpenApiDocument,
   parseOpenApiDocument,
 } from './build.ts';

@@ -6,6 +6,7 @@ import {
   type FernContentProjectData,
   type FernManifestProvider,
   type FernSourceOperation,
+  fernOperationId,
   getOperationExtensionData,
 } from 'astro-fern';
 import { forgeExtension, hasRemovedForgeOperationFields, hoistForgeCommands } from 'fern-forge';
@@ -50,6 +51,20 @@ function addResponseExamples(responses: Record<string, JsonResponse>, document: 
       media.example = sample(media.schema, { skipWriteOnly: true, quiet: true }, document);
     }
   }
+}
+
+/**
+ * Returns the operationId to give Nimbus for an ID that astro-fern derived from an SDK address.
+ *
+ * Nimbus treats the dots in an operationId as namespaces, and it reserves a few of them, such as
+ * `tags`, for its own pages. When a derived ID starts with one of those products, the product is
+ * renamed the same way its URL slug already is, so `tags.account-resources.get` becomes
+ * `tagging.account-resources.get`.
+ */
+function nimbusOperationId(operationId: string): string {
+  const [product, ...rest] = operationId.split('.');
+  const moved = product === undefined || rest.length === 0 ? undefined : MOVED_PRODUCT_SLUGS[product];
+  return moved === undefined ? operationId : [moved, ...rest].join('.');
 }
 
 /** Where Nimbus serves a product or resource page: today's URL, with moved products renamed. */
@@ -115,6 +130,19 @@ export function prepareForgeApi(
 ): PreparedForgeApi {
   const document = structuredClone(source);
   document.info = { ...(document.info as Record<string, unknown>), title: API_TITLE };
+  // Collect the IDs astro-fern derives for operations that have no operationId. Only these are
+  // renamed for Nimbus; an operationId written in the spec is left as its author wrote it.
+  const derivedIds = new Set<string>();
+  for (const [path, item] of Object.entries((document.paths ?? {}) as Record<string, Record<string, unknown>>)) {
+    for (const method of HTTP_METHODS) {
+      const op = item?.[method] as Record<string, unknown> | undefined;
+      if (!op || typeof op.operationId === 'string') continue;
+      const derived = fernOperationId(op, method, path);
+      if (derived !== undefined) derivedIds.add(derived);
+    }
+  }
+  const nimbusId = (operationId: string) =>
+    derivedIds.has(operationId) ? nimbusOperationId(operationId) : operationId;
   const schemas =
     (document.components as { schemas?: Record<string, Record<string, unknown>> } | undefined)?.schemas ?? {};
   for (const [name, title] of Object.entries(SCHEMA_TITLES)) {
@@ -196,12 +224,18 @@ export function prepareForgeApi(
     if (taken)
       throw new Error(`cloudflare-api-site: "${taken}" and "${operation.operationId}" both route to "${slug}"`);
     bySlug.set(slug, operation.operationId);
-    operations[operation.operationId] = slug;
+    const id = nimbusId(operation.operationId);
+    if (operations[id] !== undefined) {
+      throw new Error(
+        `cloudflare-api-site: "${operation.operationId}" and another operation are both "${id}" to Nimbus`,
+      );
+    }
+    operations[id] = slug;
   }
   for (const alias of aliases) {
     const { product, operation } = alias;
     const primary = byId.get(operation.operationId);
-    const primarySlug = operations[operation.operationId];
+    const primarySlug = operations[nimbusId(operation.operationId)];
     const primarySection = leafPath.get(operation.operationId);
     if (!primary || primarySlug === undefined || primarySection === undefined) {
       throw new Error(`cloudflare-api-site: alias of "${operation.operationId}" has no primary page`);
@@ -223,12 +257,15 @@ export function prepareForgeApi(
       const raw = item[method];
       if (!raw || typeof raw !== 'object') continue;
       const op = raw as Record<string, unknown>;
-      const entry = typeof op.operationId === 'string' ? byId.get(op.operationId) : undefined;
+      const operationId = fernOperationId(op, method, path);
+      const entry = operationId === undefined ? undefined : byId.get(operationId);
       if (!entry) {
         delete item[method];
         continue;
       }
       kept++;
+      // Nimbus needs an operationId on every operation, so give the derived one to those without.
+      op.operationId = nimbusId(entry.operation.operationId);
       op.tags = [leafTag.get(entry.operation.operationId)];
       if (entry.operation.deprecated) op.deprecated = true;
       const methodName = op['x-fern-sdk-method-name'];
