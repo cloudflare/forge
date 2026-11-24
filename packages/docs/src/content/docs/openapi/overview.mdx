@@ -1,0 +1,102 @@
+---
+title: OpenAPI documents
+description: Forge reads OpenAPI 3.0, 3.1 and 3.2 documents as JSON and needs only a dotted operationId for each method. Extensions and standard fields shape what it generates.
+content_type: concept
+sidebar:
+  order: 1
+---
+
+Forge reads OpenAPI **3.0, 3.1 and 3.2**, as **JSON**. Swagger 2.0 and YAML are not read. Convert a
+YAML document to JSON first, with any YAML tool.
+
+It needs very little: for each operation you want in an SDK, the group it is in and its name.
+Everything else is optional, and improves the output.
+
+## What every method needs
+
+An operation becomes a method when its `operationId` is written as `<group>.<method>`:
+
+```json
+"/zones/{zone_id}/dns_records": {
+  "get": {
+    "operationId": "dns.records.list",
+    "responses": { "200": { "description": "The records." } }
+  }
+}
+```
+
+That is a method `list` in group `records` in group `dns`: `client.dns.records.list()` in
+TypeScript, and the tool `dns_records_list` in MCP. [Method names](/openapi/naming/) has the rules.
+
+## Large documents
+
+Operations with `x-forge-skip: true`, or with no `operationId`, are left out, without error, and so
+are the schemas only they use. So a large document can be adopted a group at a time: skip its
+operations, name one group, generate, and repeat. [Adopt Forge on an existing API](/guides/adopting/)
+walks through it.
+
+Every method is checked in full. Operations that are not methods are not built, so a dangling `$ref`
+or an unsupported parameter style in a part you have not converted yet does not block you. The
+exception is a value of the wrong JSON type, such as `"deprecated": "no"`, or a negative `maxItems`:
+those are caught while reading, anywhere in the document.
+
+If your document is already annotated for another tool, Forge does not read those annotations
+directly: run [`forge normalize`](/reference/cli/#forge-normalize) first, which rewrites the ones
+it has an equivalent of into its own. **Compatibility Modes** in the sidebar lists them.
+
+## Shaping the output
+
+These extensions refine what Forge builds. All are optional. The [extensions reference](/openapi/extensions/)
+has the exact rules.
+
+| Goal                                    | Extension                      | On              |
+| --------------------------------------- | ------------------------------ | --------------- |
+| Describe a group                        | `x-forge-commands`             | Document root   |
+| Expose one operation as several methods | `x-forge-aliases`              | Operation       |
+| Keep a method out of listings           | `x-forge-hidden`               | Operation       |
+| Ask before calling a method             | `x-forge-require-confirmation` | Operation       |
+| Name a method or group                  | `x-forge-method-name`, `x-forge-group-name` | Operation |
+| Leave an operation out                  | `x-forge-skip`                 | Operation       |
+| Rename a model, field or parameter      | `x-forge-model-name`, `x-forge-property-name`, `x-forge-parameter-name` | Schema, property schema, parameter |
+| Mark a field as a secret                | `x-forge-sensitive`            | Property schema |
+| Leave a property out                    | `x-forge-skip`                 | Property schema |
+| Pass data to your own plugin            | Any other `x-` key             | Operation       |
+
+## Standard fields that matter
+
+Forge reads standard OpenAPI too, and these make the largest difference to the output:
+
+- **`servers`** sets the base URL: the first server's URL, with its variables replaced by their
+  defaults.
+- **`summary` and `description`** on operations become doc comments and tool descriptions.
+- **`description`** on schemas and properties becomes doc comments. A schema's `title` is used when
+  it has no description.
+- **`required`** on schemas and parameters decides what is optional.
+- **`format`** decides dates, instants, bytes and number sizes, as [Types](/concepts/types/)
+  explains.
+- **`readOnly`** keeps a field out of what a client sends, in the targets that honour it.
+- **`deprecated`** on operations, schemas, properties and parameters is carried into the model, for
+  targets to mark.
+- **`discriminator`** on a union names the property that tells its members apart.
+
+## What is not read
+
+Forge ignores, without error: security schemes and requirements, webhooks, callbacks, response
+headers, cookie parameters, examples, links, tags, `externalDocs`, and extensions it does not read,
+except those on operations, which it passes to plugins.
+
+[OpenAPI support](/openapi/support/) lists what is read in detail, and what is read but not covered
+yet, which is an error rather than silently wrong output.
+
+## Checking a document
+
+Running any target checks the document. A document with errors stops before any plugin runs, and
+Forge lists every error at once. [Troubleshooting OpenAPI documents](/openapi/errors/) explains each
+one and its fix.
+
+## Related resources
+
+- [Method names](/openapi/naming/): how operationIds become groups and methods.
+- [Extensions](/openapi/extensions/): every extension Forge reads.
+- [Troubleshooting OpenAPI documents](/openapi/errors/): each error, and its fix.
+- [Adopt Forge on an existing API](/guides/adopting/): a large document, a group at a time.

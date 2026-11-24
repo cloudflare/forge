@@ -1,0 +1,131 @@
+---
+title: Target design
+description: Every Forge generator decides its layout, naming, requests, types and errors, and the built-in TypeScript and MCP targets show one way to decide each.
+content_type: concept
+sidebar:
+  order: 9
+---
+
+The model takes care of OpenAPI. What is left is design: what your output should look like to the
+people who use it. This page lists the decisions every target makes, and how the two built-in
+targets make them, so you can copy or deliberately differ.
+
+## Layout: one file, or one per group?
+
+The model is a tree, so the natural layout is a directory or module per group. The TypeScript
+target writes a `client.ts`, `models.ts` and `index.ts` per group, and its runtime once, in `_/`.
+The MCP target writes a `tools.ts`, `schemas.ts` and `outputs.ts` per group with tools, and one
+`index.ts` that lists every tool. [Model placement](/concepts/models/) means each group's models can
+import from above, never sideways.
+
+Each group's files depend only on that group, so both targets build them in parallel inside
+`generate`. Some outputs are one artifact instead: docs sites, route tables and CLIs often want a
+single file, built by walking `forge.groups()` once.
+
+## Naming
+
+Decide a casing for each kind of identifier, and spell [names](/concepts/names/) in it.
+
+| Thing          | TypeScript                 | MCP                                    |
+| -------------- | -------------------------- | -------------------------------------- |
+| Group          | `camelCase` property and directory | Part of the tool name          |
+| Method         | `camelCase` function       | `camelCase`, joined to the group path by `_`: `accounts_members_list` |
+| Model          | `PascalCase` type          | A schema constant, by schema name       |
+| Field          | `camelCase`, mapped to the wire name by a codec | The wire name, as sent |
+
+Then decide what happens when two names collide **in your output**. Forge catches collisions within
+a group or object, but a casing can create new ones: a digit belongs to the word before it, so
+`x1b` and `x_1b` are both `x1b` in camelCase. The MCP target keeps the tool name for the first
+method by name and gives the other no tool. Decide what yours does, and do it on purpose.
+
+Reserved words are yours to handle. A method named `delete` is fine as a TypeScript property but
+not as a Rust function.
+
+## The request
+
+[`method.request()`](/concepts/requests-and-responses/) is a single type for everything a caller
+passes, and `location()` routes each field. Most targets take it as one argument. Decide:
+
+- **Flat or nested body?** Forge already merges an object body into the request when it can, and
+  falls back to a `body` field. The TypeScript target follows that exactly. The MCP target does not:
+  its tools take separate `path`, `query`, `headers` and `body` arguments.
+- **Headers.** They are apart from the request. The TypeScript client sets `Authorization` from a
+  token and lets a caller pass other headers per call. The MCP target makes header parameters an
+  argument of their own, `headers`, beside `path`, `query` and `body`.
+- **Read-only fields.** A model is the same in requests and responses. The MCP target leaves
+  `readOnly` fields out of tool input schemas. The TypeScript target keeps one interface for both.
+- **Non-JSON bodies.** Every media type is typed, but supporting `multipart/form-data` or raw
+  uploads is work, so choose what to do with a method you cannot encode. The TypeScript target leaves
+  it out: a method whose request body, or any one of its success responses, has content but no JSON
+  gets no function. The MCP target keeps it: a tool's `body` takes any of the method's media types,
+  sent as text, a form or multipart.
+
+## Types
+
+Map the [seven kinds](/concepts/types/) and ten scalars. The TypeScript target's choices:
+
+| Model                       | TypeScript                |
+| --------------------------- | ------------------------- |
+| `Unknown`                   | `unknown`                 |
+| `Number(Int64)`             | `bigint`                  |
+| any other `Number`          | `number`                  |
+| `DateTime` / `Date`         | `Temporal.Instant` / `Temporal.PlainDate` |
+| `Bytes`                     | `Uint8Array`              |
+| `Binary`                    | `string`                  |
+| `Uuid`                      | `string`                  |
+| `Union`                     | `A \| B`                  |
+| `Intersection`              | `A & B`                   |
+| An object with no fields    | a map, `{ [key: string]: T }` |
+
+When the wire type and the language type differ, as for `bigint`, `Temporal` and `Uint8Array`, a
+target needs a codec that converts on the way in and out. The TypeScript target generates one per
+model only when it has something to convert, so `PetCodec` maps `born_at` to `bornAt` and decodes
+an instant, while a model of strings has none.
+
+The MCP target maps types back to JSON Schema instead, with each model's schema a constant in its
+group's `schemas.ts` or `outputs.ts`, so recursive models work.
+
+## Errors
+
+`method.errors()` lists the declared non-`2XX` responses. The TypeScript target throws an `ApiError`
+with the `status`, the `response`, and `details`, which is the body decoded as the error the API
+declares for that status. An MCP tool returns an error result, `HTTP <status>: <body>`, so an agent can read
+what went wrong.
+
+## Safety and lifecycle metadata
+
+Forge carries metadata for agents and CLIs. Use it:
+
+- `is_hidden()`: leave it out of listings, such as a CLI's help. Neither built-in target reads it.
+- `confirmation()`: the MCP target marks the tool destructive, never read-only, and adds "Confirm
+  with the user before calling this tool." and the sentence to its description. A CLI might prompt.
+- `is_deprecated()`: the TypeScript target writes `@deprecated` in the doc comment of deprecated
+  methods, models and fields. The MCP target gives a deprecated method no tool.
+- `availability()`: the MCP target adds "This method is beta." or "This method is in preview."
+  to the description. A docs site might badge beta methods. A CLI might hide alpha ones behind a flag.
+- The HTTP method: the MCP target derives `readOnlyHint`, `destructiveHint` and `idempotentHint`
+  from it, so `GET` is read-only, and `PUT` and `DELETE` are destructive and idempotent.
+
+## Your own extensions
+
+When a target needs data the model does not have, such as a CLI's table columns, add an `x-`
+extension to the operations and read it with [`method.extension()`](/concepts/groups-and-methods/#extensions-for-plugins).
+Validate it in the plugin and fail with the method's path when it is wrong. Forge does not know its
+shape.
+
+## Determinism
+
+Generated code is reviewed as diffs. Keep output stable:
+
+- Sort what the model leaves unsorted: fields, union members, a group's models. The TypeScript
+  target sorts fields by wire name and models by schema name.
+- Do not write timestamps or versions of the generator into files.
+- Write a "generated, do not edit" header. Both built-in targets do.
+
+## Related resources
+
+- [How plugins work](/plugins/how-plugins-work/): the ways to write one, and what a plugin does.
+- [TypeScript SDK](/targets/typescript/): everything `--target ts` generates.
+- [MCP tools](/targets/mcp/): everything `--target mcp` generates.
+- [Plugin API (TypeScript)](/reference/plugin-api/): every type and function a TypeScript plugin uses.
+- [Get started with plugins](/plugins/get-started/): write, build and run a plugin in TypeScript.
