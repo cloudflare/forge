@@ -1,0 +1,9 @@
+{
+  "format": 1,
+  "source": {
+    "repository": "cloudflare/api-schemas",
+    "branch": "main",
+    "path": "openapi.json"
+  },
+  "releases": []
+}
