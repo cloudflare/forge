@@ -12,6 +12,7 @@ test.describe('routes', () => {
     ['/api/tagging/', 200, 'text/html'],
     [operation, 200, 'text/html'],
     [`${operation}?lang=terraform`, 200, 'text/html'],
+    [`${operation}?lang=python`, 200, 'text/html'],
     [`${operation}?lang=nope`, 200, 'text/html'],
     [`${operation}?version=2026-11-30.air`, 200, 'text/html'],
     [`${operation}?version=nope`, 404, 'text/html'],
@@ -32,7 +33,8 @@ test.describe('routes', () => {
     ['/api/resources/zones/', 301, '', '/api/zones/'],
     ['/api/resources/zones/?a=1', 301, '', '/api/zones/?a=1'],
     ['/api/operations/zones-get/', 301, '', '/api/zones/methods/list/'],
-    ['/api/python/resources/zones/', 301, '', '/api/zones/'],
+    ['/api/python/resources/zones/', 301, '', '/api/zones/?lang=python'],
+    ['/api/node/resources/zones/methods/list/', 301, '', '/api/zones/methods/list/?lang=typescript'],
     ['/api/resources/zones/methods/list/index.md', 301, '', '/api/zones/methods/list/index.md'],
     ['/api/terraform/resources/zones/methods/list/', 301, '', '/api/zones/methods/list/?lang=terraform'],
     ['/api/resources/nope/', 404, 'text/html'],
@@ -108,7 +110,7 @@ test('code sample picker defaults to the cf CLI and switches samples', async ({ 
   await page.goto(operation);
   const picker = page.locator('[data-nb-api-coderail] select[data-nb-choice-select]').first();
   await expect(picker).toHaveValue('cf');
-  await expect(picker.locator('option')).toHaveText(['cf CLI', 'curl', 'Terraform']);
+  await expect(picker.locator('option')).toHaveText(['cf CLI', 'curl', 'TypeScript', 'Python', 'Go', 'Terraform']);
   await picker.selectOption('curl');
   await expect(page).toHaveURL(/[?&]lang=curl\b/);
   await expect(page.locator('[data-nb-api-coderail] [data-nb-choice-kind="curl"]').first()).toBeVisible();
@@ -126,6 +128,18 @@ test('operation links its agent Markdown, which carries the cURL sample', async 
   expect(markdown).toContain('Lists WARP Device IP profiles.');
   expect(markdown).toContain('```bash');
   expect(markdown).toContain('/accounts/{account_id}/devices/ip-profiles');
+});
+
+test('the SDK samples are the retired Stainless snippets, selected by ?lang=', async ({ page }) => {
+  await page.goto('/api/zones/methods/list/?lang=python');
+  const sample = page.locator('[data-nb-choice-panel]:visible');
+  await expect(sample).toContainText('client.zones.list()');
+  await page.locator('[data-nb-choice-select]').selectOption('typescript');
+  await expect(page).toHaveURL(/\/list\/\?lang=typescript$/);
+  await expect(sample).toContainText('client.zones.list()');
+  await expect(sample).toContainText("import Cloudflare from 'cloudflare'");
+  await page.locator('[data-nb-choice-select]').selectOption('go');
+  await expect(sample).toContainText('client.Zones.List(');
 });
 
 test('the Terraform view shows the declarations in place of the HTTP reference', async ({ page, request }) => {
