@@ -21,6 +21,7 @@ export type {
   FernTargetKind,
 } from './manifest.ts';
 export { buildFernContent, defineFernProject } from './project.ts';
+export { fernOperationId } from './content/build.ts';
 export type { FernOperationRoutingPreferenceContext } from './content/build.ts';
 export type {
   AgentScope,
