@@ -1,0 +1,189 @@
+---
+title: CLI
+description: The forge generate, forge normalize, forge inspect and forge-plugin commands, with each one's arguments, options, environment variables and exit status.
+content_type: reference
+sidebar:
+  order: 1
+---
+
+| Command | What it does |
+| --- | --- |
+| [`forge generate`](#forge-generate) | Generates files from an OpenAPI document with a target. |
+| [`forge normalize`](#forge-normalize) | Rewrites other tools' extensions into Forge's own. |
+| [`forge inspect methods`](#forge-inspect-methods) | Prints the methods a document makes, as JSON. |
+| [`forge-plugin build`](#build) | Builds a JavaScript or TypeScript plugin into a WebAssembly component. |
+| [`forge-plugin wit`](#wit) | Prints the WIT that plugins are built against. |
+
+## forge generate
+
+Generates files from an OpenAPI document with a target. `forge` on its own lists the commands, and
+`forge --version` prints the version, such as `forge 0.2.0`.
+
+```text
+forge generate --target <TARGET> --out <OUT> <SPEC>
+```
+
+| Argument            | Meaning                                                                    |
+| ------------------- | -------------------------------------------------------------------------- |
+| `<SPEC>`            | The OpenAPI JSON document, or `-` to read it from standard input.          |
+| `--target <TARGET>` | `ts` for the [TypeScript SDK](/targets/typescript/), `capnweb` for a Cap'n Web server of that SDK, which it imports from `#sdk`, `mcp` for the [tools of an MCP server](/targets/mcp/), or `wasm://PATH` for the [plugin](/plugins/overview/) compiled to a WebAssembly component at `PATH`. |
+| `--out <OUT>`       | The directory to write to. Created if it does not exist.                   |
+| `--help`            | Prints help.                                                               |
+
+Both `--target` and `--out` are required. `PATH` in `wasm://PATH` is a file path, relative to the
+working directory or absolute (`wasm:///opt/plugins/docs.wasm`).
+
+```sh
+forge generate openapi.json --target ts --out sdk
+forge generate - --target mcp --out tools < openapi.json
+forge generate openapi.json --target wasm://plugin.wasm --out out
+```
+
+### Output
+
+Files are written under `--out`, creating directories as needed. Existing files with the same paths
+are overwritten. **Other files are left alone**, so remove the directory first to regenerate from
+scratch. A file with no content is not written. Nothing is written if the document, the plugin, or
+any file's content fails.
+
+With `wasm://`, the plugin is compiled while the document is read, in parallel.
+
+### Exit status
+
+| Status | Meaning                                                                       |
+| ------ | ----------------------------------------------------------------------------- |
+| `0`    | Generated.                                                                    |
+| `1`    | An error: a missing or invalid document, a plugin failure, or a write failure. The message is on standard error, after `forge: `. |
+| `2`    | Invalid arguments, such as a missing `--out` or an unknown target.            |
+
+### Environment
+
+| Variable       | Meaning                                                                   |
+| -------------- | ------------------------------------------------------------------------- |
+| `FORGE_BINARY` | Read by the package's launcher, `bin/forge.cjs`: the native binary to run instead of the one for this platform. |
+
+### Without WebAssembly support
+
+A `forge` built with Cargo without the `wasm` feature rejects `wasm://`:
+
+```text
+error: invalid value 'wasm://plugin.wasm' for '--target <TARGET>': this forge was built without wasm plugins; build it with `--features wasm`
+```
+
+The npm package's binaries are built with it.
+
+## forge normalize
+
+Rewrites other tools' extensions into the native `x-forge-*` ones. **Compatibility Modes** in the
+sidebar lists them. A native key is never replaced: when a document says the same thing
+twice, the native key is kept.
+
+```text
+forge normalize [OPTIONS] <INPUTS>...
+```
+
+| Argument                 | Meaning                                                                       |
+| ------------------------ | ----------------------------------------------------------------------------- |
+| `<INPUTS>...`            | The OpenAPI JSON documents, as paths, or `-` to read one from standard input. |
+| `-w`, `--write`          | Rewrite the files in place, each only if there is something to rewrite in it. |
+| `--check`                | Say what would be rewritten, and write nothing. Fails if there is anything to rewrite. |
+| `--from <SOURCE>`        | Rewrite only keys from one source. `forge normalize --help` lists them. May be repeated. |
+| `--leave-old-extensions` | Keep each rewritten key beside the native one, for tools that still read it.  |
+| `-v`, `--verbose`        | Say how many times each key was rewritten.                                    |
+
+Without `--write`, nothing is changed, and one document is printed to standard output, with the
+same indentation as the input:
+
+```sh
+forge normalize openapi.json > normalized.json
+forge normalize --write specs/*.json
+forge normalize --check specs/*.json
+```
+
+`--check` exits with status 1 when a document has keys to rewrite, so CI can keep documents
+normalized:
+
+```text
+openapi.json: would rewrite 2 keys
+forge: 1 of 1 file would be rewritten
+```
+
+## forge inspect methods
+
+Prints the methods a document makes, as a JSON array. Each has the group path and name Forge gives
+it, in kebab-case, from `x-forge-group-name`, `x-forge-method-name` and the `operationId`, with its
+HTTP method and path, so a tool can compare two versions of a document without naming methods
+itself.
+
+```text
+forge inspect methods <SPEC>
+```
+
+| Argument | Meaning                                                           |
+| -------- | ----------------------------------------------------------------- |
+| `<SPEC>` | The OpenAPI JSON document, or `-` to read it from standard input. |
+
+Other tools' extensions are not read, so normalize a document that has them first:
+
+```sh
+forge inspect methods openapi.json
+forge normalize openapi.json | forge inspect methods -
+```
+
+```json
+[
+  {
+    "group": ["dns", "records"],
+    "name": "list",
+    "method": "GET",
+    "path": "/zones/{zone_id}/dns_records",
+    "hidden": false,
+    "deprecated": false,
+    "availability": null
+  }
+]
+```
+
+Methods come in the order of their groups, depth first from the root, and by name within a group.
+`availability` is `null` when the operation does not say. A document Forge cannot read, such as one
+with two methods of the same name in a group, exits with status 1, as it does for `forge generate`.
+
+## forge-plugin
+
+Builds JavaScript and TypeScript plugins, and prints the WIT for plugins in other languages. Ships in
+`@cloudflare/forge`.
+
+```text
+forge-plugin build <entry> [--out plugin.wasm]
+forge-plugin wit
+```
+
+### build
+
+Bundles the entry module and its imports, and compiles them with QuickJS into a WebAssembly
+component of the `plugin` world. The entry is a `.ts` or `.js` file that exports `generate`, from
+[`definePlugin`](/plugins/typescript/).
+
+| Option  | Meaning                                                    |
+| ------- | ---------------------------------------------------------- |
+| `-o`, `--out` | The component to write. Defaults to `plugin.wasm`.   |
+
+It needs `@bytecodealliance/jco`, found in the entry's project or next to `@cloudflare/forge`:
+
+```text
+forge-plugin: building a plugin needs jco; run npm install --save-dev @bytecodealliance/jco
+```
+
+### wit
+
+Prints the WIT that plugins are built against to standard output:
+
+<PackageManagers type="exec" pkg="forge-plugin" args="wit > wit/forge.wit" />
+
+Refer to the [WIT reference](/reference/wit/).
+
+## Related resources
+
+- [The pipeline](/concepts/pipeline/): how a document becomes files, step by step.
+- [Get started](/start/get-started/): generate a TypeScript SDK and MCP tools from a small document.
+- [Generate in CI](/guides/ci/): regenerate on every change, and fail on a stale SDK.

@@ -478,7 +478,7 @@ test('cf: renders the command named like the operation when several send it', ()
   assert.match(cloudflareSnippetsByTarget(status('pause')).get('cf') ?? '', /^cf workflows instances pause /);
 });
 
-test('provider renders every target in tab order with cf CLI first; terraform is coming-soon', () => {
+test('provider renders every target in tab order with cf CLI first; the SDKs and terraform come from elsewhere', () => {
   const snippets = cloudflareSnippets(listInput);
   assert.deepEqual(
     snippets.map((snippet) => snippet.targetId),
@@ -486,12 +486,14 @@ test('provider renders every target in tab order with cf CLI first; terraform is
   );
   assert.deepEqual(
     CLOUDFLARE_TARGETS.map((target) => target.id),
-    ['cf', 'curl', 'terraform'],
+    ['cf', 'curl', 'typescript', 'python', 'go', 'terraform'],
   );
   for (const target of ['cf', 'curl']) {
     assert.equal(typeof snippets.find((snippet) => snippet.targetId === target)?.code, 'string');
   }
-  assert.equal(snippets.find((snippet) => snippet.targetId === 'terraform')?.code, null);
+  for (const target of ['typescript', 'python', 'go', 'terraform']) {
+    assert.equal(snippets.find((snippet) => snippet.targetId === target)?.code, null);
+  }
 });
 
 test('formatIdentifier is acronym-aware and title-cases the rest', () => {

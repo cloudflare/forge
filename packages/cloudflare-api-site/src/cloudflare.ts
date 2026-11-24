@@ -98,6 +98,9 @@ export function cloudflareFormatIdentifier(identifier: string): string {
 export const CLOUDFLARE_TARGETS: FernTargetConfig[] = [
   { id: 'cf', kind: 'cli', label: 'cf CLI', language: 'bash' },
   { id: 'curl', kind: 'http', label: 'curl', language: 'bash' },
+  { id: 'typescript', kind: 'sdk', label: 'TypeScript', language: 'typescript' },
+  { id: 'python', kind: 'sdk', label: 'Python', language: 'python' },
+  { id: 'go', kind: 'sdk', label: 'Go', language: 'go' },
   { id: 'terraform', kind: 'tool', label: 'Terraform', language: 'hcl' },
 ];
 
@@ -198,6 +201,10 @@ const renderCf: SnippetRenderer = ({ accessorPath, methodName, op }) => {
 // Terraform declarations from the generated provider docs instead.
 const comingSoon: SnippetRenderer = () => null;
 
+// The SDK samples are the retired Stainless site's, which `prepareForgeApi`
+// (src/forge-api.ts) fills in from `stainless-snippets.json`.
+const fromStainless: SnippetRenderer = () => null;
+
 // API version selection currently changes documentation only. The live API does
 // not enforce it, so emitting api-version or hiding otherwise valid samples would
 // imply unsupported behavior. Keep the user-facing notice in CodeSample.astro in
@@ -208,6 +215,9 @@ export const cloudflareSnippets: SnippetProvider = createSnippetProvider(
   {
     cf: { label: 'cf CLI', syntax: 'bash', render: renderCf },
     curl: { label: 'curl', syntax: 'bash', render: renderCurl },
+    typescript: { label: 'TypeScript', syntax: 'typescript', render: fromStainless },
+    python: { label: 'Python', syntax: 'python', render: fromStainless },
+    go: { label: 'Go', syntax: 'go', render: fromStainless },
     terraform: { label: 'Terraform', syntax: 'hcl', render: comingSoon },
   },
   CLOUDFLARE_TARGETS.map((target) => target.id),

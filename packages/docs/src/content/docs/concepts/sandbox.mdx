@@ -1,0 +1,78 @@
+---
+title: Sandboxing
+description: A WebAssembly plugin runs with only the model, standard error, a clock and random numbers, and Forge writes the files it returns only under the output directory.
+content_type: concept
+sidebar:
+  order: 8
+---
+
+A WebAssembly plugin is a component that Forge runs in [Wasmtime](https://wasmtime.dev/). It is a
+good fit for running a generator you did not write: it gets the model and nothing else of yours, and
+the only thing it can do to your disk is return files, which Forge checks before writing.
+
+## What a plugin can reach
+
+| Capability                  | Available | Notes                                                                 |
+| --------------------------- | --------- | --------------------------------------------------------------------- |
+| The model                   | Yes       | As the `forge` record of the [WIT](/reference/wit/).                  |
+| Standard error              | Yes       | Inherited, so a panic or a log line shows up in your terminal.        |
+| Standard output and input   | No        |                                                                       |
+| Files                       | No        | No directory is mounted. The plugin cannot read the document or write. |
+| Network                     | No        |                                                                       |
+| Environment variables, arguments | No   |                                                                       |
+| Clocks and random numbers   | Yes       | WASI's defaults. Do not let output depend on them.                    |
+
+A plugin's output should be a function of the model. The clock and random numbers are reachable, so
+nothing stops a plugin from writing a timestamp into a file, but that makes every run produce a
+diff. Keep generated output deterministic.
+
+In a JavaScript plugin, `console` is not defined. Throw an error to report a problem. Refer to
+[Write a plugin in TypeScript](/plugins/typescript/#errors).
+
+## How the model is read
+
+Forge passes the whole model to `generate` as one value, the `forge` record of the
+[WIT](/reference/wit/). The plugin gets a copy, and never calls back into Forge to read it. A
+group, method, model or type is a `u32` id: its index in the record's list of that part.
+
+The TypeScript library hides the ids: `group.methods` wraps each method the first time it is read
+and keeps it for the rest of the run, so reading it again is free.
+
+## Instances
+
+Forge compiles the component once, and makes a fresh instance for each run of `generate`, which runs
+on one thread. An instance only ever reads one model, and nothing a plugin keeps in module state
+survives to another run.
+
+## What Forge checks
+
+Before writing anything, `forge::write` checks every path the plugin returned: it must be relative,
+use `/`, and have no empty, `.` or `..` parts, and no two files may share it. So a plugin cannot
+write outside `--out`, on any platform:
+
+```text
+forge: "../evil.txt" is not a relative path with `/` separators
+```
+
+The check is on the path, not the disk: Forge writes through any symbolic link already in `--out`.
+Point `--out` at a directory Forge owns, such as a fresh one, not one with links you did not make.
+
+A plugin that returns an error, or traps, stops the run before anything is written. Refer to
+[The pipeline](/concepts/pipeline/#4-write).
+
+## What is not limited
+
+Forge does not limit a plugin's memory, and does not time it out. A plugin that loops forever hangs
+the run. In CI, put a timeout on the step.
+
+## Native plugins
+
+All of the above is about WebAssembly. A [Rust library plugin](/plugins/rust/#use-forge-as-a-library)
+is ordinary code in your own binary, with all the access your binary has. Only its paths are checked,
+by `forge::write`.
+
+## Related resources
+
+- [How plugins work](/plugins/how-plugins-work/): the ways to write one, and what a plugin does.
+- [WIT](/reference/wit/): a summary of the interface, and where the complete file is.
+- [Write a plugin in TypeScript](/plugins/typescript/): `definePlugin`, building and errors.

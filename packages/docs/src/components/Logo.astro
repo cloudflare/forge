@@ -1,0 +1,15 @@
+---
+/* The site's lockup: Cloudflare's cloud in its own colours, then the word
+   "Forge" in the heading sans, which follows the scheme. The drawing lives in
+   logo.ts, which the social cards read too. Callers set the height; the
+   width follows the drawing. The link around it carries the accessible name. */
+import { cn } from "@/lib/cn";
+import { logo } from "./logo";
+
+interface Props { class?: string }
+const { class: cls = "h-5" } = Astro.props;
+---
+<span class="inline-flex items-center gap-2" aria-hidden="true">
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox={`0 0 ${logo.width} ${logo.height}`} class={cn(cls, "w-auto")}>{logo.paths.map((d, i) => <path d={d} fill={logo.fills[i]} />)}</svg>
+  <span class="text-[1.0625rem] font-bold leading-none tracking-tight text-foreground">Forge</span>
+</span>

@@ -20,7 +20,12 @@
   ],
   "overrides": [
     {
-      "files": ["packages/astro-fern/**", "packages/cloudflare-api-site/**", "packages/fern-forge/**"],
+      "files": [
+        "packages/astro-fern/**",
+        "packages/cloudflare-api-site/**",
+        "packages/docs/**",
+        "packages/fern-forge/**"
+      ],
       "rules": {
         "curly": "off"
       }

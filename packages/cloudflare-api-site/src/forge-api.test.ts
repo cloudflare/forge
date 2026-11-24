@@ -201,7 +201,7 @@ const terraform = defineFernExtension({
 const manifest: FernManifestProvider = (_openapi, { discoverProducts }) =>
   defineFernManifest({ targets: CLOUDFLARE_TARGETS, products: discoverProducts() });
 
-function prepare() {
+function prepare(sdkSnippets?: Map<string, Record<string, string>>) {
   const data = buildFernContent({
     source: { kind: 'snapshots', snapshots: [{ id: SNAPSHOT, source: spec as never, default: true }] },
     manifest,
@@ -213,7 +213,7 @@ function prepare() {
     extensions: [forgeExtension(), terraform],
     onWarning: () => {},
   });
-  return { ...prepareForgeApi(spec, data, SNAPSHOT), data };
+  return { ...prepareForgeApi(spec, data, SNAPSHOT, sdkSnippets), data };
 }
 
 const ops = (doc: Record<string, unknown>) =>
@@ -354,6 +354,27 @@ test('an alias path that is also a real section keeps the real page', () => {
   assert.equal(redirects['/b/items/'], undefined);
 });
 
+test('the SDK samples are the Stainless snippets of their operation, else a comment that the SDK lacks it', () => {
+  const { document } = prepare(
+    new Map([['beta.zones.list', { typescript: 'client.zones.list();', go: 'client.Zones.List()' }]]),
+  );
+  const paths = document.paths as Record<string, Record<string, Record<string, unknown>>>;
+  const sdk = (op: Record<string, unknown>) =>
+    (op['x-codeSamples'] as { lang: string; source: string }[])
+      .filter((sample) => ['typescript', 'python', 'go'].includes(sample.lang))
+      .map((sample) => sample.source);
+  assert.deepEqual(sdk(paths['/beta/zones']!.get!), [
+    'client.zones.list();',
+    '# This operation is not available in the Python SDK.',
+    'client.Zones.List()',
+  ]);
+  assert.deepEqual(sdk(paths['/beta/zones']!.post!), [
+    '// This operation is not available in the TypeScript SDK.',
+    '# This operation is not available in the Python SDK.',
+    '// This operation is not available in the Go SDK.',
+  ]);
+});
+
 test('samples cover every target, with placeholders, one Terraform sample joining every declaration example and its import command, and an example per JSON response; Terraform data rides the extension', () => {
   const { document } = prepare();
   const paths = document.paths as Record<string, Record<string, Record<string, unknown>>>;
@@ -364,6 +385,9 @@ test('samples cover every target, with placeholders, one Terraform sample joinin
     [
       ['cf', 'cf CLI'],
       ['curl', 'curl'],
+      ['typescript', 'TypeScript'],
+      ['python', 'Python'],
+      ['go', 'Go'],
       ['terraform', 'Terraform'],
     ],
   );
@@ -384,7 +408,7 @@ test('samples cover every target, with placeholders, one Terraform sample joinin
   const listSamples = list['x-codeSamples'] as { lang: string; source: string }[];
   assert.deepEqual(
     listSamples.map((sample) => sample.lang),
-    ['cf', 'curl', 'terraform'],
+    ['cf', 'curl', 'typescript', 'python', 'go', 'terraform'],
   );
   assert.equal(listSamples.at(-1)!.source, '# This operation is not implemented in Terraform.');
   assert.equal(list[TERRAFORM_EXTENSION], undefined);

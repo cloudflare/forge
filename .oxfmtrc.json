@@ -18,6 +18,8 @@
     "packages/cloudflare-api-site/src/lib/**",
     "packages/cloudflare-api-site/src/styles/globals.css",
     "packages/redocly-plugin-forge/test/fixtures/**",
-    "packages/redocly-plugin-forge/test/covered-by-redocly/**"
+    "packages/redocly-plugin-forge/test/covered-by-redocly/**",
+    "packages/docs/src/**",
+    "packages/docs/nimbus.json"
   ]
 }
