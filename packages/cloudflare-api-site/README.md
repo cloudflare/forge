@@ -18,10 +18,10 @@ openapi.forge.json (latest stable Forge release)
    products, resources, routes, Terraform data
                  |
                  v
-   prepareForgeApi (src/forge-api.ts)
+   prepareForgeApi (src/forge-api.ts)  <-  src/stainless-redirects.json
                  |
                  v
-   .forge/  spec, products, redirects
+   .forge/  spec, products, redirects, Stainless redirects
                  |
                  v
    Nimbus api collection
@@ -34,14 +34,16 @@ release, loaded by `src/openapi-source.ts`. Fern SDK group and method metadata d
 resource hierarchy, and method route. OpenAPI tags remain internal ownership
 metadata and do not appear in URLs.
 
-`prepareForgeApi` writes three files to the git-ignored `.forge/` directory:
+`forgeApi` writes these files to the git-ignored `.forge/` directory:
 
 - `openapi-<version>.json`: the spec Nimbus renders, with Cloudflare titles,
   `x-nimbus-order` for lifecycle order, request samples, synthesized response
   examples, and Terraform data under `x-cloudflare-terraform`;
 - `products.json`: the products and their slugs, read by the command sidebar;
 - `redirects.json`: old section, alias-operation, and moved-product URLs, read by
-  `src/middleware.ts`.
+  `src/middleware.ts`;
+- `stainless-lookup.json` and `stainless-fallbacks.json`:
+  the retired Stainless site's redirects (see [Stainless redirects](#stainless-redirects)).
 
 Operations with removed Forge metadata are left out with a build warning.
 Operations `astro-fern` gives no URL are left out silently.
@@ -72,7 +74,10 @@ approved zone mapping.
 - `src/pages/search-manifest.json.ts` prerenders `/api/search-manifest.json`,
   the records a search index loads: `src/search-manifest.ts` turns each
   product, resource, and operation page of Nimbus's API model into one.
-- `src/middleware.ts` 302s the URLs in `.forge/redirects.json` to their pages.
+- `src/middleware.ts` 302s the URLs in `.forge/redirects.json` to their pages,
+  and 301s the retired Stainless site's URLs.
+- `src/stainless-redirects.ts` plans the Stainless redirects and resolves them
+  per request.
 - `src/command-reference/`, `src/command-sidebar.ts`, `src/pages/tooling/`, and
   `src/pages/[product]/tooling/` own the `cf` command pages. They render on
   request, inside `CommandPage.astro`, with the same API sidebar as the API
@@ -148,7 +153,11 @@ Terraform natively, remove it:
      `src/nimbus-api.d.ts`;
    - the `renderDescription` fixture in `src/plain-text.test.ts`;
    - the Terraform checks in `e2e/site.e2e.ts` and the `operation-terraform`
-     shot in `e2e/visual.e2e.ts`.
+     shot in `e2e/visual.e2e.ts`;
+   - `?lang=terraform` on the retired Stainless site's `/terraform/` redirects in
+     `stainlessRedirect` (`src/stainless-redirects.ts`), and in its test and
+     e2e cases, if the view goes: the old Terraform pages then fold onto the HTTP
+     ones.
 4. Decide on the `terraform` target in `src/cloudflare.ts`: drop it with its
    case in `src/cloudflare.test.ts`, or keep it for Forge's own Terraform
    samples. Kept without samples, every operation shows a placeholder.
@@ -178,6 +187,41 @@ Agent routes:
 /api/llms-full.txt
 /api/zero-trust/devices/ip-profiles/methods/list/index.md
 ```
+
+## Stainless redirects
+
+The site replaces the Stainless API reference once served at these paths. Its
+URLs 301 to today's pages. The old site is frozen, so what it served is a
+committed snapshot, `src/stainless-redirects.json`: each method page with its
+operationId, each resource and model page, and every operationId it knew, all in
+the HTTP form and collection-relative. It was made once from the old site's
+sitemap and source, and is not regenerated.
+
+Each build resolves the snapshot against today's pages with
+`planStainlessRedirects`:
+
+- a method page goes to its operation's page;
+- a resource page goes to the deepest section holding its methods, within the
+  product that holds most of them;
+- a model page goes to its resource's target;
+- `/operations/<operationId>/` goes to its operation's page.
+
+A page with no counterpart today goes to its nearest old ancestor's target, or
+the home page. The build warns with their count and lists them in
+`.forge/stainless-fallbacks.json`.
+
+`src/middleware.ts` serves them with `stainlessRedirect`:
+
+- each old page and its Markdown twin (`index.md`);
+- its SDK language variants (`/api/typescript/`, `/api/python/`, `/api/go/`,
+  `/api/node/`), which fold onto the HTTP page because the site has no SDK
+  samples;
+- its Terraform variant (`/api/terraform/`), which keeps its view with
+  `?lang=terraform`.
+
+Old paths the snapshot doesn't hold were never pages, and they 404. The
+redirects don't use `_redirects`: it allows only 2,000 static rules, and it
+counts every rule after the first dynamic one as dynamic, against a limit of 100.
 
 ## Run it
 
