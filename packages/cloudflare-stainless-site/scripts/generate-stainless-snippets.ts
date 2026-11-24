@@ -12,7 +12,7 @@ import path from 'node:path';
 import process from 'node:process';
 import { pathToFileURL } from 'node:url';
 import { parseArgs } from 'node:util';
-import { downloadArtifacts, findArtifacts, type GitLabSource, readArtifacts } from './gitlab.ts';
+import { downloadArtifacts, findArtifacts, forbiddenHosts, type GitLabSource, readArtifacts } from './gitlab.ts';
 import { buildSnippetsFile, extractSnippets, LANGUAGES, type Language, type SdkJson } from './snippets.ts';
 
 const USAGE = `Usage: generate-stainless-snippets --gitlab-url <url> --project <project> --snapshot <file> --output <file> [--verbose]
@@ -25,13 +25,6 @@ const USAGE = `Usage: generate-stainless-snippets --gitlab-url <url> --project <
 
 GITLAB_TOKEN must hold a token that can read the project's job artifacts.
 Artifacts are cached in node_modules/.cache/stainless-snippets by job ID.`;
-
-/** What no snippet may contain: the GitLab host, and the domain it belongs to. */
-export function forbiddenHosts(gitlabUrl: string): string[] {
-  const host = new URL(gitlabUrl).hostname;
-  const domain = host.split('.').slice(-2).join('.');
-  return [...new Set([host, domain])];
-}
 
 async function main() {
   const { values } = parseArgs({
@@ -75,7 +68,7 @@ async function main() {
     );
   }
 
-  const { pipeline, jobs } = await findArtifacts(source);
+  const { pipeline, jobs } = await findArtifacts(source, LANGUAGES);
   console.log(`generate-stainless-snippets: pipeline ${pipeline.id} (commit ${pipeline.sha.slice(0, 12)})`);
   const cache = path.resolve('node_modules', '.cache', 'stainless-snippets');
   const snippets = {} as Record<Language, Map<string, string>>;

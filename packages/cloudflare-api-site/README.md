@@ -207,11 +207,12 @@ Agent routes:
 ## Stainless redirects
 
 The site replaces the Stainless API reference once served at these paths. Its
-URLs 301 to today's pages. The old site is frozen, so what it served is a
-committed snapshot, `src/stainless-redirects.json`: each method page with its
-operationId, each resource and model page, and every operationId it knew, all in
-the HTTP form and collection-relative. It was made once from the old site's
-sitemap and source, and is not regenerated.
+URLs 301 to today's pages. What it served is a committed snapshot,
+`src/stainless-redirects.json`: each method page with its operationId, each
+resource and model page, and every operationId it knew, all in the HTTP form and
+collection-relative. The repository root's `pnpm generate:stainless-redirects`
+writes it from the old site's source, by hand; the `cloudflare-stainless-site`
+package's README says how to run it.
 
 Each build resolves the snapshot against today's pages with
 `planStainlessRedirects`:
@@ -243,7 +244,7 @@ counts every rule after the first dynamic one as dynamic, against a limit of 100
 The TypeScript, Python and Go samples are the retired Stainless site's, in
 `src/stainless-snippets.json`: each old method page, as the redirects snapshot
 names it, with its snippet per language. The repository root's
-`pnpm generate:stainless-snippets` writes it; the `cloudflare-stainless-snippets`
+`pnpm generate:stainless-snippets` writes it; the `cloudflare-stainless-site`
 package's README says how to run it.
 
 Each build gives an operation the snippets of the old method page the snapshot
@@ -259,8 +260,11 @@ in `src/cloudflare.ts` render nothing themselves.
 
 Once Forge generates its own SDK samples, remove these:
 
-1. Delete `packages/cloudflare-stainless-snippets` and the root `package.json`'s
-   `generate:stainless-snippets` script.
+1. Delete the root `package.json`'s `generate:stainless-snippets` script, and in
+   `packages/cloudflare-stainless-site` the snippets generator
+   (`scripts/generate-stainless-snippets.ts`, `scripts/snippets.ts` and its test,
+   and the `generate:snippets` script). Delete the whole package if the
+   redirects are retired too.
 2. Here, delete `src/stainless-snippets.json`, `src/stainless-snippets.ts` and its
    test, and in `src/forge-api.ts` the `sdkSnippets` parameter of
    `prepareForgeApi`, `readStainlessSnippets`, `sdkPlaceholder` and

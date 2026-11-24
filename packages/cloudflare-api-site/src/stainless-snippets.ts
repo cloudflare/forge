@@ -4,7 +4,7 @@ import type { StainlessSnapshot } from './stainless-redirects.ts';
 /**
  * The retired Stainless site's SDK snippets, `stainless-snippets.json`, which the repository
  * root's `pnpm generate:stainless-snippets` writes (the generator is the
- * `cloudflare-stainless-snippets` package). `format` has to match the generator's.
+ * `cloudflare-stainless-site` package). `format` has to match the generator's.
  */
 
 /** The SDKs the old site had samples for, as this site's target ids. */
