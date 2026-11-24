@@ -1,5 +1,6 @@
 # Publishes @cloudflare/forge and its six per-platform binary packages
-# (`@cloudflare/forge-<os>-<cpu>`) to npmjs.com on tag push.
+# (`@cloudflare/forge-<os>-<cpu>`) to npmjs.com, then publishes the Rust
+# library and CLI as cloudflare-forge on crates.io, on tag push.
 #
 # Hardened along the same lines as publish-redocly-plugin-forge.yml:
 # - Runs on tag only, never on arbitrary PRs.
@@ -21,6 +22,10 @@
 #   publishing must be configured on npmjs.com for `@cloudflare/forge` AND all
 #   six `@cloudflare/forge-<os>-<cpu>` packages before the first automated tag
 #   release.
+# - Uses crates.io's OIDC-backed trusted-publisher flow too. The official
+#   rust-lang action exchanges the job's GitHub OIDC identity for a temporary,
+#   package-scoped token and revokes it when the job ends. It is pinned by SHA
+#   like every other third-party action in this workflow.
 # - All third-party actions (here and in the shared setup-workspace
 #   composite) are pinned by commit SHA, so a re-tagged upstream release
 #   cannot inject code into a run that holds OIDC credentials.
@@ -28,6 +33,13 @@
 # - A tag ruleset matching `forge@*` with `required_signatures` enabled and
 #   `creation` restricted to the release-manager bypass list. GitHub rejects
 #   unsigned or unauthorized tag pushes before this workflow ever runs.
+# - cloudflare-forge must be owned by the Cloudflare release GitHub team and
+#   have crates.io's Trusted Publishing Only mode enabled. Creating the package
+#   is a one-time manual bootstrap because a trusted publisher cannot be added
+#   until the package exists; revoke that bootstrap token immediately after
+#   adding the team and trusted publisher. Configure the trusted publisher for
+#   cloudflare/forge and this workflow file without a GitHub environment, like
+#   the npm trusted-publisher configuration.
 #
 # Trigger: a tag of the form `forge@<version>` - the `<name>@<version>` form
 # matches npm's own identifier syntax and is the convention changesets and
@@ -39,7 +51,8 @@
 #   2. After it merges, create and push a signed tag:
 #        git tag -s forge@0.2.0 -m 'forge 0.2.0'
 #        git push origin forge@0.2.0
-#   3. This workflow then builds all six binaries and publishes the new version.
+#   3. This workflow builds all six binaries and publishes the new version to
+#      npmjs.com, then crates.io.
 
 name: Publish @cloudflare/forge
 
@@ -343,5 +356,92 @@ jobs:
           Verify provenance:
           \`\`\`sh
           npm view @cloudflare/forge@$VERSION --json | jq .dist.attestations
+          \`\`\`
+          EOF
+
+  # crates.io is deliberately after npm. Registry publication cannot be
+  # atomic, and npm is forge's established distribution path. On a rerun the
+  # npm job skips versions already present, then this job either skips the
+  # existing crate version or completes the second registry.
+  publish-crate:
+    name: Publish to crates.io
+    needs: [verify, publish]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Checkout tag
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # Do not set cache-base here: tag checkouts are detached refs, so a
+      # baseline branch cache may not resolve. This matches the Rust setup in
+      # the npm build jobs above.
+      - name: Install Rust
+        uses: moonrepo/setup-rust@abb2d32350334249b178c401e5ec5836e0cd88d3 # v1.3.0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # cargo publish repeats this verification, but doing it before requesting
+      # a credential keeps the OIDC token's lifetime as short as possible.
+      - name: Verify package
+        run: cargo publish --dry-run --locked
+
+      - name: Check whether the version exists
+        id: crate
+        env:
+          VERSION: ${{ needs.verify.outputs.version }}
+        run: |
+          set -euo pipefail
+          response="$RUNNER_TEMP/crates-io-version.json"
+          status=$(curl --silent --show-error \
+            --header 'User-Agent: cloudflare-forge-release-workflow (https://github.com/cloudflare/forge)' \
+            --output "$response" --write-out '%{http_code}' \
+            "https://crates.io/api/v1/crates/cloudflare-forge/${VERSION}")
+          case "$status" in
+            200)
+              echo "exists=true" >> "$GITHUB_OUTPUT"
+              echo "Skipping cloudflare-forge@$VERSION: already published"
+              ;;
+            404)
+              echo "exists=false" >> "$GITHUB_OUTPUT"
+              ;;
+            *)
+              cat "$response" >&2
+              echo "crates.io returned HTTP $status while checking cloudflare-forge@$VERSION" >&2
+              exit 1
+              ;;
+          esac
+
+      # Exchanges this job's OIDC identity for a short-lived token scoped by
+      # the trusted-publisher record on crates.io. The action's post step
+      # revokes it when the job ends.
+      - name: Authenticate to crates.io
+        if: steps.crate.outputs.exists != 'true'
+        id: crates-io
+        uses: rust-lang/crates-io-auth-action@3268eb413133e2960fa4ae0e963ca76380c54cd9 # v1.0.6
+
+      - name: Publish cloudflare-forge
+        if: steps.crate.outputs.exists != 'true'
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ steps.crates-io.outputs.token }}
+        run: cargo publish --locked
+
+      - name: Summary
+        env:
+          TAG: ${{ github.ref_name }}
+          VERSION: ${{ needs.verify.outputs.version }}
+        run: |
+          cat >> "$GITHUB_STEP_SUMMARY" <<EOF
+          ### Published cloudflare-forge@$VERSION
+
+          Tag: \`$TAG\`
+
+          Install the Rust library:
+          \`\`\`sh
+          cargo add cloudflare-forge --no-default-features
           \`\`\`
           EOF

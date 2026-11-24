@@ -26,7 +26,7 @@ mod ts;
 
 /// Generates an SDK from an OpenAPI document.
 #[derive(Parser)]
-#[command(version, subcommand_required = true)]
+#[command(name = "forge", version, subcommand_required = true)]
 struct Args {
     #[command(subcommand)]
     command: Command,

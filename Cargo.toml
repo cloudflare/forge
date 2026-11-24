@@ -6,9 +6,25 @@ resolver = "3"
 members = ["packages/forge/library"]
 
 [package]
-name = "forge"
+name = "cloudflare-forge"
 version = "0.3.0"
 edition = "2024"
+description = "Schema-first OpenAPI code generation and surface tooling."
+license = "Apache-2.0"
+repository = "https://github.com/cloudflare/forge"
+homepage = "https://github.com/cloudflare/forge"
+documentation = "https://docs.rs/cloudflare-forge"
+readme = "README.md"
+keywords = ["codegen", "openapi", "plugin", "sdk", "wasm"]
+categories = ["command-line-utilities", "development-tools"]
+publish = ["crates-io"]
+include = ["/src/**", "/tests/**", "/benches/**", "/Cargo.toml", "/README.md", "/LICENSE"]
+
+# crates.io has no organization namespaces and the unrelated `forge` package
+# name is already taken. Keep the public Rust path `forge::...` even though the
+# registry package is `cloudflare-forge`.
+[lib]
+name = "forge"
 
 [dependencies]
 clap = { version = "4.6.7", features = ["derive"], optional = true }
