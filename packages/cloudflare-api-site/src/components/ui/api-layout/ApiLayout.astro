@@ -136,7 +136,7 @@ if (versionStatus?.isHidden || homePart) {
         )}
         <ApiBody page={page} home={home}>
           {hasRail && (
-            <div slot="sample" data-api-place="rail" data-pagefind-ignore class="mt-8 min-[90rem]:col-start-2 min-[90rem]:row-span-12 min-[90rem]:row-start-1 min-[90rem]:-mt-8 min-[90rem]:self-start min-[90rem]:sticky min-[90rem]:top-14 min-[90rem]:h-[calc(100vh-3.5rem)] min-[90rem]:w-(--nb-code-rail-width) min-[90rem]:flex min-[90rem]:flex-col min-[90rem]:overflow-y-auto min-[90rem]:pt-8 min-[90rem]:pe-6 min-[90rem]:pb-8 min-[90rem]:ps-1">
+            <div slot="sample" data-api-place="rail" data-pagefind-ignore class="mt-8 min-[90rem]:col-start-2 min-[90rem]:row-span-12 min-[90rem]:row-start-1 min-[90rem]:-mt-8 min-[90rem]:self-start min-[90rem]:sticky min-[90rem]:top-(--nb-header-height) min-[90rem]:h-[calc(100vh-var(--nb-header-height))] min-[90rem]:w-(--nb-code-rail-width) min-[90rem]:flex min-[90rem]:flex-col min-[90rem]:overflow-y-auto min-[90rem]:pt-8 min-[90rem]:pe-6 min-[90rem]:pb-8 min-[90rem]:ps-1">
               <ApiCodeRail
                 responses={page.responses}
                 samples={page.samples}
@@ -172,7 +172,7 @@ if (versionStatus?.isHidden || homePart) {
     aria-label="Sidebar"
     transition:name="nb-api-sidebar"
     transition:animate="none"
-    class="sticky top-14 hidden h-[calc(100vh-3.5rem)] w-60 shrink-0 flex-col border-e border-border bg-background md:col-start-1 md:row-start-1 md:flex lg:w-(--nb-sidebar-width)"
+    class="sticky top-(--nb-header-height) hidden h-[calc(100vh-var(--nb-header-height))] w-60 shrink-0 flex-col border-e border-border bg-background md:col-start-1 md:row-start-1 md:flex lg:w-(--nb-sidebar-width)"
   >
     <ApiNavigation nav={nav} version={version} overviewCurrent={page.kind === "api" && !homePart} />
   </aside>

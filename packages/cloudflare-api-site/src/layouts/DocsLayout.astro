@@ -66,18 +66,18 @@ const hasContentFooter = Astro.slots.has("content-footer");
       <div class="flex-1 mx-auto w-full">
         <div class="flex">
           {showSidebar && (
-            <aside id="desktop-sidebar" data-nb-desktop-sidebar class="hidden md:flex w-60 lg:w-(--nb-sidebar-width) shrink-0 border-r border-border bg-background sticky top-14 h-[calc(100vh-3.5rem)] flex-col overflow-y-auto overscroll-contain relative">
+            <aside id="desktop-sidebar" data-nb-desktop-sidebar class="hidden md:flex w-60 lg:w-(--nb-sidebar-width) shrink-0 border-r border-border bg-background sticky top-(--nb-header-height) h-[calc(100vh-var(--nb-header-height))] flex-col overflow-y-auto overscroll-contain relative">
               {hasSidebar ? (
                 <slot name="sidebar" />
               ) : (
-                <nav data-nb-sidebar-nav class="px-4 pb-12 flex-1">
+                <nav aria-label="Documentation" data-nb-sidebar-nav class="px-4 pb-12 flex-1">
                   <div class="sb-filter-bar">
                     <SidebarFilter />
                   </div>
                   <Sidebar items={sidebar} persist />
                 </nav>
               )}
-              <div class="pointer-events-none sticky bottom-0 h-8 bg-gradient-to-t from-base to-transparent" />
+              <div class="pointer-events-none sticky bottom-0 h-8 bg-gradient-to-t from-background to-transparent" />
             </aside>
           )}
 
@@ -167,7 +167,7 @@ const hasContentFooter = Astro.slots.has("content-footer");
                     )}
                     <PageActions markdownUrl={markdownUrl} lastUpdated={lastUpdated} class={showDescription && description ? undefined : "mt-3"} />
                     {headings !== false && headings.length > 0 && (
-                      <div class="border-border bg-background/95 supports-[backdrop-filter]:bg-background/80 sticky top-14 z-20 -mx-4 mt-3 border-y px-4 py-2 backdrop-blur md:-mx-6 md:px-6 xl:hidden">
+                      <div class="border-border bg-background/95 supports-[backdrop-filter]:bg-background/80 sticky top-(--nb-header-height) z-20 -mx-4 mt-3 border-y px-4 py-2 backdrop-blur md:-mx-6 md:px-6 xl:hidden">
                         <MobileTOC headings={headings} />
                       </div>
                     )}
@@ -203,7 +203,7 @@ const hasContentFooter = Astro.slots.has("content-footer");
           </main>
 
           {headings !== false && (hasToc || headings.length > 0) && (
-            <aside data-nb-toc-scroll-host class="hidden xl:block w-(--nb-toc-width) shrink-0 sticky top-14 h-[calc(100vh-3.5rem)] overflow-y-auto">
+            <aside data-nb-toc-scroll-host class="hidden xl:block w-(--nb-toc-width) shrink-0 sticky top-(--nb-header-height) h-[calc(100vh-var(--nb-header-height))] overflow-y-auto">
               <div class="pt-6 pb-8 pl-8 pr-6">
                 {hasToc ? <slot name="toc" /> : <TOC headings={headings} />}
               </div>
