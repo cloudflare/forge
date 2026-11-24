@@ -4,11 +4,9 @@ import { defineConfig } from 'cf/config';
 // is served from the asset store. `cf build` runs `astro build`, whose Cloudflare
 // adapter writes the Build Output that `cf deploy` uploads.
 //
-// CI deploys it to the account in the repository's
-// `FORGE_DOCS_CLOUDFLARE_ACCOUNT_ID` secret (not the API site's), at its
-// workers.dev address, until it has a domain. Then add `domains`
-// with `workersDev: false`, so the site has one origin, and build with
-// `DOCS_SITE_URL` set to it: canonicals, OG URLs and the sitemap are built from it.
+// Workers Builds deploys it at its workers.dev address until it has a domain.
+// Then add `domains` with `workersDev: false`, so the site has one origin, and
+// set the `DOCS_SITE_URL` build variable to it.
 export default defineConfig({
   worker: {
     name: 'forge-docs',
