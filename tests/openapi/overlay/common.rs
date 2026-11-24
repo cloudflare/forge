@@ -114,15 +114,18 @@ pub fn files_ext(name: &str, spec: (&str, &str), overlay: (&str, &str)) -> (Path
     (spec_path, overlay_path)
 }
 
+/// Percent-encodes spaces in a filesystem path so it can be embedded in a
+/// `file:` URI even when the repo checkout lives under a path with spaces.
+pub fn encode_uri_path(path: &Path) -> String {
+    path.display().to_string().replace(' ', "%20")
+}
+
 /// Applies `overlay_doc` to `SPEC` by writing both to a fresh temp dir and
-/// running `forge openapi overlay <spec> --overlay <overlay>`, returning the
+/// running `forge openapi overlay <spec> <overlay>`, returning the
 /// parsed stdout JSON. Panics if the command fails.
 pub fn apply(name: &str, overlay_doc: &str) -> serde_json::Value {
     let (spec_path, overlay_path) = files(name, SPEC, overlay_doc);
-    let out = overlay(
-        &[spec_path.to_str().unwrap(), "--overlay", overlay_path.to_str().unwrap()],
-        "",
-    );
+    let out = overlay(&[spec_path.to_str().unwrap(), overlay_path.to_str().unwrap()], "");
     succeeded(&out);
     serde_json::from_slice(&out.stdout).expect("stdout is JSON")
 }

@@ -6,21 +6,17 @@ with `--out`).
 
 ```
 forge openapi overlay <overlay>                             # Mode A: overlay drives the spec via its `extends`
-forge openapi overlay <spec> --overlay <overlay>...         # Mode B
-forge openapi overlay <spec> --overlay <overlay> --out <path>
+forge openapi overlay <spec> <overlay>...                   # Mode B
+forge openapi overlay <spec> <overlay> --out <path>
 ```
 
-With `forge generate`, overlays are a preprocessing step before SDK generation,
-not a separate print mode:
+You can also pass a self-contained overlay (one with `extends`) directly to
+`forge generate`, or pipe the merged spec from `forge openapi overlay` into it:
 
 ```
-forge generate <spec> --overlay <overlay>... --target <t> --out <dir>
-forge generate <overlay-with-extends> [--overlay <ov>]... --target <t> --out <dir>
+forge generate <overlay-with-extends> --target <t> --out <dir>
+forge openapi overlay <spec> <overlay>... | forge generate - --target <t> --out <dir>
 ```
-
-Use `forge openapi overlay` when you want to inspect or write the merged spec
-itself; use `forge generate` when you want an SDK built from a preprocessed
-spec.
 
 Without `--out` the `forge openapi overlay` subcommand prints the overlaid
 document to standard output. `--out <path>` writes it to `<path>` instead; if
@@ -79,8 +75,7 @@ same-document JSON Pointer.
 RFC 9535 §2.5.1 says a selector like `$['a', 'a']` yields two outputs.
 forge dedups selected nodes by JSON Pointer before applying, so each node
 is visited at most once — otherwise 1.1 array-concat would append the
-update twice and `remove` would try to delete the same index twice. The
-`matched` count reported by `--explain` is the deduped count.
+update twice and `remove` would try to delete the same index twice.
 
 ## Root removal is rejected
 
@@ -90,28 +85,6 @@ value, or tighten the target (e.g. `$.servers` instead of `$`). The
 Overlay spec is silent on this, but silently replacing the root with an
 empty object is overwhelmingly a typoed JSONPath nuking the whole spec
 — the resulting empty object is unusable downstream. Matches Redocly.
-
-## Strictness choices adopters trip on
-
-Two cases where forge is stricter than some other overlay tools. The behavior
-is intentional and tracks the spec; the fixes are small overlay edits.
-
-- **RFC 9535 JSONPath.** The Overlay spec (all three versions) references
-  RFC 9535 for `target`. Legacy Goessner constructs that are not valid RFC 9535
-  — such as dot-bracket forms (`.['key']`), regex filters (`=~`), unquoted
-  string literals, or script expressions (`@.length-1`) — are rejected.
-  Parenthesized filter expressions (`[?(expr)]`) are valid RFC 9535
-  (`paren-expr`) and are accepted. As a small concession to the official OAI
-  conformance corpus, dot-shorthand names containing hyphens or starting with
-  digits (e.g. `@.x-oai-traits.paged`, `$.responses.200`) are normalized to
-  bracket form before parsing.
-
-- **Overlay §5 `update` targets.** In 1.0, `update` must select objects or
-  arrays only; primitive targets are rejected. In 1.1+, a primitive target is
-  replaced wholesale by a primitive value. A filter that sweeps extension
-  keys (e.g. `x-internal: true`) into an operation-level selection fires this
-  rule. The error now lists sibling primitive paths; narrow the filter so it
-  selects only the operation objects.
 
 ## Conformance corpora
 
@@ -124,53 +97,21 @@ The normative baselines forge is tested against live in the repo:
 - `tests/openapi/overlay/real_world/` — vendored `(spec, overlay, expected)`
   triples from real-world projects, as byte-stable regression gates.
 
-## Linting
+## Logging
 
-`forge openapi overlay --check <overlay>...` validates one or more overlay
-documents without applying them. Each overlay is parsed through the full
-validator pipeline (required fields, allowed keys per version, RFC 9535
-JSONPath parse of every `target`, `components.actions` shape, `$ref` validity,
-URI allow-list, action uniqueness, future-minor warnings). `extends` is
-NOT resolved — lint is about the overlay document itself, not the files
-it points at. `-` reads one overlay from standard input.
+Use the global `-v`/`--verbose` flag (repeatable) or `--log-level <level>`
+(`error`, `warn`, `info`, `debug`, `trace`; also configurable via `FORGE_LOG`)
+to emit diagnostic logs to stderr without affecting stdout:
 
-```
-forge openapi overlay --check overlays/*.yaml
-cat ov.yaml | forge openapi overlay --check -
-```
-
-Exits 0 when every overlay is valid. On failure, each file's diagnostics
-are printed to stderr (prefixed with the file path) and the exit code is
-non-zero. All files are checked even when earlier ones fail, so CI gets
-every problem in one run. `--check` cannot be combined with `--overlay`
-or `--out`.
-
-## Diagnostics
-
-`--explain` prints one line to stderr per overlay action as it runs,
-naming the overlay path, action index, verb, target, and node counts.
-It is available on both `forge openapi overlay` and `forge generate`
-(where overlays are a preprocessing step before SDK generation). Stdout
-and generated files are unchanged.
+- `warn` (default) — warnings such as future `1.x` overlay versions.
+- `info` (`-v`) — zero-match no-op actions and per-overlay summaries.
+- `debug` (`-vv`) — per-action execution details (verb, target, ref name,
+  matched/mutated counts) and `extends` resolution.
 
 ```
-forge openapi overlay spec.yaml --overlay fix.yaml --explain
-forge generate spec.yaml --overlay fix.yaml --target ts --out sdk --explain
+forge openapi overlay spec.yaml fix.yaml -v
+forge openapi overlay spec.yaml fix.yaml -vv
+forge openapi overlay spec.yaml fix.yaml --log-level debug
 ```
 
-The line shape is:
-
-```
-<overlay-path>:<action-index> [ref=<name> ]<verb> <target> — <result>
-```
-
-Example results:
-
-- `matched 0 nodes — no-op (zero-match actions are silent per spec)`
-- `updated 1 node`
-- `matched 1 node, mutated 0 nodes` (target existed but update was a no-op)
-- `removed 2 nodes`
-- `copied 1 node from <source> to <target>`
-
-Reusable actions (1.2 `$ref` into `components.actions`) also include
-`ref=<component-name>` after the action index.
+Log output is for humans and its wording is not a stable format.

@@ -47,7 +47,7 @@ output with:
 
 ```
 cargo build --bin forge --features cli
-./target/debug/forge openapi overlay <dir>/spec.yaml --overlay <dir>/overlay.yaml \
+./target/debug/forge openapi overlay <dir>/spec.yaml <dir>/overlay.yaml \
   > <dir>/expected.yaml
 ```
 

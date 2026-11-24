@@ -1,18 +1,20 @@
 //! Tests for the `forge openapi overlay` CLI surface:
 //! Mode A (overlay drives the spec via `extends`), Mode B (spec given on the
-//! CLI with one or more `--overlay`), `--out`, multiple overlays applied in
-//! order, `extends` resolution and HTTP rejection, output byte-fidelity, and
-//! IO failure modes (missing files, malformed documents).
+//! CLI with one or more positional overlays), `--out`, multiple overlays
+//! applied in order, `extends` resolution and HTTP rejection, output
+//! byte-fidelity, and IO failure modes (missing files, malformed documents).
 
 use std::fs;
 
-use crate::common::{SPEC, SPEC_MINIFIED, dir, failed, failed_with, files, files_ext, forge, overlay, succeeded, text};
+use crate::common::{
+    SPEC, SPEC_MINIFIED, dir, encode_uri_path, failed, failed_with, files, files_ext, forge, overlay, succeeded, text,
+};
 
 // --- Mode A: overlay drives the spec via `extends` -----------------------
 
-/// Mode A. `forge openapi overlay <overlay>` with no `--overlay` reads the overlay,
-/// resolves its `extends` to a local file (relative to the overlay's own
-/// location), and prints the overlaid spec to stdout.
+/// Mode A. `forge openapi overlay <overlay>` reads the overlay, resolves its
+/// `extends` to a local file (relative to the overlay's own location), and
+/// prints the overlaid spec to stdout.
 #[test]
 fn mode_a_extends_relative_path() {
     let dir = dir("mode-a-relative");
@@ -40,7 +42,7 @@ fn mode_a_extends_file_uri() {
     let dir = dir("mode-a-file-uri");
     let spec_path = dir.join("spec.json");
     fs::write(&spec_path, SPEC).unwrap();
-    let file_uri = format!("file://{}", spec_path.display());
+    let file_uri = format!("file://{}", encode_uri_path(&spec_path));
     fs::write(
         dir.join("overlay.json"),
         format!(
@@ -71,8 +73,7 @@ fn mode_a_extends_file_uri_percent_encoded() {
     fs::create_dir_all(&subdir).unwrap();
     let spec_path = subdir.join("spec.json");
     fs::write(&spec_path, SPEC).unwrap();
-    let encoded = spec_path.display().to_string().replace(' ', "%20");
-    let file_uri = format!("file://{encoded}");
+    let file_uri = format!("file://{}", encode_uri_path(&spec_path));
     fs::write(
         dir.join("overlay.json"),
         format!(
@@ -228,9 +229,9 @@ fn mode_a_out_writes_to_path() {
     assert_eq!(doc["info"]["description"], "d");
 }
 
-// --- Mode B: spec on the CLI, one or more `--overlay` files --------------
+// --- Mode B: spec on the CLI, one or more positional overlay files -------
 
-/// Mode B. `forge openapi overlay <spec> --overlay <overlay>` applies the overlay
+/// Mode B. `forge openapi overlay <spec> <overlay>` applies the overlay
 /// and prints the result to stdout. The spec file is left untouched.
 #[test]
 fn mode_b_applies_and_prints() {
@@ -245,7 +246,7 @@ fn mode_b_applies_and_prints() {
     );
     let before = fs::read_to_string(&spec).unwrap();
 
-    let out = overlay(&[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap()], "");
+    let out = overlay(&[spec.to_str().unwrap(), ov.to_str().unwrap()], "");
     succeeded(&out);
 
     let doc: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
@@ -272,7 +273,7 @@ fn mode_b_spec_from_stdin() {
     )
     .unwrap();
 
-    let out = overlay(&["-", "--overlay", ov.to_str().unwrap()], SPEC);
+    let out = overlay(&["-", ov.to_str().unwrap()], SPEC);
     succeeded(&out);
     let doc: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
     assert_eq!(doc["info"]["description"], "d");
@@ -290,18 +291,18 @@ fn mode_b_stdin_rebases_inserted_refs_from_cwd() {
   "overlay": "1.1.0",
   "info": {"title": "fix", "version": "1"},
   "actions": [{
-    "target": "$.info",
-    "update": {"x-schema": {"$ref": "./schema.json#/X"}}
+    "target": "$.paths[\"/a\"].get",
+    "update": {"requestBody": {"$ref": "./schema.json#/X"}}
   }]
 }"#,
     )
     .unwrap();
 
-    let out = crate::common::overlay_in(&dir, &["-", "--overlay", "overlays/overlay.json"], SPEC);
+    let out = crate::common::overlay_in(&dir, &["-", "overlays/overlay.json"], SPEC);
     succeeded(&out);
     let doc: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
     assert_eq!(
-        doc["info"]["x-schema"]["$ref"], "overlays/schema.json#/X",
+        doc["paths"]["/a"]["get"]["requestBody"]["$ref"], "overlays/schema.json#/X",
         "stdin references are relative to the process CWD"
     );
 }
@@ -322,10 +323,7 @@ fn mode_b_missing_spec_file_names_the_path() {
     .unwrap();
 
     let missing = dir.join("absent-spec.json");
-    let err = failed(overlay(
-        &[missing.to_str().unwrap(), "--overlay", ov.to_str().unwrap()],
-        "",
-    ));
+    let err = failed(overlay(&[missing.to_str().unwrap(), ov.to_str().unwrap()], ""));
     assert!(err.contains("absent-spec.json"), "names the missing path: {err}");
 }
 
@@ -344,7 +342,7 @@ fn mode_b_missing_overlay_file_names_the_path() {
     let missing_overlay = spec.with_file_name("absent-overlay.json");
 
     let err = failed(overlay(
-        &[spec.to_str().unwrap(), "--overlay", missing_overlay.to_str().unwrap()],
+        &[spec.to_str().unwrap(), missing_overlay.to_str().unwrap()],
         "",
     ));
     assert!(err.contains("absent-overlay.json"), "names the missing path: {err}");
@@ -368,10 +366,7 @@ fn mode_b_malformed_json_spec_is_rejected() {
     )
     .unwrap();
 
-    let err = failed(overlay(
-        &[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap()],
-        "",
-    ));
+    let err = failed(overlay(&[spec.to_str().unwrap(), ov.to_str().unwrap()], ""));
     assert!(err.contains("spec.json"), "names the file: {err}");
     assert!(
         err.to_lowercase().contains("json") || err.to_lowercase().contains("parse"),
@@ -392,10 +387,7 @@ fn mode_b_malformed_yaml_spec_is_rejected() {
         ),
     );
 
-    let err = failed(overlay(
-        &[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap()],
-        "",
-    ));
+    let err = failed(overlay(&[spec.to_str().unwrap(), ov.to_str().unwrap()], ""));
     assert!(err.contains("spec.yaml"), "names the file: {err}");
     assert!(
         err.to_lowercase().contains("yaml") || err.to_lowercase().contains("parse"),
@@ -412,10 +404,7 @@ fn mode_b_malformed_json_overlay_is_rejected() {
     let ov = dir.join("overlay.json");
     fs::write(&ov, "{not valid").unwrap();
 
-    let err = failed(overlay(
-        &[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap()],
-        "",
-    ));
+    let err = failed(overlay(&[spec.to_str().unwrap(), ov.to_str().unwrap()], ""));
     assert!(err.contains("overlay.json"), "names the overlay file: {err}");
     assert!(
         err.to_lowercase().contains("json") || err.to_lowercase().contains("parse"),
@@ -432,10 +421,7 @@ fn mode_b_malformed_yaml_overlay_is_rejected() {
         ("overlay: [\n  bad: :\n", "yaml"),
     );
 
-    let err = failed(overlay(
-        &[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap()],
-        "",
-    ));
+    let err = failed(overlay(&[spec.to_str().unwrap(), ov.to_str().unwrap()], ""));
     assert!(err.contains("overlay.yaml"), "names the overlay file: {err}");
     assert!(
         err.to_lowercase().contains("yaml") || err.to_lowercase().contains("parse"),
@@ -458,7 +444,7 @@ fn mode_b_extensionless_file_uses_content_detection() {
     )
     .unwrap();
 
-    let out = overlay(&[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap()], "");
+    let out = overlay(&[spec.to_str().unwrap(), ov.to_str().unwrap()], "");
     succeeded(&out);
     // Spec started with `{`, so output is JSON regardless of the file name.
     let doc: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
@@ -482,7 +468,6 @@ fn mode_b_out_matching_spec_rewrites_in_place() {
     let out = overlay(
         &[
             spec.to_str().unwrap(),
-            "--overlay",
             ov.to_str().unwrap(),
             "--out",
             spec.to_str().unwrap(),
@@ -511,7 +496,6 @@ fn mode_b_out_matching_spec_preserves_yaml_format() {
     let out = overlay(
         &[
             spec.to_str().unwrap(),
-            "--overlay",
             ov.to_str().unwrap(),
             "--out",
             spec.to_str().unwrap(),
@@ -546,13 +530,12 @@ fn mode_b_out_to_different_path() {
     let out_path = spec.with_file_name("applied.json");
 
     // Stdout baseline for byte-equality.
-    let stdout_run = overlay(&[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap()], "");
+    let stdout_run = overlay(&[spec.to_str().unwrap(), ov.to_str().unwrap()], "");
     succeeded(&stdout_run);
 
     let out = overlay(
         &[
             spec.to_str().unwrap(),
-            "--overlay",
             ov.to_str().unwrap(),
             "--out",
             out_path.to_str().unwrap(),
@@ -592,7 +575,6 @@ fn mode_b_out_to_nonexistent_parent_is_an_error() {
     let err = failed(overlay(
         &[
             spec.to_str().unwrap(),
-            "--overlay",
             ov.to_str().unwrap(),
             "--out",
             bogus.to_str().unwrap(),
@@ -638,9 +620,7 @@ fn mode_b_out_matching_spec_atomic_on_failure() {
     let out = overlay(
         &[
             spec.to_str().unwrap(),
-            "--overlay",
             good.to_str().unwrap(),
-            "--overlay",
             bad.to_str().unwrap(),
             "--out",
             spec.to_str().unwrap(),
@@ -684,7 +664,6 @@ fn mode_b_out_matching_spec_skips_write_on_noop() {
     let out = overlay(
         &[
             spec.to_str().unwrap(),
-            "--overlay",
             ov.to_str().unwrap(),
             "--out",
             spec.to_str().unwrap(),
@@ -718,16 +697,7 @@ fn stdin_spec_with_out_writes_to_path() {
     .unwrap();
     let out_path = dir.join("applied.json");
 
-    let out = overlay(
-        &[
-            "-",
-            "--overlay",
-            ov.to_str().unwrap(),
-            "--out",
-            out_path.to_str().unwrap(),
-        ],
-        SPEC,
-    );
+    let out = overlay(&["-", ov.to_str().unwrap(), "--out", out_path.to_str().unwrap()], SPEC);
     succeeded(&out);
     assert!(out.stdout.is_empty(), "nothing is printed when --out is given");
     let doc: serde_json::Value = serde_json::from_slice(&fs::read(&out_path).unwrap()).unwrap();
@@ -752,13 +722,13 @@ fn mode_b_extends_is_ignored_without_resolving() {
 }"#,
     );
 
-    let out = overlay(&[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap()], "");
+    let out = overlay(&[spec.to_str().unwrap(), ov.to_str().unwrap()], "");
     succeeded(&out);
     let doc: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
     assert_eq!(doc["info"]["description"], "d");
 }
 
-// --- J1. Multiple `--overlay` files applied in order --------------------
+// --- J1. Multiple positional overlay files applied in order --------------
 
 #[test]
 fn j1_multiple_overlays_apply_in_order() {
@@ -789,9 +759,7 @@ fn j1_multiple_overlays_apply_in_order() {
     let out = overlay(
         &[
             spec.to_str().unwrap(),
-            "--overlay",
             first.to_str().unwrap(),
-            "--overlay",
             second.to_str().unwrap(),
         ],
         "",
@@ -837,9 +805,7 @@ fn j1_second_overlay_observes_first_removal_and_recreation() {
     let out = overlay(
         &[
             spec.to_str().unwrap(),
-            "--overlay",
             first.to_str().unwrap(),
-            "--overlay",
             second.to_str().unwrap(),
         ],
         "",
@@ -864,7 +830,7 @@ fn k1_no_op_overlay_preserves_bytes() {
 }"#,
     );
 
-    let out = overlay(&[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap()], "");
+    let out = overlay(&[spec.to_str().unwrap(), ov.to_str().unwrap()], "");
     succeeded(&out);
     assert_eq!(text(&out.stdout), SPEC_MINIFIED, "bytes preserved on no-op");
 }
@@ -883,7 +849,7 @@ fn k2_key_order_is_preserved_and_additions_append() {
   "actions": [{"target": "$.info", "update": {"description": "d"}}]
 }"#,
         );
-        let out = overlay(&[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap()], "");
+        let out = overlay(&[spec.to_str().unwrap(), ov.to_str().unwrap()], "");
         succeeded(&out);
         out.stdout
     };
@@ -920,12 +886,10 @@ fn no_input_is_rejected() {
     );
 }
 
-/// `forge openapi overlay` without `--overlay` treats the positional as an overlay
-/// document. A positional that is not an overlay (e.g. an OpenAPI spec) is
-/// rejected with a message pointing authors at `--overlay` or at adding an
-/// `overlay` version key to their file. The exact suggested-fix wording is
-/// intentionally loose; any phrasing that names `--overlay` or references
-/// the missing `overlay` version key counts.
+/// `forge openapi overlay <file>` (single positional) treats the positional as
+/// an overlay document. A positional that is not an overlay (e.g. an OpenAPI
+/// spec) is rejected with a message pointing authors at `<spec> <overlay>` or
+/// at adding an `overlay` version key to their file.
 #[test]
 fn positional_that_is_not_an_overlay_is_rejected() {
     let dir = dir("positional-is-spec");
@@ -934,7 +898,13 @@ fn positional_that_is_not_an_overlay_is_rejected() {
 
     failed_with(
         overlay(&[spec_file.to_str().unwrap()], ""),
-        &["not an overlay", "--overlay", "overlay version", "overlay: ", "missing"],
+        &[
+            "not an overlay",
+            "<spec> <overlay>",
+            "overlay version",
+            "overlay: ",
+            "missing",
+        ],
     );
 }
 
@@ -954,36 +924,6 @@ fn positional_that_is_neither_spec_nor_overlay_is_rejected() {
     );
 }
 
-/// Mode A takes exactly one positional (the overlay). Two positionals with
-/// no `--overlay` is ambiguous and rejected — Mode A has no notion of
-/// "apply multiple overlays," because its first positional carries the
-/// `extends` link.
-#[test]
-fn mode_a_rejects_two_positionals() {
-    let dir = dir("mode-a-two-positionals");
-    let spec = dir.join("spec.json");
-    fs::write(&spec, SPEC).unwrap();
-    let first = dir.join("1.json");
-    let second = dir.join("2.json");
-    for p in [&first, &second] {
-        fs::write(
-            p,
-            r#"{
-  "overlay": "1.0.0",
-  "info": {"title": "fix", "version": "1"},
-  "extends": "./spec.json",
-  "actions": [{"target": "$.info", "update": {"description": "d"}}]
-}"#,
-        )
-        .unwrap();
-    }
-
-    failed_with(
-        overlay(&[first.to_str().unwrap(), second.to_str().unwrap()], ""),
-        &["--overlay", "positional", "one"],
-    );
-}
-
 // --- YAML input/output -------------------------------------------------
 
 /// A YAML spec + YAML overlay produce a YAML result on stdout. The format
@@ -1000,7 +940,7 @@ fn yaml_spec_with_yaml_overlay_prints_yaml() {
         ),
     );
 
-    let out = overlay(&[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap()], "");
+    let out = overlay(&[spec.to_str().unwrap(), ov.to_str().unwrap()], "");
     succeeded(&out);
     let body = text(&out.stdout);
     assert!(
@@ -1023,7 +963,7 @@ fn json_spec_with_yaml_overlay_prints_json() {
         ),
     );
 
-    let out = overlay(&[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap()], "");
+    let out = overlay(&[spec.to_str().unwrap(), ov.to_str().unwrap()], "");
     succeeded(&out);
     let doc: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
     assert_eq!(doc["info"]["description"], "d");
@@ -1042,7 +982,7 @@ fn yaml_spec_with_json_overlay_prints_yaml() {
         ),
     );
 
-    let out = overlay(&[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap()], "");
+    let out = overlay(&[spec.to_str().unwrap(), ov.to_str().unwrap()], "");
     succeeded(&out);
     let body = text(&out.stdout);
     assert!(body.contains("description: d"), "YAML output: {body}");
@@ -1139,10 +1079,7 @@ fn flow_style_yaml_and_utf8_bom_json_parse_correctly() {
         "{overlay: '1.0.0', info: {title: fix, version: '1'}, actions: [{target: $.info, update: {description: flow}}]}\n",
     )
     .unwrap();
-    let out = overlay(
-        &[yaml_spec.to_str().unwrap(), "--overlay", yaml_ov.to_str().unwrap()],
-        "",
-    );
+    let out = overlay(&[yaml_spec.to_str().unwrap(), yaml_ov.to_str().unwrap()], "");
     succeeded(&out);
     let body = text(&out.stdout);
     assert!(body.contains("description: flow"), "flow YAML applied: {body}");
@@ -1158,7 +1095,7 @@ fn flow_style_yaml_and_utf8_bom_json_parse_correctly() {
         br#"{"overlay": "1.0.0", "info": {"title": "fix", "version": "1"}, "actions": [{"target": "$.info", "update": {"description": "bom"}}]}"#,
     );
     fs::write(&bom_ov, ov_bytes).unwrap();
-    let out = overlay(&[bom_spec.to_str().unwrap(), "--overlay", bom_ov.to_str().unwrap()], "");
+    let out = overlay(&[bom_spec.to_str().unwrap(), bom_ov.to_str().unwrap()], "");
     succeeded(&out);
     let doc: serde_json::Value =
         serde_json::from_slice(&out.stdout).expect("BOM-prefixed JSON spec should stay JSON after mutation");
@@ -1189,8 +1126,8 @@ fn stdin_spec_from_symlinked_cwd_relativizes_refs() {
   "overlay": "1.0.0",
   "info": {"title": "fix", "version": "1"},
   "actions": [{
-    "target": "$.info",
-    "update": {"x-schema": {"$ref": "./schemas/Foo.yaml#/X"}}
+    "target": "$.paths[\"/a\"].get",
+    "update": {"requestBody": {"$ref": "./schemas/Foo.yaml#/X"}}
   }]
 }"##,
     )
@@ -1198,7 +1135,7 @@ fn stdin_spec_from_symlinked_cwd_relativizes_refs() {
 
     let mut child = Command::new(env!("CARGO_BIN_EXE_forge"))
         .current_dir(&link)
-        .args(["openapi", "overlay", "-", "--overlay", "overlays/fix.json"])
+        .args(["openapi", "overlay", "-", "overlays/fix.json"])
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
@@ -1209,7 +1146,7 @@ fn stdin_spec_from_symlinked_cwd_relativizes_refs() {
     succeeded(&out);
     let doc: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
     assert_eq!(
-        doc["info"]["x-schema"]["$ref"], "overlays/schemas/Foo.yaml#/X",
+        doc["paths"]["/a"]["get"]["requestBody"]["$ref"], "overlays/schemas/Foo.yaml#/X",
         "rebased $ref must stay relative rather than leaking a file:// URI"
     );
 }
@@ -1238,7 +1175,6 @@ fn mode_b_out_through_symlink_keeps_symlink_intact() {
     let out = overlay(
         &[
             link_spec.to_str().unwrap(),
-            "--overlay",
             ov.to_str().unwrap(),
             "--out",
             link_spec.to_str().unwrap(),
@@ -1272,10 +1208,73 @@ fn malformed_flow_style_yaml_reports_both_json_and_yaml_errors() {
     )
     .unwrap();
 
-    let err = failed(overlay(
-        &[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap()],
-        "",
-    ));
+    let err = failed(overlay(&[spec.to_str().unwrap(), ov.to_str().unwrap()], ""));
     assert!(err.contains("JSON"), "mentions JSON error: {err}");
     assert!(err.contains("YAML"), "mentions YAML error: {err}");
+}
+
+/// In-place `--out` preserves the spec file's Unix permissions (e.g. `0600`)
+/// instead of resetting them to the process umask.
+#[cfg(unix)]
+#[test]
+fn mode_b_out_in_place_preserves_permissions_and_hard_links() {
+    use std::os::unix::fs::PermissionsExt;
+
+    let dir = dir("mode-b-out-perms-hardlink");
+    let spec = dir.join("spec.json");
+    let link = dir.join("spec-hardlink.json");
+    let ov = dir.join("ov.json");
+    fs::write(&spec, SPEC).unwrap();
+    fs::set_permissions(&spec, fs::Permissions::from_mode(0o600)).unwrap();
+    fs::write(
+        &ov,
+        r#"{
+  "overlay": "1.0.0",
+  "info": {"title": "fix", "version": "1"},
+  "actions": [{"target": "$.info", "update": {"description": "kept-mode"}}]
+}"#,
+    )
+    .unwrap();
+
+    // First verify atomic rewrite preserves 0600 mode on an unlinked file.
+    let out = overlay(
+        &[
+            spec.to_str().unwrap(),
+            ov.to_str().unwrap(),
+            "--out",
+            spec.to_str().unwrap(),
+        ],
+        "",
+    );
+    succeeded(&out);
+    let mode = fs::metadata(&spec).unwrap().permissions().mode() & 0o777;
+    assert_eq!(mode, 0o600, "in-place rewrite must preserve file mode");
+
+    // Next create a hard link and rewrite again: both names must still share
+    // the updated content.
+    fs::hard_link(&spec, &link).unwrap();
+    fs::write(
+        &ov,
+        r#"{
+  "overlay": "1.0.0",
+  "info": {"title": "fix", "version": "1"},
+  "actions": [{"target": "$.info", "update": {"description": "via-hardlink"}}]
+}"#,
+    )
+    .unwrap();
+    let out2 = overlay(
+        &[
+            spec.to_str().unwrap(),
+            ov.to_str().unwrap(),
+            "--out",
+            spec.to_str().unwrap(),
+        ],
+        "",
+    );
+    succeeded(&out2);
+    let linked_doc: serde_json::Value = serde_json::from_str(&fs::read_to_string(&link).unwrap()).unwrap();
+    assert_eq!(
+        linked_doc["info"]["description"], "via-hardlink",
+        "hard link must stay linked to the rewritten file"
+    );
 }

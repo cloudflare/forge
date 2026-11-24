@@ -6,7 +6,7 @@
 //! the spec and MUST be rejected. See `oai_tests/README.md` for the vendored
 //! commit SHA.
 //!
-//! We invoke each as `forge openapi overlay <trivial-spec> --overlay <test>` in
+//! We invoke each as `forge openapi overlay <trivial-spec> <test>` in
 //! Mode B. Mode B ignores `extends`, so tests whose `extends` URIs point at
 //! files we don't have still parse cleanly.
 //!
@@ -161,7 +161,7 @@ fn run_pass(version: &str) {
     for ov in scenario_files(version, "pass") {
         let name = ov.file_name().unwrap().to_string_lossy().into_owned();
         let spec = spec_for(&format!("{version}-pass-{name}"));
-        let out = overlay(&[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap()], "");
+        let out = overlay(&[spec.to_str().unwrap(), ov.to_str().unwrap()], "");
         let stdout = text(&out.stdout).to_owned();
         let stderr = text(&out.stderr).to_owned();
         let lower = stderr.to_lowercase();
@@ -237,7 +237,7 @@ fn run_fail(version: &str) {
     for ov in scenario_files(version, "fail") {
         let name = ov.file_name().unwrap().to_string_lossy().into_owned();
         let spec = spec_for(&format!("{version}-fail-{name}"));
-        let out = overlay(&[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap()], "");
+        let out = overlay(&[spec.to_str().unwrap(), ov.to_str().unwrap()], "");
         let stdout = text(&out.stdout).to_owned();
         let stderr = text(&out.stderr).to_owned();
         let lower = stderr.to_lowercase();

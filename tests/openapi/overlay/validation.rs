@@ -39,7 +39,7 @@ fn overlay_version_is_required() {
     );
 
     failed_with(
-        overlay(&[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap()], ""),
+        overlay(&[spec.to_str().unwrap(), ov.to_str().unwrap()], ""),
         &markers([DOC_MARKERS, &["missing", "required"]]),
     );
 }
@@ -59,7 +59,7 @@ fn overlay_version_two_is_rejected() {
     );
 
     let err = failed_with(
-        overlay(&[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap()], ""),
+        overlay(&[spec.to_str().unwrap(), ov.to_str().unwrap()], ""),
         &["unsupported", "version", "2.0"],
     );
     assert!(err.contains("2.0"), "names the unsupported major: {err}");
@@ -82,7 +82,7 @@ fn supported_overlay_versions_are_accepted_silently() {
             ),
         );
 
-        let out = overlay(&[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap()], "");
+        let out = overlay(&[spec.to_str().unwrap(), ov.to_str().unwrap()], "");
         assert!(
             out.status.success(),
             "forge failed for {version}: {}",
@@ -111,7 +111,7 @@ fn future_overlay_minor_is_accepted_with_a_warning() {
 }"#,
     );
 
-    let out = overlay(&[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap()], "");
+    let out = overlay(&[spec.to_str().unwrap(), ov.to_str().unwrap()], "");
     assert!(
         out.status.success(),
         "forge failed: {}",
@@ -135,7 +135,17 @@ fn future_overlay_minor_is_accepted_with_a_warning() {
 /// all malformed.
 #[test]
 fn malformed_overlay_version_is_rejected() {
-    for bad in ["1", "1.0", "1.0.0-beta", "", "one"] {
+    for bad in [
+        "1",
+        "1.0",
+        "1.0.0-beta",
+        "",
+        "one",
+        "01.00.00",
+        "1.01.0",
+        "1.0.00",
+        "+1.0.0",
+    ] {
         let (spec, ov) = files(
             &format!("bad-version-{}", bad.replace(['.', '-'], "_")),
             SPEC,
@@ -149,7 +159,7 @@ fn malformed_overlay_version_is_rejected() {
         );
 
         failed_with(
-            overlay(&[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap()], ""),
+            overlay(&[spec.to_str().unwrap(), ov.to_str().unwrap()], ""),
             &markers([DOC_MARKERS, &["version"]]),
         );
     }
@@ -172,7 +182,7 @@ fn non_string_overlay_version_is_rejected() {
         );
 
         failed_with(
-            overlay(&[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap()], ""),
+            overlay(&[spec.to_str().unwrap(), ov.to_str().unwrap()], ""),
             &["overlay", "string", "type"],
         );
     }
@@ -199,7 +209,7 @@ fn info_title_and_version_are_required() {
         );
 
         failed_with(
-            overlay(&[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap()], ""),
+            overlay(&[spec.to_str().unwrap(), ov.to_str().unwrap()], ""),
             INFO_MARKERS,
         );
     }
@@ -226,7 +236,7 @@ fn info_fields_must_be_strings() {
         );
 
         failed_with(
-            overlay(&[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap()], ""),
+            overlay(&[spec.to_str().unwrap(), ov.to_str().unwrap()], ""),
             &markers([INFO_MARKERS, &["string", "type"]]),
         );
     }
@@ -249,7 +259,7 @@ fn actions_must_be_present_and_non_empty() {
         );
 
         failed_with(
-            overlay(&[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap()], ""),
+            overlay(&[spec.to_str().unwrap(), ov.to_str().unwrap()], ""),
             ACTION_MARKERS,
         );
     }
@@ -279,7 +289,7 @@ fn actions_must_be_an_array() {
         );
 
         failed_with(
-            overlay(&[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap()], ""),
+            overlay(&[spec.to_str().unwrap(), ov.to_str().unwrap()], ""),
             &markers([ACTION_MARKERS, &["array", "type"]]),
         );
     }
@@ -299,7 +309,7 @@ fn action_entries_must_be_objects() {
     );
 
     failed_with(
-        overlay(&[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap()], ""),
+        overlay(&[spec.to_str().unwrap(), ov.to_str().unwrap()], ""),
         &markers([ACTION_MARKERS, &["object", "type"]]),
     );
 }
@@ -318,7 +328,7 @@ fn action_target_is_required() {
     );
 
     failed_with(
-        overlay(&[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap()], ""),
+        overlay(&[spec.to_str().unwrap(), ov.to_str().unwrap()], ""),
         TARGET_MARKERS,
     );
 }
@@ -344,7 +354,7 @@ fn target_must_be_a_string() {
         );
 
         failed_with(
-            overlay(&[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap()], ""),
+            overlay(&[spec.to_str().unwrap(), ov.to_str().unwrap()], ""),
             &markers([TARGET_MARKERS, &["string", "type"]]),
         );
     }
@@ -371,7 +381,7 @@ fn remove_must_be_boolean() {
         );
 
         failed_with(
-            overlay(&[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap()], ""),
+            overlay(&[spec.to_str().unwrap(), ov.to_str().unwrap()], ""),
             &markers([REMOVE_MARKERS, &["bool", "type"]]),
         );
     }
@@ -440,7 +450,7 @@ fn extends_must_be_a_string() {
         // Mode B ignores extends but still parses it; the type error should
         // surface either way.
         failed_with(
-            overlay(&[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap()], ""),
+            overlay(&[spec.to_str().unwrap(), ov.to_str().unwrap()], ""),
             &markers([EXTENDS_MARKERS, &["string", "type"]]),
         );
     }
@@ -462,7 +472,7 @@ fn unknown_top_level_key_is_rejected() {
     );
 
     failed_with(
-        overlay(&[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap()], ""),
+        overlay(&[spec.to_str().unwrap(), ov.to_str().unwrap()], ""),
         &["unknown", "unrecognized", "typoed_actions"],
     );
 }
@@ -481,7 +491,7 @@ fn unknown_info_key_is_rejected() {
     );
 
     failed_with(
-        overlay(&[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap()], ""),
+        overlay(&[spec.to_str().unwrap(), ov.to_str().unwrap()], ""),
         &["licence", "unknown", "unrecognized"],
     );
 }
@@ -500,7 +510,7 @@ fn unknown_action_key_is_rejected() {
     );
 
     failed_with(
-        overlay(&[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap()], ""),
+        overlay(&[spec.to_str().unwrap(), ov.to_str().unwrap()], ""),
         &["cond", "unknown", "unrecognized"],
     );
 }
@@ -527,7 +537,7 @@ fn x_extensions_are_accepted_everywhere_allowed() {
 }"#,
     );
 
-    let out = overlay(&[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap()], "");
+    let out = overlay(&[spec.to_str().unwrap(), ov.to_str().unwrap()], "");
     assert!(out.status.success(), "{}", std::str::from_utf8(&out.stderr).unwrap());
 }
 
@@ -549,7 +559,7 @@ fn v10_update_targeting_a_primitive_is_rejected() {
     );
 
     failed_with(
-        overlay(&[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap()], ""),
+        overlay(&[spec.to_str().unwrap(), ov.to_str().unwrap()], ""),
         &["primitive", "scalar", "object", "update", "target"],
     );
 }
@@ -587,7 +597,7 @@ fn v11_update_targeting_a_primitive_with_object_is_rejected() {
     );
 
     failed_with(
-        overlay(&[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap()], ""),
+        overlay(&[spec.to_str().unwrap(), ov.to_str().unwrap()], ""),
         &["primitive", "scalar", "update", "target"],
     );
 }
@@ -614,7 +624,7 @@ fn update_on_object_target_must_be_object() {
         );
 
         failed_with(
-            overlay(&[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap()], ""),
+            overlay(&[spec.to_str().unwrap(), ov.to_str().unwrap()], ""),
             &["update", "object", "target"],
         );
     }
@@ -635,7 +645,7 @@ fn invalid_jsonpath_is_rejected() {
     );
 
     failed_with(
-        overlay(&[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap()], ""),
+        overlay(&[spec.to_str().unwrap(), ov.to_str().unwrap()], ""),
         &markers([JSONPATH_MARKERS, TARGET_MARKERS]),
     );
 }
@@ -670,7 +680,7 @@ fn rfc9535_parenthesized_filter_is_accepted() {
 }"#,
     );
 
-    let out = overlay(&[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap()], "");
+    let out = overlay(&[spec.to_str().unwrap(), ov.to_str().unwrap()], "");
     crate::common::succeeded(&out);
     let doc: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
     let params = doc["paths"]["/a"]["get"]["parameters"].as_array().unwrap();
@@ -698,10 +708,7 @@ fn non_rfc9535_goessner_syntax_is_rejected() {
             ),
         );
 
-        let err = failed(overlay(
-            &[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap()],
-            "",
-        ));
+        let err = failed(overlay(&[spec.to_str().unwrap(), ov.to_str().unwrap()], ""));
         assert!(
             err.to_lowercase().contains("rfc 9535"),
             "{name}: error should mention RFC 9535: {err}"
@@ -735,7 +742,7 @@ fn v10_info_description_is_rejected() {
     );
 
     failed_with(
-        overlay(&[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap()], ""),
+        overlay(&[spec.to_str().unwrap(), ov.to_str().unwrap()], ""),
         &["description", "info", "1.0", "unknown", "unrecognized", "unevaluated"],
     );
 }
@@ -780,7 +787,7 @@ fn v10_and_v11_reject_self_identifier() {
         );
 
         failed_with(
-            overlay(&[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap()], ""),
+            overlay(&[spec.to_str().unwrap(), ov.to_str().unwrap()], ""),
             &["$self", "unknown", "unrecognized", version],
         );
     }
@@ -804,7 +811,7 @@ fn v10_and_v11_reject_components_top_level_key() {
         );
 
         failed_with(
-            overlay(&[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap()], ""),
+            overlay(&[spec.to_str().unwrap(), ov.to_str().unwrap()], ""),
             &["components", "unknown", "unrecognized", version],
         );
     }
@@ -829,7 +836,7 @@ fn v10_and_v11_reject_dollar_ref_action_entry() {
         );
 
         failed_with(
-            overlay(&[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap()], ""),
+            overlay(&[spec.to_str().unwrap(), ov.to_str().unwrap()], ""),
             &["$ref", "unknown", "unrecognized"],
         );
     }
@@ -866,7 +873,7 @@ fn patch_versions_share_minor_feature_set() {
 }"#,
     );
     failed_with(
-        overlay(&[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap()], ""),
+        overlay(&[spec.to_str().unwrap(), ov.to_str().unwrap()], ""),
         &["components", "unknown", "unrecognized", "1.1"],
     );
 
@@ -908,12 +915,9 @@ fn extends_with_http_scheme_is_rejected_in_every_version_and_mode() {
 }}"#
             );
 
-            // Mode B: `forge openapi overlay <spec> --overlay <ov>`.
+            // Mode B: `forge openapi overlay <spec> <ov>`.
             let (spec, ov) = files(&format!("mode-b-extends-{scheme}-{version}"), SPEC, &body);
-            let err = failed(overlay(
-                &[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap()],
-                "",
-            ));
+            let err = failed(overlay(&[spec.to_str().unwrap(), ov.to_str().unwrap()], ""));
             assert!(
                 err.contains("extends"),
                 "{scheme}/{version} Mode B names extends: {err}"
@@ -953,10 +957,7 @@ fn self_with_http_scheme_is_rejected_in_every_mode() {
 }}"##
             ),
         );
-        let err = failed(overlay(
-            &[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap()],
-            "",
-        ));
+        let err = failed(overlay(&[spec.to_str().unwrap(), ov.to_str().unwrap()], ""));
         assert!(err.contains("$self"), "{scheme} Mode B names $self: {err}");
         assert!(err.contains(&url), "{scheme} Mode B shows the URI: {err}");
 
@@ -1010,10 +1011,7 @@ fn extends_http_is_rejected_before_any_network_connection() {
         ),
     );
 
-    let err = failed(overlay(
-        &[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap()],
-        "",
-    ));
+    let err = failed(overlay(&[spec.to_str().unwrap(), ov.to_str().unwrap()], ""));
     assert!(err.contains("extends"), "error names extends: {err}");
     assert!(err.contains(&url), "error shows the URI: {err}");
 
@@ -1053,10 +1051,7 @@ fn extends_with_non_allowed_scheme_is_rejected() {
 }}"#
             ),
         );
-        let err = failed(overlay(
-            &[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap()],
-            "",
-        ));
+        let err = failed(overlay(&[spec.to_str().unwrap(), ov.to_str().unwrap()], ""));
         assert!(err.contains("extends"), "{uri}: error names extends: {err}");
         assert!(err.contains(uri), "{uri}: error shows the URI: {err}");
     }
@@ -1079,10 +1074,7 @@ fn self_with_non_allowed_scheme_is_rejected() {
 }}"#
             ),
         );
-        let err = failed(overlay(
-            &[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap()],
-            "",
-        ));
+        let err = failed(overlay(&[spec.to_str().unwrap(), ov.to_str().unwrap()], ""));
         assert!(err.contains("$self"), "{uri}: error names $self: {err}");
         assert!(err.contains(uri), "{uri}: error shows the URI: {err}");
     }
@@ -1096,7 +1088,7 @@ fn mode_a_extends_file_localhost_authority_is_accepted() {
     let dir = crate::common::dir("mode-a-file-localhost");
     let spec_path = dir.join("spec.json");
     std::fs::write(&spec_path, SPEC).unwrap();
-    let file_uri = format!("file://localhost{}", spec_path.display());
+    let file_uri = format!("file://localhost{}", crate::common::encode_uri_path(&spec_path));
     std::fs::write(
         dir.join("overlay.json"),
         format!(
@@ -1147,7 +1139,7 @@ fn mode_a_extends_file_single_slash_is_accepted() {
     let spec_path = dir.join("spec.json");
     std::fs::write(&spec_path, SPEC).unwrap();
     // `file:` + absolute path on disk with no `//` authority marker.
-    let file_uri = format!("file:{}", spec_path.display());
+    let file_uri = format!("file:{}", crate::common::encode_uri_path(&spec_path));
     std::fs::write(
         dir.join("overlay.json"),
         format!(
@@ -1208,7 +1200,7 @@ fn duplicate_identical_actions_are_rejected() {
 }"#,
     );
     failed_with(
-        overlay(&[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap()], ""),
+        overlay(&[spec.to_str().unwrap(), ov.to_str().unwrap()], ""),
         &["duplicate", "unique"],
     );
 }
@@ -1231,16 +1223,16 @@ fn duplicate_actions_with_different_key_order_are_rejected() {
 }"#,
     );
     failed_with(
-        overlay(&[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap()], ""),
+        overlay(&[spec.to_str().unwrap(), ov.to_str().unwrap()], ""),
         &["duplicate", "unique"],
     );
 }
 
 /// Security. Non-local `file://` authorities and malformed URIs in `extends`
 /// or `$self` are rejected upfront during parsing — not only in Mode A, but
-/// also in Mode B and `--check`.
+/// also in Mode B.
 #[test]
-fn mode_b_and_check_reject_remote_file_authority_and_malformed_uris() {
+fn mode_b_rejects_remote_file_authority_and_malformed_uris() {
     for (tag, field, uri) in [
         ("extends-remote-file", "extends", "file://evil.example/openapi.json"),
         ("self-remote-file", "$self", "file://evil.example/overlay.json"),
@@ -1258,17 +1250,9 @@ fn mode_b_and_check_reject_remote_file_authority_and_malformed_uris() {
         let (spec, ov) = files(&format!("upfront-uri-{tag}"), SPEC, &body);
 
         // Mode B
-        let err_b = failed(overlay(
-            &[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap()],
-            "",
-        ));
+        let err_b = failed(overlay(&[spec.to_str().unwrap(), ov.to_str().unwrap()], ""));
         assert!(err_b.contains(field), "{tag} Mode B names {field}: {err_b}");
         assert!(err_b.contains(uri), "{tag} Mode B shows URI: {err_b}");
-
-        // --check
-        let err_c = failed(overlay(&["--check", ov.to_str().unwrap()], ""));
-        assert!(err_c.contains(field), "{tag} --check names {field}: {err_c}");
-        assert!(err_c.contains(uri), "{tag} --check shows URI: {err_c}");
     }
 }
 
@@ -1290,7 +1274,7 @@ fn actions_differing_only_in_description_are_not_duplicates() {
   ]
 }"#,
     );
-    let out = overlay(&[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap()], "");
+    let out = overlay(&[spec.to_str().unwrap(), ov.to_str().unwrap()], "");
     crate::common::succeeded(&out);
     let doc: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
     assert_eq!(doc["info"]["description"], "d");
@@ -1311,6 +1295,6 @@ fn actions_differing_only_in_x_extension_are_not_duplicates() {
   ]
 }"#,
     );
-    let out = overlay(&[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap()], "");
+    let out = overlay(&[spec.to_str().unwrap(), ov.to_str().unwrap()], "");
     crate::common::succeeded(&out);
 }

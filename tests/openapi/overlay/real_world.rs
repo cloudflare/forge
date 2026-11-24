@@ -57,7 +57,7 @@ fn every_fixture_applies_cleanly_and_matches_expected() {
         let name = dir.file_name().unwrap().to_string_lossy().into_owned();
         let (spec, ov, expected) = spec_overlay_expected(&dir);
 
-        let out = overlay(&[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap()], "");
+        let out = overlay(&[spec.to_str().unwrap(), ov.to_str().unwrap()], "");
         assert!(
             out.status.success(),
             "{name}: `forge openapi overlay` failed: {}",

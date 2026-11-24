@@ -255,7 +255,7 @@ fn v12_reference_with_unescaped_pointer_segment_is_rejected() {
     );
 
     failed_with(
-        overlay(&[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap()], ""),
+        overlay(&[spec.to_str().unwrap(), ov.to_str().unwrap()], ""),
         &["$ref", "with/slash", "components.actions", "unknown", "pointer"],
     );
 }
@@ -277,7 +277,7 @@ fn v12_reference_to_unknown_component_is_rejected() {
     );
 
     failed_with(
-        overlay(&[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap()], ""),
+        overlay(&[spec.to_str().unwrap(), ov.to_str().unwrap()], ""),
         &["$ref", "missingOne", "components.actions", "unknown"],
     );
 }
@@ -310,7 +310,7 @@ fn v12_reference_with_malformed_pointer_prefix_is_rejected() {
         );
 
         failed_with(
-            overlay(&[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap()], ""),
+            overlay(&[spec.to_str().unwrap(), ov.to_str().unwrap()], ""),
             &["$ref", "components/actions", "invalid", "unknown"],
         );
     }
@@ -348,7 +348,7 @@ fn v12_reusable_action_peer_action_fields_rejected() {
         );
 
         failed_with(
-            overlay(&[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap()], ""),
+            overlay(&[spec.to_str().unwrap(), ov.to_str().unwrap()], ""),
             &["fields", "components.actions", "peer", "unknown"],
         );
     }
@@ -378,7 +378,7 @@ fn v12_reusable_fields_cannot_contain_target() {
     );
 
     failed_with(
-        overlay(&[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap()], ""),
+        overlay(&[spec.to_str().unwrap(), ov.to_str().unwrap()], ""),
         &["fields", "target", "reference", "forbidden"],
     );
 }
@@ -415,7 +415,7 @@ fn v12_reference_object_cannot_carry_action_fields_directly() {
         );
 
         failed_with(
-            overlay(&[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap()], ""),
+            overlay(&[spec.to_str().unwrap(), ov.to_str().unwrap()], ""),
             &["$ref", "reference", "update", "copy", "remove"],
         );
     }
@@ -438,7 +438,7 @@ fn v12_reference_without_target_is_rejected() {
     );
 
     failed_with(
-        overlay(&[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap()], ""),
+        overlay(&[spec.to_str().unwrap(), ov.to_str().unwrap()], ""),
         &["target", "$ref"],
     );
 }
@@ -533,7 +533,7 @@ fn v12_self_with_fragment_is_rejected_mode_b() {
         );
 
         failed_with(
-            overlay(&[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap()], ""),
+            overlay(&[spec.to_str().unwrap(), ov.to_str().unwrap()], ""),
             &["$self", "fragment", "#"],
         );
     }
@@ -616,7 +616,7 @@ fn v12_extends_with_fragment_is_rejected_in_every_mode() {
         &["extends", "fragment", "#"],
     );
 
-    // Mode B: `forge openapi overlay <spec> --overlay <overlay>`. Relative.
+    // Mode B: `forge openapi overlay <spec> <overlay>`. Relative.
     let (spec, ov) = files(
         "v12-extends-fragment-mode-b-relative",
         SPEC,
@@ -628,11 +628,11 @@ fn v12_extends_with_fragment_is_rejected_in_every_mode() {
 }"##,
     );
     failed_with(
-        overlay(&[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap()], ""),
+        overlay(&[spec.to_str().unwrap(), ov.to_str().unwrap()], ""),
         &["extends", "fragment", "#"],
     );
 
-    // Mode B: `forge openapi overlay <spec> --overlay <overlay>`. Absolute `file:`
+    // Mode B: `forge openapi overlay <spec> <overlay>`. Absolute `file:`
     // base.
     let (spec, ov) = files(
         "v12-extends-fragment-mode-b-absolute",
@@ -645,7 +645,7 @@ fn v12_extends_with_fragment_is_rejected_in_every_mode() {
 }"##,
     );
     failed_with(
-        overlay(&[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap()], ""),
+        overlay(&[spec.to_str().unwrap(), ov.to_str().unwrap()], ""),
         &["extends", "fragment", "#"],
     );
 }
@@ -767,7 +767,6 @@ fn v12_mode_b_extends_identifier_matches_target_self() {
     let out = overlay(
         &[
             d.join("spec.json").to_str().unwrap(),
-            "--overlay",
             d.join("overlay.json").to_str().unwrap(),
         ],
         "",
@@ -814,7 +813,6 @@ fn v12_mode_b_extends_identifier_mismatched_against_target_self_is_rejected() {
         overlay(
             &[
                 d.join("spec.json").to_str().unwrap(),
-                "--overlay",
                 d.join("overlay.json").to_str().unwrap(),
             ],
             "",
@@ -1085,7 +1083,44 @@ fn v12_mode_b_accepts_local_extends_without_fetching() {
             ),
         );
 
-        let out = overlay(&[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap()], "");
+        let out = overlay(&[spec.to_str().unwrap(), ov.to_str().unwrap()], "");
         succeeded(&out);
     }
+}
+
+/// 1.2 `$self`/`extends` identity comparison normalizes equivalent URIs
+/// (e.g. uppercase scheme `FILE:` vs `file:`, lowercase `%2f` vs `%2F`).
+#[test]
+fn v12_extends_identity_normalizes_equivalent_uris() {
+    let dir = dir("v12-identity-normalize");
+    let spec_path = dir.join("spec.json");
+    let encoded = crate::common::encode_uri_path(&spec_path);
+    fs::write(
+        &spec_path,
+        format!(
+            r#"{{
+  "openapi": "3.2.0",
+  "$self": "FILE://{encoded}",
+  "info": {{"title": "t", "version": "1"}},
+  "paths": {{}}
+}}"#
+        ),
+    )
+    .unwrap();
+    let ov_path = dir.join("ov.json");
+    fs::write(
+        &ov_path,
+        r#"{
+  "overlay": "1.2.0",
+  "info": {"title": "fix", "version": "1"},
+  "extends": "./spec.json",
+  "actions": [{"target": "$.info", "update": {"description": "matched"}}]
+}"#,
+    )
+    .unwrap();
+
+    let out = overlay(&[ov_path.to_str().unwrap()], "");
+    succeeded(&out);
+    let doc: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    assert_eq!(doc["info"]["description"], "matched");
 }

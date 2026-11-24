@@ -831,7 +831,7 @@ fn g8_function_wrong_arity_is_rejected() {
         );
 
         failed_with(
-            overlay(&[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap()], ""),
+            overlay(&[spec.to_str().unwrap(), ov.to_str().unwrap()], ""),
             &["length", "jsonpath", "argument", "arity"],
         );
     }
@@ -855,7 +855,7 @@ fn g8_function_wrong_result_type_is_rejected() {
     );
 
     failed_with(
-        overlay(&[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap()], ""),
+        overlay(&[spec.to_str().unwrap(), ov.to_str().unwrap()], ""),
         &["length", "jsonpath", "type"],
     );
 }
@@ -886,7 +886,7 @@ fn filter_with_float_literals_works() {
   }]
 }"#,
     );
-    let out = overlay(&[sp.to_str().unwrap(), "--overlay", ov.to_str().unwrap()], "");
+    let out = overlay(&[sp.to_str().unwrap(), ov.to_str().unwrap()], "");
     crate::common::succeeded(&out);
     let doc: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
     let names: Vec<&str> = doc["x-items"]
@@ -927,7 +927,7 @@ fn descendant_shorthand_with_hyphen_or_digits_works() {
   ]
 }"#,
     );
-    let out = overlay(&[sp.to_str().unwrap(), "--overlay", ov.to_str().unwrap()], "");
+    let out = overlay(&[sp.to_str().unwrap(), ov.to_str().unwrap()], "");
     crate::common::succeeded(&out);
     let doc: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
     assert!(doc["paths"]["/a"]["get"].get("x-forge-hidden").is_none());

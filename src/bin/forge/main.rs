@@ -1,16 +1,16 @@
-//! The `forge` command, which generates an SDK from an OpenAPI document,
-//! optionally preprocessed by one or more OpenAPI Overlay documents.
+//! The `forge` command, which generates an SDK from an OpenAPI document
+//! (or a self-contained OpenAPI Overlay document whose `extends` names one).
 //!
 //! ```text
 //! forge generate openapi.json --target ts --out sdk
 //! forge generate openapi.json --target capnweb --out server
 //! forge generate openapi.json --target mcp --out tools
 //! forge generate openapi.json --target wasm://plugin.wasm --out sdk
-//! forge generate openapi.json --overlay a.yaml --overlay b.yaml --target ts --out sdk
 //! forge generate overlay.yaml --target ts --out sdk   # overlay drives the spec via its `extends`
 //! forge normalize specs/*.json
 //! forge inspect methods openapi.json
-//! forge openapi overlay <spec-or-overlay> [--overlay <ov>]...   # print or write the merged spec
+//! forge openapi overlay <overlay>                      # print or write the merged spec
+//! forge openapi overlay <spec> <overlay>...
 //! ```
 
 use std::fs;
@@ -23,7 +23,9 @@ use forge::{Err, Forge, Plugin};
 use strum::{EnumString, VariantNames};
 
 mod capnweb;
+mod file;
 mod inspect;
+mod log;
 mod mcp;
 mod normalize;
 mod openapi;
@@ -33,6 +35,12 @@ mod ts;
 #[derive(Parser)]
 #[command(version, subcommand_required = true)]
 struct Args {
+    /// Increase diagnostic logging on stderr (`-v` info, `-vv` debug, `-vvv` trace).
+    #[arg(short, long, action = clap::ArgAction::Count, global = true)]
+    verbose: u8,
+    /// Set the diagnostic log level on stderr (also configurable via `FORGE_LOG`).
+    #[arg(long, value_enum, global = true, conflicts_with = "verbose")]
+    log_level: Option<log::Level>,
     #[command(subcommand)]
     command: Command,
 }
@@ -40,8 +48,8 @@ struct Args {
 /// What `forge` does.
 #[derive(clap::Subcommand)]
 enum Command {
-    /// Generate an SDK from an OpenAPI document, optionally preprocessed by
-    /// one or more OpenAPI Overlay documents.
+    /// Generate an SDK from an OpenAPI document or a self-contained Overlay
+    /// document (with `extends`).
     Generate(GenerateArgs),
     /// Rewrite other tools' extensions into the native x-forge-* ones.
     ///
@@ -71,15 +79,6 @@ struct GenerateArgs {
     /// The directory to write the SDK to.
     #[arg(long)]
     out: PathBuf,
-    /// Apply this overlay to the spec before handing it to the generator.
-    /// Repeat to apply more overlays in order.
-    #[arg(long = "overlay", value_name = "OVERLAY")]
-    overlay: Vec<PathBuf>,
-    /// Print one line to stderr per overlay action as it runs: overlay path,
-    /// action index, verb, target, and node counts. Only meaningful when one
-    /// or more overlays are being applied. Generated files are unchanged.
-    #[arg(long)]
-    explain: bool,
 }
 
 /// What forge generates an SDK with.
@@ -144,6 +143,7 @@ fn main() -> ExitCode {
             std::process::exit(if err.use_stderr() { 2 } else { 0 });
         }
     };
+    log::init(log::resolve(args.log_level, args.verbose));
     match run(args) {
         Ok(()) => ExitCode::SUCCESS,
         Err(err) => {
@@ -179,27 +179,28 @@ fn run(args: Args) -> Result<(), Err> {
     }
 }
 
-/// Generates the SDK for `args.spec`, applying overlays beforehand when either
-/// the positional is overlay-shaped or `--overlay` flags are present.
+/// Generates the SDK for `args.spec`, applying it as an overlay first when
+/// the input is an Overlay document (with `extends`).
 fn generate(args: GenerateArgs) -> Result<(), Err> {
     let spec = args.spec.as_path();
     let out = args.out.as_path();
-    let preloaded = (spec != Path::new("-")).then(|| fs::read(spec).ok()).flatten();
+    let preloaded = if spec == Path::new("-") {
+        None
+    } else {
+        Some(fs::read(spec).map_err(|err| format!("{}: {err}", spec.display()))?)
+    };
     let input_is_overlay = preloaded.as_deref().is_some_and(bytes_look_like_overlay);
     // Fast path: no preprocessing needed. This is the historical shape plus
     // the wasm-target rayon parallelism, reusing the already-read bytes so
     // the spec is never read from disk twice.
-    if !input_is_overlay && args.overlay.is_empty() {
+    if !input_is_overlay {
         return generate_from_path(spec, preloaded, args.target, out);
     }
     // Preprocess into an in-memory Value, then deserialize that into Forge
     // and hand to the chosen generator. This path does not parallelize the
     // read: overlay apply is fast enough that overlapping it with a wasm
     // plugin compile would complicate the code without a meaningful win.
-    let (doc, reports) = openapi::overlay::apply(spec, input_is_overlay, preloaded, &args.overlay)?;
-    if args.explain {
-        openapi::overlay::print_reports(&reports);
-    }
+    let doc = openapi::overlay::apply_extends(spec, preloaded)?;
     let label = doc.source_path().unwrap_or(spec).to_path_buf();
     let forge = read_value(&label, doc.into_value())?;
     run_plugin_on(&forge, args.target, out)
@@ -379,28 +380,22 @@ mod tests {
             panic!("expected Generate");
         };
         assert_eq!(g.spec.as_path(), Path::new("./a.json"));
-        assert!(g.overlay.is_empty());
-        assert!(!g.explain);
-
-        // `generate` accepts --overlay and --explain for the overlay-as-preprocessor form.
-        let gen_overlay = parse(&[
-            "generate",
-            "./a.json",
-            "--overlay",
-            "o.yaml",
-            "--target",
-            "ts",
-            "--out",
-            "sdk",
-        ])
-        .unwrap();
-        let Command::Generate(g) = gen_overlay.command else {
-            panic!("expected Generate");
-        };
-        assert_eq!(g.overlay, vec![std::path::PathBuf::from("o.yaml")]);
 
         let openapi = parse(&["openapi", "overlay", "a.yaml"]).unwrap();
         assert!(matches!(openapi.command, Command::Openapi(_)));
+        let openapi_b = parse(&["openapi", "overlay", "spec.yaml", "a.yaml", "b.yaml"]).unwrap();
+        assert!(matches!(openapi_b.command, Command::Openapi(_)));
+
+        // Global logging flags work before or after the subcommand and conflict with each other.
+        let v1 = parse(&["openapi", "overlay", "-v", "a.yaml"]).unwrap();
+        assert_eq!(v1.verbose, 1);
+        let v2 = parse(&["-vv", "openapi", "overlay", "a.yaml"]).unwrap();
+        assert_eq!(v2.verbose, 2);
+        let ll = parse(&["openapi", "overlay", "--log-level", "debug", "a.yaml"]).unwrap();
+        assert_eq!(ll.log_level, Some(super::log::Level::Debug));
+        assert!(parse(&["openapi", "overlay", "-v", "--log-level", "debug", "a.yaml"]).is_err());
+        let norm_v = parse(&["normalize", "-v", "a.json"]).unwrap();
+        assert_eq!(norm_v.verbose, 1);
 
         // Each subcommand still requires its own arguments.
         assert!(parse(&["normalize"]).is_err());

@@ -15,17 +15,17 @@ use super::path::{self, Path, Pointer, Segment};
 use super::uri;
 
 /// What one overlay action did when it ran.
-pub struct ActionReport {
-    pub verb: Verb,
-    pub target: String,
-    pub matched: usize,
-    pub mutated: usize,
-    pub copy_source: Option<String>,
-    pub ref_name: Option<String>,
+pub(super) struct ActionReport {
+    verb: Verb,
+    target: String,
+    pub(super) matched: usize,
+    pub(super) mutated: usize,
+    copy_source: Option<String>,
+    pub(super) ref_name: Option<String>,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
-pub enum Verb {
+enum Verb {
     Update,
     Remove,
     Copy,
@@ -33,7 +33,7 @@ pub enum Verb {
 }
 
 impl Verb {
-    pub fn as_str(self) -> &'static str {
+    fn as_str(self) -> &'static str {
         match self {
             Verb::Update => "update",
             Verb::Remove => "remove",
@@ -44,9 +44,9 @@ impl Verb {
 }
 
 impl ActionReport {
-    /// The tail of an `--explain` line: "<verb> <target> — <result>",
+    /// Human-readable summary of one action: "<verb> <target> — <result>",
     /// prefixed when `ref_name` is set with "ref=<name> ".
-    pub fn format(&self) -> String {
+    pub(super) fn format(&self) -> String {
         let prefix = match &self.ref_name {
             Some(n) => format!("ref={n} "),
             None => String::new(),
@@ -86,7 +86,7 @@ impl ActionReport {
     }
 }
 
-pub fn apply_action(
+pub(super) fn apply_action(
     doc: &mut Document,
     version: Version,
     target: &Path,
@@ -289,17 +289,22 @@ fn apply_update(
         return Ok(0);
     }
     // Rebase relative `$ref`s in the inserted value against the overlay's
-    // retrieval base so the merged spec is self-contained. Done once on a
-    // clone so the owning `Overlay` is untouched; all insertion points
-    // below (`*node = update.clone()`, `merge_object(... up)`,
-    // `arr.push(other.clone())`) read from `update`.
-    let mut rebased_owner;
-    let update: &Value = if overlay_base.is_some() {
-        rebased_owner = update.clone();
-        rebase_refs(&mut rebased_owner, overlay_base, spec_base)?;
-        &rebased_owner
-    } else {
-        update
+    // retrieval base so the merged spec is self-contained. Targets inside
+    // literal-data containers (examples, defaults, `x-*` extensions) keep the
+    // raw payload untouched so ordinary data keys named `$ref` aren't altered.
+    let needs_rebase = overlay_base.is_some() && locations.iter().any(|p| !pointer_is_literal_data(p));
+    let mut rebased_owner = None;
+    if needs_rebase {
+        let mut cloned = update.clone();
+        rebase_refs(&mut cloned, overlay_base, spec_base)?;
+        rebased_owner = Some(cloned);
+    }
+    let value_for = |p: &Pointer| -> &Value {
+        if pointer_is_literal_data(p) {
+            update
+        } else {
+            rebased_owner.as_ref().unwrap_or(update)
+        }
     };
     // Compute each target's category once. Nothing mutates between here
     // and the end of the apply loop that would invalidate these (dedup
@@ -307,27 +312,28 @@ fn apply_update(
     // alias the same node), so we can reuse the vector below.
     let cats: Vec<Category> = locations.iter().map(|p| category_at(doc.value(), p)).collect();
     for (p, cat) in locations.iter().zip(cats.iter().copied()) {
+        let val = value_for(p);
         match cat {
             Category::Primitive => {
                 // Overlay 1.0 primitives are already rejected in `apply_action`
                 // via `reject_v10_primitive_in_update`.
-                if !is_primitive(update) {
+                if !is_primitive(val) {
                     return Err(format!(
                         "action update: primitive target at {offender} requires a primitive \
                          update value (got {got}); the Overlay 1.1 spec says primitive update \
                          values replace the selected node.{siblings}",
                         offender = pointer_to_jsonpath(p),
-                        got = type_name(update),
+                        got = type_name(val),
                         siblings = sibling_hint(doc.value(), locations, p),
                     )
                     .into());
                 }
             }
             Category::Object => {
-                if !update.is_object() {
+                if !val.is_object() {
                     return Err(format!(
                         "action update: object target requires an object update value, got {}",
-                        type_name(update)
+                        type_name(val)
                     )
                     .into());
                 }
@@ -346,13 +352,13 @@ fn apply_update(
         // without it, 1.0 silently drops later iterations of a multi-match
         // update when an earlier iteration mutated an overlapping ancestor.
         if matches!(cat, Category::Object)
-            && let (Some(Value::Object(target)), Some(upd)) = (path::resolve(doc.value(), p), update.as_object())
+            && let (Some(Value::Object(target)), Some(upd)) = (path::resolve(doc.value(), p), val.as_object())
         {
             check_nested_merge_compat("update", target, upd)?;
         }
     }
 
-    apply_value_to_targets(doc, version, locations, &cats, update)
+    apply_value_to_targets(doc, version, locations, &cats, value_for)
 }
 
 fn apply_copy(doc: &mut Document, version: Version, locations: &[Pointer], source_path: &Path) -> Result<usize, Err> {
@@ -430,21 +436,22 @@ fn apply_copy(doc: &mut Document, version: Version, locations: &[Pointer], sourc
         cats.push(cat);
     }
 
-    apply_value_to_targets(doc, version, locations, &cats, &source_value)
+    apply_value_to_targets(doc, version, locations, &cats, |_| &source_value)
 }
 
-/// Apply an already-validated `value` to each `(pointer, category)` target:
+/// Apply an already-validated value to each `(pointer, category)` target:
 /// primitives replace in place, objects deep-merge, arrays concat (1.1+) or
 /// append. Shared by `update` and `copy`.
-fn apply_value_to_targets(
+fn apply_value_to_targets<'a>(
     doc: &mut Document,
     version: Version,
     locations: &[Pointer],
     cats: &[Category],
-    value: &Value,
+    value_for: impl Fn(&Pointer) -> &'a Value,
 ) -> Result<usize, Err> {
     let mut mutated = 0usize;
     for (p, cat) in locations.iter().zip(cats.iter().copied()) {
+        let value = value_for(p);
         match (cat, path::resolve_mut(doc.value_mut(), p)) {
             (Category::Primitive, Some(node)) => {
                 if *node != *value {
@@ -657,6 +664,33 @@ fn rebase_refs(value: &mut Value, overlay_base: Option<&str>, spec_base: Option<
     rebase_refs_walk(value, overlay_base, spec_base)
 }
 
+/// Keys whose values hold literal user data rather than OpenAPI/JSON Schema
+/// reference-bearing structures. A `$ref` key inside these is ordinary data
+/// and must not be rebased.
+fn is_literal_data_key(key: &str) -> bool {
+    matches!(key, "example" | "default" | "const" | "enum" | "value" | "dataValue") || key.starts_with("x-")
+}
+
+/// True when `p` points at or inside a literal-data container in the target
+/// document (such as `example`, `default`, `const`, `enum`, `value`,
+/// `dataValue`, a JSON Schema `examples` array, or an `x-*` extension).
+fn pointer_is_literal_data(p: &Pointer) -> bool {
+    for (i, seg) in p.0.iter().enumerate() {
+        let Segment::Name(k) = seg else {
+            continue;
+        };
+        if is_literal_data_key(k) {
+            return true;
+        }
+        // JSON Schema 2020-12 `examples` is an array of literal example values,
+        // whereas OpenAPI `examples` is a map of Example/Reference Objects.
+        if k == "examples" && matches!(p.0.get(i + 1), Some(Segment::Index(_))) {
+            return true;
+        }
+    }
+    false
+}
+
 fn rebase_refs_walk(value: &mut Value, overlay_base: &str, spec_base: Option<&str>) -> Result<(), Err> {
     match value {
         Value::Object(map) => {
@@ -666,7 +700,10 @@ fn rebase_refs_walk(value: &mut Value, overlay_base: &str, spec_base: Option<&st
                     map.insert("$ref".to_owned(), Value::String(rewritten));
                 }
             }
-            for (_, v) in map.iter_mut() {
+            for (k, v) in map.iter_mut() {
+                if is_literal_data_key(k) || (k == "examples" && v.is_array()) {
+                    continue;
+                }
                 rebase_refs_walk(v, overlay_base, spec_base)?;
             }
         }

@@ -160,7 +160,7 @@ fn remove_root_target_is_rejected() {
     );
 
     let err = crate::common::failed_with(
-        crate::common::overlay(&[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap()], ""),
+        crate::common::overlay(&[spec.to_str().unwrap(), ov.to_str().unwrap()], ""),
         &["remove", "root"],
     );
     assert!(
@@ -223,7 +223,7 @@ fn remove_mixed_equal_depth_array_and_object_targets_deletes_exact_elements() {
     );
 
     for (sp, ov) in [(spec_p, ov_p), (spec_p2, ov_p2)] {
-        let out = crate::common::overlay(&[sp.to_str().unwrap(), "--overlay", ov.to_str().unwrap()], "");
+        let out = crate::common::overlay(&[sp.to_str().unwrap(), ov.to_str().unwrap()], "");
         crate::common::succeeded(&out);
         let doc: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
         let params = doc["paths"]["/a"]["get"]["parameters"].as_array().unwrap();
@@ -260,7 +260,7 @@ fn remove_equal_depth_nested_mixed_segments_does_not_panic() {
   }]
 }"#,
     );
-    let out = crate::common::overlay(&[sp.to_str().unwrap(), "--overlay", ov.to_str().unwrap()], "");
+    let out = crate::common::overlay(&[sp.to_str().unwrap(), ov.to_str().unwrap()], "");
     crate::common::succeeded(&out);
     let doc: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
     assert_eq!(doc["x-grid"]["a"], serde_json::json!([[10, 11], [21, 22]]));

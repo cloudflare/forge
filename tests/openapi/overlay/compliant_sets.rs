@@ -23,7 +23,7 @@ fn run_apply(name: &str) {
     let ov = dir.join("overlay.yaml");
     let expected = std::fs::read_to_string(dir.join("output.yaml")).unwrap();
 
-    let out = overlay(&[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap()], "");
+    let out = overlay(&[spec.to_str().unwrap(), ov.to_str().unwrap()], "");
     succeeded(&out);
 
     let actual: serde_json::Value = serde_saphyr::from_slice(&out.stdout).expect("stdout is YAML");

@@ -448,7 +448,7 @@ fn the_usage_says_forge_normalize_and_the_help_of_forge_lists_the_command() {
         text(&general.stdout)
     );
     assert!(
-        text(&general.stdout).contains("forge <COMMAND>"),
+        text(&general.stdout).contains("forge [OPTIONS] <COMMAND>"),
         "{}",
         text(&general.stdout)
     );

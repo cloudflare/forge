@@ -18,12 +18,12 @@ pub struct Args {
 enum Command {
     /// Apply one or more OpenAPI Overlay documents to a spec.
     ///
-    /// With a single positional argument, treat it as an overlay whose
-    /// `extends` names the spec. With `--overlay` flags, treat the positional
-    /// as the spec (or `-` for standard input) and apply each overlay in
-    /// order. Without `--out`, the result is printed to standard output;
-    /// with `--out <PATH>` it is written to that file (if `<PATH>` is the
-    /// spec itself, as an atomic in-place rewrite).
+    /// With one positional argument, treat it as an overlay whose `extends`
+    /// names the spec. With two or more positional arguments, treat the first
+    /// as the spec (or `-` for standard input) and the rest as overlays to
+    /// apply in order. Without `--out`, the result is printed to standard
+    /// output; with `--out <PATH>` it is written to that file (if `<PATH>` is
+    /// the spec itself, as an atomic in-place rewrite).
     Overlay(overlay::Args),
 }
 

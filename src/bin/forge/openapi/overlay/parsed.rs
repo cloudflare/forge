@@ -109,7 +109,7 @@ impl Overlay {
                 ));
             }
         };
-        if resolved_extends != resolved_target_self {
+        if uri::normalize(resolved_extends) != uri::normalize(&resolved_target_self) {
             return Err(format!(
                 "overlay's resolved extends identifier {resolved_extends:?} does not match \
                  the target spec's resolved $self {resolved_target_self:?}: the overlay was written \
@@ -142,8 +142,8 @@ impl Overlay {
     /// version we may not fully understand.
     pub fn diagnose_warnings(&self) {
         if let Version::FutureV1(minor) = self.version {
-            eprintln!(
-                "forge openapi overlay: warning: overlay version 1.{minor}.x is newer than this build; \
+            crate::log::warn!(
+                "overlay version 1.{minor}.x is newer than this build; \
                  applying known features and skipping any that are unsupported"
             );
         }
@@ -700,16 +700,10 @@ fn parse_version(s: &str) -> Result<Version, Err> {
         .into());
     }
     let (major, minor, patch) = (parts[0], parts[1], parts[2]);
-    let major: u32 = major
-        .parse()
-        .map_err(|_| format!("unsupported overlay version {s:?}: major is not a non-negative integer"))?;
-    let minor: u32 = minor
-        .parse()
-        .map_err(|_| format!("unsupported overlay version {s:?}: minor is not a non-negative integer"))?;
-    // Reject pre-release/build on patch.
-    let _patch: u32 = patch.parse().map_err(|_| {
-        format!("unsupported overlay version {s:?}: patch must be a plain integer (no `-pre` or `+build`)")
-    })?;
+    let major = parse_version_part(major, s, "major")?;
+    let minor = parse_version_part(minor, s, "minor")?;
+    // Reject pre-release/build, signs, and leading zeros on patch.
+    let _patch = parse_version_part(patch, s, "patch")?;
     if major != 1 {
         return Err(
             format!("unsupported overlay version {s:?}: this forge supports the Overlay 1.x family only").into(),
@@ -721,6 +715,20 @@ fn parse_version(s: &str) -> Result<Version, Err> {
         2 => Version::V1_2,
         m => Version::FutureV1(m),
     })
+}
+
+fn parse_version_part(part: &str, full: &str, label: &str) -> Result<u32, Err> {
+    if part.is_empty() || !part.bytes().all(|b| b.is_ascii_digit()) {
+        return Err(format!(
+            "unsupported overlay version {full:?}: {label} must be a plain non-negative integer (no `-pre` or `+build`)"
+        )
+        .into());
+    }
+    if part.len() > 1 && part.starts_with('0') {
+        return Err(format!("unsupported overlay version {full:?}: {label} must not have leading zeros").into());
+    }
+    part.parse::<u32>()
+        .map_err(|_| format!("unsupported overlay version {full:?}: {label} is out of range").into())
 }
 
 fn validate_uri_field(name: &str, s: &str) -> Result<(), Err> {
@@ -754,10 +762,10 @@ fn validate_uri_field(name: &str, s: &str) -> Result<(), Err> {
         .into());
     }
     // Validate RFC 3986 syntax upfront so malformed URIs (e.g. `"http ://..."`)
-    // are rejected even in `--check` and Mode B before any resolution.
+    // are rejected even in Mode B before any resolution.
     uri::validate_reference(s).map_err(|e| format!("`{name}` URI {s:?} is invalid: {e}"))?;
     // Enforce local-only `file:` authorities upfront (empty or `localhost`)
-    // across Mode A, Mode B, and `--check`.
+    // across Mode A and Mode B.
     if scheme.as_deref() == Some("file") {
         uri::validate_file_authority(s).map_err(|e| format!("`{name}` URI {e}"))?;
     }

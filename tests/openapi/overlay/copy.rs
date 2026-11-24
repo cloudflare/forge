@@ -141,7 +141,7 @@ fn v11_copy_must_be_a_jsonpath_string() {
         );
 
         failed_with(
-            overlay(&[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap()], ""),
+            overlay(&[spec.to_str().unwrap(), ov.to_str().unwrap()], ""),
             &["copy", "string", "type"],
         );
     }
@@ -161,7 +161,7 @@ fn v11_copy_invalid_source_jsonpath_is_rejected() {
     );
 
     failed_with(
-        overlay(&[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap()], ""),
+        overlay(&[spec.to_str().unwrap(), ov.to_str().unwrap()], ""),
         &["copy", "jsonpath", "json path"],
     );
 }
@@ -224,7 +224,7 @@ fn v10_copy_action_is_rejected() {
     );
 
     failed_with(
-        overlay(&[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap()], ""),
+        overlay(&[spec.to_str().unwrap(), ov.to_str().unwrap()], ""),
         &["copy", "1.0", "unknown", "unsupported"],
     );
 }
@@ -249,7 +249,7 @@ fn v11_copy_source_with_zero_matches_is_rejected() {
     );
 
     failed_with(
-        overlay(&[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap()], ""),
+        overlay(&[spec.to_str().unwrap(), ov.to_str().unwrap()], ""),
         &["copy", "source", "single", "zero", "no match"],
     );
 }
@@ -273,7 +273,7 @@ fn v11_copy_source_with_multiple_matches_is_rejected() {
     );
 
     failed_with(
-        overlay(&[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap()], ""),
+        overlay(&[spec.to_str().unwrap(), ov.to_str().unwrap()], ""),
         &["copy", "source", "single", "multiple", "more than one"],
     );
 }
@@ -305,7 +305,7 @@ fn v11_copy_target_mixed_object_and_array_is_rejected() {
     );
 
     failed_with(
-        overlay(&[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap()], ""),
+        overlay(&[spec.to_str().unwrap(), ov.to_str().unwrap()], ""),
         &["nodes", "same category", "mixed", "homogeneous"],
     );
 }
@@ -327,7 +327,7 @@ fn v11_copy_target_mixed_object_and_primitive_is_rejected() {
     );
 
     failed_with(
-        overlay(&[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap()], ""),
+        overlay(&[spec.to_str().unwrap(), ov.to_str().unwrap()], ""),
         &["nodes", "same category", "mixed", "homogeneous"],
     );
 }
@@ -351,7 +351,7 @@ fn v11_copy_target_mixed_array_and_primitive_is_rejected() {
     );
 
     failed_with(
-        overlay(&[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap()], ""),
+        overlay(&[spec.to_str().unwrap(), ov.to_str().unwrap()], ""),
         &["nodes", "same category", "mixed", "homogeneous"],
     );
 }
@@ -544,7 +544,7 @@ fn v11_copy_object_source_into_primitive_target_is_rejected() {
     );
 
     failed_with(
-        overlay(&[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap()], ""),
+        overlay(&[spec.to_str().unwrap(), ov.to_str().unwrap()], ""),
         &[
             "incompatible",
             "category",
@@ -571,7 +571,7 @@ fn v11_copy_array_source_into_object_target_is_rejected() {
     );
 
     failed_with(
-        overlay(&[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap()], ""),
+        overlay(&[spec.to_str().unwrap(), ov.to_str().unwrap()], ""),
         &["incompatible", "category", "cannot merge", "array into object"],
     );
 }
@@ -593,7 +593,7 @@ fn v11_copy_array_source_into_primitive_target_is_rejected() {
     );
 
     failed_with(
-        overlay(&[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap()], ""),
+        overlay(&[spec.to_str().unwrap(), ov.to_str().unwrap()], ""),
         &["incompatible", "category", "array into primitive", "array into scalar"],
     );
 }
@@ -612,7 +612,7 @@ fn v11_copy_primitive_source_into_object_target_is_rejected() {
     );
 
     failed_with(
-        overlay(&[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap()], ""),
+        overlay(&[spec.to_str().unwrap(), ov.to_str().unwrap()], ""),
         &[
             "incompatible",
             "category",
@@ -644,7 +644,7 @@ fn v11_copy_nested_property_type_incompatibility_is_rejected() {
     );
 
     failed_with(
-        overlay(&[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap()], ""),
+        overlay(&[spec.to_str().unwrap(), ov.to_str().unwrap()], ""),
         &["incompatible", "category", "cannot merge", "primitive and object"],
     );
 }
@@ -683,7 +683,6 @@ fn v11_copy_primitive_to_same_value_is_noop_under_write() {
     let out = crate::common::overlay(
         &[
             spec.to_str().unwrap(),
-            "--overlay",
             ov.to_str().unwrap(),
             "--out",
             spec.to_str().unwrap(),
@@ -727,7 +726,6 @@ fn v11_copy_primitive_to_different_value_mutates() {
     let out = crate::common::overlay(
         &[
             spec.to_str().unwrap(),
-            "--overlay",
             ov.to_str().unwrap(),
             "--out",
             spec.to_str().unwrap(),
@@ -808,7 +806,6 @@ fn copy_nested_merge_error_names_copy_not_update() {
     let out = crate::common::overlay(
         &[
             dir.join("spec.json").to_str().unwrap(),
-            "--overlay",
             dir.join("overlay.json").to_str().unwrap(),
         ],
         "",

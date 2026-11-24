@@ -1,11 +1,10 @@
 //! Tests the top-level `forge generate` CLI's overlay integration:
 //!
-//! - Overlays are a preprocessing step before SDK generation, never a
-//!   separate print mode on `generate`.
-//! - A positional overlay-with-`extends` resolves its spec, then generates.
-//! - `--overlay` flags apply in order, then generate.
+//! - `forge generate` accepts self-contained inputs only: an OpenAPI spec, an
+//!   overlay-with-`extends` (which resolves its spec, applies, then generates),
+//!   or `-` for stdin (e.g. piped from `forge openapi overlay`).
 //! - `--target` and `--out` are always required on `generate`.
-//! - The `openapi overlay` subcommand still prints the merged spec (unchanged).
+//! - The `openapi overlay` subcommand prints the merged spec.
 
 use std::fs;
 use std::io::Write;
@@ -188,19 +187,19 @@ fn top_level_overlay_with_overlay_key_after_64kb_is_detected() {
     );
 }
 
-/// `forge generate <spec> --overlay <ov> --target ts --out <dir>` applies the
-/// overlay to the spec before running the generator.
+/// Global `-vv` (`--log-level debug`) logs overlay execution on stderr when
+/// `forge generate` processes a self-contained overlay (with `extends`).
 #[test]
-fn top_level_spec_with_overlay_flag_generates_sdk() {
-    let dir = dir("spec-with-overlay-generates");
-    let spec = dir.join("spec.json");
-    fs::write(&spec, SPEC).unwrap();
+fn top_level_generate_overlay_logs_at_debug_level() {
+    let dir = dir("generate-overlay-debug-log");
+    fs::write(dir.join("spec.json"), SPEC).unwrap();
     let ov = dir.join("overlay.json");
     fs::write(
         &ov,
         r#"{
   "overlay": "1.0.0",
   "info": {"title": "fix", "version": "1"},
+  "extends": "./spec.json",
   "actions": [{"target": "$.info", "update": {"description": "d"}}]
 }"#,
     )
@@ -210,31 +209,27 @@ fn top_level_spec_with_overlay_flag_generates_sdk() {
     let out = forge(
         &[
             "generate",
-            spec.to_str().unwrap(),
-            "--overlay",
             ov.to_str().unwrap(),
             "--target",
             "ts",
             "--out",
             out_dir.to_str().unwrap(),
+            "-vv",
         ],
         "",
     );
     succeeded(&out);
-    assert!(
-        out_dir.join("index.ts").is_file(),
-        "TS generator ran and produced output"
-    );
+    assert!(out_dir.join("index.ts").is_file(), "SDK was generated");
+    let err = String::from_utf8(out.stderr).unwrap();
+    assert!(err.contains("updated 1 node"), "debug log on stderr: {err}");
 }
 
-/// With multiple `--overlay` flags, they are applied in order before the
-/// generator runs. Ordering is asserted by the parallel `overlay` subcommand
-/// invocation (whose stdout we can inspect), not by the generator output:
-/// the merged spec is the same document either way, so if `overlay` sees `b`
-/// win, the generator does too.
+/// Composing `forge openapi overlay <spec> <a> <b>` into
+/// `forge generate - --target ts --out <dir>` applies overlays in order and
+/// generates the SDK from stdin.
 #[test]
-fn top_level_spec_with_multiple_overlays_applies_in_order_then_generates() {
-    let dir = dir("spec-multi-overlay");
+fn top_level_pipe_overlay_subcommand_into_generate_stdin() {
+    let dir = dir("pipe-overlay-to-generate");
     let spec = dir.join("spec.json");
     fs::write(&spec, SPEC).unwrap();
     let a = dir.join("a.json");
@@ -259,41 +254,27 @@ fn top_level_spec_with_multiple_overlays_applies_in_order_then_generates() {
     .unwrap();
     let out_dir = dir.join("sdk");
 
-    let out = forge(
-        &[
-            "generate",
-            spec.to_str().unwrap(),
-            "--overlay",
-            a.to_str().unwrap(),
-            "--overlay",
-            b.to_str().unwrap(),
-            "--target",
-            "ts",
-            "--out",
-            out_dir.to_str().unwrap(),
-        ],
-        "",
-    );
-    succeeded(&out);
-    assert!(out_dir.join("index.ts").is_file(), "generator ran");
-
-    // Verify the apply ordering via the `overlay` subcommand on the same
-    // inputs: b overrides a, so the merged spec shows from-b.
     let subcmd = forge(
         &[
             "openapi",
             "overlay",
             spec.to_str().unwrap(),
-            "--overlay",
             a.to_str().unwrap(),
-            "--overlay",
             b.to_str().unwrap(),
         ],
         "",
     );
     succeeded(&subcmd);
-    let merged: serde_json::Value = serde_json::from_slice(&subcmd.stdout).unwrap();
+    let merged_str = std::str::from_utf8(&subcmd.stdout).unwrap();
+    let merged: serde_json::Value = serde_json::from_str(merged_str).unwrap();
     assert_eq!(merged["info"]["description"], "from-b");
+
+    let generated = forge(
+        &["generate", "-", "--target", "ts", "--out", out_dir.to_str().unwrap()],
+        merged_str,
+    );
+    succeeded(&generated);
+    assert!(out_dir.join("index.ts").is_file(), "generator ran on piped spec");
 }
 
 /// `forge generate <overlay-with-extends>` alone (no `--target`, no `--out`)
@@ -319,31 +300,6 @@ fn top_level_overlay_positional_requires_target_and_out() {
     assert!(err.contains("--out"), "message names --out: {err}");
 }
 
-/// `forge generate <spec> --overlay <ov>` alone (no `--target`, no `--out`)
-/// is rejected with the same missing-flags error.
-#[test]
-fn top_level_spec_with_overlay_flag_requires_target_and_out() {
-    let dir = dir("spec-overlay-no-flags");
-    let spec = dir.join("spec.json");
-    fs::write(&spec, SPEC).unwrap();
-    let ov = dir.join("overlay.json");
-    fs::write(
-        &ov,
-        r#"{
-  "overlay": "1.0.0",
-  "info": {"title": "fix", "version": "1"},
-  "actions": [{"target": "$.info", "update": {"description": "d"}}]
-}"#,
-    )
-    .unwrap();
-
-    let err = failed(forge(
-        &["generate", spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap()],
-        "",
-    ));
-    assert!(err.contains("--target"), "message names --target: {err}");
-}
-
 /// `forge generate <spec>` with no flags is rejected and the message names
 /// `--target`, same as any other missing-flag case.
 #[test]
@@ -354,44 +310,6 @@ fn top_level_plain_spec_without_target_errors() {
 
     let err = failed(forge(&["generate", spec.to_str().unwrap()], ""));
     assert!(err.contains("--target"), "message names --target: {err}");
-}
-
-/// `forge generate - --overlay <ov> --target ts --out <dir>` reads the spec
-/// from stdin, applies the overlay, generates. `-` is never sniffed as an
-/// overlay.
-#[test]
-fn top_level_stdin_spec_with_overlay_generates_sdk() {
-    let dir = dir("stdin-overlay");
-    let ov = dir.join("overlay.json");
-    fs::write(
-        &ov,
-        r#"{
-  "overlay": "1.0.0",
-  "info": {"title": "fix", "version": "1"},
-  "actions": [{"target": "$.info", "update": {"description": "d"}}]
-}"#,
-    )
-    .unwrap();
-    let out_dir = dir.join("sdk");
-
-    let out = forge(
-        &[
-            "generate",
-            "-",
-            "--overlay",
-            ov.to_str().unwrap(),
-            "--target",
-            "ts",
-            "--out",
-            out_dir.to_str().unwrap(),
-        ],
-        SPEC,
-    );
-    succeeded(&out);
-    assert!(
-        out_dir.join("index.ts").is_file(),
-        "generator ran on stdin spec + overlay"
-    );
 }
 
 /// Baseline: plain SDK generation (no overlay) still works through
@@ -418,8 +336,8 @@ fn top_level_sdk_generation_without_overlay_still_works() {
     assert!(out_dir.join("index.ts").is_file(), "SDK was generated");
 }
 
-/// The `overlay` subcommand is unchanged: it prints the merged spec to
-/// stdout (or writes it with `--out <FILE>`).
+/// The `overlay` subcommand prints the merged spec to stdout (or writes it
+/// with `--out <FILE>`).
 #[test]
 fn top_level_overlay_subcommand_still_prints_merged_spec() {
     let dir = dir("overlay-subcommand");
@@ -437,13 +355,7 @@ fn top_level_overlay_subcommand_still_prints_merged_spec() {
     .unwrap();
 
     let out = forge(
-        &[
-            "openapi",
-            "overlay",
-            spec.to_str().unwrap(),
-            "--overlay",
-            ov.to_str().unwrap(),
-        ],
+        &["openapi", "overlay", spec.to_str().unwrap(), ov.to_str().unwrap()],
         "",
     );
     succeeded(&out);

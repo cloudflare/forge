@@ -84,6 +84,13 @@ pub fn resolve_reference(base: &str, reference: &str) -> Result<String, String> 
     Ok(resolved.to_string())
 }
 
+/// Syntax-based normalization per RFC 3986 §6.2.2 (lowercase scheme/host,
+/// uppercase percent-encoded octets, unreserved decoding, dot-segment removal)
+/// so equivalent URIs compare equal.
+pub fn normalize(uri: &str) -> String {
+    fluent_uri::Uri::parse(uri).map_or_else(|_| uri.to_owned(), |u| u.normalize().to_string())
+}
+
 /// Return the local file path for a `file:` URI. Errors for any other
 /// scheme, and for a `file:` URI whose authority is neither empty nor
 /// `localhost` (RFC 8089 only guarantees interop for those two).
@@ -169,9 +176,10 @@ pub fn relative_file_ref(base: &str, target: &str) -> Option<String> {
         Some((p, q)) => (p, Some(q)),
         None => (target_no_frag, None),
     };
+    let base_is_dir = base.ends_with('/');
     let base_path = to_path(base).ok()?;
     let target_path = to_path(target_path_uri).ok()?;
-    if target_path == base_path {
+    if !base_is_dir && target_path == base_path {
         // Same-file reference. Per RFC 3986 §5.2.2, a reference consisting
         // of just `?query` or just `#fragment` (or both) inherits the base
         // path and replaces only the component it carries, so both are
@@ -189,9 +197,13 @@ pub fn relative_file_ref(base: &str, target: &str) -> Option<String> {
         }
         return (!out.is_empty()).then_some(out);
     }
-    // `base` points at the spec FILE; its directory is where relative
-    // references live.
-    let base_dir = base_path.parent()?;
+    // A trailing-slash `base` (e.g. stdin's CWD) is already the directory; a
+    // file `base` uses its parent directory.
+    let base_dir = if base_is_dir {
+        base_path.as_path()
+    } else {
+        base_path.parent()?
+    };
 
     let rel = make_relative(base_dir, &target_path)?;
     // Threshold: anything deeper than `../../` is fragile (brittle to
@@ -237,6 +249,12 @@ pub fn relative_file_ref(base: &str, target: &str) -> Option<String> {
         // relative form that downstream tools will resolve, so fall back
         // to the absolute URI.
         return None;
+    }
+    // RFC 3986 §4.2: a relative path's first segment cannot contain `:`, or
+    // URI parsers interpret the prefix as a scheme (e.g. `a:b.yaml` -> scheme
+    // `a`). Prefix with `./` so it stays a valid relative reference.
+    if out.split('/').next().is_some_and(|seg| seg.contains(':')) {
+        out.insert_str(0, "./");
     }
     if let Some(q) = query {
         out.push('?');
@@ -335,7 +353,7 @@ fn hex(b: u8) -> Option<u8> {
 
 #[cfg(test)]
 mod tests {
-    use super::{validate_file_authority, validate_reference, windows_path_to_file_uri};
+    use super::{normalize, relative_file_ref, validate_file_authority, validate_reference, windows_path_to_file_uri};
 
     #[test]
     fn windows_extended_length_paths_produce_clean_file_uris() {
@@ -373,5 +391,31 @@ mod tests {
         assert!(validate_reference("urn:example:spec").is_ok());
         assert!(validate_reference("http ://example.com/spec.yaml").is_err());
         assert!(validate_reference("file://[bad").is_err());
+    }
+
+    #[test]
+    fn relative_file_ref_prefixes_colon_in_first_segment_and_handles_dir_base() {
+        // RFC 3986 §4.2: a colon in the first segment of a relative path would
+        // parse as a URI scheme unless prefixed with `./`.
+        assert_eq!(
+            relative_file_ref("file:///work/spec.yaml", "file:///work/a:b.yaml#/X"),
+            Some("./a:b.yaml#/X".to_owned())
+        );
+        // Colons in later segments (or after `../`) are already valid.
+        assert_eq!(
+            relative_file_ref("file:///work/spec.yaml", "file:///work/sub/a:b.yaml"),
+            Some("sub/a:b.yaml".to_owned())
+        );
+        // Trailing-slash directory base (used for stdin) resolves directly
+        // against that directory and never matches a real file as same-file.
+        assert_eq!(
+            relative_file_ref("file:///work/", "file:///work/shared.yaml#/X"),
+            Some("shared.yaml#/X".to_owned())
+        );
+    }
+
+    #[test]
+    fn normalize_lowercases_scheme_and_uppercases_percent_encoding() {
+        assert_eq!(normalize("FILE:///a/b%2fc.yaml"), normalize("file:///a/b%2Fc.yaml"));
     }
 }

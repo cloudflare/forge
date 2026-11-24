@@ -244,7 +244,7 @@ fn v11_update_target_mixed_object_and_array_is_rejected() {
     );
 
     crate::common::failed_with(
-        crate::common::overlay(&[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap()], ""),
+        crate::common::overlay(&[spec.to_str().unwrap(), ov.to_str().unwrap()], ""),
         &["nodes", "same category", "mixed", "homogeneous"],
     );
 }
@@ -265,7 +265,7 @@ fn v11_update_target_mixed_object_and_primitive_is_rejected() {
     );
 
     crate::common::failed_with(
-        crate::common::overlay(&[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap()], ""),
+        crate::common::overlay(&[spec.to_str().unwrap(), ov.to_str().unwrap()], ""),
         &["nodes", "same category", "mixed", "homogeneous"],
     );
 }
@@ -289,7 +289,7 @@ fn v11_update_target_mixed_array_and_primitive_is_rejected() {
     );
 
     crate::common::failed_with(
-        crate::common::overlay(&[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap()], ""),
+        crate::common::overlay(&[spec.to_str().unwrap(), ov.to_str().unwrap()], ""),
         &["nodes", "same category", "mixed", "homogeneous"],
     );
 }
@@ -317,7 +317,7 @@ fn v10_update_target_mixed_object_and_array_is_rejected() {
     );
 
     crate::common::failed_with(
-        crate::common::overlay(&[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap()], ""),
+        crate::common::overlay(&[spec.to_str().unwrap(), ov.to_str().unwrap()], ""),
         &["nodes", "same category", "mixed", "homogeneous"],
     );
 }
@@ -365,7 +365,7 @@ fn v11_update_primitive_target_with_array_is_rejected() {
     );
 
     crate::common::failed_with(
-        crate::common::overlay(&[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap()], ""),
+        crate::common::overlay(&[spec.to_str().unwrap(), ov.to_str().unwrap()], ""),
         &["primitive", "scalar", "update", "target"],
     );
 }
@@ -393,7 +393,7 @@ fn v11_update_incompatible_nested_property_type_is_rejected() {
     );
 
     crate::common::failed_with(
-        crate::common::overlay(&[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap()], ""),
+        crate::common::overlay(&[spec.to_str().unwrap(), ov.to_str().unwrap()], ""),
         &["type", "incompatible", "primitive", "object", "merge"],
     );
 }
@@ -416,7 +416,7 @@ fn v11_update_object_property_with_primitive_is_rejected() {
     );
 
     crate::common::failed_with(
-        crate::common::overlay(&[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap()], ""),
+        crate::common::overlay(&[spec.to_str().unwrap(), ov.to_str().unwrap()], ""),
         &["type", "incompatible", "primitive", "object", "merge"],
     );
 }
@@ -452,7 +452,6 @@ fn v11_update_array_target_with_empty_array_is_noop() {
     let out = crate::common::overlay(
         &[
             spec.to_str().unwrap(),
-            "--overlay",
             ov.to_str().unwrap(),
             "--out",
             spec.to_str().unwrap(),
@@ -493,7 +492,6 @@ fn v11_update_object_with_current_values_is_noop() {
     let out = crate::common::overlay(
         &[
             spec.to_str().unwrap(),
-            "--overlay",
             ov.to_str().unwrap(),
             "--out",
             spec.to_str().unwrap(),
@@ -548,10 +546,7 @@ fn v10_update_primitive_error_lists_sibling_primitives() {
     );
 
     let err = crate::common::failed_with(
-        crate::common::overlay(
-            &[spec_path.to_str().unwrap(), "--overlay", ov_path.to_str().unwrap()],
-            "",
-        ),
+        crate::common::overlay(&[spec_path.to_str().unwrap(), ov_path.to_str().unwrap()], ""),
         &["primitive", "target also selects"],
     );
 
@@ -598,7 +593,7 @@ fn update_rebases_relative_ref_in_inserted_object() {
 }"#,
     );
 
-    let out = crate::common::overlay(&[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap()], "");
+    let out = crate::common::overlay(&[spec.to_str().unwrap(), ov.to_str().unwrap()], "");
     crate::common::succeeded(&out);
     let doc: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
     let r = doc["paths"]["/a"]["get"]["requestBody"]["$ref"].as_str().unwrap();
@@ -624,7 +619,7 @@ fn update_preserves_absolute_ref() {
 }"#,
     );
 
-    let out = crate::common::overlay(&[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap()], "");
+    let out = crate::common::overlay(&[spec.to_str().unwrap(), ov.to_str().unwrap()], "");
     crate::common::succeeded(&out);
     let doc: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
     assert_eq!(
@@ -650,7 +645,7 @@ fn update_preserves_pure_fragment_ref() {
 }"##,
     );
 
-    let out = crate::common::overlay(&[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap()], "");
+    let out = crate::common::overlay(&[spec.to_str().unwrap(), ov.to_str().unwrap()], "");
     crate::common::succeeded(&out);
     let doc: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
     assert_eq!(
@@ -675,7 +670,7 @@ fn update_rebases_nested_ref() {
 }"#,
     );
 
-    let out = crate::common::overlay(&[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap()], "");
+    let out = crate::common::overlay(&[spec.to_str().unwrap(), ov.to_str().unwrap()], "");
     crate::common::succeeded(&out);
     let doc: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
     let r = doc["paths"]["/a"]["get"]["responses"]["200"]["content"]["application/json"]["schema"]["$ref"]
@@ -703,7 +698,7 @@ fn update_rebases_refs_inside_array() {
 }"##,
     );
 
-    let out = crate::common::overlay(&[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap()], "");
+    let out = crate::common::overlay(&[spec.to_str().unwrap(), ov.to_str().unwrap()], "");
     crate::common::succeeded(&out);
     let doc: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
     let params = doc["paths"]["/a"]["get"]["parameters"].as_array().unwrap();
@@ -721,7 +716,7 @@ fn update_rebases_refs_inside_array() {
 /// The extends-driven form (`forge openapi overlay <overlay>`) also rebases
 /// relative `$ref`s in inserted content against the overlay's retrieval base.
 /// That first overlay's base URI is set up in `load_spec`, while subsequent
-/// `--overlay` flags are wired through `apply_overlays_to_doc`; this test
+/// Mode B positional overlays are wired through `apply_overlays_to_doc`; this test
 /// guards against drift between the two paths.
 #[test]
 fn mode_a_rebases_relative_ref_in_inserted_object() {
@@ -770,7 +765,7 @@ fn update_rejects_unparseable_relative_ref() {
     );
 
     let err = crate::common::failed_with(
-        crate::common::overlay(&[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap()], ""),
+        crate::common::overlay(&[spec.to_str().unwrap(), ov.to_str().unwrap()], ""),
         &["rebase", "$ref"],
     );
     assert!(
@@ -803,7 +798,6 @@ fn update_rebases_ref_from_subdirectory_overlay() {
     let out = crate::common::overlay(
         &[
             dir.join("openapi.json").to_str().unwrap(),
-            "--overlay",
             dir.join("overlays/x.json").to_str().unwrap(),
         ],
         "",
@@ -841,7 +835,6 @@ fn update_rebases_ref_from_sibling_overlay() {
     let out = crate::common::overlay(
         &[
             dir.join("build/openapi.json").to_str().unwrap(),
-            "--overlay",
             dir.join("overlays/x.json").to_str().unwrap(),
         ],
         "",
@@ -869,8 +862,8 @@ fn update_same_file_ref_with_query_only_emits_portable_query_ref() {
   "overlay": "1.1.0",
   "info": {"title": "fix", "version": "1"},
   "actions": [{
-    "target": "$.info",
-    "update": {"x-mirror": {"$ref": "../openapi.json?revision=1"}}
+    "target": "$.paths[\"/a\"].get",
+    "update": {"requestBody": {"$ref": "../openapi.json?revision=1"}}
   }]
 }"#,
     )
@@ -879,7 +872,6 @@ fn update_same_file_ref_with_query_only_emits_portable_query_ref() {
     let out = crate::common::overlay(
         &[
             dir.join("openapi.json").to_str().unwrap(),
-            "--overlay",
             dir.join("overlays/x.json").to_str().unwrap(),
         ],
         "",
@@ -887,7 +879,7 @@ fn update_same_file_ref_with_query_only_emits_portable_query_ref() {
     crate::common::succeeded(&out);
     let doc: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
     assert_eq!(
-        doc["info"]["x-mirror"]["$ref"], "?revision=1",
+        doc["paths"]["/a"]["get"]["requestBody"]["$ref"], "?revision=1",
         "query-only same-file ref is emitted as a portable `?q` relative reference"
     );
 }
@@ -915,7 +907,6 @@ fn update_rebases_ref_without_dropping_query() {
     let out = crate::common::overlay(
         &[
             dir.join("openapi.json").to_str().unwrap(),
-            "--overlay",
             dir.join("overlays/x.json").to_str().unwrap(),
         ],
         "",
@@ -954,7 +945,6 @@ fn update_rebases_same_file_ref_without_dropping_query() {
     let out = crate::common::overlay(
         &[
             dir.join("openapi.json").to_str().unwrap(),
-            "--overlay",
             dir.join("overlays/x.json").to_str().unwrap(),
         ],
         "",
@@ -999,7 +989,6 @@ fn update_falls_back_to_absolute_for_far_away_ref() {
     let out = crate::common::overlay(
         &[
             dir.join("a/b/c/openapi.json").to_str().unwrap(),
-            "--overlay",
             dir.join("x.json").to_str().unwrap(),
         ],
         "",
@@ -1042,7 +1031,7 @@ fn update_rebases_relative_ref_with_stdin_spec_against_cwd() {
     )
     .unwrap();
 
-    let out = crate::common::overlay(&["-", "--overlay", ov_path.to_str().unwrap()], crate::common::SPEC);
+    let out = crate::common::overlay(&["-", ov_path.to_str().unwrap()], crate::common::SPEC);
     crate::common::succeeded(&out);
     let doc: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
     let r = doc["paths"]["/a"]["get"]["requestBody"]["$ref"].as_str().unwrap();
@@ -1076,9 +1065,74 @@ fn update_rejects_empty_ref_string() {
 }"#,
     );
     crate::common::failed_with(
-        crate::common::overlay(&[spec.to_str().unwrap(), "--overlay", ov.to_str().unwrap()], ""),
+        crate::common::overlay(&[spec.to_str().unwrap(), ov.to_str().unwrap()], ""),
         &["$ref", "empty"],
     );
+}
+
+/// Literal `$ref` keys inside `example`, `default`, `const`, `enum`,
+/// `examples.*.value`, JSON Schema `examples` arrays, and `x-*` extensions are
+/// ordinary data and must NOT be rebased, while real OpenAPI references in
+/// sibling fields (like `schema` or `examples.<name>.$ref`) still rebase.
+#[test]
+fn update_does_not_rebase_literal_refs_in_examples_and_extensions() {
+    let dir = crate::common::dir("update-literal-refs");
+    std::fs::create_dir_all(dir.join("overlays")).unwrap();
+    std::fs::write(dir.join("openapi.json"), crate::common::SPEC).unwrap();
+    std::fs::write(
+        dir.join("overlays/fix.json"),
+        r#"{
+  "overlay": "1.1.0",
+  "info": {"title": "fix", "version": "1"},
+  "actions": [
+    {
+      "target": "$.paths[\"/a\"].get",
+      "update": {
+        "x-example": {"$ref": "./literal-ext"},
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./schemas/Real.yaml#/X",
+                  "default": {"$ref": "./literal-default"},
+                  "examples": [{"$ref": "./literal-schema-ex"}]
+                },
+                "example": {"$ref": "./literal-media-ex"},
+                "examples": {
+                  "inline": {"value": {"$ref": "./literal-ex-val"}},
+                  "external": {"$ref": "./examples/Real.yaml#/Ex"}
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
+}"#,
+    )
+    .unwrap();
+
+    let out = crate::common::overlay(
+        &[
+            dir.join("openapi.json").to_str().unwrap(),
+            dir.join("overlays/fix.json").to_str().unwrap(),
+        ],
+        "",
+    );
+    crate::common::succeeded(&out);
+    let doc: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    let op = &doc["paths"]["/a"]["get"];
+    let media = &op["responses"]["200"]["content"]["application/json"];
+    assert_eq!(op["x-example"]["$ref"], "./literal-ext");
+    assert_eq!(media["example"]["$ref"], "./literal-media-ex");
+    assert_eq!(media["schema"]["default"]["$ref"], "./literal-default");
+    assert_eq!(media["schema"]["examples"][0]["$ref"], "./literal-schema-ex");
+    assert_eq!(media["examples"]["inline"]["value"]["$ref"], "./literal-ex-val");
+    // Real OpenAPI Reference Objects are still rebased.
+    assert_eq!(media["schema"]["$ref"], "overlays/schemas/Real.yaml#/X");
+    assert_eq!(media["examples"]["external"]["$ref"], "overlays/examples/Real.yaml#/Ex");
 }
 
 /// A 1.0 multi-match update must not silently drop later iterations when an
@@ -1112,7 +1166,6 @@ fn v10_update_multi_match_with_ancestor_mutation_is_rejected_up_front() {
     let out = crate::common::overlay(
         &[
             dir.join("spec.json").to_str().unwrap(),
-            "--overlay",
             dir.join("overlay.json").to_str().unwrap(),
         ],
         "",
