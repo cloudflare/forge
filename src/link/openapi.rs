@@ -19,6 +19,7 @@
 use std::collections::HashMap;
 use std::fmt;
 use std::marker::PhantomData;
+use std::num::NonZeroU32;
 
 use serde::Deserialize;
 use serde::de::{self, DeserializeSeed, Deserializer, IgnoredAny, MapAccess, SeqAccess, Visitor};
@@ -61,6 +62,10 @@ pub(super) struct Doc {
     responses: Vec<Response>,
     schemas: Vec<SchemaObject>,
     discriminators: Vec<Discriminator>,
+    /// The `x-forge-skip` and `x-forge-only-for` extensions of objects that
+    /// carry either, kept out of line so objects without them pay only a
+    /// 4-byte [`FilterId`].
+    filters: Vec<Filter>,
 
     path_item_entries: List<(Str, Id<PathItem>)>,
     operation_entries: List<(Str, Id<Operation>)>,
@@ -97,6 +102,33 @@ impl Doc {
 
     pub(super) fn list<T: Item>(&self, span: Span<T>) -> &[T] {
         T::list(self).get(span)
+    }
+
+    pub(super) fn filter(&self, id: FilterId) -> Option<&Filter> {
+        Some(&self.filters[id.0?.get() as usize - 1])
+    }
+
+    fn filter_mut(&mut self, id: &mut FilterId) -> &mut Filter {
+        if let Some(index) = id.0 {
+            return &mut self.filters[index.get() as usize - 1];
+        }
+        self.filters.push(Filter::default());
+        let index = NonZeroU32::new(u32::try_from(self.filters.len()).expect("fewer than 2^32 filters"))
+            .expect("filters is non-empty");
+        id.0 = Some(index);
+        self.filters.last_mut().expect("filters is non-empty")
+    }
+
+    fn set_skip(&mut self, id: &mut FilterId, skip: Skip) {
+        if !matches!(skip, Skip::Never) {
+            self.filter_mut(id).skip = skip;
+        }
+    }
+
+    fn set_only_for(&mut self, id: &mut FilterId, only_for: Span<Str>) {
+        if !only_for.is_empty() {
+            self.filter_mut(id).only_for = only_for;
+        }
     }
 
     fn add<T: Node>(&mut self, node: T) -> Id<T> {
@@ -215,10 +247,8 @@ pub(super) struct PathItem {
     /// The operations of other methods, by method, in the order they are
     /// written.
     pub(super) additional_operations: Span<(Str, Id<Operation>)>,
-    /// `x-forge-skip`.
-    pub(super) skip: Skip,
-    /// `x-forge-only-for`.
-    pub(super) only_for: Span<Str>,
+    /// `x-forge-skip` and `x-forge-only-for`.
+    pub(super) filter: FilterId,
 }
 
 /// An Operation Object.
@@ -252,11 +282,8 @@ pub(super) struct Definition {
     /// The `operationId`, or empty for none. It names the method when
     /// `x-forge-group-name` and `x-forge-method-name` do not.
     pub(super) operation_id: Str,
-    /// `x-forge-skip`.
-    pub(super) skip: Skip,
-    /// `x-forge-only-for`: when not empty, the method is kept only when one
-    /// of the listed conditions is active.
-    pub(super) only_for: Span<Str>,
+    /// `x-forge-skip` and `x-forge-only-for`.
+    pub(super) filter: FilterId,
     /// `x-forge-hidden`.
     pub(super) hidden: bool,
     /// The `x-forge-require-confirmation`, or `None` for none. An empty
@@ -292,10 +319,8 @@ pub(super) struct Parameter {
     pub(super) content: Span<(Str, Schema)>,
     /// The `x-forge-parameter-name`, or empty for none.
     pub(super) field_name: Str,
-    /// `x-forge-skip`.
-    pub(super) skip: Skip,
-    /// `x-forge-only-for`.
-    pub(super) only_for: Span<Str>,
+    /// `x-forge-skip` and `x-forge-only-for`.
+    pub(super) filter: FilterId,
 }
 
 /// Where a parameter is sent: the `in` of a Parameter Object.
@@ -331,10 +356,8 @@ pub(super) struct RequestBody {
     pub(super) required: bool,
     /// The schema of each media type, in the order they are written.
     pub(super) content: Span<(Str, Schema)>,
-    /// `x-forge-skip`.
-    pub(super) skip: Skip,
-    /// `x-forge-only-for`.
-    pub(super) only_for: Span<Str>,
+    /// `x-forge-skip` and `x-forge-only-for`.
+    pub(super) filter: FilterId,
 }
 
 /// A Response Object, or a `$ref` to one.
@@ -345,10 +368,8 @@ pub(super) struct Response {
     pub(super) description: Str,
     /// The schema of each media type, in the order they are written.
     pub(super) content: Span<(Str, Schema)>,
-    /// `x-forge-skip`.
-    pub(super) skip: Skip,
-    /// `x-forge-only-for`.
-    pub(super) only_for: Span<Str>,
+    /// `x-forge-skip` and `x-forge-only-for`.
+    pub(super) filter: FilterId,
 }
 
 /// A Schema Object, or, from OpenAPI 3.1, `true` for any value or `false`
@@ -427,12 +448,8 @@ pub(super) struct SchemaObject {
     /// The `x-forge-property-name`: the name of the field, for a property's
     /// schema, or empty for none.
     pub(super) field_name: Str,
-    /// `x-forge-skip` on a property's schema: it makes no field when it is
-    /// always skipped, or when any of its listed conditions is active.
-    pub(super) skip: Skip,
-    /// `x-forge-only-for` on a property's schema: when not empty, the field
-    /// is kept only when one of the listed conditions is active.
-    pub(super) only_for: Span<Str>,
+    /// `x-forge-skip` and `x-forge-only-for` on a schema or property.
+    pub(super) filter: FilterId,
 }
 
 /// A value of `type` in a Schema Object.
@@ -932,6 +949,20 @@ impl<'de> Visitor<'de> for SeqOfStrs<'_> {
     }
 }
 
+/// The `x-forge-skip` and `x-forge-only-for` extensions of an object, kept
+/// out of line in [`Doc::filters`] so objects without either pay only a
+/// 4-byte [`FilterId`].
+#[derive(Default)]
+pub(super) struct Filter {
+    pub(super) skip: Skip,
+    pub(super) only_for: Span<Str>,
+}
+
+/// Compact 4-byte handle to a [`Filter`] in [`Doc::filters`], or none when
+/// the object has neither `x-forge-skip` nor `x-forge-only-for`.
+#[derive(Clone, Copy, Default)]
+pub(super) struct FilterId(Option<NonZeroU32>);
+
 /// `x-forge-skip`: never, always, or when any of a list of condition names
 /// is active. `false` and an empty list are the same as no extension.
 #[derive(Default)]
@@ -1234,11 +1265,13 @@ impl ReadObject for PathItem {
                     continue;
                 }
                 PathItemKey::Skip => {
-                    item.skip = map.next_value_seed(seed::<ReadSkip>(doc))?;
+                    let skip = map.next_value_seed(seed::<ReadSkip>(doc))?;
+                    doc.set_skip(&mut item.filter, skip);
                     continue;
                 }
                 PathItemKey::OnlyFor => {
-                    item.only_for = map.next_value_seed(ConditionNamesSeed(doc))?;
+                    let only_for = map.next_value_seed(ConditionNamesSeed(doc))?;
+                    doc.set_only_for(&mut item.filter, only_for);
                     continue;
                 }
                 PathItemKey::Other => {
@@ -1288,8 +1321,14 @@ impl Definition {
             DefinitionKey::MethodName => self.method_name = map.next_value_seed(seed::<ReadStr>(doc))?,
             DefinitionKey::GroupNames => self.group_names = map.next_value_seed(seed::<GroupNames>(doc))?,
             DefinitionKey::OperationId => self.operation_id = map.next_value_seed(seed::<ReadStr>(doc))?,
-            DefinitionKey::Skip => self.skip = map.next_value_seed(seed::<ReadSkip>(doc))?,
-            DefinitionKey::OnlyFor => self.only_for = map.next_value_seed(ConditionNamesSeed(doc))?,
+            DefinitionKey::Skip => {
+                let skip = map.next_value_seed(seed::<ReadSkip>(doc))?;
+                doc.set_skip(&mut self.filter, skip);
+            }
+            DefinitionKey::OnlyFor => {
+                let only_for = map.next_value_seed(ConditionNamesSeed(doc))?;
+                doc.set_only_for(&mut self.filter, only_for);
+            }
             DefinitionKey::Hidden => self.hidden = map.next_value()?,
             DefinitionKey::Confirmation => {
                 self.confirmation = Some(map.next_value_seed(seed::<ReadStr>(doc))?);
@@ -1604,8 +1643,14 @@ impl ReadObject for Parameter {
                     param.content = map.next_value_seed(seed::<AllEntries<MediaType>>(doc))?;
                 }
                 ParameterKey::FieldName => param.field_name = map.next_value_seed(seed::<ReadStr>(doc))?,
-                ParameterKey::Skip => param.skip = map.next_value_seed(seed::<ReadSkip>(doc))?,
-                ParameterKey::OnlyFor => param.only_for = map.next_value_seed(ConditionNamesSeed(doc))?,
+                ParameterKey::Skip => {
+                    let skip = map.next_value_seed(seed::<ReadSkip>(doc))?;
+                    doc.set_skip(&mut param.filter, skip);
+                }
+                ParameterKey::OnlyFor => {
+                    let only_for = map.next_value_seed(ConditionNamesSeed(doc))?;
+                    doc.set_only_for(&mut param.filter, only_for);
+                }
                 ParameterKey::Other => skip(&mut map)?,
             }
         }
@@ -1642,8 +1687,14 @@ impl ReadObject for RequestBody {
                 RequestBodyKey::Content => {
                     body.content = map.next_value_seed(seed::<AllEntries<MediaType>>(doc))?;
                 }
-                RequestBodyKey::Skip => body.skip = map.next_value_seed(seed::<ReadSkip>(doc))?,
-                RequestBodyKey::OnlyFor => body.only_for = map.next_value_seed(ConditionNamesSeed(doc))?,
+                RequestBodyKey::Skip => {
+                    let skip = map.next_value_seed(seed::<ReadSkip>(doc))?;
+                    doc.set_skip(&mut body.filter, skip);
+                }
+                RequestBodyKey::OnlyFor => {
+                    let only_for = map.next_value_seed(ConditionNamesSeed(doc))?;
+                    doc.set_only_for(&mut body.filter, only_for);
+                }
                 RequestBodyKey::Other => skip(&mut map)?,
             }
         }
@@ -1678,8 +1729,14 @@ impl ReadObject for Response {
                 ResponseKey::Content => {
                     response.content = map.next_value_seed(seed::<AllEntries<MediaType>>(doc))?;
                 }
-                ResponseKey::Skip => response.skip = map.next_value_seed(seed::<ReadSkip>(doc))?,
-                ResponseKey::OnlyFor => response.only_for = map.next_value_seed(ConditionNamesSeed(doc))?,
+                ResponseKey::Skip => {
+                    let skip = map.next_value_seed(seed::<ReadSkip>(doc))?;
+                    doc.set_skip(&mut response.filter, skip);
+                }
+                ResponseKey::OnlyFor => {
+                    let only_for = map.next_value_seed(ConditionNamesSeed(doc))?;
+                    doc.set_only_for(&mut response.filter, only_for);
+                }
                 ResponseKey::Other => skip(&mut map)?,
             }
         }
@@ -1776,8 +1833,14 @@ impl ReadObject for SchemaObject {
                 SchemaKey::Sensitive => schema.sensitive = map.next_value()?,
                 SchemaKey::ModelName => schema.model_name = map.next_value_seed(seed::<ReadStr>(doc))?,
                 SchemaKey::FieldName => schema.field_name = map.next_value_seed(seed::<ReadStr>(doc))?,
-                SchemaKey::Skip => schema.skip = map.next_value_seed(seed::<ReadSkip>(doc))?,
-                SchemaKey::OnlyFor => schema.only_for = map.next_value_seed(ConditionNamesSeed(doc))?,
+                SchemaKey::Skip => {
+                    let skip = map.next_value_seed(seed::<ReadSkip>(doc))?;
+                    doc.set_skip(&mut schema.filter, skip);
+                }
+                SchemaKey::OnlyFor => {
+                    let only_for = map.next_value_seed(ConditionNamesSeed(doc))?;
+                    doc.set_only_for(&mut schema.filter, only_for);
+                }
                 SchemaKey::Other => skip(&mut map)?,
             }
         }

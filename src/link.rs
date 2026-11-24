@@ -29,9 +29,9 @@ use crate::{
     ModelId, Name, Number, Scalar,
 };
 use openapi::{
-    Commands, ContentEncoding, Definition, Discriminator, Doc, Format, Info, Item, Literal, Operation, Parameter,
-    ParameterLocation, ParameterStyle, PathItem, Referable, RequestBody, Response, Schema, SchemaObject, SchemaType,
-    Server, Skip,
+    Commands, ContentEncoding, Definition, Discriminator, Doc, FilterId, Format, Info, Item, Literal, Operation,
+    Parameter, ParameterLocation, ParameterStyle, PathItem, Referable, RequestBody, Response, Schema, SchemaObject,
+    SchemaType, Server, Skip,
 };
 
 /// Reads a `Forge` from an OpenAPI document of version 3.0, 3.1 or 3.2,
@@ -107,18 +107,21 @@ pub fn parse_json(json: &[u8], conditions: &[String]) -> Result<Forge, String> {
     build(doc, Some(conditions)).map_err(|errors| errors.join("\n"))
 }
 
-/// Returns whether an element with `skip` and `only_for` extensions is kept
-/// in a generation where `conditions` are active, or kept without
-/// conditional filtering when `conditions` is `None`. See RFC 0003 for the
-/// full semantics; `x-forge-skip` wins over `x-forge-only-for`.
-fn is_kept(doc: &Doc, conditions: Option<&[String]>, skip: &Skip, only_for: Span<Str>) -> bool {
-    match skip {
+/// Returns whether an element with `filter` is kept in a generation where
+/// `conditions` are active, or kept without conditional filtering when
+/// `conditions` is `None`. See RFC 0003 for the full semantics; `x-forge-skip`
+/// wins over `x-forge-only-for`.
+fn is_kept(doc: &Doc, conditions: Option<&[String]>, filter: FilterId) -> bool {
+    let Some(filter) = doc.filter(filter) else {
+        return true;
+    };
+    match filter.skip {
         Skip::Always => return false,
         Skip::Never => {}
         Skip::Any(names) => {
             if let Some(active) = conditions
                 && doc
-                    .list(*names)
+                    .list(names)
                     .iter()
                     .any(|&name| active.iter().any(|c| c == doc.str(name)))
             {
@@ -129,10 +132,10 @@ fn is_kept(doc: &Doc, conditions: Option<&[String]>, skip: &Skip, only_for: Span
     let Some(active) = conditions else {
         return true;
     };
-    if only_for.is_empty() {
+    if filter.only_for.is_empty() {
         return true;
     }
-    doc.list(only_for)
+    doc.list(filter.only_for)
         .iter()
         .any(|&name| active.iter().any(|c| c == doc.str(name)))
 }
@@ -142,7 +145,7 @@ fn is_kept(doc: &Doc, conditions: Option<&[String]>, skip: &Skip, only_for: Span
 fn check_kept_schema(doc: &Doc, conditions: Option<&[String]>, schema: Schema, reference: &str) -> Result<(), String> {
     if let Schema::Object(object) = schema {
         let object = doc.get(object);
-        if !is_kept(doc, conditions, &object.skip, object.only_for) {
+        if !is_kept(doc, conditions, object.filter) {
             return Err(format!(
                 "$ref {reference:?} points to a schema removed by x-forge-skip or x-forge-only-for"
             ));
@@ -570,7 +573,7 @@ impl<'d> Builder<'d> {
             let Some(item) = self.follow(item, &index.path_items, "pathItems") else {
                 continue;
             };
-            if !is_kept(doc, self.conditions, &item.skip, item.only_for) {
+            if !is_kept(doc, self.conditions, item.filter) {
                 continue;
             }
             let fixed = [
@@ -647,7 +650,7 @@ impl<'d> Builder<'d> {
         http_method: HttpMethod,
     ) {
         let doc = self.doc;
-        if !is_kept(doc, self.conditions, &definition.skip, definition.only_for) {
+        if !is_kept(doc, self.conditions, definition.filter) {
             return;
         }
         // `x-forge-method-name` names the method, with `x-forge-group-name`
@@ -734,7 +737,7 @@ impl<'d> Builder<'d> {
         if let Some(request_body) = operation.request_body {
             let index = self.index;
             if let Some(request_body) = self.follow(request_body, &index.request_bodies, "requestBodies")
-                && is_kept(doc, self.conditions, &request_body.skip, request_body.only_for)
+                && is_kept(doc, self.conditions, request_body.filter)
             {
                 body = Some(self.body(request_body));
             }
@@ -834,47 +837,64 @@ impl<'d> Builder<'d> {
     /// `path` is an error, since the path template still requires it.
     fn declared(&mut self, path: &'d str, item: &'d PathItem, operation: &'d Operation) -> Vec<(&'d Parameter, Str)> {
         let doc = self.doc;
-        let mut declared: Vec<(&'d Parameter, Str, bool)> = Vec::new();
+        let mut declared: Vec<(&'d Parameter, Str)> = Vec::new();
+        // Kept empty (no heap allocation) in the common case where no
+        // parameter is skipped.
+        let mut skipped: Vec<&'d Parameter> = Vec::new();
         for &param in doc.list(item.parameters) {
-            if let Some(declaration) = self.param(param) {
-                declared.push(declaration);
+            if let Some((param, description, kept)) = self.param(param) {
+                if kept {
+                    declared.push((param, description));
+                } else {
+                    skipped.push(param);
+                }
             }
         }
         for &param in doc.list(operation.parameters) {
-            let Some(declaration) = self.param(param) else {
+            let Some((param, description, kept)) = self.param(param) else {
                 continue;
             };
-            let matched = if !declaration.0.name.is_empty() && declaration.0.location.is_some() {
-                declared
-                    .iter_mut()
-                    .find(|other| same_param(doc, other.0, declaration.0))
-            } else {
-                None
-            };
-            match matched {
-                Some(other) => *other = declaration,
-                None => declared.push(declaration),
-            }
-        }
-        let path_placeholders = placeholders(path);
-        let mut kept = Vec::with_capacity(declared.len());
-        for (param, description, is_kept) in declared {
-            if is_kept {
-                if param.name.is_empty() || param.location.is_none() {
-                    self.error("a parameter has no name or no in");
-                    continue;
+            let named = !param.name.is_empty() && param.location.is_some();
+            if kept {
+                if named {
+                    if let Some(pos) = skipped.iter().position(|other| same_param(doc, other, param)) {
+                        skipped.swap_remove(pos);
+                    }
+                    if let Some(other) = declared.iter_mut().find(|other| same_param(doc, other.0, param)) {
+                        *other = (param, description);
+                        continue;
+                    }
                 }
-                kept.push((param, description));
-            } else if param.location == Some(ParameterLocation::Path)
-                && path_placeholders.contains(&doc.str(param.name))
-            {
-                self.error(format_args!(
-                    "path parameter {:?} is required by the path template and cannot be removed by x-forge-skip or x-forge-only-for",
-                    doc.str(param.name)
-                ));
+                declared.push((param, description));
+            } else {
+                if named && let Some(pos) = declared.iter().position(|other| same_param(doc, other.0, param)) {
+                    declared.remove(pos);
+                }
+                skipped.push(param);
             }
         }
-        kept
+        if !skipped.is_empty() {
+            let path_placeholders = placeholders(path);
+            for param in skipped {
+                if param.location == Some(ParameterLocation::Path) && path_placeholders.contains(&doc.str(param.name)) {
+                    self.error(format_args!(
+                        "path parameter {:?} is required by the path template and cannot be removed by x-forge-skip or x-forge-only-for",
+                        doc.str(param.name)
+                    ));
+                }
+            }
+        }
+        let mut i = 0;
+        while i < declared.len() {
+            let param = declared[i].0;
+            if param.name.is_empty() || param.location.is_none() {
+                self.error("a parameter has no name or no in");
+                declared.remove(i);
+            } else {
+                i += 1;
+            }
+        }
+        declared
     }
 
     /// Returns a field for each path and query parameter in `declared`,
@@ -1004,7 +1024,7 @@ impl<'d> Builder<'d> {
                 description = reference.description;
             }
         })?;
-        let kept = is_kept(self.doc, self.conditions, &param.skip, param.only_for);
+        let kept = is_kept(self.doc, self.conditions, param.filter);
         if description.is_empty() {
             description = param.description;
         }
@@ -1228,7 +1248,7 @@ impl<'d> Builder<'d> {
             let Some(response) = self.follow(response, &index.responses, "responses") else {
                 continue;
             };
-            if !is_kept(doc, self.conditions, &response.skip, response.only_for) {
+            if !is_kept(doc, self.conditions, response.filter) {
                 continue;
             }
             let status = doc.str(status);
@@ -1774,7 +1794,7 @@ impl<'d> Builder<'d> {
                 Schema::Bool(true) => {}
                 Schema::Object(object) => {
                     let object = doc.get(object);
-                    if !is_kept(doc, self.conditions, &object.skip, object.only_for) {
+                    if !is_kept(doc, self.conditions, object.filter) {
                         continue;
                     }
                     extension = object.field_name;
