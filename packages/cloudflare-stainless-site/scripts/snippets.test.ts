@@ -1,8 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { deflateRawSync } from 'node:zlib';
-import { forbiddenHosts } from './generate-stainless-snippets.ts';
-import { jobName, readArtifacts } from './gitlab.ts';
+import { forbiddenHosts, jobName, readArtifacts } from './gitlab.ts';
 import { buildSnippetsFile, extractSnippets, type Language, type SdkJson } from './snippets.ts';
 import { readZipEntry } from './zip.ts';
 

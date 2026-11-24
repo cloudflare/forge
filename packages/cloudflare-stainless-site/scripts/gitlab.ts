@@ -1,13 +1,13 @@
 /**
- * Downloads the Stainless docs site's SDK JSON files: the job artifacts of its
- * `generate-sdk-jsons:production: [<language>]` CI jobs. This is the only part that uses the
+ * Downloads from the Stainless docs site's project: the job artifacts of its
+ * `generate-sdk-jsons:production: [<language>]` CI jobs, which hold each language's SDK JSON and
+ * the spec it was built from, and files from its repository. This is the only part that uses the
  * network, and it only reads from the GitLab API.
  */
 
 import { existsSync } from 'node:fs';
 import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
 import path from 'node:path';
-import { LANGUAGES, type Language } from './snippets.ts';
 import { readZipEntry } from './zip.ts';
 
 export interface GitLabSource {
@@ -31,18 +31,26 @@ interface Job {
   artifacts?: { file_type: string }[];
 }
 
+/** What nothing generated may contain, so it can't leak the source: the GitLab host, and its domain. */
+export function forbiddenHosts(gitlabUrl: string): string[] {
+  const host = new URL(gitlabUrl).hostname;
+  const domain = host.split('.').slice(-2).join('.');
+  return [...new Set([host, domain])];
+}
+
 /** The CI job that writes a language's SDK JSON for the production site. */
-export function jobName(language: Language): string {
+export function jobName(language: string): string {
   return `generate-sdk-jsons:production: [${language}]`;
 }
 
 /**
- * The newest successful pipeline whose production jobs for every language still have their
- * artifacts, with those jobs' IDs. GitLab's first page holds the newest 20 pipelines, newest
+ * The newest successful pipeline whose production jobs for every one of `languages` still have
+ * their artifacts, with those jobs' IDs. GitLab's first page holds the newest 20 pipelines, newest
  * first; schedules alternate staging and production, so it always holds a production one.
  */
-export async function findArtifacts(
+export async function findArtifacts<Language extends string>(
   source: GitLabSource,
+  languages: readonly Language[],
   now = new Date(),
 ): Promise<{ pipeline: Pipeline; jobs: Record<Language, number> }> {
   const pipelines = await api<Pipeline[]>(source, 'pipelines?ref=main&status=success');
@@ -50,7 +58,7 @@ export async function findArtifacts(
     // Over GitLab's default page of 20, so a growing pipeline can't push a job off the page.
     const listed = await api<Job[]>(source, `pipelines/${pipeline.id}/jobs?per_page=100`);
     const jobs = {} as Record<Language, number>;
-    for (const language of LANGUAGES) {
+    for (const language of languages) {
       const job = listed.find(
         (candidate) =>
           candidate.name === jobName(language) &&
@@ -62,12 +70,12 @@ export async function findArtifacts(
         jobs[language] = job.id;
       }
     }
-    if (LANGUAGES.every((language) => jobs[language] !== undefined)) {
+    if (languages.every((language) => jobs[language] !== undefined)) {
       return { pipeline, jobs };
     }
   }
   throw new Error(
-    `None of the ${pipelines.length} newest successful pipelines on main has unexpired artifacts for ${LANGUAGES.map(jobName).join(', ')}. ` +
+    `None of the ${pipelines.length} newest successful pipelines on main has unexpired artifacts for ${languages.map(jobName).join(', ')}. ` +
       'Check that --project is the docs site, and in its pipelines that those jobs still exist under these names and ' +
       'have run in the last day. If they were renamed, update jobName in scripts/gitlab.ts.',
   );
@@ -91,18 +99,21 @@ export async function downloadArtifacts(
   return { archive, file };
 }
 
+/** A file in one language's artifact archive, or an error naming the job and the `reader` to fix. */
+function artifactEntry(archive: Buffer, language: string, name: string, reader: string): Buffer {
+  const content = readZipEntry(archive, name);
+  if (!content) {
+    throw new Error(
+      `${jobName(language)}: the artifacts have no ${name}. If the job now writes it elsewhere, update ${reader} ` +
+        'in scripts/gitlab.ts with the path the job lists under its artifacts.',
+    );
+  }
+  return content;
+}
+
 /** What one language's artifact archive holds: its SDK JSON and the api-schemas commit it was built from. */
-export function readArtifacts(archive: Buffer, language: Language): { sdkJson: string; apiSchemasSha: string } {
-  const entry = (name: string) => {
-    const content = readZipEntry(archive, name);
-    if (!content) {
-      throw new Error(
-        `${jobName(language)}: the artifacts have no ${name}. If the job now writes it elsewhere, update readArtifacts ` +
-          'in scripts/gitlab.ts with the path the job lists under its artifacts.',
-      );
-    }
-    return content;
-  };
+export function readArtifacts(archive: Buffer, language: string): { sdkJson: string; apiSchemasSha: string } {
+  const entry = (name: string) => artifactEntry(archive, language, name, 'readArtifacts');
   const sdkJson = entry(`.sdk-json-cache/cloudflare/${language}.json`);
   const sha = (JSON.parse(entry('.schemas/BUILD_INFO.json').toString('utf8')) as { sha?: unknown }).sha;
   if (typeof sha !== 'string' || !/^[0-9a-f]{40}$/.test(sha)) {
@@ -112,6 +123,18 @@ export function readArtifacts(archive: Buffer, language: Language): { sdkJson: s
     );
   }
   return { sdkJson: sdkJson.toString('utf8'), apiSchemasSha: sha };
+}
+
+/** The OpenAPI spec one language's SDK JSON was built from, in its artifact archive. */
+export function readArtifactSpec(archive: Buffer, language: string): string {
+  return artifactEntry(archive, language, '.schemas/openapi.json', 'readArtifactSpec').toString('utf8');
+}
+
+/** A file in the project's repository, at `ref`. */
+export async function readRepositoryFile(source: GitLabSource, file: string, ref = 'main'): Promise<string> {
+  return (
+    await request(source, `repository/files/${encodeURIComponent(file)}/raw?ref=${encodeURIComponent(ref)}`)
+  ).text();
 }
 
 async function api<T>(source: GitLabSource, resource: string): Promise<T> {

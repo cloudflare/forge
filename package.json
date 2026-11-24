@@ -13,7 +13,8 @@
     "test:e2e": "pnpm -r run test:e2e",
     "build": "pnpm -r run build",
     "generate:terraform-docs": "pnpm --filter cloudflare-terraform-docs generate --output ../cloudflare-api-site/src/generated/terraform-docs.json",
-    "generate:stainless-snippets": "pnpm --filter cloudflare-stainless-snippets generate --snapshot ../cloudflare-api-site/src/stainless-redirects.json --output ../cloudflare-api-site/src/stainless-snippets.json"
+    "generate:stainless-redirects": "pnpm --filter cloudflare-stainless-site generate:redirects --output ../cloudflare-api-site/src/stainless-redirects.json",
+    "generate:stainless-snippets": "pnpm --filter cloudflare-stainless-site generate:snippets --snapshot ../cloudflare-api-site/src/stainless-redirects.json --output ../cloudflare-api-site/src/stainless-snippets.json"
   },
   "devDependencies": {
     "@types/node": "26.0.1",

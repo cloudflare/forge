@@ -1,0 +1,15 @@
+{
+  "name": "cloudflare-stainless-site",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "generate:redirects": "node --max-old-space-size=8192 --experimental-strip-types scripts/generate-stainless-redirects.ts",
+    "generate:snippets": "node --max-old-space-size=8192 --experimental-strip-types scripts/generate-stainless-snippets.ts",
+    "test": "node --experimental-strip-types --test \"scripts/*.test.ts\"",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/node": "25.3.5",
+    "typescript": "5.9.3"
+  }
+}
