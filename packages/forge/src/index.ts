@@ -23,18 +23,17 @@ import { type Forge, forgeOf } from './forge.js';
 export type * from './forge.js';
 
 /**
- * Names another tool, so forge reads the tool's metadata extensions as its
- * own `x-forge-*` ones. Forge rewrites them in the same way as
- * `forge normalize --from`. With `fern`, for example, forge reads
- * `x-fern-sdk-group-name` as `x-forge-group-name`.
+ * Third-party tool supported for extension normalization, matching
+ * `forge normalize --from` (for example, `'fern'` maps
+ * `x-fern-sdk-group-name` to `x-forge-group-name`).
  */
 export type Adapter = 'cloudflare' | 'fern' | 'stainless';
 
-/** Says how {@link parse} reads a document. */
+/** Options for {@link parse}. */
 export interface ParseOptions {
   /**
-   * Lists the tools to read extensions from, besides forge's own. Without
-   * it, `parse` reads only the native `x-forge-*` extensions.
+   * Adapters used to normalize third-party extensions before parsing. When
+   * omitted, only native `x-forge-*` extensions are read.
    */
   readonly adapters?: readonly Adapter[];
 }

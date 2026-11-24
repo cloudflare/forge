@@ -1,26 +1,20 @@
-//! Rewrites the metadata extensions other tools write into Forge's native
-//! `x-forge-*` extensions. A [`Forge`](crate::Forge) reads only the native
-//! ones.
+//! Rewrites third-party OpenAPI metadata extensions into Forge's native
+//! `x-forge-*` extensions.
 //!
-//! A document written for Fern, for example, names its groups and methods
-//! with `x-fern-sdk-group-name` and `x-fern-sdk-method-name`. Forge gives
-//! those keys no meaning until [`normalize`] rewrites them into
-//! `x-forge-group-name` and `x-forge-method-name`. Each tool is an
-//! [`Adapter`], and `normalize` rewrites only the keys of the adapters it is
-//! given. `forge normalize` rewrites files with this module, and
-//! `@cloudflare/forge`'s `parse` reads documents through it.
+//! [`Forge`](crate::Forge) reads only native `x-forge-*` extensions. Call
+//! [`normalize`] with one or more [`Adapter`]s to convert extensions from
+//! tools such as Fern (`x-fern-sdk-group-name`, `x-fern-sdk-method-name`)
+//! before parsing.
 //!
-//! `normalize` rewrites a key only at the kind of OpenAPI object where Forge
-//! reads the native replacement, so an operation's group name is rewritten on
-//! an operation and left alone on a schema. A native key always wins. When a
-//! document says the same thing with a native key and another, `normalize`
-//! keeps the native key and removes the other. Adapters add no meaning of
-//! their own, because each key they rewrite has a native key that already
-//! says the same.
+//! Keys are rewritten only on the OpenAPI object kinds where Forge reads the
+//! native replacement (for example, an operation group name is rewritten on an
+//! operation, not on a schema). Native keys always take precedence; when both
+//! a native key and a third-party key are present, the native key is kept and
+//! the third-party key is removed.
 //!
 //! # Examples
 //!
-//! Read a document written for Fern:
+//! Normalize a Fern document before parsing it into a [`Forge`](crate::Forge):
 //!
 //! ```
 //! use forge::Forge;
@@ -48,9 +42,8 @@
 //! # Ok::<(), serde_json::Error>(())
 //! ```
 //!
-//! Keep the old keys beside the native ones, for tools that still read them.
-//! Each native key takes the place of the key it replaces, and the old key
-//! follows it.
+//! Keep the original keys after their native replacements for tools that still
+//! read them:
 //!
 //! ```
 //! use forge::normalize::{normalize, Adapter, Options};
@@ -76,9 +69,10 @@ use std::fmt;
 
 pub use json::{Normalized, Options, Report, normalize};
 
-/// Rewrites one tool's metadata extensions into Forge's native ones, with
-/// [`normalize`]. The adapters are `cloudflare`, `fern` and `stainless`, the
-/// names `forge normalize --from` takes.
+/// A third-party extension adapter for [`normalize`].
+///
+/// Built-in adapters are `cloudflare`, `fern`, and `stainless`, matching the
+/// names accepted by `forge normalize --from`.
 ///
 /// ```
 /// use forge::normalize::Adapter;
@@ -93,18 +87,18 @@ pub use json::{Normalized, Options, Report, normalize};
 pub struct Adapter(&'static dyn vendor::Source);
 
 impl Adapter {
-    /// Returns the adapter called `name`, or `None` if Forge has no adapter
-    /// by that name. Names are lower case, such as `fern`.
+    /// Returns the adapter for `name` (lowercase, such as `"fern"`), or `None`
+    /// if no adapter matches.
     pub fn named(name: &str) -> Option<Adapter> {
         vendor::named(name).map(Adapter)
     }
 
-    /// Returns every adapter, in the order of their names.
+    /// Returns all built-in adapters, sorted by name.
     pub fn all() -> impl ExactSizeIterator<Item = Adapter> {
         vendor::ALL.iter().map(|&source| Adapter(source))
     }
 
-    /// Returns the adapter's name, such as `fern`.
+    /// Returns the adapter's name, such as `"fern"`.
     pub fn name(self) -> &'static str {
         self.0.name()
     }
@@ -122,7 +116,6 @@ impl PartialEq for Adapter {
 
 impl Eq for Adapter {}
 
-/// Writes the adapter's name.
 impl fmt::Debug for Adapter {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str(self.name())

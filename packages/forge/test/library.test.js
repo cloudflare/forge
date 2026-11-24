@@ -152,7 +152,7 @@ test('documents parsed side by side stay apart', () => {
   assert.deepEqual([b.version, b.groups[1].name.kebab()], ['2', 'beta']);
 });
 
-/** A document that names its method only with Fern's extensions. */
+/** OpenAPI document using only Fern extensions. */
 const fern = {
   openapi: '3.1.0',
   info: { title: 'Pets', version: '1' },
@@ -168,7 +168,7 @@ const fern = {
   },
 };
 
-test('the fern adapter reads Fern’s extensions as Forge’s own', () => {
+test('the fern adapter normalizes Fern extensions before parsing', () => {
   const plain = parse(JSON.stringify(fern));
   assert.deepEqual(
     plain.groups.flatMap((group) => group.methods),
@@ -183,6 +183,6 @@ test('the fern adapter reads Fern’s extensions as Forge’s own', () => {
   );
 });
 
-test('an adapter forge has not is an error', () => {
+test('unknown adapter names throw an error', () => {
   assert.throws(() => parse(JSON.stringify(fern), { adapters: ['swagger'] }), /unknown adapter "swagger"/);
 });

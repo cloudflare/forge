@@ -23,37 +23,35 @@ use super::Adapter;
 use super::vendor::{Change, Detail};
 use super::walk;
 
-/// Says what [`normalize`] rewrites.
+/// Configuration for [`normalize`].
 #[derive(Clone, Copy, Debug)]
 pub struct Options<'a> {
-    /// Keeps each rewritten key beside the native key that replaces it, for
-    /// tools that still read the old key. When false, `normalize` removes
-    /// the old key.
+    /// Keeps rewritten keys alongside their native replacements instead of
+    /// removing them.
     pub leave_old_extensions: bool,
-    /// Lists the tools to rewrite keys for. When two adapters know a key,
-    /// the first one in the list rewrites it.
+    /// Adapters to apply, in precedence order. When multiple adapters match
+    /// the same key, the first one wins.
     pub adapters: &'a [Adapter],
 }
 
-/// Counts what [`normalize`] rewrote.
+/// Summary of the changes made by [`normalize`].
 #[derive(Debug, Default)]
 pub struct Report {
-    /// Counts each key, as written, by how many times `normalize` rewrote it
-    /// or removed it because a native key already said the same thing.
+    /// Count of times each original key was rewritten or removed as a
+    /// duplicate of a native key.
     pub migrated: BTreeMap<String, usize>,
     details: BTreeMap<Detail, usize>,
 }
 
 impl Report {
-    /// Reports whether the document is different from what it was.
+    /// Returns `true` if any key was rewritten or removed.
     pub fn changed(&self) -> bool {
         !self.migrated.is_empty()
     }
 
-    /// Returns the changes beyond renaming a key, each with how many times it
-    /// happened. Writing an array of group names as a dotted string is one
-    /// such change. Each description reads in the singular or the plural, to
-    /// match its count.
+    /// Returns counts and descriptions of value conversions beyond key
+    /// renames, such as converting an array group path into a dotted string.
+    /// Each description is singular or plural to match its count.
     pub fn details(&self) -> impl Iterator<Item = (usize, &'static str)> + '_ {
         self.details.iter().map(|(detail, count)| {
             let description = if *count == 1 { detail.one } else { detail.many };
@@ -69,28 +67,25 @@ impl Report {
     }
 }
 
-/// Holds a document after [`normalize`].
+/// Output of [`normalize`].
 #[derive(Debug)]
 pub struct Normalized {
-    /// Holds the document, written again, or `None` when nothing was
-    /// rewritten and the document is unchanged.
+    /// Rewritten JSON bytes, or `None` when nothing needed rewriting.
     pub json: Option<Vec<u8>>,
-    /// Counts what was rewritten.
+    /// Summary of the changes made.
     pub report: Report,
 }
 
-/// Rewrites the keys of the document `json` that [`Options::adapters`]
-/// know into Forge's native keys.
+/// Rewrites third-party metadata extensions in `json` into Forge's native
+/// `x-forge-*` keys using [`Options::adapters`].
 ///
-/// `normalize` reads the document and writes it again. The keys stay in
-/// their order, and the document keeps the indentation of its first indented
-/// line, stays on one line if it was on one, and ends with a newline if it
-/// did. The result is not a minimal edit, because escapes are written as the
-/// characters and numbers as Rust writes them.
+/// Preserves key order, detected indentation (or single-line formatting), and
+/// any trailing newline. Because the document is parsed and re-serialized,
+/// escape sequences and number formatting may change.
 ///
 /// # Errors
 ///
-/// Returns an error if `json` is not JSON.
+/// Returns an error if `json` is not valid JSON.
 ///
 /// # Examples
 ///
@@ -106,14 +101,14 @@ pub struct Normalized {
 ///     String::from_utf8(normalized.json.unwrap()).unwrap(),
 ///     r#"{"paths":{"/pets":{"get":{"x-forge-group-name":"pets.owners"}}}}"#,
 /// );
-/// // The report says the array of group names became a dotted string.
+/// // The report records value conversions such as array-to-dotted group paths.
 /// assert_eq!(
 ///     normalized.report.details().collect::<Vec<_>>(),
 ///     [(1, "group path written as a dotted string")],
 /// );
 /// assert_eq!(normalized.report.migrated["x-fern-sdk-group-name"], 1);
 ///
-/// // A document with nothing to rewrite is left as it is.
+/// // Documents with nothing to rewrite are returned unchanged.
 /// let native = br#"{"paths":{"/pets":{"get":{"x-forge-group-name":"pets"}}}}"#;
 /// let normalized = normalize(native, &options)?;
 /// assert!(normalized.json.is_none() && !normalized.report.changed());

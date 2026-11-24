@@ -35,17 +35,16 @@ for (const group of forge.groups) {
 }
 ```
 
-Forge reads only its native `x-forge-*` extensions. To read a document
-written with another tool's extensions, name the tool in `adapters`. `parse`
-then reads those extensions as `forge normalize --from` rewrites them, and
-leaves the document as it is.
+By default, `parse` reads only Forge's native `x-forge-*` extensions. Pass
+`adapters` to normalize extensions from `cloudflare`, `fern`, or `stainless`
+before parsing, matching `forge normalize --from`:
 
 ```ts
 const forge = parse(json, { adapters: ['fern'] });
 ```
 
-The adapters are `cloudflare`, `fern` and `stainless`.
-[Normalizing a document](#normalizing-a-document) lists what each rewrites.
+See [Normalizing a document](#normalizing-a-document) for the extensions each
+adapter rewrites.
 
 `parse` throws when forge doesn't read the document, such as one that is not
 OpenAPI 3.x, with the message the `forge` command prints.

@@ -47,8 +47,7 @@ impl exports::Guest for Library {
                     .ok_or_else(|| format!("unknown adapter {name:?}; expected cloudflare, fern, or stainless"))
             })
             .collect::<Result<Vec<_>, _>>()?;
-        // Without adapters, there is nothing to rewrite, so the document is
-        // parsed as given.
+        // Skip normalization when no adapters are requested.
         let normalized: Option<Vec<u8>> = if adapters.is_empty() {
             None
         } else {

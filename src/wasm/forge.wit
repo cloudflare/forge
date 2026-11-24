@@ -222,10 +222,10 @@ world plugin {
 interface parser {
     use forge.{forge};
 
-    /// Parses the OpenAPI JSON document `json` into a forge. First rewrites
-    /// the extensions of the tools in `adapters`, such as `fern`, into the
-    /// native ones, in the same way as `forge normalize --from`. Fails with
-    /// the message the `forge` command prints for the same document.
+    /// Parses the OpenAPI JSON document `json` into a forge, normalizing
+    /// extensions for each tool named in `adapters` (matching
+    /// `forge normalize --from`). Fails with the same error message as the
+    /// `forge` CLI.
     parse: func(json: string, adapters: list<string>) -> result<forge, string>;
 }
 
