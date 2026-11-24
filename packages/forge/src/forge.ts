@@ -9,7 +9,7 @@
  * @module
  */
 
-import type * as host from 'forge:plugin/forge@0.4.0';
+import type * as host from 'forge:plugin/forge@0.5.0';
 
 /**
  * A name from the document, as lower-case words, which a plugin spells in

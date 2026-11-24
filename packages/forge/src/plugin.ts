@@ -34,8 +34,8 @@
 // classes behind them stay private, so the bindings never show in
 // index.d.ts.
 
-import type * as host from 'forge:plugin/forge@0.4.0';
-import type * as hostPlugin from 'forge:plugin/plugin@0.4.0';
+import type * as host from 'forge:plugin/forge@0.5.0';
+import type * as hostPlugin from 'forge:plugin/plugin@0.5.0';
 
 import { type Forge, forgeOf } from './forge.js';
 

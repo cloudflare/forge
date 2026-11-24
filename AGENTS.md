@@ -8,6 +8,7 @@ API documentation site for Forge OpenAPI specs, built on Astro.
 - **`packages/fern-forge`**: `astro-fern` extension that validates and adapts Forge OpenAPI metadata.
 - **`packages/cloudflare-api-site`**: API documentation website consuming `astro-fern` and `fern-forge`. The OpenAPI spec is fetched from the `openapi.forge.json` GitHub release asset (or a local file via `FORGE_OPENAPI_SPEC`).
 - **`packages/cloudflare-terraform-docs`**: Generator for the site's Terraform documentation data, derived from the released Cloudflare Terraform provider. Temporary: removed once Forge supports Terraform natively (see the site's README).
+- **`packages/cloudflare-stainless-snippets`**: Generator for the site's TypeScript, Python and Go samples, ported from the retired Stainless API reference. Temporary: removed once Forge generates SDK samples (see the site's README).
 - **`packages/docs`**: The documentation site for Forge itself (the generator, its model and its plugins), built with Astro and Nimbus. `packages/docs/AGENTS.md` has its rules.
 
 ## Conventions

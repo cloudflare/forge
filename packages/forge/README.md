@@ -220,8 +220,8 @@ root. The root holds the methods whose operations have no
 `x-forge-group-name`, and the models that methods in more than one top-level
 group use, so every model has a `group`.
 
-The plugin interface is `forge:plugin@0.4.0`. Rebuild plugins compiled
-against `0.3.0` with the updated package before running them with this
+The plugin interface is `forge:plugin@0.5.0`. Rebuild plugins compiled
+against `0.4.0` with the updated package before running them with this
 version of Forge.
 
 A plugin fails by throwing; forge stops and prints the message. Its files

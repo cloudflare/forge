@@ -22,7 +22,7 @@ mod bindings {
     wit_bindgen::generate!({
         path: "src/wasm/forge.wit",
         world: "library",
-        with: { "forge:plugin/forge@0.4.0": super::wit_forge },
+        with: { "forge:plugin/forge@0.5.0": super::wit_forge },
     });
 }
 
