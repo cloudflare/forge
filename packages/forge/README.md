@@ -418,15 +418,12 @@ or list it in `package.json`. A path or URL to the tarball both work:
 
 ## Releasing
 
-The `forge@<version>` tag publishes the same version to npmjs.com and crates.io. The workflow rejects a tag whose commit is not on `main` or whose version differs from `Cargo.toml` and `package.json`. To cut a release:
+The `forge@<version>` tag publishes the same version to npmjs.com and crates.io. To cut a release:
 
 1. Land a PR to `main` that bumps `Cargo.toml` `version` and syncs it with `node packages/forge/scripts/version.mjs`.
-2. After it merges, update a clean local `main`, then create and push a signed tag from that commit:
+2. After it merges, create and push a signed tag:
 
 ```sh
-git switch main
-git pull --ff-only
-git status --short # must print nothing
 git tag -s forge@0.2.0 -m 'forge 0.2.0'
 git push origin forge@0.2.0
 ```
