@@ -1,5 +1,5 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import type { ApiSpec } from '@cloudflare/nimbus-docs/types';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import type { ApiSpec, ApiVersionSpec } from '@cloudflare/nimbus-docs/types';
 import {
   buildFernContent,
   defineFernManifest,
@@ -18,7 +18,6 @@ import {
   cloudflareSnippets,
 } from './cloudflare.ts';
 import { assertToolingRouteNamespace } from './command-reference/routing.ts';
-import { loadForgeOpenApi } from './openapi-source.ts';
 import { planStainlessRedirects, type StainlessSnapshot } from './stainless-redirects.ts';
 import {
   type SdkSnippets,
@@ -29,7 +28,7 @@ import {
 } from './stainless-snippets.ts';
 import { TERRAFORM_EXTENSION_NAME, type TerraformOperationData, terraformOperationDataSchema } from './terraform.ts';
 import { cloudflareTerraformExtension } from './terraform-extension.ts';
-import { cloudflareApiVersionLabel, parseCloudflareApiVersion } from './version.ts';
+import { parseCloudflareApiVersion } from './version.ts';
 
 export const TERRAFORM_EXTENSION = 'x-cloudflare-terraform';
 const HTTP_METHODS = ['get', 'put', 'post', 'delete', 'options', 'head', 'patch', 'trace'] as const;
@@ -72,8 +71,6 @@ export interface PreparedForgeApi {
   redirects: Record<string, string>;
   /** The product and resource pages Nimbus draws, collection-relative. */
   sections: string[];
-  /** Tag name → the URL segment that replaces it, for products Nimbus holds a segment for. */
-  tagSegments: Record<string, string>;
 }
 
 interface Tag {
@@ -230,6 +227,8 @@ export function prepareForgeApi(
       }
       kept++;
       op.tags = [leafTag.get(entry.operation.operationId)];
+      // Nimbus reads each page's URL from the spec, so the config carries no route map.
+      op['x-nimbus-route'] = operations[entry.operation.operationId];
       if (entry.operation.deprecated) op.deprecated = true;
       const methodName = op['x-fern-sdk-method-name'];
       const rank = typeof methodName === 'string' ? LIFECYCLE.indexOf(methodName) : -1;
@@ -269,7 +268,9 @@ export function prepareForgeApi(
     document,
   );
 
-  document.tags = [...tags.values()].map(({ key: _key, ...tag }) => tag);
+  document.tags = [...tags.values()].map(({ key: _key, ...tag }) =>
+    tag.name in MOVED_PRODUCT_SLUGS ? { ...tag, 'x-nimbus-route': MOVED_PRODUCT_SLUGS[tag.name] } : tag,
+  );
 
   return {
     document,
@@ -277,12 +278,6 @@ export function prepareForgeApi(
     products: primaryProducts.map(({ id, slug, title }) => ({ id, slug, title })),
     redirects,
     sections: [...sections],
-    tagSegments: Object.fromEntries(
-      primaryProducts.flatMap((product) => {
-        const moved = MOVED_PRODUCT_SLUGS[product.slug];
-        return moved === undefined ? [] : [[product.slug, moved]];
-      }),
-    ),
   };
 }
 
@@ -318,12 +313,16 @@ function terraformSample(terraform: TerraformOperationData | undefined): string 
     .join('\n\n');
 }
 
-/** Builds the prepared spec for every version and returns the Nimbus `api` entry. */
-export async function forgeApi(): Promise<ApiSpec> {
-  const document = hoistForgeCommands(await loadForgeOpenApi());
-  const label = cloudflareApiVersionLabel(air);
+/**
+ * Nimbus's transform for the API: prepares the spec it reads (from the Forge
+ * release, or `FORGE_OPENAPI_SPEC`) for rendering, and writes the products and
+ * redirects the site reads to `.forge/`. Nimbus runs it in Node at each build
+ * and dev start, and `astro preview` reuses the last build's result.
+ */
+export function prepareForgeSpec(source: Record<string, unknown>): Record<string, unknown> {
+  const document = hoistForgeCommands(source);
   const data = buildFernContent({
-    source: { kind: 'snapshots', snapshots: [{ id: air.wire, source: document, label, default: true }] },
+    source: { kind: 'snapshots', snapshots: [{ id: air.wire, source: document, label: air.label, default: true }] },
     manifest,
     responsePayloadKey: CLOUDFLARE_RESPONSE_PAYLOAD_KEY,
     formatIdentifier: cloudflareFormatIdentifier,
@@ -339,19 +338,23 @@ export async function forgeApi(): Promise<ApiSpec> {
 
   const dir = new URL('../.forge/', import.meta.url);
   mkdirSync(dir, { recursive: true });
-  const specFile = `openapi-${air.wire}.json`;
-  writeFileSync(new URL(specFile, dir), JSON.stringify(prepared.document));
   writeFileSync(new URL('products.json', dir), JSON.stringify(prepared.products, null, 2));
   writeFileSync(new URL('redirects.json', dir), JSON.stringify(prepared.redirects, null, 2));
   writeStainlessRedirects(snapshot, prepared, dir);
+  return prepared.document;
+}
 
-  const api: ApiSpec = {
+/** The Nimbus `api` entry, reading `spec`; `prepareForgeSpec` is its transform. */
+export function forgeApi(spec: ApiVersionSpec['spec']): ApiSpec {
+  return {
     collection: 'api',
     label: 'Cloudflare API',
     versionUrl: { in: 'query' },
     bundle: false,
     // Nimbus pretty-prints the published spec: 36 MB here, over the 25 MiB Workers asset limit (20 MB minified).
     publishSpec: false,
+    // Nothing cites this site's operations yet, and it sits behind Access.
+    publishCoordinates: false,
     sidebar: 'on-demand',
     requireOperationId: true,
     samples: { generate: [] },
@@ -359,23 +362,14 @@ export async function forgeApi(): Promise<ApiSpec> {
     versions: [
       {
         version: air.wire,
-        label,
+        label: air.label,
         default: true,
-        spec: `.forge/${specFile}`,
-        routes: {
-          convention: 'resource-action-v2',
-          sections: 'hierarchical',
-          tagSegments: prepared.tagSegments,
-          operations: prepared.operations,
-        },
+        spec,
+        routes: { convention: 'resource-action-v2', sections: 'hierarchical' },
       },
     ],
   };
-  writeFileSync(new URL(BUILT_API_FILE, dir), JSON.stringify(api));
-  return api;
 }
-
-const BUILT_API_FILE = 'api.json';
 
 function readStainlessSnapshot(): StainlessSnapshot {
   return JSON.parse(readFileSync(new URL('./stainless-redirects.json', import.meta.url), 'utf8')) as StainlessSnapshot;
@@ -408,22 +402,4 @@ function writeStainlessRedirects(snapshot: StainlessSnapshot, prepared: Prepared
   }
   writeFileSync(new URL('stainless-fallbacks.json', dir), JSON.stringify(plan.fallbacks, null, 2));
   writeFileSync(new URL('stainless-lookup.json', dir), JSON.stringify(plan.lookup));
-}
-
-/**
- * Whether this process is `astro preview`: the command is the argument after
- * the Astro binary, so `astro build --mode preview` doesn't count.
- */
-export function isAstroPreview(argv: readonly string[] = process.argv): boolean {
-  const bin = argv.findIndex((arg) => /(^|[\\/])astro(\.m?js)?$/.test(arg));
-  return bin !== -1 && argv[bin + 1] === 'preview';
-}
-
-/**
- * The Nimbus `api` entry the last `forgeApi()` run wrote. `astro preview` only
- * serves the last build, so it reads this instead of preparing the spec again.
- */
-export function builtForgeApi(): ApiSpec | undefined {
-  const file = new URL(`../.forge/${BUILT_API_FILE}`, import.meta.url);
-  return existsSync(file) ? (JSON.parse(readFileSync(file, 'utf8')) as ApiSpec) : undefined;
 }

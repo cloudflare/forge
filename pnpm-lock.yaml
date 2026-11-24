@@ -234,8 +234,8 @@ importers:
         specifier: ^15.0.0-beta.2
         version: 15.0.0-beta.2(@types/node@26.0.1)(astro@7.4.1(@types/node@26.0.1)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.22.4)(yaml@2.9.1))(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.22.4)(workerd@1.20261101.1)(yaml@2.9.1)
       '@cloudflare/nimbus-docs':
-        specifier: ^0.20.0
-        version: 0.20.0(@modelcontextprotocol/server@2.3.1)(@resvg/resvg-js@2.6.2)(@scalar/openapi-parser@0.28.12)(@types/node@26.0.1)(astro@7.4.1(@types/node@26.0.1)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.22.4)(yaml@2.9.1))(esbuild@0.28.2)(jiti@2.7.0)(openapi-sampler@1.7.4)(satori@0.63.2)(supports-color@10.2.2)(tsx@4.22.4)
+        specifier: ^0.20.1
+        version: 0.20.1(@modelcontextprotocol/server@2.3.1)(@resvg/resvg-js@2.6.2)(@scalar/openapi-parser@0.28.12)(@types/node@26.0.1)(astro@7.4.1(@types/node@26.0.1)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.22.4)(yaml@2.9.1))(esbuild@0.28.2)(jiti@2.7.0)(openapi-sampler@1.7.4)(satori@0.63.2)(supports-color@10.2.2)(tsx@4.22.4)
       '@fontsource-variable/inter':
         specifier: 5.3.0
         version: 5.3.0
@@ -1067,35 +1067,6 @@ packages:
 
   '@cloudflare/config@0.29.1':
     resolution: {integrity: sha512-3wWliifIE9yLDp+56Y5iLT1a6fIjBVjkHpJ5Q48UpJwcGOrQ23cNppLlvjVSjxV4+S5gZEZwElLC1fwQ2hmOEQ==}
-
-  '@cloudflare/nimbus-docs@0.20.0':
-    resolution: {integrity: sha512-+dCx3KteWpaegUdXtwQGS7pugt6udhzBHumLpUFNaGqwoUk95pYvKIcdQjxJUH8SFjvQwdVGtcv9taTuUZlnkw==}
-    engines: {node: '>=22.23.4'}
-    hasBin: true
-    peerDependencies:
-      '@modelcontextprotocol/server': '>=2.3.0 <3.0.0'
-      '@resvg/resvg-js': '>=2.6.2 <3.0.0'
-      '@scalar/openapi-parser': '>=0.10.0 <1.0.0'
-      astro: '>=7.2.10 <8.0.0'
-      openapi-sampler: '>=1.5.0'
-      react: '>=19.0.0'
-      react-dom: '>=19.0.0'
-      satori: ^0.26.0 || ^0.63.2
-    peerDependenciesMeta:
-      '@modelcontextprotocol/server':
-        optional: true
-      '@resvg/resvg-js':
-        optional: true
-      '@scalar/openapi-parser':
-        optional: true
-      openapi-sampler:
-        optional: true
-      react:
-        optional: true
-      react-dom:
-        optional: true
-      satori:
-        optional: true
 
   '@cloudflare/nimbus-docs@0.20.1':
     resolution: {integrity: sha512-e8hmuIO3mioPQ7vS5gS265cEcx+2Fit/NvSsboz6nfOv1cdclxkYWMhEdik6hieYxqIR5/J2e+DFveaJWhZ36w==}
@@ -2757,20 +2728,12 @@ packages:
     resolution: {integrity: sha512-IAfnpIZnXY6ni+zyFMwWHBa5b/7yr4mCSvoTGR84oS9q4Quy2wjgafnr7CyfL65ney3iilBZHigZYLYqdqCu3Q==}
     engines: {node: '>=22'}
 
-  '@scalar/helpers@0.16.4':
-    resolution: {integrity: sha512-9eILWzUcAkHEuYMMvijpSIy69t+Vkq+NudLB/7lgARFTWqXfQpIxW1L3VH7ogKyRie5+E4CNZ3PSvlw6IIfLGw==}
-    engines: {node: '>=22'}
-
   '@scalar/helpers@0.17.0':
     resolution: {integrity: sha512-/XzBJDB/nr/Nzkx/a8ow0WdWb5LIb6KsWrjv7TsQYolkCxOM6ZT+iEJ635QssQG33wEzAK0os5Xbiub6RUU+Ng==}
     engines: {node: '>=22'}
 
   '@scalar/json-magic@0.12.20':
     resolution: {integrity: sha512-5JawJ1L3+ddDoKefkXsklKs6CmmTIcPDmkJPpAkbRi9QQiU9MUONQ4VSi2z3ij+8Ka4neNhsXBNG4itPjurBLg==}
-    engines: {node: '>=22'}
-
-  '@scalar/json-magic@0.16.1':
-    resolution: {integrity: sha512-yWQJUrkufUsShizF+rGKO4BoZ/ijMpnrgwRjtCA2cYqjxkQOYaQCd+WVF+b3ihmXE7amr768pLItFCx5UV/ObQ==}
     engines: {node: '>=22'}
 
   '@scalar/json-magic@0.18.0':
@@ -2859,10 +2822,6 @@ packages:
 
   '@shikijs/themes@4.6.0':
     resolution: {integrity: sha512-qHAVAs80RiGD+IRuH9G+JPDOEc9A/kHsng4EzCUCwB9bLzW6Z0y9WETh2YyCcADJBmfrIaJ1Jp7KBNP6FHkgtQ==}
-    engines: {node: '>=20'}
-
-  '@shikijs/transformers@4.5.0':
-    resolution: {integrity: sha512-LM7twi043qCC3gRyGQfjoC2/sowzbEltWuruyRtT3RlBlk1hKzWk9ETnU7RcDBoVWQBmC8Mebnr7p28W7kPoaA==}
     engines: {node: '>=20'}
 
   '@shikijs/transformers@4.6.0':
@@ -3740,9 +3699,6 @@ packages:
 
   harfbuzzjs@0.10.0:
     resolution: {integrity: sha512-SN8LVwCOzvTq3OPNd0+EAghgXugItz56wst567D1vs7LnnKGWprhi3EG58aVOBwhN8HEbQxL4I9NDWkcXUutRw==}
-
-  hast-util-from-html@2.0.3:
-    resolution: {integrity: sha512-CUSRHXyKjzHov8yKsQjGOElXy/3EKpyX56ELnkHH34vDVw1N1XSQ1ZcAvTyAPtGqLTuKP/uxM+aLkSPqF/EtMw==}
 
   hast-util-from-html@2.1.0:
     resolution: {integrity: sha512-873p9AuH93gBnATbH8rU3YvjTKxyrIeWd/M9tiLMzn3G82Os0xhQurctfnbYUSrDXoyjbJGpJ2qmTpefMw7ZaQ==}
@@ -6007,28 +5963,28 @@ snapshots:
     dependencies:
       zod: 4.6.6
 
-  '@cloudflare/nimbus-docs@0.20.0(@modelcontextprotocol/server@2.3.1)(@resvg/resvg-js@2.6.2)(@scalar/openapi-parser@0.28.12)(@types/node@26.0.1)(astro@7.4.1(@types/node@26.0.1)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.22.4)(yaml@2.9.1))(esbuild@0.28.2)(jiti@2.7.0)(openapi-sampler@1.7.4)(satori@0.63.2)(supports-color@10.2.2)(tsx@4.22.4)':
+  '@cloudflare/nimbus-docs@0.20.1(@modelcontextprotocol/server@2.3.1)(@resvg/resvg-js@2.6.2)(@scalar/openapi-parser@0.28.12)(@types/node@26.0.1)(astro@7.4.1(@types/node@26.0.1)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.22.4)(yaml@2.9.1))(esbuild@0.28.2)(jiti@2.7.0)(openapi-sampler@1.7.4)(satori@0.63.2)(supports-color@10.2.2)(tsx@4.22.4)':
     dependencies:
       '@astrojs/markdown-satteri': 0.4.7
       '@astrojs/mdx': 8.1.3(@astrojs/markdown-satteri@0.4.7)(astro@7.4.1(@types/node@26.0.1)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.22.4)(yaml@2.9.1))
       '@astrojs/sitemap': 3.7.4
-      '@clack/prompts': 1.8.1
+      '@clack/prompts': 1.9.0
       '@fontsource/stix-two-math': 5.3.0
       '@iconify/tools': 5.0.14
       '@iconify/types': 2.0.0
       '@iconify/utils': 3.1.7
-      '@scalar/json-magic': 0.16.1
-      '@shikijs/transformers': 4.5.0
-      '@shikijs/types': 4.5.0
+      '@scalar/json-magic': 0.18.0
+      '@shikijs/transformers': 4.6.0
+      '@shikijs/types': 4.6.0
       '@vercel/detect-agent': 1.2.7
       astro: 7.4.1(@types/node@26.0.1)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.22.4)(yaml@2.9.1)
       clsx: 2.1.1
       cross-spawn: 7.0.6
       giget: 3.3.1
       github-slugger: 2.0.0
-      hast-util-from-html: 2.0.3
+      hast-util-from-html: 2.1.0
       hast-util-sanitize: 5.0.2
-      hast-util-to-html: 9.0.5
+      hast-util-to-html: 9.0.7
       jsonc-parser: 3.3.1
       mdast-util-from-markdown: 2.0.3(supports-color@10.2.2)
       mdast-util-gfm: 3.1.0(supports-color@10.2.2)
@@ -6039,9 +5995,9 @@ snapshots:
       micromark-extension-gfm-table: 2.1.2
       mri: 1.2.0
       picomatch: 4.0.7
-      satteri: 0.10.5
-      semver: 7.8.5
-      shiki: 4.5.0
+      satteri: 0.11.7
+      semver: 7.8.6
+      shiki: 4.6.0
       tailwind-merge: 3.7.0
       temml: 0.14.0
       typescript: 5.9.3
@@ -7193,21 +7149,12 @@ snapshots:
 
   '@scalar/helpers@0.10.0': {}
 
-  '@scalar/helpers@0.16.4': {}
-
   '@scalar/helpers@0.17.0': {}
 
   '@scalar/json-magic@0.12.20':
     dependencies:
       '@scalar/helpers': 0.10.0
       pathe: 2.0.3
-      yaml: 2.9.1
-
-  '@scalar/json-magic@0.16.1':
-    dependencies:
-      '@scalar/helpers': 0.16.4
-      pathe: 2.0.3
-      undici: 7.30.1
       yaml: 2.9.1
 
   '@scalar/json-magic@0.18.0':
@@ -7334,11 +7281,6 @@ snapshots:
   '@shikijs/themes@4.6.0':
     dependencies:
       '@shikijs/types': 4.6.0
-
-  '@shikijs/transformers@4.5.0':
-    dependencies:
-      '@shikijs/core': 4.5.0
-      '@shikijs/types': 4.5.0
 
   '@shikijs/transformers@4.6.0':
     dependencies:
@@ -8178,7 +8120,8 @@ snapshots:
 
   entities@4.5.0: {}
 
-  entities@6.0.1: {}
+  entities@6.0.1:
+    optional: true
 
   entities@9.0.0: {}
 
@@ -8331,15 +8274,6 @@ snapshots:
       uncrypto: 0.1.3
 
   harfbuzzjs@0.10.0: {}
-
-  hast-util-from-html@2.0.3:
-    dependencies:
-      '@types/hast': 3.0.5
-      devlop: 1.1.0
-      hast-util-from-parse5: 8.0.3
-      parse5: 7.3.0
-      vfile: 6.0.3
-      vfile-message: 4.0.3
 
   hast-util-from-html@2.1.0:
     dependencies:
@@ -9287,6 +9221,7 @@ snapshots:
   parse5@7.3.0:
     dependencies:
       entities: 6.0.1
+    optional: true
 
   parse5@8.1.1:
     dependencies:

@@ -12,35 +12,46 @@ Cloudflare data to the spec and never renders anything itself.
 
 ```text
 openapi.forge.json (latest stable Forge release)
+   Nimbus URL source, .nimbus/sources/forge/
                  |
                  v
-   astro-fern buildFernContent
-   products, resources, routes, Terraform data
+   prepareForgeSpec (src/forge-api.ts), Nimbus's transform
+   astro-fern buildFernContent: products, resources, routes, Terraform data
                  |
                  v
    prepareForgeApi (src/forge-api.ts)  <-  src/stainless-redirects.json
                                        <-  src/stainless-snippets.json
                  |
                  v
-   .forge/  spec, products, redirects, Stainless redirects
+   .nimbus/api-specs/  the prepared spec
+   .forge/             products, redirects, Stainless redirects
                  |
                  v
-   Nimbus api collection
+   Nimbus api pages
    /     |        \
  pages  Markdown  llms.txt
 ```
 
 The spec is the `openapi.forge.json` asset on the latest stable Forge GitHub
-release, loaded by `src/openapi-source.ts`. Fern SDK group and method metadata defines each public product,
-resource hierarchy, and method route. OpenAPI tags remain internal ownership
+release. `src/openapi-source.ts` declares it as a Nimbus URL source, which
+Nimbus saves under `.nimbus/sources/forge/` and checks with one conditional
+request on each build, downloading it only when it changed. Fern SDK group and method
+metadata defines each public product, resource hierarchy, and method route.
+OpenAPI tags remain internal ownership
 metadata and do not appear in URLs.
 
-`forgeApi` writes these files to the git-ignored `.forge/` directory:
+`prepareForgeSpec` is the API's transform: Nimbus runs it in Node at each
+build, dev start and `astro sync`, never in the Worker, and `astro preview`
+reuses the last build's result.
 
-- `openapi-<version>.json`: the spec Nimbus renders, with Cloudflare titles,
-  `x-nimbus-order` for lifecycle order, request samples (the SDK ones from the
-  retired Stainless site, see [Stainless snippets](#stainless-snippets)), synthesized response
-  examples, and Terraform data under `x-cloudflare-terraform`;
+It returns the spec Nimbus renders, with Cloudflare titles, each page's URL as
+`x-nimbus-route` (on a moved product's tag, its new segment), `x-nimbus-order`
+for lifecycle order, request samples (the SDK ones from the retired Stainless
+site, see [Stainless snippets](#stainless-snippets)), synthesized response
+examples, and Terraform data under `x-cloudflare-terraform`. Nimbus reads the
+URLs from it, so the config carries no route map. It also writes these files to
+the git-ignored `.forge/` directory:
+
 - `products.json`: the products and their slugs, read by the command sidebar;
 - `redirects.json`: old section, alias-operation, and moved-product URLs, read by
   `src/middleware.ts`;
@@ -58,14 +69,15 @@ approved zone mapping.
 
 ## Project ownership
 
-- `astro.config.mjs` installs Nimbus with the API entry from `forgeApi()` and the
-  Cloudflare adapter. API pages render on request. It lists the icons the site
+- `astro.config.mjs` installs Nimbus with the spec source, the API entry from
+  `forgeApi()`, its transform `prepareForgeSpec`, and the Cloudflare adapter. API pages render on request. It lists the icons the site
   uses, so only those reach the Worker; add an icon there before using it.
 - `src/forge-api.ts` builds the `astro-fern` content and prepares the spec, as
   above. `src/cloudflare.ts` holds the execution targets, snippets, and routing
   preferences it uses, and `src/version.ts` the API version.
-- `src/content.config.ts` registers Nimbus's `api` collection and the `cf`
-  command catalog; `src/live.config.ts` registers Nimbus's live API pages.
+- `src/content.config.ts` registers the `cf` command catalog. The API needs no
+  collection: with `bundle: false`, Nimbus prepares its pages and reads them
+  itself.
 - `src/pages/[...slug].astro` renders every API page with Nimbus's
   `getApiRoute`; `src/plain-text.ts` turns a description into its meta
   description.
@@ -97,8 +109,10 @@ approved zone mapping.
   on a host shared with other sites they belong in the root site's files.
 
 The published spec download is off: Nimbus pretty-prints it, and at 36 MB it is
-over the Workers asset limit. MDX validation is off because the site has no
-authored MDX pages.
+over the Workers asset limit. The coordinate manifest
+(`/nimbus-api/coordinates.json`) is off too: nothing cites this site's
+operations yet. MDX validation is off because the site has no authored MDX
+pages.
 
 ### Styling
 
@@ -285,8 +299,7 @@ Build-time environment variables:
 
 - `FORGE_OPENAPI_RELEASE`: a release tag such as `openapi@<api-schemas-commit>`,
   to build against that exact spec, as a release-triggered deploy does.
-- `FORGE_OPENAPI_SPEC`: an already-downloaded spec, to build without
-  downloading it again.
+- `FORGE_OPENAPI_SPEC`: a spec file, to build from it instead of a release.
 - `INTERNAL_SITE_DOMAIN`: an internal deployment's hostname. Astro trusts the
   `X-Forwarded-Host` header only for hosts in
   [`security.allowedDomains`](https://docs.astro.build/en/reference/configuration-reference/#securityalloweddomains):

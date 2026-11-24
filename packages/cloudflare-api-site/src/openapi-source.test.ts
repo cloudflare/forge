@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { fetchForgeOpenApi, forgeOpenApiUrl, loadForgeOpenApi } from './openapi-source.ts';
+import { forgeOpenApiSource, forgeOpenApiUrl } from './openapi-source.ts';
 
 test('uses the latest Forge OpenAPI release by default', () => {
   assert.equal(
@@ -16,38 +16,14 @@ test('uses an exact encoded Forge OpenAPI release when pinned', () => {
   );
 });
 
-test('fetches and parses the Forge OpenAPI release asset', async () => {
-  let requestedUrl: string | undefined;
-  const fetcher = async (input: string | URL | Request) => {
-    requestedUrl = String(input);
-    return Response.json({ openapi: '3.0.3' });
-  };
-
-  const document = await fetchForgeOpenApi('openapi@test', fetcher);
-
-  assert.equal(requestedUrl, 'https://github.com/cloudflare/forge/releases/download/openapi%40test/openapi.forge.json');
-  assert.deepEqual(document, { openapi: '3.0.3' });
-});
-
-test('reports release asset download failures', async () => {
-  const fetcher = async () => new Response(null, { status: 404, statusText: 'Not Found' });
-
-  await assert.rejects(() => fetchForgeOpenApi('missing', fetcher), /404 Not Found.*openapi\.forge\.json/);
-});
-
-test('reports malformed release assets', async () => {
-  const fetcher = async () => new Response('{', { headers: { 'content-type': 'application/json' } });
-
-  await assert.rejects(() => fetchForgeOpenApi('malformed', fetcher), /Could not parse.*openapi\.forge\.json/);
-});
-
-test('loads an already-downloaded Forge OpenAPI artifact', async () => {
-  let requestedPath: string | undefined;
-  const document = await loadForgeOpenApi('cached/openapi.forge.json', undefined, async (path) => {
-    requestedPath = path;
-    return '{"openapi":"3.0.3"}';
+test('reads the release asset as a URL source, or a local spec file instead', () => {
+  assert.deepEqual(forgeOpenApiSource(undefined, 'openapi@abc'), {
+    sources: {
+      forge: { url: 'https://github.com/cloudflare/forge/releases/download/openapi%40abc/openapi.forge.json' },
+    },
+    spec: { source: 'forge' },
   });
-
-  assert.equal(requestedPath, 'cached/openapi.forge.json');
-  assert.deepEqual(document, { openapi: '3.0.3' });
+  assert.deepEqual(forgeOpenApiSource('cached/openapi.forge.json', 'openapi@abc'), {
+    spec: 'cached/openapi.forge.json',
+  });
 });
