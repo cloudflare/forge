@@ -288,31 +288,45 @@ fn apply_update(
     if locations.is_empty() {
         return Ok(0);
     }
-    // Rebase relative `$ref`s in the inserted value against the overlay's
-    // retrieval base so the merged spec is self-contained. Targets inside
-    // literal-data containers (examples, defaults, `x-*` extensions) keep the
-    // raw payload untouched so ordinary data keys named `$ref` aren't altered.
-    let needs_rebase = overlay_base.is_some() && locations.iter().any(|p| !pointer_is_literal_data(p));
-    let mut rebased_owner = None;
-    if needs_rebase {
-        let mut cloned = update.clone();
-        rebase_refs(&mut cloned, overlay_base, spec_base)?;
-        rebased_owner = Some(cloned);
-    }
-    let value_for = |p: &Pointer| -> &Value {
-        if pointer_is_literal_data(p) {
-            update
-        } else {
-            rebased_owner.as_ref().unwrap_or(update)
-        }
-    };
     // Compute each target's category once. Nothing mutates between here
     // and the end of the apply loop that would invalidate these (dedup
     // guarantees locations are distinct, and no two distinct pointers
     // alias the same node), so we can reuse the vector below.
     let cats: Vec<Category> = locations.iter().map(|p| category_at(doc.value(), p)).collect();
-    for (p, cat) in locations.iter().zip(cats.iter().copied()) {
-        let val = value_for(p);
+
+    // Classify each target pointer for `$ref` rebasing: targets inside
+    // literal-data containers (examples, defaults, `x-*` extensions) keep the
+    // raw payload untouched; targets ending on an entry map (like `properties`
+    // or `headers`) start the walk with `in_entry_map = true` so user-named
+    // entries like `"value"` or `"x-rate"` still rebase.
+    let contexts: Vec<TargetRebaseContext> = locations
+        .iter()
+        .zip(cats.iter().copied())
+        .map(|(p, cat)| classify_target_pointer(p, cat))
+        .collect();
+    let mut rebased_normal = None;
+    let mut rebased_entry_map = None;
+    if overlay_base.is_some() {
+        if contexts.contains(&TargetRebaseContext::Normal) {
+            let mut cloned = update.clone();
+            rebase_refs(&mut cloned, overlay_base, spec_base, false)?;
+            rebased_normal = Some(cloned);
+        }
+        if contexts.contains(&TargetRebaseContext::EntryMap) {
+            let mut cloned = update.clone();
+            rebase_refs(&mut cloned, overlay_base, spec_base, true)?;
+            rebased_entry_map = Some(cloned);
+        }
+    }
+    let value_for = |idx: usize| -> &Value {
+        match contexts[idx] {
+            TargetRebaseContext::Literal => update,
+            TargetRebaseContext::Normal => rebased_normal.as_ref().unwrap_or(update),
+            TargetRebaseContext::EntryMap => rebased_entry_map.as_ref().unwrap_or(update),
+        }
+    };
+    for (idx, (p, cat)) in locations.iter().zip(cats.iter().copied()).enumerate() {
+        let val = value_for(idx);
         match cat {
             Category::Primitive => {
                 // Overlay 1.0 primitives are already rejected in `apply_action`
@@ -447,11 +461,11 @@ fn apply_value_to_targets<'a>(
     version: Version,
     locations: &[Pointer],
     cats: &[Category],
-    value_for: impl Fn(&Pointer) -> &'a Value,
+    value_for: impl Fn(usize) -> &'a Value,
 ) -> Result<usize, Err> {
     let mut mutated = 0usize;
-    for (p, cat) in locations.iter().zip(cats.iter().copied()) {
-        let value = value_for(p);
+    for (idx, (p, cat)) in locations.iter().zip(cats.iter().copied()).enumerate() {
+        let value = value_for(idx);
         match (cat, path::resolve_mut(doc.value_mut(), p)) {
             (Category::Primitive, Some(node)) => {
                 if *node != *value {
@@ -657,11 +671,23 @@ fn is_primitive(v: &Value) -> bool {
 /// whole, so Reusable Action `$ref`s under `components.actions.*` are not
 /// touched (and a pure-fragment ref like `#/components/actions/Foo` is
 /// skipped above anyway).
-fn rebase_refs(value: &mut Value, overlay_base: Option<&str>, spec_base: Option<&str>) -> Result<(), Err> {
+fn rebase_refs(
+    value: &mut Value,
+    overlay_base: Option<&str>,
+    spec_base: Option<&str>,
+    in_entry_map: bool,
+) -> Result<(), Err> {
     let Some(overlay_base) = overlay_base else {
         return Ok(());
     };
-    rebase_refs_walk(value, overlay_base, spec_base)
+    rebase_refs_walk(value, overlay_base, spec_base, in_entry_map)
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum TargetRebaseContext {
+    Normal,
+    EntryMap,
+    Literal,
 }
 
 /// Keys whose values hold literal user data rather than OpenAPI/JSON Schema
@@ -671,45 +697,96 @@ fn is_literal_data_key(key: &str) -> bool {
     matches!(key, "example" | "default" | "const" | "enum" | "value" | "dataValue") || key.starts_with("x-")
 }
 
-/// True when `p` points at or inside a literal-data container in the target
-/// document (such as `example`, `default`, `const`, `enum`, `value`,
-/// `dataValue`, a JSON Schema `examples` array, or an `x-*` extension).
-fn pointer_is_literal_data(p: &Pointer) -> bool {
-    for (i, seg) in p.0.iter().enumerate() {
-        let Segment::Name(k) = seg else {
-            continue;
-        };
-        if is_literal_data_key(k) {
-            return true;
-        }
-        // JSON Schema 2020-12 `examples` is an array of literal example values,
-        // whereas OpenAPI `examples` is a map of Example/Reference Objects.
-        if k == "examples" && matches!(p.0.get(i + 1), Some(Segment::Index(_))) {
-            return true;
-        }
-    }
-    false
+/// Keys whose object value is a map of user-chosen names to OpenAPI/JSON Schema
+/// objects (e.g. `properties.<name>`, `headers.<name>`, `examples.<name>`).
+/// Direct child keys are user names rather than OpenAPI keywords, so a schema
+/// property named `"value"`/`"default"` or a header named `"x-rate"` still
+/// rebases its `$ref`.
+fn is_entry_map_key(key: &str) -> bool {
+    matches!(
+        key,
+        "properties"
+            | "patternProperties"
+            | "dependentSchemas"
+            | "$defs"
+            | "definitions"
+            | "schemas"
+            | "parameters"
+            | "responses"
+            | "requestBodies"
+            | "headers"
+            | "examples"
+            | "links"
+            | "callbacks"
+            | "pathItems"
+            | "mediaTypes"
+            | "content"
+            | "encoding"
+    )
 }
 
-fn rebase_refs_walk(value: &mut Value, overlay_base: &str, spec_base: Option<&str>) -> Result<(), Err> {
+/// Classifies where a target pointer sits in the OpenAPI tree for `$ref`
+/// rebasing: inside a literal-data container (`Literal`), directly on an entry
+/// map like `properties` or `headers` (`EntryMap`), or in a normal OpenAPI
+/// object (`Normal`).
+fn classify_target_pointer(p: &Pointer, cat: Category) -> TargetRebaseContext {
+    let mut in_entry_map = false;
+    for (i, seg) in p.0.iter().enumerate() {
+        match seg {
+            Segment::Name(k) => {
+                if !in_entry_map {
+                    if is_literal_data_key(k) {
+                        return TargetRebaseContext::Literal;
+                    }
+                    // JSON Schema 2020-12 `examples` is an array of literal
+                    // example values, whereas OpenAPI `examples` is a map of
+                    // Example/Reference Objects.
+                    let is_last = i + 1 == p.0.len();
+                    if k == "examples"
+                        && (matches!(p.0.get(i + 1), Some(Segment::Index(_))) || (is_last && cat == Category::Array))
+                    {
+                        return TargetRebaseContext::Literal;
+                    }
+                }
+                in_entry_map = !in_entry_map && is_entry_map_key(k);
+            }
+            Segment::Index(_) => {
+                in_entry_map = false;
+            }
+        }
+    }
+    if in_entry_map {
+        TargetRebaseContext::EntryMap
+    } else {
+        TargetRebaseContext::Normal
+    }
+}
+
+fn rebase_refs_walk(
+    value: &mut Value,
+    overlay_base: &str,
+    spec_base: Option<&str>,
+    in_entry_map: bool,
+) -> Result<(), Err> {
     match value {
         Value::Object(map) => {
-            if let Some(Value::String(r)) = map.get("$ref") {
+            if !in_entry_map && let Some(Value::String(r)) = map.get("$ref") {
                 let r = r.clone();
                 if let Some(rewritten) = rebase_one_ref(&r, overlay_base, spec_base)? {
                     map.insert("$ref".to_owned(), Value::String(rewritten));
                 }
             }
             for (k, v) in map.iter_mut() {
-                if is_literal_data_key(k) || (k == "examples" && v.is_array()) {
+                if !in_entry_map && (is_literal_data_key(k) || (k == "examples" && v.is_array())) {
                     continue;
                 }
-                rebase_refs_walk(v, overlay_base, spec_base)?;
+                let child_in_entry_map = !in_entry_map && is_entry_map_key(k) && v.is_object();
+                rebase_refs_walk(v, overlay_base, spec_base, child_in_entry_map)?;
             }
         }
         Value::Array(arr) => {
             for v in arr {
-                rebase_refs_walk(v, overlay_base, spec_base)?;
+                rebase_refs_walk(v, overlay_base, spec_base, false)?;
             }
         }
         _ => {}

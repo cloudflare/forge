@@ -1135,6 +1135,90 @@ fn update_does_not_rebase_literal_refs_in_examples_and_extensions() {
     assert_eq!(media["examples"]["external"]["$ref"], "overlays/examples/Real.yaml#/Ex");
 }
 
+/// User-named entries inside OpenAPI/JSON Schema entry maps (`properties`,
+/// `headers`, etc.) whose names happen to match literal keywords (`value`,
+/// `default`, `x-*`) still have their `$ref`s rebased — both when nested inside
+/// an update payload and when the action targets the entry map directly — while
+/// targeting a JSON Schema `examples` array directly keeps literal data untouched.
+#[test]
+fn update_rebases_refs_under_entry_maps_named_like_literal_keys() {
+    let dir = crate::common::dir("update-entry-map-refs");
+    std::fs::create_dir_all(dir.join("overlays")).unwrap();
+    std::fs::write(
+        dir.join("openapi.json"),
+        r#"{
+  "openapi": "3.1.0",
+  "info": {"title": "t", "version": "1"},
+  "components": {
+    "schemas": {
+      "Setting": {
+        "type": "object",
+        "properties": {},
+        "examples": []
+      }
+    }
+  },
+  "paths": {
+    "/a": {
+      "get": {
+        "responses": {
+          "200": {"description": "ok", "headers": {}}
+        }
+      }
+    }
+  }
+}"#,
+    )
+    .unwrap();
+    std::fs::write(
+        dir.join("overlays/fix.json"),
+        r#"{
+  "overlay": "1.1.0",
+  "info": {"title": "fix", "version": "1"},
+  "actions": [
+    {
+      "target": "$.components.schemas.Setting.properties",
+      "update": {
+        "value": {"$ref": "./types.yaml#/Val"},
+        "default": {"$ref": "./types.yaml#/Def"}
+      }
+    },
+    {
+      "target": "$.paths[\"/a\"].get.responses[\"200\"]",
+      "update": {
+        "headers": {
+          "x-ratelimit-remaining": {"$ref": "./headers.yaml#/RL"}
+        }
+      }
+    },
+    {
+      "target": "$.components.schemas.Setting.examples",
+      "update": {"$ref": "./literal-example"}
+    }
+  ]
+}"#,
+    )
+    .unwrap();
+
+    let out = crate::common::overlay(
+        &[
+            dir.join("openapi.json").to_str().unwrap(),
+            dir.join("overlays/fix.json").to_str().unwrap(),
+        ],
+        "",
+    );
+    crate::common::succeeded(&out);
+    let doc: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    let setting = &doc["components"]["schemas"]["Setting"];
+    assert_eq!(setting["properties"]["value"]["$ref"], "overlays/types.yaml#/Val");
+    assert_eq!(setting["properties"]["default"]["$ref"], "overlays/types.yaml#/Def");
+    assert_eq!(
+        doc["paths"]["/a"]["get"]["responses"]["200"]["headers"]["x-ratelimit-remaining"]["$ref"],
+        "overlays/headers.yaml#/RL"
+    );
+    assert_eq!(setting["examples"][0]["$ref"], "./literal-example");
+}
+
 /// A 1.0 multi-match update must not silently drop later iterations when an
 /// earlier one mutated an overlapping ancestor. `$..x` on `{x:{x:{}}}` with
 /// `update:{x:"str"}` used to merge the outermost (replacing `x` with a
