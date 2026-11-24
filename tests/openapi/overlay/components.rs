@@ -1124,3 +1124,28 @@ fn v12_extends_identity_normalizes_equivalent_uris() {
     let doc: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
     assert_eq!(doc["info"]["description"], "matched");
 }
+
+/// 1.2 RFC 6901 §6: percent-encoded octets in reusable-action `$ref` fragments
+/// (e.g. `%20` for a space) are decoded before JSON Pointer unescaping.
+#[test]
+fn v12_reference_with_percent_encoded_component_key() {
+    let (spec, ov) = files(
+        "v12-ref-percent-encoded",
+        SPEC,
+        r##"{
+  "overlay": "1.2.0",
+  "info": {"title": "fix", "version": "1"},
+  "components": {
+    "actions": {
+      "set description": {"fields": {"update": {"description": "from-encoded-ref"}}}
+    }
+  },
+  "actions": [{"$ref": "#/components/actions/set%20description", "target": "$.info"}]
+}"##,
+    );
+
+    let out = overlay(&[spec.to_str().unwrap(), ov.to_str().unwrap()], "");
+    succeeded(&out);
+    let doc: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    assert_eq!(doc["info"]["description"], "from-encoded-ref");
+}

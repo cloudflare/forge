@@ -80,7 +80,7 @@ pub fn apply_extends(overlay_path: &Path, preloaded: Option<Vec<u8>>) -> Result<
 
     // Overlay retrieval URI drives base-URI resolution; $self (per 1.2 rules)
     // is resolved against it, then extends against $self.
-    let retrieval = uri::from_path(overlay_path)?;
+    let retrieval = retrieval_base_uri(overlay_path)?;
     let base = overlay.resolve_base_uri(&retrieval)?;
     let spec_uri = uri::resolve_reference(&base, extends)
         .map_err(|e| format!("cannot resolve extends {extends:?} against {base}: {e}"))?;
@@ -127,7 +127,7 @@ fn parse_spec_document(spec_path: &Path, bytes: &[u8]) -> Result<Document, Err> 
     } else {
         spec_path.display().to_string()
     };
-    let spec_base = spec_base_uri(spec_path).map_err(|e| format!("{display}: {e}"))?;
+    let spec_base = retrieval_base_uri(spec_path).map_err(|e| format!("{display}: {e}"))?;
     let source_path = (!is_stdin).then(|| spec_path.to_path_buf());
     Ok(Document::parse(bytes, format)
         .map_err(|e| format!("{display}: {e}"))?
@@ -135,15 +135,15 @@ fn parse_spec_document(spec_path: &Path, bytes: &[u8]) -> Result<Document, Err> 
         .with_source_path(source_path))
 }
 
-/// Compute the retrieval URI for a spec path: a `file:` URI for a real file,
-/// or a trailing-slash CWD `file:` directory URI for stdin (so relative
-/// `$ref`s in inserted content resolve against CWD without inventing a
-/// sentinel filename that could collide with a real file). Errors when the
-/// path can't be expressed as a URI (non-UTF-8 bytes, unreadable CWD) rather
-/// than silently returning None — a missing base disables `$ref` rebasing and
-/// leaks absolute `file:///…` URIs into the merged output.
-fn spec_base_uri(spec_path: &Path) -> Result<String, Err> {
-    if spec_path == Path::new("-") {
+/// Compute the retrieval URI for a spec or overlay path: a `file:` URI for a
+/// real file, or a trailing-slash CWD `file:` directory URI for stdin (so
+/// relative references resolve against CWD without inventing a sentinel
+/// filename that could collide with a real file). Errors when the path can't
+/// be expressed as a URI (non-UTF-8 bytes, unreadable CWD) rather than
+/// silently returning None — a missing base disables `$ref` rebasing and leaks
+/// absolute `file:///…` URIs into the merged output.
+fn retrieval_base_uri(path: &Path) -> Result<String, Err> {
+    if path == Path::new("-") {
         let cwd = std::env::current_dir().map_err(|e| format!("cannot read current directory: {e}"))?;
         let cwd = fs::canonicalize(&cwd)
             .map_err(|e| format!("cannot canonicalize current directory {}: {e}", cwd.display()))?;
@@ -153,7 +153,7 @@ fn spec_base_uri(spec_path: &Path) -> Result<String, Err> {
         }
         Ok(dir_uri)
     } else {
-        uri::from_path(spec_path)
+        uri::from_path(path)
     }
 }
 
@@ -172,7 +172,7 @@ fn apply_overlays_to_doc(doc: &mut Document, overlay_paths: &[PathBuf]) -> Resul
         // Track the overlay's resolved base URI so apply can rebase relative
         // `$ref`s inside inserted content against it. Computed from the
         // overlay's retrieval URI, then resolved through any `$self`.
-        let retrieval = uri::from_path(p)?;
+        let retrieval = retrieval_base_uri(p)?;
         let base = ov.resolve_base_uri(&retrieval)?;
 
         // 1.2 §Base URI rule 5: extends vs target-spec $self. When BOTH the

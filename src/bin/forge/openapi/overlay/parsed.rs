@@ -501,14 +501,6 @@ fn parse_fields(obj: &serde_json::Map<String, Value>, version: Version, index: O
         None => msg,
     };
 
-    let allowed_extras: &[&str] = if inside_components {
-        // `fields` inside components.actions — target is forbidden, description allowed.
-        &["description"]
-    } else {
-        // Top-level action object: target and description are OK (already parsed/allowed above).
-        &["target", "description"]
-    };
-
     for (k, val) in obj.iter() {
         if k.starts_with("x-") {
             continue;
@@ -549,9 +541,7 @@ fn parse_fields(obj: &serde_json::Map<String, Value>, version: Version, index: O
                 }
             }
             other => {
-                if !allowed_extras.contains(&other) {
-                    return Err(label(format!("unknown action key {other:?}")).into());
-                }
+                return Err(label(format!("unknown action key {other:?}")).into());
             }
         }
     }
@@ -638,16 +628,16 @@ fn resolve_component_ref(r: &str) -> Result<String, String> {
     if tail.is_empty() {
         return Err("invalid $ref: `#/components/actions/` with no component name".into());
     }
-    // A pointer segment is JSON-Pointer escaped: `~1` -> `/`, `~0` -> `~`.
-    // If the tail contains a literal `/`, it is a multi-segment pointer,
-    // which is invalid here (reusable actions are a flat map).
-    if tail.contains('/') {
+    // Per RFC 6901 §6 (URI fragment JSON Pointer), percent-decode before
+    // checking `/` segment delimiters and unescaping `~1`/`~0`.
+    let decoded = uri::percent_decode(tail);
+    if decoded.contains('/') {
         return Err(format!(
             "invalid $ref {r:?}: component name segment contains an unescaped `/`. \
              JSON Pointer requires `~1` for `/` and `~0` for `~`."
         ));
     }
-    let name = jsonpointer_unescape(tail)?;
+    let name = jsonpointer_unescape(&decoded)?;
     Ok(name)
 }
 
