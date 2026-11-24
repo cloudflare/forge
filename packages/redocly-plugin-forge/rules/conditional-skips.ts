@@ -26,6 +26,9 @@ function checkBoth(ctx: UserContext, node: AnyNode, location: Location, seen: Se
   if (!isPlainObject(node)) {
     return;
   }
+  if (node['x-forge-skip'] === undefined && node['x-forge-only-for'] === undefined) {
+    return;
+  }
   const key = locationKey(location);
   if (seen.has(key)) {
     return;
