@@ -377,18 +377,8 @@ jobs:
         with:
           persist-credentials: false
 
-      # Do not set cache-base here: tag checkouts are detached refs, so a
-      # baseline branch cache may not resolve. This matches the Rust setup in
-      # the npm build jobs above.
       - name: Install Rust
-        uses: moonrepo/setup-rust@abb2d32350334249b178c401e5ec5836e0cd88d3 # v1.3.0
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      # cargo publish repeats this verification, but doing it before requesting
-      # a credential keeps the OIDC token's lifetime as short as possible.
-      - name: Verify package
-        run: cargo publish --dry-run --locked
+        run: rustup toolchain install
 
       - name: Check whether the version exists
         id: crate
@@ -429,19 +419,3 @@ jobs:
         env:
           CARGO_REGISTRY_TOKEN: ${{ steps.crates-io.outputs.token }}
         run: cargo publish --locked
-
-      - name: Summary
-        env:
-          TAG: ${{ github.ref_name }}
-          VERSION: ${{ needs.verify.outputs.version }}
-        run: |
-          cat >> "$GITHUB_STEP_SUMMARY" <<EOF
-          ### Published cloudflare-forge@$VERSION
-
-          Tag: \`$TAG\`
-
-          Install the Rust library:
-          \`\`\`sh
-          cargo add cloudflare-forge --no-default-features
-          \`\`\`
-          EOF
