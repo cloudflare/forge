@@ -19,8 +19,12 @@ openapi.forge.json (latest stable Forge release)
    astro-fern buildFernContent: products, resources, routes, Terraform data
                  |
                  v
+   prepareForgeApi (src/forge-api.ts)  <-  src/stainless-redirects.json
+                                       <-  src/stainless-snippets.json
+                 |
+                 v
    .nimbus/api-specs/  the prepared spec
-   .forge/             products, redirects
+   .forge/             products, redirects, Stainless redirects
                  |
                  v
    Nimbus api pages
@@ -42,14 +46,17 @@ reuses the last build's result.
 
 It returns the spec Nimbus renders, with Cloudflare titles, each page's URL as
 `x-nimbus-route` (on a moved product's tag, its new segment), `x-nimbus-order`
-for lifecycle order, request samples, synthesized response examples, and
-Terraform data under `x-cloudflare-terraform`. Nimbus reads the URLs from it,
-so the config carries no route map. It also writes two files to the
-git-ignored `.forge/` directory:
+for lifecycle order, request samples (the SDK ones from the retired Stainless
+site, see [Stainless snippets](#stainless-snippets)), synthesized response
+examples, and Terraform data under `x-cloudflare-terraform`. Nimbus reads the
+URLs from it, so the config carries no route map. It also writes these files to
+the git-ignored `.forge/` directory:
 
 - `products.json`: the products and their slugs, read by the command sidebar;
 - `redirects.json`: old section, alias-operation, and moved-product URLs, read by
-  `src/middleware.ts`.
+  `src/middleware.ts`;
+- `stainless-lookup.json` and `stainless-fallbacks.json`:
+  the retired Stainless site's redirects (see [Stainless redirects](#stainless-redirects)).
 
 Operations with removed Forge metadata are left out with a build warning.
 Operations `astro-fern` gives no URL are left out silently.
@@ -81,7 +88,10 @@ approved zone mapping.
 - `src/pages/search-manifest.json.ts` prerenders `/api/search-manifest.json`,
   the records a search index loads: `src/search-manifest.ts` turns each
   product, resource, and operation page of Nimbus's API model into one.
-- `src/middleware.ts` 302s the URLs in `.forge/redirects.json` to their pages.
+- `src/middleware.ts` 302s the URLs in `.forge/redirects.json` to their pages,
+  and 301s the retired Stainless site's URLs.
+- `src/stainless-redirects.ts` plans the Stainless redirects and resolves them
+  per request.
 - `src/command-reference/`, `src/command-sidebar.ts`, `src/pages/tooling/`, and
   `src/pages/[product]/tooling/` own the `cf` command pages. They render on
   request, inside `CommandPage.astro`, with the same API sidebar as the API
@@ -159,7 +169,11 @@ Terraform natively, remove it:
      `src/nimbus-api.d.ts`;
    - the `renderDescription` fixture in `src/plain-text.test.ts`;
    - the Terraform checks in `e2e/site.e2e.ts` and the `operation-terraform`
-     shot in `e2e/visual.e2e.ts`.
+     shot in `e2e/visual.e2e.ts`;
+   - `?lang=terraform` on the retired Stainless site's `/terraform/` redirects in
+     `stainlessRedirect` (`src/stainless-redirects.ts`), and in its test and
+     e2e cases, if the view goes: the old Terraform pages then fold onto the HTTP
+     ones.
 4. Decide on the `terraform` target in `src/cloudflare.ts`: drop it with its
    case in `src/cloudflare.test.ts`, or keep it for Forge's own Terraform
    samples. Kept without samples, every operation shows a placeholder.
@@ -189,6 +203,71 @@ Agent routes:
 /api/llms-full.txt
 /api/zero-trust/devices/ip-profiles/methods/list/index.md
 ```
+
+## Stainless redirects
+
+The site replaces the Stainless API reference once served at these paths. Its
+URLs 301 to today's pages. The old site is frozen, so what it served is a
+committed snapshot, `src/stainless-redirects.json`: each method page with its
+operationId, each resource and model page, and every operationId it knew, all in
+the HTTP form and collection-relative. It was made once from the old site's
+sitemap and source, and is not regenerated.
+
+Each build resolves the snapshot against today's pages with
+`planStainlessRedirects`:
+
+- a method page goes to its operation's page;
+- a resource page goes to the deepest section holding its methods, within the
+  product that holds most of them;
+- a model page goes to its resource's target;
+- `/operations/<operationId>/` goes to its operation's page.
+
+A page with no counterpart today goes to its nearest old ancestor's target, or
+the home page. The build warns with their count and lists them in
+`.forge/stainless-fallbacks.json`.
+
+`src/middleware.ts` serves them with `stainlessRedirect`:
+
+- each old page and its Markdown twin (`index.md`);
+- its language variants (`/api/typescript/`, `/api/python/`, `/api/go/`,
+  `/api/terraform/`), which open the page with that language's sample
+  (`?lang=python`), and Terraform's in its view. The old `/api/node/` pages
+  were TypeScript's, and open with `?lang=typescript`.
+
+Old paths the snapshot doesn't hold were never pages, and they 404. The
+redirects don't use `_redirects`: it allows only 2,000 static rules, and it
+counts every rule after the first dynamic one as dynamic, against a limit of 100.
+
+## Stainless snippets
+
+The TypeScript, Python and Go samples are the retired Stainless site's, in
+`src/stainless-snippets.json`: each old method page, as the redirects snapshot
+names it, with its snippet per language. The repository root's
+`pnpm generate:stainless-snippets` writes it; the `cloudflare-stainless-snippets`
+package's README says how to run it.
+
+Each build gives an operation the snippets of the old method page the snapshot
+maps to its operationId, the page that redirects to it. When several old pages
+map to one operation, such as account and zone variants, the first by path
+wins, and the build warns with their count. An operation with no old page, or
+whose page had no snippet in a language, shows a comment in that language
+saying the SDK lacks it (`// This operation is not available in the Go SDK.`).
+
+`src/stainless-snippets.ts` reads the file and maps it, and `prepareForgeApi`
+adds the samples to `x-codeSamples`. The `typescript`, `python` and `go` targets
+in `src/cloudflare.ts` render nothing themselves.
+
+Once Forge generates its own SDK samples, remove these:
+
+1. Delete `packages/cloudflare-stainless-snippets` and the root `package.json`'s
+   `generate:stainless-snippets` script.
+2. Here, delete `src/stainless-snippets.json`, `src/stainless-snippets.ts` and its
+   test, and in `src/forge-api.ts` the `sdkSnippets` parameter of
+   `prepareForgeApi`, `readStainlessSnippets`, `sdkPlaceholder` and
+   `isStainlessLanguage`, with their cases in `src/forge-api.test.ts`.
+3. Point the `typescript`, `python` and `go` renderers in `src/cloudflare.ts` at
+   Forge's samples, and drop the SDK samples test in `e2e/site.e2e.ts` if they
+   change.
 
 ## Run it
 

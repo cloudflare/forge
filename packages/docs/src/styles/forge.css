@@ -1,0 +1,78 @@
+/* Forge's theme: "Furnace", on the page body only.
+ *
+ * The content column and its table of contents keep Nimbus's neutral surfaces
+ * on a white ground, with a glow from the top, Space Grotesk headings and, in
+ * dark mode, orange primary buttons. The header and sidebar are Nimbus's own.
+ * Everything is a --nb-* token scoped to those two regions, so a Nimbus
+ * update to globals.css stays a clean diff. */
+@import "@fontsource-variable/space-grotesk";
+
+:is(#main-content, [data-nb-toc-scroll-host]) {
+	--forge-font-heading: "Space Grotesk Variable", var(--nb-font-sans);
+	--forge-glow: oklch(0.8 0.12 60 / 0.18);
+
+	--nb-background: #fff;
+	--nb-h1-weight: 600;
+	--nb-h1-tracking: -0.03em;
+	--nb-h2-weight: 600;
+
+	background-color: var(--nb-background);
+	color: var(--nb-foreground);
+}
+
+/* Tailwind's colour utilities read --color-*, which globals.css resolves once
+   on the root. Declaring them again here makes bg-card, text-muted-foreground
+   and the rest follow the tokens above inside these regions. */
+:is(#main-content, [data-nb-toc-scroll-host]) {
+	--color-background: var(--nb-background);
+	--color-foreground: var(--nb-foreground);
+	--color-card: var(--nb-card);
+	--color-card-foreground: var(--nb-foreground);
+	--color-muted: var(--nb-muted);
+	--color-muted-foreground: var(--nb-muted-foreground);
+	--color-accent: var(--nb-accent);
+	--color-accent-foreground: var(--nb-foreground);
+	--color-brand: var(--nb-brand);
+	--color-primary: var(--nb-primary);
+	--color-primary-foreground: var(--nb-primary-foreground);
+	--color-primary-hover: var(--nb-primary-hover);
+	--color-border: var(--nb-border);
+	--color-border-strong: var(--nb-border-strong);
+	--color-selected: var(--nb-selected);
+	--color-ring: var(--nb-ring);
+}
+
+[data-mode="dark"] :is(#main-content, [data-nb-toc-scroll-host]) {
+	--forge-glow: oklch(0.6 0.19 45 / 0.2);
+
+	/* Nimbus's dark ground, in place of the white above. */
+	--nb-background: oklch(0.085 0 0);
+	--nb-primary: #ff8c3a;
+	--nb-primary-foreground: var(--nb-background);
+	--nb-primary-hover: #ffab6b;
+	--nb-brand: #ff8c3a;
+	--nb-ring: color-mix(in oklch, var(--nb-brand) 45%, transparent);
+	--color-ring: var(--nb-ring);
+}
+
+#main-content {
+	background-image: radial-gradient(50rem 22rem at 50% -8rem, var(--forge-glow), transparent 70%);
+	background-repeat: no-repeat;
+}
+
+#main-content :where(h1, h2, h3, h4) {
+	font-family: var(--forge-font-heading);
+}
+
+/* A sidebar row under the pointer takes the current page's wash. */
+@layer components {
+	:is([data-nb-sidebar], [data-nb-api-nav], [data-nb-nav-results]) :is(li > a, details > summary):hover {
+		background-color: var(--nb-brand-wash);
+	}
+}
+
+/* The table of contents marks the section you are in with Cloudflare's
+   orange, in both modes. */
+[data-nb-toc-rail-active] {
+	stroke: oklch(0.687 0.208 38.8);
+}

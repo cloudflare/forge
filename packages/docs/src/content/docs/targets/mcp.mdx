@@ -1,0 +1,222 @@
+---
+title: MCP tools
+description: What forge generate --target mcp generates, with its files, which methods get a tool, and how tool names, arguments, schemas, hints and requests are derived.
+content_type: reference
+sidebar:
+  order: 3
+---
+
+`--target mcp` writes the tools of a [Model Context Protocol](https://modelcontextprotocol.io)
+server in TypeScript: one tool per method, for the official MCP TypeScript SDK,
+`@modelcontextprotocol/server`. Like every built-in target, it is a plugin like any other.
+
+```sh
+forge generate openapi.json --target mcp --out tools
+```
+
+Forge generates the tools, not a server. Servers differ in how they authenticate, what else they
+serve and how they handle errors, so the output is data, with one function that serves it.
+
+## registerTools
+
+`registerTools(server, tools, options)` registers every tool on an `McpServer` from the official MCP
+TypeScript SDK, `@modelcontextprotocol/server`. Each call builds the HTTP request and sends it to
+`options.baseUrl` with `options.fetch`, the global `fetch` by default, which is where a server adds
+its credential. This server serves the tools over standard input and output:
+
+```ts title="server.ts"
+import { McpServer } from '@modelcontextprotocol/server';
+import { StdioServerTransport } from '@modelcontextprotocol/server/stdio';
+import { api, registerTools, tools } from './tools/index.js';
+
+const server = new McpServer({ name: 'pet-store', version: api.version });
+
+registerTools(server, tools, {
+  baseUrl: process.env.API_BASE_URL ?? api.baseUrl,
+  fetch: (input, init) => {
+    const request = new Request(input, init);
+    request.headers.set('authorization', `Bearer ${process.env.API_TOKEN}`);
+    return fetch(request);
+  },
+});
+
+await server.connect(new StdioServerTransport());
+```
+
+Any transport the SDK has works the same way. The generated files import each other as `.js`, so a
+client runs the server with [tsx](https://tsx.is), or after compiling it:
+
+```json title="mcp.json"
+{
+  "mcpServers": {
+    "pet-store": {
+      "command": "npx",
+      "args": ["tsx", "/path/to/server.ts"],
+      "env": { "API_TOKEN": "..." }
+    }
+  }
+}
+```
+
+## What it writes
+
+| File | Contents |
+|---|---|
+| `index.ts` | Every tool, the API's base URL and version as `api`, and the runtime's `registerTools` and `operation`. |
+| `_/tool.ts` | The runtime: the `Tool` type, registering tools, building requests. The same for every document. |
+| `<group>/tools.ts` | The tools of a group's methods, sorted by name. The root group's are in `tools.ts`. |
+| `<group>/schemas.ts` | The schema of each model placed in the group and used in arguments. |
+| `<group>/outputs.ts` | The schema of each model placed in the group and used in responses. |
+
+A tool is MCP's `Tool`, as `tools/list` sends it, plus the API method it calls under a symbol that
+`JSON.stringify` leaves out. A server answers `tools/list` with the tools as they are, and nothing
+only the server should see reaches a client.
+
+## Which methods get a tool
+
+Every method gets a tool, hidden ones included, except:
+
+| Method | Why |
+|---|---|
+| Deprecated (`deprecated: true`) | The API discourages new calls to it. |
+| A tool name over 128 characters | MCP's limit. |
+| A tool name another method of its group already has | Names must be unique. The first method by name keeps it. |
+| A path parameter in its path that its request has no field for | The tool cannot fill in the path. |
+
+An operation with `x-forge-skip` is not a method, so it gets no tool.
+
+## Names
+
+A tool is named after its groups and its method, each in camelCase, joined by `_`:
+
+| Group | Method | Tool |
+|---|---|---|
+| `pets` | `list` | `pets_list` |
+| `pet_stores.inventory.items` | `bulk_edit` | `petStores_inventory_items_bulkEdit` |
+| the root | `health` | `health` |
+
+Model providers accept only `[a-zA-Z0-9_-]` in tool names, so `.` cannot separate them. Forge treats
+`_` inside a name as a word break, so camelCase keeps `a.b` + `c` and `a` + `b_c` apart.
+
+## Arguments
+
+`inputSchema` is an object with one argument for each place a value goes, so names never clash and
+match the API's documentation:
+
+| Argument | Holds |
+|---|---|
+| `path` | The path parameters, by wire name. All required. |
+| `query` | The query parameters, by wire name. Required if one is. |
+| `headers` | The header parameters, by lower-case name. Read-only headers are left out. |
+| `body` | The body as the API takes it. A file is its text, or `{ content, filename?, contentType? }`. |
+
+A body in several media types is `anyOf` their schemas, and `headers` gains a `content-type` enum
+that names the one sent. The tool's arguments, and its `path`, `query` and
+`headers` objects, set `additionalProperties: false`, so the SDK refuses a misspelled argument
+before the call reaches the tool. The body's own objects keep what their schemas say.
+
+## Schemas
+
+Schemas are JSON Schema 2020-12, built from Forge's [model](/concepts/the-model/) rather than
+copied from the document, so every target agrees on each type. A model that is only a scalar or an
+enum is written inline. Any other is a `$ref` into the tool's own `$defs`, which holds only the
+models it reaches.
+
+Arguments and responses use different schemas. Argument schemas leave out read-only fields, which a
+client does not send, and keep descriptions and defaults for the model choosing arguments. Response
+schemas keep read-only fields and leave out the prose.
+
+`outputSchema` is the JSON body of the successful responses. A method with a successful response
+that has no JSON body has none.
+
+## Description and hints
+
+`title` is the method's summary. `description` is its description or summary, then:
+
+- "This method is alpha." (or beta, in preview, deprecated) from `x-forge-availability`.
+- "Confirm with the user before calling this tool." and the sentence from
+  `x-forge-require-confirmation`.
+- The method and path, such as `DELETE /pets/{pet_id}`.
+
+The annotations come from the HTTP method:
+
+| HTTP method | `readOnlyHint` | `destructiveHint` | `idempotentHint` |
+|---|---|---|---|
+| `GET`, `HEAD`, `OPTIONS` | true | false | true |
+| `POST`, `PATCH` | false | false | false |
+| `PUT`, `DELETE` | false | true | true |
+| any, with `x-forge-require-confirmation` | false | true | as above |
+
+`openWorldHint` is always true, since every tool calls an API. The hints describe the method. They
+authorize nothing.
+
+## Calls
+
+`registerTools` builds each request from the tool's operation and the call's arguments:
+
+- Path parameters are filled in and percent-encoded. An empty one is an error result.
+- Query parameters use OpenAPI's default `form` style (`a=1&a=2` exploded, `a=1,2` not), and
+  `undefined` or `null` values are left out.
+- The body is encoded as `fetch` would, in the media type `content-type` names or the one its value
+  fits.
+- `Accept: application/json` is sent.
+
+The result is the response body as text. A successful JSON body is also `structuredContent` when
+the tool has an output schema, which it has only when every successful response of the method has
+a JSON body: a method with a JSON `200` and an empty `204` returns text only. A
+response that is not 2xx is an error result that starts with the status, so the model reads what
+the API said.
+
+## Example
+
+From the pet store document in [Get started](/start/get-started/), `tools/pets/tools.ts` has this tool:
+
+```ts title="tools/pets/tools.ts"
+{
+  name: "pets_delete",
+  title: "Delete a pet",
+  description: "Delete a pet\n\nConfirm with the user before calling this tool. This deletes the pet.\n\nDELETE /pets/{pet_id}",
+  inputSchema: {
+    type: "object",
+    properties: {
+      "path": {
+        "additionalProperties": false,
+        "properties": { "pet_id": { "type": "string" } },
+        "required": ["pet_id"],
+        "type": "object"
+      }
+    },
+    required: ["path"],
+    additionalProperties: false,
+  },
+  annotations: {
+    "destructiveHint": true,
+    "idempotentHint": true,
+    "openWorldHint": true,
+    "readOnlyHint": false,
+    "title": "Delete a pet"
+  },
+  [OPERATION]: {
+    method: "DELETE",
+    path: "/pets/{pet_id}",
+    pathOf: encodePath`/pets/${"pet_id"}`,
+    responses: { schemas: { "204": null } },
+  },
+}
+```
+
+## Beyond `registerTools`
+
+A tool is plain data, so a server can change one before registering it: a spread such as
+`{ ...tool, inputSchema }` keeps its operation. `operation(tool)` returns the API method a tool
+calls, with the `x-` extensions Forge does not read and a schema for every response, for a server
+that writes its own `tools/call`.
+
+To change what is generated, such as how tools are named, write a [plugin](/plugins/overview/)
+that reads the same model. [Target design](/plugins/designing-a-target/) shows the decisions
+this one makes.
+
+## Related resources
+
+- [Groups and methods](/concepts/groups-and-methods/): how operations become methods, and the metadata they carry.
+- [Get started](/start/get-started/): generate a TypeScript SDK and MCP tools from a small document.

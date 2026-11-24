@@ -1,0 +1,30 @@
+---
+title: Targets
+description: "Pick what Forge generates from an OpenAPI document with --target: a TypeScript SDK, a Cap'n Web server, MCP tools, or any plugin."
+content_type: overview
+sidebar:
+  order: 1
+  label: Overview
+---
+
+A target is what Forge generates from an OpenAPI document. You pick one per run with `--target`, and
+every target reads the same document, so its group and method names shape the TypeScript client,
+the MCP tool names and your own plugin's output alike. Three targets are built in, and a
+[plugin](/plugins/overview/) can generate anything else:
+
+| `--target`    | Generates                                                                                                                  |
+| ------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| `ts`          | A [TypeScript SDK](/targets/typescript/): a typed client, models, codecs and a small runtime.                              |
+| `capnweb`     | A [Cap'n Web](https://github.com/cloudflare/capnweb) server over the TypeScript SDK, with an `RpcTarget` per group.        |
+| `mcp`         | The [tools of an MCP server](/targets/mcp/), in TypeScript, with a tool per method.                                        |
+| `wasm://PATH` | Whatever the [plugin](/plugins/overview/) at `PATH` generates.                                                             |
+
+- For a **typed client** in TypeScript, use `ts`. Start with [Get started](/start/get-started/).
+- For a **Cap'n Web** API, such as one a Worker serves, use `capnweb` on top of `ts`.
+- For **agents**, use `mcp`, which turns each method into a tool with JSON Schema input and
+  behaviour hints, for an MCP server to register.
+- For anything else, such as another language, a CLI, API reference pages, validators, mocks or
+  route tables, [write a plugin](/plugins/overview/).
+
+To generate several targets, run Forge once per target. The [CLI reference](/reference/cli/#forge-generate)
+has every option.

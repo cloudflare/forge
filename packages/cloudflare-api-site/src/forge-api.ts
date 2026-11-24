@@ -1,15 +1,15 @@
-import { mkdirSync, writeFileSync } from 'node:fs';
-import { sample } from 'openapi-sampler';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import type { ApiSpec, ApiVersionSpec } from '@cloudflare/nimbus-docs/types';
 import {
   buildFernContent,
   defineFernManifest,
-  getOperationExtensionData,
   type FernContentProjectData,
   type FernManifestProvider,
   type FernSourceOperation,
+  getOperationExtensionData,
 } from 'astro-fern';
 import { forgeExtension, hasRemovedForgeOperationFields, hoistForgeCommands } from 'fern-forge';
+import { sample } from 'openapi-sampler';
 import {
   CLOUDFLARE_RESPONSE_PAYLOAD_KEY,
   CLOUDFLARE_TARGETS,
@@ -17,9 +17,17 @@ import {
   cloudflareOperationRoutingPreference,
   cloudflareSnippets,
 } from './cloudflare.ts';
-import { cloudflareTerraformExtension } from './terraform-extension.ts';
-import { TERRAFORM_EXTENSION_NAME, type TerraformOperationData, terraformOperationDataSchema } from './terraform.ts';
 import { assertToolingRouteNamespace } from './command-reference/routing.ts';
+import { planStainlessRedirects, type StainlessSnapshot } from './stainless-redirects.ts';
+import {
+  type SdkSnippets,
+  STAINLESS_LANGUAGES,
+  type StainlessLanguage,
+  snippetsByOperation,
+  stainlessSnippetsFileSchema,
+} from './stainless-snippets.ts';
+import { TERRAFORM_EXTENSION_NAME, type TerraformOperationData, terraformOperationDataSchema } from './terraform.ts';
+import { cloudflareTerraformExtension } from './terraform-extension.ts';
 import { parseCloudflareApiVersion } from './version.ts';
 
 export const TERRAFORM_EXTENSION = 'x-cloudflare-terraform';
@@ -61,6 +69,8 @@ export interface PreparedForgeApi {
   products: ForgeProduct[];
   /** Collection-relative pathnames the site served and Nimbus doesn't → where they live now. */
   redirects: Record<string, string>;
+  /** The product and resource pages Nimbus draws, collection-relative. */
+  sections: string[];
 }
 
 interface Tag {
@@ -97,6 +107,8 @@ export function prepareForgeApi(
   source: Record<string, unknown>,
   data: FernContentProjectData,
   snapshotId: string,
+  /** `operationId` → the retired Stainless site's SDK snippets; see `snippetsByOperation`. */
+  sdkSnippets: ReadonlyMap<string, SdkSnippets> = new Map(),
 ): PreparedForgeApi {
   const document = structuredClone(source);
   document.info = { ...(document.info as Record<string, unknown>), title: API_TITLE };
@@ -184,16 +196,19 @@ export function prepareForgeApi(
     operations[operation.operationId] = slug;
   }
   for (const alias of aliases) {
-    const primary = byId.get(alias.operation.operationId);
-    if (!primary) throw new Error(`cloudflare-api-site: alias of "${alias.operation.operationId}" has no primary page`);
     const { product, operation } = alias;
-    redirects[`/${product.slug}/${operation.slug}/`] = `/${operations[operation.operationId]}/`;
+    const primary = byId.get(operation.operationId);
+    const primarySlug = operations[operation.operationId];
+    const primarySection = leafPath.get(operation.operationId);
+    if (!primary || primarySlug === undefined || primarySection === undefined) {
+      throw new Error(`cloudflare-api-site: alias of "${operation.operationId}" has no primary page`);
+    }
+    redirects[`/${product.slug}/${operation.slug}/`] = `/${primarySlug}/`;
     const slugs = operation.placement?.resourcePath.map((segment) => segment.slug) ?? [];
     for (let depth = 0; depth <= slugs.length; depth++) {
       const from = `/${[product.slug, ...slugs.slice(0, depth)].join('/')}/`;
       if (sections.has(from)) continue;
-      redirects[from] ??=
-        depth === slugs.length ? leafPath.get(operation.operationId)! : sectionPath(primary.product.slug);
+      redirects[from] ??= depth === slugs.length ? primarySection : sectionPath(primary.product.slug);
     }
   }
 
@@ -215,7 +230,8 @@ export function prepareForgeApi(
       // Nimbus reads each page's URL from the spec, so the config carries no route map.
       op['x-nimbus-route'] = operations[entry.operation.operationId];
       if (entry.operation.deprecated) op.deprecated = true;
-      const rank = LIFECYCLE.findIndex((name) => name === op['x-fern-sdk-method-name']);
+      const methodName = op['x-fern-sdk-method-name'];
+      const rank = typeof methodName === 'string' ? LIFECYCLE.indexOf(methodName) : -1;
       if (rank !== -1) op['x-nimbus-order'] = rank + 1;
       const terraform = getOperationExtensionData(
         entry.operation,
@@ -224,12 +240,16 @@ export function prepareForgeApi(
       );
       if (terraform) op[TERRAFORM_EXTENSION] = terraform;
       const snippets = new Map(entry.snippets.map((snippet) => [snippet.targetId, snippet.code]));
+      const sdk = sdkSnippets.get(entry.operation.operationId);
       op['x-codeSamples'] = CLOUDFLARE_TARGETS.flatMap((target) => {
         const lang = target.id;
         const code = snippets.get(target.id);
         if (code) return [{ lang, label: target.label, source: code }];
         if (target.id === 'terraform') {
           return [{ lang, label: target.label, source: terraformSample(terraform) }];
+        }
+        if (isStainlessLanguage(target.id)) {
+          return [{ lang, label: target.label, source: sdk?.[target.id] ?? sdkPlaceholder(target.id, target.label) }];
         }
         return [
           {
@@ -257,7 +277,17 @@ export function prepareForgeApi(
     operations,
     products: primaryProducts.map(({ id, slug, title }) => ({ id, slug, title })),
     redirects,
+    sections: [...sections],
   };
+}
+
+function isStainlessLanguage(id: string): id is StainlessLanguage {
+  return (STAINLESS_LANGUAGES as readonly string[]).includes(id);
+}
+
+/** What an SDK tab shows for an operation the old site had no snippet for, as a comment in its language. */
+function sdkPlaceholder(language: StainlessLanguage, label: string): string {
+  return `${language === 'python' ? '#' : '//'} This operation is not available in the ${label} SDK.`;
 }
 
 /**
@@ -302,13 +332,15 @@ export function prepareForgeSpec(source: Record<string, unknown>): Record<string
     extensions: [forgeExtension(), cloudflareTerraformExtension],
     onWarning: (message) => console.warn(`[forge-api] ${message}`),
   });
-  const prepared = prepareForgeApi(document, data, air.wire);
+  const snapshot = readStainlessSnapshot();
+  const prepared = prepareForgeApi(document, data, air.wire, readStainlessSnippets(snapshot));
   assertToolingRouteNamespace(prepared.products, Object.values(prepared.operations));
 
   const dir = new URL('../.forge/', import.meta.url);
   mkdirSync(dir, { recursive: true });
   writeFileSync(new URL('products.json', dir), JSON.stringify(prepared.products, null, 2));
   writeFileSync(new URL('redirects.json', dir), JSON.stringify(prepared.redirects, null, 2));
+  writeStainlessRedirects(snapshot, prepared, dir);
   return prepared.document;
 }
 
@@ -337,4 +369,37 @@ export function forgeApi(spec: ApiVersionSpec['spec']): ApiSpec {
       },
     ],
   };
+}
+
+function readStainlessSnapshot(): StainlessSnapshot {
+  return JSON.parse(readFileSync(new URL('./stainless-redirects.json', import.meta.url), 'utf8')) as StainlessSnapshot;
+}
+
+/** The retired Stainless site's SDK snippets, by the operation their old page redirects to. */
+function readStainlessSnippets(snapshot: StainlessSnapshot): Map<string, SdkSnippets> {
+  const file = stainlessSnippetsFileSchema.parse(
+    JSON.parse(readFileSync(new URL('./stainless-snippets.json', import.meta.url), 'utf8')),
+  );
+  const { byOperation, shared } = snippetsByOperation(snapshot, file);
+  if (shared.length > 0) {
+    console.warn(
+      `[forge-api] ${shared.length} operations have several old Stainless method pages; each uses the first page's SDK snippets`,
+    );
+  }
+  return byOperation;
+}
+
+/** Plans the retired Stainless site's redirects against today's pages, for the middleware. */
+function writeStainlessRedirects(snapshot: StainlessSnapshot, prepared: PreparedForgeApi, dir: URL): void {
+  const plan = planStainlessRedirects(snapshot, {
+    operations: prepared.operations,
+    sections: new Set(prepared.sections),
+  });
+  if (plan.fallbacks.length > 0) {
+    console.warn(
+      `[forge-api] ${plan.fallbacks.length} Stainless pages have no page today and redirect to an ancestor's; see .forge/stainless-fallbacks.json`,
+    );
+  }
+  writeFileSync(new URL('stainless-fallbacks.json', dir), JSON.stringify(plan.fallbacks, null, 2));
+  writeFileSync(new URL('stainless-lookup.json', dir), JSON.stringify(plan.lookup));
 }

@@ -1,0 +1,72 @@
+# Deploys each pull request's Forge docs site (`packages/docs`) as a Worker
+# Preview of the `forge-docs` Worker. The preview is named after the branch, so
+# new pushes update the same preview. Its URL is in the job's log.
+#
+# Pull requests from forks are skipped: they get no repository secrets.
+# CI still builds them.
+
+name: Preview Forge docs
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'packages/docs/**'
+      - 'pnpm-lock.yaml'
+      - 'pnpm-workspace.yaml'
+      - 'package.json'
+      - '.github/actions/setup-workspace/**'
+      - '.github/workflows/preview-forge-docs.yml'
+
+concurrency:
+  group: preview-forge-docs-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  preview:
+    name: Preview Forge docs
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      pull-requests: write
+
+    steps:
+      - uses: actions/checkout@v7.0.1
+
+      - uses: ./.github/actions/setup-workspace
+
+      # Preview URLs come from `previewUrls` in cloudflare.config.ts, which a
+      # production deploy must apply first.
+      # Bash runs with pipefail, so a failed deploy fails the step despite `tee`.
+      - name: Deploy preview
+        shell: bash
+        run: pnpm --filter forge-docs run deploy:preview | tee "$RUNNER_TEMP/preview.log"
+        env:
+          # Previews point canonicals, llms.txt and the sitemap at the
+          # production site, so a preview is never indexed in its place.
+          DOCS_SITE_URL: ${{ vars.FORGE_DOCS_SITE_URL }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.FORGE_DOCS_CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.FORGE_DOCS_CLOUDFLARE_API_TOKEN }}
+
+      # TODO: uncomment once we're out of experimental
+      # The build logs to stdout too; the JSON result is the last top-level
+      # object in the output.
+      # - name: Comment preview URL
+      #   env:
+      #     GH_TOKEN: ${{ github.token }}
+      #     PR: ${{ github.event.pull_request.number }}
+      #     SHA: ${{ github.event.pull_request.head.sha }}
+      #   run: |
+      #     url=$(node -e '
+      #       const log = require("node:fs").readFileSync(process.argv[1], "utf8");
+      #       const start = log.lastIndexOf("\n{");
+      #       const result = JSON.parse(log.slice(start + 1));
+      #       const url = result.preview_urls?.[0] ?? result.deployment_urls?.[0];
+      #       if (!url) throw new Error("No preview URL in cf output");
+      #       console.log(url);
+      #     ' "$RUNNER_TEMP/preview.log")
+      #     body="Forge docs preview for ${SHA}: ${url%/}/"
+      #     echo "$body" >> "$GITHUB_STEP_SUMMARY"
+      #     gh pr comment "$PR" --repo "$GITHUB_REPOSITORY" --edit-last --create-if-none --body "$body"

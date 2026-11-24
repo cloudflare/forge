@@ -1,0 +1,124 @@
+---
+title: Troubleshooting OpenAPI documents
+description: Fix the common errors Forge reports in an OpenAPI document, by message, and the errors a plugin can report.
+content_type: troubleshooting
+sidebar:
+  order: 5
+---
+
+Forge checks the document before any plugin runs, and never generates from a document with errors.
+Every error starts with `forge: ` and the path of the document (`-` for standard input), and the
+command exits with status 1.
+
+After a fix, run the same `forge` command again. A document with no errors generates its files, prints
+nothing, and exits with status 0.
+
+## Two kinds
+
+**Reading errors** are about the shape of the JSON: a value of the wrong type, invalid JSON, a key
+written twice. Forge stops at the first one, and says where it is:
+
+```text
+forge: openapi.json: invalid type: string "yes", expected a boolean at line 1 column 198
+```
+
+The line and column point into the file. These are caught anywhere in the document, including in
+operations that are not methods.
+
+**Linking errors** are about meaning: a `$ref` to nothing, an unsupported style, two methods with one
+name. Forge collects all of them, and prints one per line, each starting with where it is: the
+operation's HTTP method and path, a schema's name, or a server:
+
+```text
+forge: openapi.json: GET /b: method "list" is also GET /a in the same group
+GET /c: $ref "#/components/parameters/Nope" points to nothing
+schema "U": fields "user_id" and "userId" have equal names
+```
+
+These are only reported for the parts Forge builds: methods, and the schemas they use.
+
+## Common errors
+
+### The document
+
+| Message | Cause and fix |
+| --- | --- |
+| `the document has no openapi version: only OpenAPI 3.0, 3.1 and 3.2 are read` | No `openapi` key, as in a Swagger 2.0 document. Convert it to OpenAPI 3. |
+| `openapi version "3.3.0" is not read: only OpenAPI 3.0, 3.1 and 3.2 are` | A version Forge does not read. Use a 3.0, 3.1 or 3.2 document, or set `openapi` to the 3.x version the document follows. |
+| `EOF while parsing a value at line 2 column 0` | The file is not valid JSON, or is YAML. Forge reads JSON only. Correct the JSON syntax, or convert YAML to JSON. |
+| `server url "https://{region}.x.com": variable "region" is not defined` | The first server's URL uses a variable its `variables` does not declare. Add it, with a `default`. |
+
+### Methods
+
+| Message | Cause and fix |
+| --- | --- |
+| `method "list" is also GET /a in the same group` | Two operations, or aliases, have equal method names in one group. Names are compared as words, so `pets.list_all` and `pets.listAll` collide too. Rename one. |
+| `operationId has a group name with no letters or digits` | An empty or symbol-only part before the last dot, as in `a..b.list`. Give every part a letter or digit, as in `a.b.list`. |
+| `operationId has a method name with no letters or digits` | Nothing usable after the last dot, as in `pets.`. Add the method name, as in `pets.list`. |
+| `x-forge-aliases[0]: operationId has a group name with no letters or digits` | The same, in the alias at that position. Fix that alias's `operationId`. |
+| `two entries in x-forge-commands have the name "records"` | The same group is described twice, for example as `dns.records` and as `records` under `dns`. Keep one. |
+
+### References
+
+| Message | Cause and fix |
+| --- | --- |
+| `$ref "#/components/parameters/Nope" points to nothing` | A typo, or a component that was removed. Correct the path, or add the component it names. |
+| `$ref "other.json#/X" is to another document, which is not covered` | Forge reads one document. Bundle external references into it first, with a tool such as Redocly's `bundle`. |
+| `$ref "#/paths/..." is not covered: only $refs into components.schemas are` | A schema that refers into another part of the document. Move the schema into `components.schemas` and refer to it there. |
+| `$ref "..." is not covered: only $refs to components.parameters are` | A parameter, request body, response or path item refers to another kind of component. Move what it refers to into its own kind, such as `components.parameters`, and refer to it there. |
+
+### Parameters
+
+| Message | Cause and fix |
+| --- | --- |
+| `query parameter "f" has style "deepObject", which is not covered: only form is` | Only the default styles are covered: `form` for the query, `simple` for the path and headers. Use the default style, or leave the operation out with `x-forge-skip` until it is covered. |
+| `query parameter "f" has content, which is not covered: only schema is` | Path, query and header parameters described by `content` instead of `schema` are not covered yet. Use `schema`. An `in: querystring` parameter is the exception: it is read from `content`. |
+
+### Schemas
+
+| Message | Cause and fix |
+| --- | --- |
+| `fields "user_id" and "userId" have equal names` | Two properties that would be one identifier in every language. Skip one with `x-forge-skip`, or rename it with `x-forge-property-name`. |
+| `invalid value: integer -1, expected a non-negative integer` | `maxItems` is negative. Set it to 0 or more, or remove it. |
+
+## Errors from plugins
+
+A plugin can fail too, after the document checked out. Its message is printed as it is, and the
+plugin's documentation says what it means:
+
+```text
+forge: the document has no methods
+```
+
+The next two are bugs in the plugin, so fix the plugin, or report them to its author.
+
+A path that would escape the output directory is caught by Forge, whatever the plugin:
+
+```text
+forge: "../evil.txt" is not a relative path with `/` separators
+```
+
+So is a plugin that returns two files with one path:
+
+```text
+forge: "index.ts" is generated more than once
+```
+
+Nothing is written when a plugin fails.
+
+## Still stuck
+
+- Check the document against [OpenAPI support](/openapi/support/), which lists what Forge reads,
+  and what it reads but does not cover yet.
+- For a linking error, leave the failing operation out with
+  [`x-forge-skip`](/openapi/extensions/#x-forge-skip), and generate the rest while you fix it. A
+  reading error has to be fixed, wherever it is.
+- Open an issue on [Forge's repository](https://github.com/cloudflare/forge/issues) with the
+  command you ran, the output of `forge --version`, the complete error, and the smallest document
+  that reproduces it.
+
+## Related resources
+
+- To bring a large document in a group at a time, refer to
+  [Adopt Forge on an existing API](/guides/adopting/).
+- For every extension Forge reads, refer to [Extensions](/openapi/extensions/).

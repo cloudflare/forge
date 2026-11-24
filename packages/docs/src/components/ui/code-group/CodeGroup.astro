@@ -1,0 +1,148 @@
+---
+/**
+ * CodeGroup — tabbed group of code blocks.
+ *
+ *   <CodeGroup titles={["JavaScript", "TypeScript"]}>
+ *     <Code code="..." lang="js" />
+ *     <Code code="..." lang="ts" />
+ *   </CodeGroup>
+ *
+ * Tab labels come from the `titles` prop; omit and they fall back to
+ * "Tab 1", "Tab 2", etc.
+ */
+import Icon from "@cloudflare/nimbus-docs/components/Icon.astro";
+import { cn } from "@/lib/cn";
+import type { HTMLAttributes } from "astro/types";
+import { LayerCard, LayerCardHeader } from "../layer-card";
+
+interface Props extends HTMLAttributes<"div"> {
+  /** Tab labels. Falls back to "Tab N" when omitted. */
+  titles?: string[];
+}
+
+const { titles, class: className, ...attrs } = Astro.props;
+const titlesAttr = titles ? JSON.stringify(titles) : undefined;
+---
+
+<div
+  data-cg
+  data-slot="code-group"
+  data-titles={titlesAttr}
+  class={cn("w-full my-4", className)}
+  {...attrs}
+>
+  <template data-cg-icon-copy><Icon name="ph:copy" class="w-[18px] h-[18px]" /></template>
+  <template data-cg-icon-check><Icon name="ph:check" class="w-[18px] h-[18px]" /></template>
+  <template data-cg-icon-fail><Icon name="ph:x" class="w-[18px] h-[18px]" /></template>
+
+  <LayerCard>
+    <LayerCardHeader role="tablist" aria-label="Code variants" data-cg-tablist data-slot="code-group-tabs" class="overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" />
+
+    <div data-cg-panels-raw hidden>
+      <slot />
+    </div>
+
+    <div data-cg-panels></div>
+  </LayerCard>
+</div>
+
+<script>
+  import "./code-group.client";
+</script>
+
+<style is:global>
+  /* Panel layout */
+  [data-cg-row] {
+    display: flex;
+    align-items: stretch;
+    position: relative;
+  }
+
+  /* Framework's code-copy.ts may race CodeGroup's reparenting and inject
+     its own .nb-code-copy button on the same pre. Hide that fallback —
+     CodeGroup ships its own copy button per panel. */
+  [data-cg-panel] .nb-code-copy {
+    display: none;
+  }
+
+  /* Language badge pinned to the row, which doesn't scroll — so the badge
+     stays visible on mobile when code overflows horizontally. */
+  [data-cg-row][data-nb-lang]::before {
+    content: attr(data-nb-lang);
+    position: absolute;
+    top: 0.5rem;
+    right: 3.25rem;
+    padding: 0.0625rem 0.375rem;
+    border-radius: var(--nb-radius-sm);
+    background: var(--nb-muted);
+    color: var(--nb-muted-foreground);
+    font-family: var(--nb-font-mono);
+    font-size: 0.6875rem;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    pointer-events: none;
+    opacity: 0.75;
+    z-index: 1;
+  }
+
+  /* On a phone a long line scrolls under the badge, so it steps aside, as in
+     a plain code block. */
+  @media (max-width: 639px) {
+    [data-cg-row][data-nb-lang]::before {
+      display: none;
+    }
+  }
+
+  /* Suppress the pre's own badge inside CodeGroup so we don't double up. */
+  [data-cg-panel] pre.astro-code[data-cg-pre][data-nb-lang]::before {
+    display: none;
+  }
+
+  /* Hide plaintext/text "language" — it's noise. */
+  [data-cg-row][data-nb-lang="text"]::before,
+  [data-cg-row][data-nb-lang="plaintext"]::before,
+  [data-cg-row][data-nb-lang="plain"]::before,
+  [data-cg-row][data-nb-lang="txt"]::before {
+    display: none;
+  }
+
+  /* Reparented <pre>: override default code-block styling to fit the row. */
+  [data-cg-panel] pre.astro-code[data-cg-pre] {
+    display: block;
+    flex: 1 1 0%;
+    min-width: 0;
+    margin: 0;
+    padding: 0.75rem 1rem;
+    border: 0;
+    border-radius: 0;
+    overflow-x: auto;
+    white-space: pre;
+    font-family: var(--nb-font-mono);
+    font-size: 0.875rem;
+    /* 14/24, the same whole-pixel line as every code block. */
+    line-height: 1.5rem;
+    background: transparent;
+  }
+  [data-cg-panel] pre.astro-code[data-cg-pre] > code {
+    background: transparent;
+  }
+
+  [data-cg-copy] {
+    order: 1;
+    display: flex;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: center;
+    margin: 0;
+    padding: 0 0.75rem;
+    border: 0;
+    border-left: 1px solid var(--nb-border);
+    background: transparent;
+    cursor: pointer;
+    color: var(--nb-muted-foreground);
+    transition: color 0.12s ease;
+  }
+  [data-cg-copy]:hover {
+    color: var(--nb-foreground);
+  }
+</style>
