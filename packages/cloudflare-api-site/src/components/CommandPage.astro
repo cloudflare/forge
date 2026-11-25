@@ -51,7 +51,8 @@ if (!api) throw new Error(`No API sidebar for ${href}`);
       <PageActions markdownUrl={markdownUrl} />
     </div>
     {descriptionHtml && <div class="nb-md nb-md-intro mt-8 [overflow-wrap:anywhere]" set:html={descriptionHtml} />}
-    <div class="mt-8 flex flex-col gap-8">
+    {/* Section headings with an id get a "#" link that copies their URL, as on API pages. */}
+    <div class="mt-8 flex flex-col gap-8" data-nb-heading-anchors>
       <slot />
     </div>
   </ApiLayout>

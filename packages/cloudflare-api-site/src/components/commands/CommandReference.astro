@@ -17,12 +17,12 @@ const flags = flagFields(command);
 
 <div class="command-reference">
   {command.apiPath && command.httpMethod && <CommandEndpoint method={command.httpMethod} path={command.apiPath} />}
-  {args.length > 0 && <ApiFieldList as="h2" title="Arguments" fields={args} />}
-  {flags.length > 0 && <ApiFieldList as="h2" title="Flags" fields={flags} />}
+  {args.length > 0 && <ApiFieldList as="h2" title="Arguments" anchor="arguments" fields={args} />}
+  {flags.length > 0 && <ApiFieldList as="h2" title="Flags" anchor="flags" fields={flags} />}
   {
     args.length === 0 && flags.length === 0 && (
       <section>
-        <h2 class="fl-title mb-2">Flags</h2>
+        <h2 id="flags" class="fl-title mb-2">Flags</h2>
         <p class="command-reference-none">This command takes no arguments or flags.</p>
       </section>
     )

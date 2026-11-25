@@ -21,6 +21,24 @@ document.addEventListener("click", (event) => {
   if (details) details.open = !details.open;
 });
 
+// A field's link icon goes to the field and copies its link, as a heading's
+// `#` does: the link moves the page, the click copies the absolute URL.
+let announcer: HTMLElement | undefined;
+const announce = (message: string) => {
+  if (!announcer?.isConnected) {
+    announcer = Object.assign(document.createElement("div"), { className: "sr-only" });
+    announcer.setAttribute("aria-live", "polite");
+    document.body.append(announcer);
+  }
+  announcer.textContent = "";
+  announcer.textContent = message;
+};
+document.addEventListener("click", (event) => {
+  const link = (event.target as Element).closest?.<HTMLAnchorElement>("a.fl-anchor");
+  if (!link) return;
+  navigator.clipboard?.writeText(link.href).then(() => announce("Link copied to clipboard"), () => {});
+});
+
 // Touch screens have no hover to reveal a field's anchor: tapping its name does.
 const touch = matchMedia("(hover: none)");
 document.addEventListener("click", (event) => {
