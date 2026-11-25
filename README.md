@@ -13,11 +13,14 @@ and [Get started](https://github.com/cloudflare/forge/blob/main/packages/docs/sr
 
 ## Rust library
 
-Forge is published to crates.io as `cloudflare-forge`. Its library target remains `forge`, so Rust
-code imports its API through `forge::`:
+Forge's Rust package is named `cloudflare-forge`. Registry publishing is currently paused. Depend
+on the repository and rename the package to `forge` so Rust code imports its API through `forge::`:
 
-```sh
-cargo add cloudflare-forge --no-default-features
+```toml
+[dependencies.forge]
+package = "cloudflare-forge"
+git = "https://github.com/cloudflare/forge"
+default-features = false
 ```
 
 The default `cli` feature also builds the `forge` command. Enable `wasm` to run WebAssembly plugins

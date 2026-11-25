@@ -1,6 +1,7 @@
 # Publishes @cloudflare/forge and its six per-platform binary packages
-# (`@cloudflare/forge-<os>-<cpu>`) to npmjs.com, then publishes the Rust
-# library and CLI as cloudflare-forge on crates.io, on tag push.
+# (`@cloudflare/forge-<os>-<cpu>`) to npmjs.com on tag push. When the
+# PUBLISH_CRATES_IO repository variable is `true`, it then publishes the Rust
+# library and CLI as cloudflare-forge on crates.io.
 #
 # Hardened along the same lines as publish-redocly-plugin-forge.yml:
 # - Runs on tag only, never on arbitrary PRs.
@@ -26,6 +27,9 @@
 #   rust-lang action exchanges the job's GitHub OIDC identity for a temporary,
 #   package-scoped token and revokes it when the job ends. It is pinned by SHA
 #   like every other third-party action in this workflow.
+# - Crates.io publishing is paused unless the PUBLISH_CRATES_IO repository
+#   Actions variable is exactly `true`. Change the variable in GitHub's Actions
+#   settings to resume publishing without changing this workflow.
 # - All third-party actions (here and in the shared setup-workspace
 #   composite) are pinned by commit SHA, so a re-tagged upstream release
 #   cannot inject code into a run that holds OIDC credentials.
@@ -52,7 +56,7 @@
 #        git tag -s forge@0.2.0 -m 'forge 0.2.0'
 #        git push origin forge@0.2.0
 #   3. This workflow builds all six binaries and publishes the new version to
-#      npmjs.com, then crates.io.
+#      npmjs.com. It also publishes to crates.io when PUBLISH_CRATES_IO is true.
 
 name: Publish @cloudflare/forge
 
@@ -366,6 +370,7 @@ jobs:
   publish-crate:
     name: Publish to crates.io
     needs: [verify, publish]
+    if: ${{ vars.PUBLISH_CRATES_IO == 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
