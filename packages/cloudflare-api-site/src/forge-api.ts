@@ -52,21 +52,6 @@ function addResponseExamples(responses: Record<string, JsonResponse>, document: 
   }
 }
 
-const TOKEN_GROUP_EXTENSION = 'x-api-token-group';
-
-/**
- * The API token permissions that can call an operation, any one of which is enough, as a sentence
- * for its description. In the description, it reaches the page, its Markdown and `llms-full.txt`,
- * which don't carry vendor extensions.
- */
-function tokenPermissions(groups: unknown): string | undefined {
-  if (!Array.isArray(groups)) return undefined;
-  const names = groups.filter((group): group is string => typeof group === 'string' && group.trim() !== '');
-  if (names.length === 0) return undefined;
-  const escaped = names.map((name) => name.replace(/[\\`*_[\]<>]/g, '\\$&'));
-  return `Accepted token permissions (at least one required): ${escaped.join(', ')}.`;
-}
-
 /**
  * Returns the operationId to give Nimbus for an ID that astro-fern derived from an SDK address.
  *
@@ -84,6 +69,21 @@ function nimbusOperationId(operationId: string): string {
 /** Where Nimbus serves a product or resource page: today's URL, with moved products renamed. */
 function sectionPath(productSlug: string, slugs: string[] = []): string {
   return `/${[MOVED_PRODUCT_SLUGS[productSlug] ?? productSlug, ...slugs].join('/')}/`;
+}
+
+const TOKEN_GROUP_EXTENSION = 'x-api-token-group';
+
+/**
+ * The API token permissions that can call an operation, any one of which is enough, as a sentence
+ * for its description. In the description, it reaches the page, its Markdown and `llms-full.txt`,
+ * which don't carry vendor extensions.
+ */
+function tokenPermissions(groups: unknown): string | undefined {
+  if (!Array.isArray(groups)) return undefined;
+  const names = groups.filter((group): group is string => typeof group === 'string' && group.trim() !== '');
+  if (names.length === 0) return undefined;
+  const escaped = names.map((name) => name.replace(/[\\`*_[\]<>]/g, '\\$&'));
+  return `Accepted token permissions (at least one required): ${escaped.join(', ')}.`;
 }
 
 export interface ForgeProduct {
