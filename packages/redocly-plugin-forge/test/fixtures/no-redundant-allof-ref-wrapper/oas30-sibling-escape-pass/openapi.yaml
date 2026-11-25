@@ -1,0 +1,14 @@
+openapi: 3.0.3
+info:
+  title: Sibling escape idiom on 3.0
+  version: 1.0.0
+paths: {}
+components:
+  schemas:
+    Timestamp:
+      type: string
+      format: date-time
+    CreatedAt:
+      allOf:
+        - $ref: '#/components/schemas/Timestamp'
+      description: On OAS 3.0 this wrapper is the only way to attach a description to a $ref.

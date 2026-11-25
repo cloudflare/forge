@@ -1,0 +1,8 @@
+[
+  {
+    "ruleId": "forge/compatible-allof-intersection",
+    "severity": "error",
+    "message": "allOf $ref \"Tags\" is an array; cannot intersect with an object required by the enclosing schema.",
+    "location": "openapi.yaml#/components/schemas/NoPropertiesChild/allOf/0/$ref (key)"
+  }
+]
