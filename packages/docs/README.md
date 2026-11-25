@@ -39,23 +39,12 @@ content type in `content_type`.
 `pnpm --filter forge-docs build` runs `cf build`, then `nimbus-docs lint`, so a broken internal link
 fails it. `pnpm --filter forge-docs run deploy` runs that build and uploads it with `cf deploy`, as
 a Worker with no script, serving the pages as static assets. (`run` is needed because `pnpm deploy`
-is a built-in pnpm command.) CI does this, as for the API site:
+is a built-in pnpm command.)
 
-- **Every pull request into `main` from a branch of this repository** that changes the site gets a Worker
-  Preview, named after its branch (`.github/workflows/preview-forge-docs.yml`). Its URL is in the
-  job's log. Pull requests from forks get no secrets, so no preview.
-- **Every push to `main`** that changes the site deploys it (`deploy-forge-docs.yml`).
-- **CI** runs `astro check` on every change, and builds the pull requests the preview doesn't: those
-  from forks, and those into a branch other than `main`.
-
-Both workflows use the `FORGE_DOCS_CLOUDFLARE_ACCOUNT_ID` and `FORGE_DOCS_CLOUDFLARE_API_TOKEN`
-secrets, not the API site's. Previews work only once the Worker exists, so the first production
-deploy has to come first.
-
-The deploy builds with `DOCS_SITE_URL` from the `FORGE_DOCS_SITE_URL` repository variable, and fails
-if it is not set, since canonicals and the sitemap would point at localhost. Set it to the Worker's
-full HTTPS origin, `https://forge-docs.<subdomain>.workers.dev`, before the first deploy. Once the site
-has a domain, add it to `cloudflare.config.ts` with `workersDev: false`, and update the variable.
+[Workers Builds](https://developers.cloudflare.com/workers/ci-cd/builds/) deploys the site from the
+`forge-docs` Worker's Git connection. Every push to `main` deploys production. Every push to another
+branch deploys a Worker Preview named after the branch, and the Cloudflare bot comments its URL on
+the pull request. Forks get no preview, so CI builds every pull request too.
 
 `cf` builds an Astro site through the Cloudflare adapter, so `astro.config.ts` has it, although every
 page is prerendered. Images are optimized at build time and sessions are off, so the Worker has no
