@@ -13,6 +13,7 @@ API documentation site for Forge OpenAPI specs, built on Astro.
 
 ## Conventions
 
+- **Prepared OpenAPI boundary**: `forge generate`, `forge inspect`, the Rust `Forge` parser, and `@cloudflare/forge`'s `parse()` accept a prepared, self-contained OpenAPI document and do no filesystem or network resolution. OpenAPI-to-OpenAPI transforms (`forge normalize`, `forge openapi overlay`, and future transforms such as bundling) live as separate commands and functions that compose upstream (for example, piped into `forge generate -`).
 - **Docs move with the code**: Before finishing any change, check `packages/docs` for every page it affects and update them in the same change. That includes the CLI, the model and its Rust, TypeScript and WIT APIs, OpenAPI rules, extensions, error messages, the built-in targets, and `forge-plugin`. Examples and output on the pages are real, so rerun them rather than editing by hand. `packages/docs/AGENTS.md` has the rules for writing pages.
 - **Open Source Separation**: Generic packages (`astro-fern`, `fern-forge`) must remain free of Cloudflare-specific dependencies.
 - **Formatting & Linting**: `oxfmt` and `oxlint`, configured only at the root (`.oxfmtrc.json`, `.oxlintrc.json`). `pnpm check` verifies; `pnpm format` rewrites.

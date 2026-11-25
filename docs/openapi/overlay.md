@@ -18,6 +18,12 @@ forge openapi overlay <overlay> | forge generate - --target <t> --out <dir>
 forge openapi overlay <spec> <overlay>... | forge generate - --target <t> --out <dir>
 ```
 
+`forge generate` and `forge inspect` take a prepared, self-contained OpenAPI
+document. OpenAPI-to-OpenAPI transforms (`forge normalize`,
+`forge openapi overlay`, and future transforms such as bundling) stay separate
+commands and functions that compose upstream, matching the pure, filesystem-free
+boundary of the Rust `Forge` parser and `@cloudflare/forge`.
+
 Without `--out` the `forge openapi overlay` subcommand prints the overlaid
 document to standard output. `--out <path>` writes it to `<path>` instead; if
 `<path>` is the same file as the target spec (in either Mode A or Mode B), the

@@ -1,4 +1,10 @@
-//! Forge builds a language-neutral SDK tree from an OpenAPI document.
+//! Forge builds a language-neutral SDK tree from a prepared, self-contained
+//! OpenAPI document.
+//!
+//! Parsing a [`Forge`] is pure and performs no filesystem or network I/O.
+//! OpenAPI-to-OpenAPI preparation steps — normalizing other tools' extensions,
+//! applying OpenAPI Overlays, or bundling external `$ref`s — run as separate
+//! commands or functions before constructing a [`Forge`].
 
 use std::{iter, ptr, slice};
 

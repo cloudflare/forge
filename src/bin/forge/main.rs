@@ -1,4 +1,12 @@
-//! The `forge` command, which generates an SDK from an OpenAPI document.
+//! The `forge` command, which generates an SDK from a prepared, self-contained
+//! OpenAPI document.
+//!
+//! OpenAPI-to-OpenAPI transforms (`forge normalize`, `forge openapi overlay`,
+//! and future transforms such as bundling) are separate commands and functions
+//! that compose upstream of `forge generate` and `forge inspect` (for example,
+//! piped through `-`). Keeping preparation separate matches the pure,
+//! filesystem-free boundary of the Rust crate (`Forge`) and the WebAssembly
+//! library (`@cloudflare/forge`).
 //!
 //! ```text
 //! forge generate openapi.json --target ts --out sdk

@@ -14,6 +14,31 @@ openapi.json ──read──► Doc ──link──► Forge ──run──�
                        (arenas)      (the model)    (Plugin)
 ```
 
+## Prepared input
+
+`forge generate`, `forge inspect`, the Rust `Forge` parser, and `@cloudflare/forge`'s `parse` each
+accept a single, prepared, self-contained OpenAPI document. They do not resolve external files or
+apply transforms on the way in.
+
+OpenAPI-to-OpenAPI transforms live as separate commands and functions upstream of that boundary:
+
+- [`forge normalize`](/reference/cli/#forge-normalize) rewrites other tools' extensions into Forge's
+  own.
+- [`forge openapi overlay`](/reference/cli/#forge-openapi-overlay) applies OpenAPI Overlay documents
+  to a spec.
+- Future document transforms, such as bundling external `$ref` files into one document, follow the
+  same pattern.
+
+In the CLI, these commands print to standard output by default so they compose in a pipeline with
+`-`:
+
+```sh
+forge openapi overlay openapi.json patch.yaml | forge normalize - | forge generate - --target ts --out sdk
+```
+
+Keeping preparation outside the core parser keeps the model pure and filesystem-free across the CLI,
+the Rust library, and the WebAssembly package.
+
 ## 1. Read
 
 The document is deserialized straight into arenas of its objects: paths, operations, parameters,
