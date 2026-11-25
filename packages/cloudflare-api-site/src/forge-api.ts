@@ -271,7 +271,8 @@ export function prepareForgeApi(
       op.tags = [leafTag.get(entry.operation.operationId)];
       // Nimbus reads each page's URL from the spec, so the config carries no route map.
       op['x-nimbus-route'] = operations[entry.operation.operationId];
-      operationPages[`${method.toUpperCase()} ${path}`] ??= `/${operations[entry.operation.operationId]}/`;
+      const page = operations[nimbusId(entry.operation.operationId)];
+      if (page) operationPages[`${method.toUpperCase()} ${path}`] ??= `/${page}/`;
       if (entry.operation.deprecated) op.deprecated = true;
       const methodName = op['x-fern-sdk-method-name'];
       const rank = typeof methodName === 'string' ? LIFECYCLE.indexOf(methodName) : -1;

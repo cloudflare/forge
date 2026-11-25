@@ -5,7 +5,7 @@
  * the endpoint card's raised layer: 13px mono on a 24px line, as tall as the
  * card (42px), and the same copy button split off by a divider. What follows
  * the command (`[options]`) is shown muted and left out of the copy, so what's
- * pasted runs. A line too long for the strip scrolls under a fading edge.
+ * pasted runs. A line too long for the strip wraps, so all of it stays readable.
  */
 import Icon from '@cloudflare/nimbus-docs/components/Icon.astro';
 import { LayerCard, LayerCardContent } from '@/components/ui/layer-card';
@@ -22,7 +22,7 @@ const { command, tail, label = 'Copy command' } = Astro.props;
 
 <LayerCard orientation="horizontal" dir="ltr">
   <LayerCardContent class="min-h-[2.625rem] flex-row items-stretch gap-0 p-0">
-    <code class="command-line min-w-0 grow self-center overflow-x-auto px-3 font-mono text-[0.8125rem] leading-6 whitespace-pre text-foreground">{command}{tail && <span class="text-muted-foreground"> {tail}</span>}</code>
+    <code class="command-line min-w-0 grow self-center px-3 py-[0.5625rem] font-mono text-[0.8125rem] leading-6 whitespace-pre-wrap [overflow-wrap:anywhere] text-foreground">{command}{tail && <span class="text-muted-foreground"> {tail}</span>}</code>
     <button
       type="button"
       data-cf-copy-command={command}
@@ -45,14 +45,11 @@ const { command, tail, label = 'Copy command' } = Astro.props;
 <style>
   .command-line {
     background: transparent;
-    scrollbar-width: none;
-    mask-image: linear-gradient(to right, black calc(100% - 1.5rem), transparent);
   }
 
   @media print {
-    .command-line {
-      white-space: pre-wrap;
-      mask-image: none;
+    [data-cf-copy-command] {
+      display: none;
     }
   }
 </style>

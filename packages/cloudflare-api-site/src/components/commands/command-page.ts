@@ -13,6 +13,6 @@ export function commandBreadcrumbs(
   return [
     root,
     { label: 'Developer Tooling', href: '/tooling/' },
-    ...(group ? [{ label: commandTitle({ name: group }), href: `/tooling/#${group}` }] : []),
+    ...(group ? [{ label: commandTitle({ name: group }), href: `/tooling/#command-group-${group}` }] : []),
   ];
 }

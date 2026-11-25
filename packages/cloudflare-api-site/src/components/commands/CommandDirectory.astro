@@ -26,13 +26,13 @@ for (const command of commands) {
   grouped.set(name, [...(grouped.get(name) ?? []), command]);
 }
 const sections = [
-  ...(standalone.length > 0 ? [{ id: 'commands', title: 'Commands', description: undefined, commands: standalone }] : []),
+  ...(standalone.length > 0 ? [{ id: 'command-list', title: 'Commands', description: undefined, commands: standalone }] : []),
   ...[...grouped].map(([name, groupCommands]) => {
     const title = commandTitle({ name });
     const description = descriptions[name];
     // A description that only repeats the group's name says nothing.
     return {
-      id: name,
+      id: `command-group-${name}`,
       title,
       description: description && description.trim().toLowerCase() !== title.toLowerCase() ? description : undefined,
       commands: groupCommands,
