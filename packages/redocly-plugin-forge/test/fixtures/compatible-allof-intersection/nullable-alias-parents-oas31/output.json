@@ -1,0 +1,8 @@
+[
+  {
+    "ruleId": "forge/compatible-allof-intersection",
+    "severity": "error",
+    "message": "allOf $ref \"MaybeString\" is a string; cannot intersect with an object required by allOf $ref \"AliasOfMaybeBase\".",
+    "location": "openapi.yaml#/components/schemas/Child/allOf/1/$ref (key)"
+  }
+]

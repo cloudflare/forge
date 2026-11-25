@@ -100,16 +100,11 @@ jobs:
           path: packages/cloudflare-api-site/e2e/__test-results__
           retention-days: 7
 
-  # The preview workflow builds the site for pull requests into `main` from a
-  # branch of this repository, and the deploy workflow builds `main`. This
-  # builds the pull requests neither covers: those from forks, which get no
-  # secrets and so no preview, and those into another branch. `astro check`
-  # runs for every change in the job above, as the package's `typecheck`.
+  # Workers Builds skips forks, so this builds every pull request. `astro
+  # check` runs in the job above, as the package's `typecheck`.
   forge-docs:
     name: Forge docs build
-    if: >-
-      github.event_name == 'pull_request' &&
-      (github.event.pull_request.head.repo.full_name != github.repository || github.base_ref != 'main')
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 15
 

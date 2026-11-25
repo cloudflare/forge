@@ -39,7 +39,7 @@ mod ts;
 
 /// Generate an SDK, apply an overlay, or run a subcommand.
 #[derive(Parser)]
-#[command(version, subcommand_required = true)]
+#[command(name = "forge", version, subcommand_required = true)]
 struct Args {
     /// Set the diagnostic log level on stderr: `error`, `warn`, `info`,
     /// `debug`, or `trace` (also configurable via `FORGE_LOG`).

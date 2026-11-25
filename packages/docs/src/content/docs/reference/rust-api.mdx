@@ -6,8 +6,18 @@ sidebar:
   order: 2
 ---
 
-This page lists the public API of the `forge` crate. The rustdoc on each item is the complete
-reference, including every OpenAPI rule. Build it with:
+The package is `cloudflare-forge`. Registry publishing is currently paused. Depend on the
+repository, rename the package to `forge`, and turn off the default CLI feature:
+
+```toml title="Cargo.toml"
+[dependencies.forge]
+package = "cloudflare-forge"
+git = "https://github.com/cloudflare/forge"
+default-features = false
+```
+
+This page lists the public API under `forge::`. The rustdoc on each item is the complete reference,
+including every OpenAPI rule. Build it with:
 
 ```sh
 cargo doc --no-deps --features wasm --open

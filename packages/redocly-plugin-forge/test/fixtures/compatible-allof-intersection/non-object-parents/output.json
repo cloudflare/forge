@@ -1,0 +1,20 @@
+[
+  {
+    "ruleId": "forge/compatible-allof-intersection",
+    "severity": "error",
+    "message": "allOf $ref \"Tags\" is an array; cannot intersect with an object required by the enclosing schema.",
+    "location": "openapi.yaml#/components/schemas/Child/allOf/0/$ref (key)"
+  },
+  {
+    "ruleId": "forge/compatible-allof-intersection",
+    "severity": "error",
+    "message": "allOf $ref \"Color\" is a string; cannot intersect with an object required by the enclosing schema.",
+    "location": "openapi.yaml#/components/schemas/Child/allOf/1/$ref (key)"
+  },
+  {
+    "ruleId": "forge/compatible-allof-intersection",
+    "severity": "error",
+    "message": "allOf $ref \"Count\" is an integer; cannot intersect with an object required by the enclosing schema.",
+    "location": "openapi.yaml#/components/schemas/Child/allOf/2/$ref (key)"
+  }
+]

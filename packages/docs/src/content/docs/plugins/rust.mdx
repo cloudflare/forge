@@ -154,13 +154,17 @@ output with a tool, a CLI of its own), depend on Forge and run it in your own bi
 
 ### Set up
 
-Forge is not on crates.io yet. Depend on it from Git. Turn off the default `cli` feature, which only
-the `forge` command needs:
+Forge is not currently distributed through crates.io. Depend on it from Git. Rename the package to
+`forge` and turn off the default `cli` feature, which only the `forge` command needs:
 
 ```toml title="Cargo.toml"
 [dependencies]
-forge = { git = "https://github.com/cloudflare/forge", default-features = false }
 serde_json = "1"
+
+[dependencies.forge]
+package = "cloudflare-forge"
+git = "https://github.com/cloudflare/forge"
+default-features = false
 ```
 
 Add `features = ["wasm"]` to run WebAssembly plugins from your binary, with

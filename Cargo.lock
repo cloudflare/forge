@@ -257,6 +257,24 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1c133bc6a41be0d194c306b5506d15e6feeea7b1d6604bd3f8310dfb2ca96486"
 
 [[package]]
+name = "cloudflare-forge"
+version = "0.3.0"
+dependencies = [
+ "clap",
+ "divan",
+ "fluent-uri",
+ "rayon",
+ "serde",
+ "serde-saphyr",
+ "serde_json",
+ "serde_json_path",
+ "strum",
+ "wasmtime",
+ "wasmtime-wasi",
+ "wit-bindgen",
+]
+
+[[package]]
 name = "cobs"
 version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -633,28 +651,10 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "77ce24cb58228fbb8aa041425bb1050850ac19177686ea6e0f41a70416f56fdb"
 
 [[package]]
-name = "forge"
-version = "0.3.0"
-dependencies = [
- "clap",
- "divan",
- "fluent-uri",
- "rayon",
- "serde",
- "serde-saphyr",
- "serde_json",
- "serde_json_path",
- "strum",
- "wasmtime",
- "wasmtime-wasi",
- "wit-bindgen",
-]
-
-[[package]]
 name = "forge-library"
 version = "0.1.0"
 dependencies = [
- "forge",
+ "cloudflare-forge",
 ]
 
 [[package]]

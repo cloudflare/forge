@@ -23,8 +23,8 @@ pnpm --filter forge-docs run deploy   # build, then cf deploy
 The site deploys with the [`cf` CLI](https://developers.cloudflare.com/cf/), from
 `cloudflare.config.ts`: a Worker with no script, serving the prerendered pages as static assets.
 `cf` builds Astro through the Cloudflare adapter, so `astro.config.ts` has the adapter even though
-every page is prerendered. CI previews every pull request and deploys `main`; the README has the
-details.
+every page is prerendered. Workers Builds previews every branch and deploys `main`; the README has
+the details.
 
 ## File layout
 

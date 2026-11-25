@@ -1,0 +1,17 @@
+openapi: 3.1.0
+info:
+  title: Integer composes with number
+  version: 1.0.0
+paths: {}
+components:
+  schemas:
+    SmallInteger:
+      type: integer
+      maximum: 100
+    Even:
+      type: number
+      multipleOf: 2
+    EvenSmallInteger:
+      allOf:
+        - $ref: '#/components/schemas/SmallInteger'
+        - $ref: '#/components/schemas/Even'

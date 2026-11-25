@@ -1,0 +1,14 @@
+openapi: 3.0.3
+info:
+  title: Enclosing scalar conflict
+  version: 1.0.0
+paths: {}
+components:
+  schemas:
+    Timestamp:
+      type: string
+      format: date-time
+    MisTyped:
+      type: object
+      allOf:
+        - $ref: '#/components/schemas/Timestamp'

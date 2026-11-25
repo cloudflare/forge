@@ -1,0 +1,17 @@
+openapi: 3.1.0
+info:
+  title: nullable is not an OAS 3.1 keyword
+  version: 1.0.0
+paths: {}
+components:
+  schemas:
+    MaybeObject:
+      type: object
+      nullable: true
+      properties:
+        id:
+          type: string
+    Impossible:
+      allOf:
+        - type: 'null'
+        - $ref: '#/components/schemas/MaybeObject'
