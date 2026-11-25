@@ -106,9 +106,3 @@ jobs:
 
       - name: Test
         run: cargo test --locked --all-features
-
-      # This is the same package verification cargo publish performs. It keeps
-      # missing metadata, accidentally included files and registry-only build
-      # failures out of a release tag.
-      - name: Verify crates.io package
-        run: cargo package --locked

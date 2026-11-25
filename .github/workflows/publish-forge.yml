@@ -377,8 +377,8 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Install Rust
-        run: rustup toolchain install
+      - name: Verify package
+        run: cargo publish --dry-run --locked
 
       - name: Check whether the version exists
         id: crate

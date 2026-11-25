@@ -6,7 +6,10 @@ It's [still early-days](https://blog.cloudflare.com/forge-open-source-generation
 
 ## Documentation
 
-The guides and reference for Forge, its model and its plugins are in [`packages/docs`](packages/docs/src/content/docs/). Start with the [About Forge](packages/docs/src/content/docs/start/about.mdx) and the [Get started](packages/docs/src/content/docs/start/get-started.mdx).
+The guides and reference for Forge, its model and its plugins are in the
+[Forge documentation source](https://github.com/cloudflare/forge/tree/main/packages/docs/src/content/docs).
+Start with [About Forge](https://github.com/cloudflare/forge/blob/main/packages/docs/src/content/docs/start/about.mdx)
+and [Get started](https://github.com/cloudflare/forge/blob/main/packages/docs/src/content/docs/start/get-started.mdx).
 
 ## Rust library
 
@@ -18,7 +21,7 @@ cargo add cloudflare-forge --no-default-features
 ```
 
 The default `cli` feature also builds the `forge` command. Enable `wasm` to run WebAssembly plugins
-from a Rust host. The [Rust API reference](packages/docs/src/content/docs/reference/rust-api.mdx)
+from a Rust host. The [Rust API reference](https://github.com/cloudflare/forge/blob/main/packages/docs/src/content/docs/reference/rust-api.mdx)
 lists the public model and plugin interfaces.
 
 ## License

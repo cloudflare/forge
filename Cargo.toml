@@ -18,7 +18,16 @@ readme = "README.md"
 keywords = ["codegen", "openapi", "plugin", "sdk", "wasm"]
 categories = ["command-line-utilities", "development-tools"]
 publish = ["crates-io"]
-include = ["/src/**", "/tests/**", "/benches/**", "/Cargo.toml", "/README.md", "/LICENSE"]
+include = [
+  "/src/**/*.rs",
+  "/src/**/*.wit",
+  "/src/bin/forge/capnweb/options.ts",
+  "/src/bin/forge/mcp/lib/src/tool.ts",
+  "/src/bin/forge/ts/lib/src/**",
+  "/Cargo.toml",
+  "/README.md",
+  "/LICENSE",
+]
 
 # crates.io has no organization namespaces and the unrelated `forge` package
 # name is already taken. Keep the public Rust path `forge::...` even though the
