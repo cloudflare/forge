@@ -337,23 +337,26 @@ if (rows.length > 0 && !home) {
     position: sticky;
     top: var(--nb-header-height);
     z-index: 5;
-    margin: 0 0 -1.5rem;
-    padding: 0.5rem 0;
+    /* The sidebar's filter bar spacing (`.sb-filter-bar`), so both filters
+       line up below the header; the margins keep the resting layout. */
+    margin: -0.75rem 0 -1.75rem;
+    padding: 1.25rem 0 0.75rem;
     background: var(--nb-background);
   }
+  /* Drawn like the sidebar's filter (`SidebarFilter`). */
   .nb-ix-filter {
     display: flex;
     align-items: center;
     gap: 0.5rem;
-    height: 2.5rem;
+    height: 2.125rem;
     padding-inline: 0.75rem 0.5rem;
-    border-radius: var(--nb-radius);
+    border: 1px solid var(--nb-border);
+    border-radius: 0.375rem;
     background: var(--nb-card);
-    box-shadow: var(--nb-shadow-sm), 0 0 0 1px var(--nb-border);
     color: var(--nb-muted-foreground);
   }
   .nb-ix-filter:focus-within {
-    box-shadow: var(--nb-shadow-sm), 0 0 0 1px var(--nb-border-strong), 0 0 0 4px var(--nb-ring);
+    outline: 2px solid var(--nb-ring);
   }
   .nb-ix-filter svg {
     width: 1rem;
