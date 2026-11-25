@@ -1,12 +1,10 @@
-//! The `forge` command, which generates an SDK from an OpenAPI document
-//! (or a self-contained OpenAPI Overlay document whose `extends` names one).
+//! The `forge` command, which generates an SDK from an OpenAPI document.
 //!
 //! ```text
 //! forge generate openapi.json --target ts --out sdk
 //! forge generate openapi.json --target capnweb --out server
 //! forge generate openapi.json --target mcp --out tools
 //! forge generate openapi.json --target wasm://plugin.wasm --out sdk
-//! forge generate overlay.yaml --target ts --out sdk   # overlay drives the spec via its `extends`
 //! forge normalize specs/*.json
 //! forge inspect methods openapi.json
 //! forge openapi overlay <overlay>                      # print or write the merged spec
@@ -23,7 +21,6 @@ use forge::{Err, Forge, Plugin};
 use strum::{EnumString, VariantNames};
 
 mod capnweb;
-mod detect;
 mod file;
 mod inspect;
 mod log;
@@ -47,8 +44,7 @@ struct Args {
 /// What `forge` does.
 #[derive(clap::Subcommand)]
 enum Command {
-    /// Generate an SDK from an OpenAPI document or a self-contained Overlay
-    /// document (with `extends`).
+    /// Generate an SDK from an OpenAPI document.
     Generate(GenerateArgs),
     /// Rewrite other tools' extensions into the native x-forge-* ones.
     ///
@@ -66,8 +62,7 @@ enum Command {
 /// What `forge generate` is given.
 #[derive(clap::Args)]
 struct GenerateArgs {
-    /// The OpenAPI JSON document, an Overlay document whose `extends` names
-    /// the spec, or `-` to read a spec from standard input.
+    /// The OpenAPI JSON document, or `-` to read it from standard input.
     spec: PathBuf,
     /// The language of the SDK: `ts` for TypeScript, `capnweb` for a Cap'n
     /// Web server of the TypeScript SDK, which it imports from `#sdk`, `mcp`
@@ -178,8 +173,7 @@ fn run(args: Args) -> Result<(), Err> {
     }
 }
 
-/// Generates the SDK for `args.spec`, applying it as an overlay first when
-/// the input is an Overlay document (with `extends`).
+/// Generates the SDK for the document at `args.spec`, and writes it to `args.out`.
 fn generate(args: GenerateArgs) -> Result<(), Err> {
     let spec = args.spec.as_path();
     let out = args.out.as_path();
@@ -203,35 +197,18 @@ fn run_plugin(plugin: &impl Plugin, spec: &Path, out: &Path) -> Result<(), Err> 
 }
 
 /// Reads the document at `path`, or from standard input when `path` is `-`.
-///
-/// Detects the specification family up front using an early-exit streaming
-/// probe, applying an OpenAPI Overlay (via `extends`) when given one, or
-/// returning a clear error for recognized but unsupported spec families.
 fn read(path: &Path) -> Result<Forge, Err> {
-    let bytes = if path == Path::new("-") {
-        let mut buf = Vec::new();
-        io::stdin()
-            .read_to_end(&mut buf)
-            .map_err(|err| format!("{}: {err}", path.display()))?;
-        buf
-    } else {
-        fs::read(path).map_err(|err| format!("{}: {err}", path.display()))?
+    let parse = || -> Result<Forge, Err> {
+        let json = if path == Path::new("-") {
+            let mut json = Vec::new();
+            io::stdin().read_to_end(&mut json)?;
+            json
+        } else {
+            fs::read(path)?
+        };
+        Ok(serde_json::from_slice(&json)?)
     };
-
-    let kind = detect::detect(&bytes);
-    if !matches!(kind, detect::SpecKind::Unknown) {
-        log::debug!("{}: detected {kind}", path.display());
-    }
-    if let Some(msg) = kind.unsupported_error() {
-        return Err(format!("{}: {msg}", path.display()).into());
-    }
-    if matches!(kind, detect::SpecKind::Overlay { .. }) {
-        let doc = openapi::overlay::apply_extends(path, Some(bytes))?;
-        let label = doc.source_path().unwrap_or(path).to_path_buf();
-        return serde_json::from_value(doc.into_value()).map_err(|err| format!("{}: {err}", label.display()).into());
-    }
-
-    serde_json::from_slice(&bytes).map_err(|err| format!("{}: {err}", path.display()).into())
+    parse().map_err(|err| format!("{}: {err}", path.display()).into())
 }
 
 #[cfg(test)]

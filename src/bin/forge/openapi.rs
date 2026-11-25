@@ -2,7 +2,7 @@
 //! OpenAPI document. Future spec families (AsyncAPI, GraphQL) will live
 //! alongside this one so the top-level command namespace stays flat.
 
-pub mod overlay;
+mod overlay;
 
 use forge::Err;
 

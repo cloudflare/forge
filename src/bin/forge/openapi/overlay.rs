@@ -14,8 +14,7 @@ use std::path::{Path, PathBuf};
 
 use forge::Err;
 
-pub use document::Document;
-use document::Format;
+use document::{Document, Format};
 use parsed::Overlay;
 
 /// Arguments to `forge openapi overlay`.
@@ -44,7 +43,7 @@ pub fn run(args: Args) -> Result<(), Err> {
         );
     };
     let doc = if rest.is_empty() {
-        apply_extends(first, None)?
+        apply_extends(first)?
     } else {
         apply_to_spec(first, rest)?
     };
@@ -53,13 +52,8 @@ pub fn run(args: Args) -> Result<(), Err> {
 
 /// Mode A: parse `overlay_path` as an overlay, resolve its `extends` to a local
 /// spec file, enforce the 1.2 `$self`/`extends` identity check, and apply it.
-/// When `preloaded` is `Some`, those bytes are used instead of re-reading
-/// `overlay_path` from disk.
-pub fn apply_extends(overlay_path: &Path, preloaded: Option<Vec<u8>>) -> Result<Document, Err> {
-    let bytes = match preloaded {
-        Some(bytes) => bytes,
-        None => read_file(overlay_path)?,
-    };
+fn apply_extends(overlay_path: &Path) -> Result<Document, Err> {
+    let bytes = read_file(overlay_path)?;
     let format = Format::sniff(&bytes);
 
     // Parse once: check top-level keys first so an OpenAPI spec passed in
@@ -69,7 +63,7 @@ pub fn apply_extends(overlay_path: &Path, preloaded: Option<Vec<u8>>) -> Result<
     if let Some(obj) = raw_value.as_object()
         && !obj.contains_key("overlay")
     {
-        return Err(disambiguation_error(overlay_path, &bytes));
+        return Err(disambiguation_error(overlay_path, obj.contains_key("openapi")));
     }
     let overlay = Overlay::from_value(&raw_value).map_err(|e| format!("{}: {e}", overlay_path.display()))?;
     overlay.diagnose_warnings();
@@ -277,33 +271,20 @@ fn write_stdout(doc: &Document) -> Result<(), Err> {
     Ok(())
 }
 
-fn disambiguation_error(path: &Path, bytes: &[u8]) -> Err {
+fn disambiguation_error(path: &Path, is_spec: bool) -> Err {
     let shown = path.display();
-    match crate::detect::detect(bytes) {
-        crate::detect::SpecKind::OpenApi { .. } => format!(
+    if is_spec {
+        format!(
             "{shown}: looks like an OpenAPI spec, not an Overlay document. Did you mean \
              `forge openapi overlay <spec> <overlay>` or add an `overlay` version key?"
         )
-        .into(),
-        other => match other.family_name() {
-            Some(name) => {
-                let article = if matches!(name.as_bytes().first(), Some(b'A' | b'E' | b'I' | b'O' | b'U')) {
-                    "an"
-                } else {
-                    "a"
-                };
-                format!(
-                    "{shown}: looks like {article} {name} document, not an Overlay document. \
-                     Pass a single overlay document, or `<spec> <overlay>...`."
-                )
-                .into()
-            }
-            None => format!(
-                "{shown}: not an overlay (missing `overlay` version key) and not an OpenAPI spec \
-                 (missing `openapi` key). Pass a single overlay document, or `<spec> <overlay>...`."
-            )
-            .into(),
-        },
+        .into()
+    } else {
+        format!(
+            "{shown}: not an overlay (missing `overlay` version key) and not an OpenAPI spec \
+             (missing `openapi` key). Pass a single overlay document, or `<spec> <overlay>...`."
+        )
+        .into()
     }
 }
 

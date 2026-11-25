@@ -109,10 +109,6 @@ impl Document {
         &self.value
     }
 
-    pub fn into_value(self) -> Value {
-        self.value
-    }
-
     pub fn value_mut(&mut self) -> &mut Value {
         &mut self.value
     }

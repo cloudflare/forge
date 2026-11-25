@@ -10,11 +10,11 @@ forge openapi overlay <spec> <overlay>...                   # Mode B
 forge openapi overlay <spec> <overlay> --out <path>
 ```
 
-You can also pass a self-contained overlay (one with `extends`) directly to
-`forge generate`, or pipe the merged spec from `forge openapi overlay` into it:
+Pipe the merged spec into `forge generate` to generate from an overlaid
+document:
 
 ```
-forge generate <overlay-with-extends> --target <t> --out <dir>
+forge openapi overlay <overlay> | forge generate - --target <t> --out <dir>
 forge openapi overlay <spec> <overlay>... | forge generate - --target <t> --out <dir>
 ```
 

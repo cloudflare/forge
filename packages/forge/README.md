@@ -161,10 +161,8 @@ npx forge openapi overlay openapi.json a.yaml b.yaml
 npx forge openapi overlay openapi.json overlay.yaml --out merged.json
 
 # Pipe the merged spec into `forge generate`.
+npx forge openapi overlay overlay.yaml | npx forge generate - --target ts --out sdk
 npx forge openapi overlay openapi.json a.yaml b.yaml | npx forge generate - --target ts --out sdk
-
-# Or pass a self-contained overlay (with `extends`) directly to `forge generate`.
-npx forge generate overlay.yaml --target ts --out sdk
 ```
 
 See [`docs/openapi/overlay.md`](https://github.com/cloudflare/forge/blob/main/docs/openapi/overlay.md)
