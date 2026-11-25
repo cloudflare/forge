@@ -418,7 +418,7 @@ or list it in `package.json`. A path or URL to the tarball both work:
 
 ## Releasing
 
-To cut a release to npmjs.com:
+The `forge@<version>` tag publishes the same version to npmjs.com and crates.io. To cut a release:
 
 1. Land a PR to `main` that bumps `Cargo.toml` `version` and syncs it with `node packages/forge/scripts/version.mjs`.
 2. After it merges, create and push a signed tag:
@@ -428,7 +428,9 @@ git tag -s forge@0.2.0 -m 'forge 0.2.0'
 git push origin forge@0.2.0
 ```
 
-`.github/workflows/publish-forge.yml` builds all six binaries, packs the six `@cloudflare/forge-<os>-<cpu>` packages and `@cloudflare/forge`, and publishes the platform packages first followed by `@cloudflare/forge` to npmjs.com with provenance.
+`.github/workflows/publish-forge.yml` builds all six binaries, packs the six `@cloudflare/forge-<os>-<cpu>` packages and `@cloudflare/forge`, and publishes the platform packages first followed by `@cloudflare/forge` to npmjs.com with provenance. Once npm succeeds, it publishes the Rust library and CLI as `cloudflare-forge` on crates.io. Both registries use OIDC trusted publishing, with no long-lived release token in GitHub.
+
+The first crates.io release needs a one-time bootstrap because crates.io can register a trusted publisher only after the package exists. A release owner publishes that first version with a short-lived token, adds the Cloudflare release team as an owner, configures this repository's `publish-forge.yml` workflow as the trusted publisher without a GitHub environment, enables Trusted Publishing Only mode, and revokes the bootstrap token. Later releases run only through the tagged workflow, matching the npm trusted-publisher setup.
 
 To build and pack locally from the root of the forge repository, with [just](https://just.systems) installed:
 

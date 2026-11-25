@@ -6,8 +6,15 @@ sidebar:
   order: 2
 ---
 
-This page lists the public API of the `forge` crate. The rustdoc on each item is the complete
-reference, including every OpenAPI rule. Build it with:
+The crates.io package is `cloudflare-forge`. Its library crate and CLI binary are both named
+`forge`. Add the library without the default CLI feature:
+
+```sh
+cargo add cloudflare-forge --no-default-features
+```
+
+This page lists the public API under `forge::`. The rustdoc on each item is the complete reference,
+including every OpenAPI rule. Build it with:
 
 ```sh
 cargo doc --no-deps --features wasm --open
