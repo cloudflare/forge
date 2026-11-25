@@ -3,7 +3,13 @@ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
-import { discoverFernProducts, loadOpenApiDocument, openApiDocumentSchema, parseOpenApiDocument } from './build.ts';
+import {
+  discoverFernProducts,
+  fernOperationId,
+  loadOpenApiDocument,
+  openApiDocumentSchema,
+  parseOpenApiDocument,
+} from './build.ts';
 import {
   buildDocsModel,
   classifyResponseStatus,
@@ -1338,6 +1344,157 @@ test('SDK products derive resource and method routes from the full Fern SDK addr
     ],
     method: { id: 'listAll', slug: 'list-all' },
   });
+});
+
+test('an operation without an operationId is identified by its SDK address, as Forge names the method', () => {
+  const source: OpenApiDocumentSchema = {
+    paths: {
+      '/{account_or_zone}/{account_or_zone_id}/access/apps': {
+        get: {
+          tags: ['Devices'],
+          'x-fern-sdk-group-name': 'zero_trust.access.applications',
+          'x-fern-sdk-method-name': 'list',
+        },
+        // No SDK method name either, so Forge makes no method of it.
+        post: { tags: ['Devices'], 'x-fern-sdk-group-name': 'zero_trust.access.applications' },
+      },
+    },
+  };
+  assert.deepEqual(discoverFernProducts(source), [
+    { id: 'zero_trust', sdkGroup: 'zero_trust', sections: [{ id: 'devices', tag: 'Devices' }] },
+  ]);
+  const sdk = buildDocsModel({ source, products: [sdkProduct] });
+  const operations = sdk.products[0]?.sections.flatMap((section) => section.operations) ?? [];
+  assert.deepEqual(
+    operations.map(({ operationId, slug }) => ({ operationId, slug })),
+    [{ operationId: 'zero_trust.access.applications.list', slug: 'access/applications/methods/list' }],
+  );
+});
+
+test('an untagged SDK operation is in the section its SDK group path names, as Forge groups methods', () => {
+  const source: OpenApiDocumentSchema = {
+    paths: {
+      '/{account_or_zone}/{account_or_zone_id}/access/apps': {
+        get: {
+          tags: [],
+          'x-fern-sdk-group-name': 'zero_trust.access.applications',
+          'x-fern-sdk-method-name': 'list',
+          'x-test-aliases': [
+            // The first projection in a product decides its section.
+            { 'x-fern-sdk-group-name': 'zero_trust.access.apps', 'x-fern-sdk-method-name': 'list' },
+            { 'x-fern-sdk-group-name': 'iam.applications', 'x-fern-sdk-method-name': 'list' },
+          ],
+        },
+      },
+      '/devices': {
+        get: {
+          operationId: 'devices_list',
+          tags: ['Devices'],
+          'x-fern-sdk-group-name': 'zero_trust.devices',
+          'x-fern-sdk-method-name': 'list',
+        },
+      },
+    },
+  };
+  const extensions = [fixtureExtension];
+  const products = discoverFernProducts(source, { extensions });
+  assert.deepEqual(products, [
+    { id: 'iam', sdkGroup: 'iam', sections: [{ id: 'iam-applications', tag: 'iam.applications' }] },
+    {
+      id: 'zero_trust',
+      sdkGroup: 'zero_trust',
+      sections: [
+        { id: 'devices', tag: 'Devices' },
+        { id: 'zero-trust-access-applications', tag: 'zero_trust.access.applications' },
+      ],
+    },
+  ]);
+  const built = buildDocsModel({ source, products, extensions });
+  const placed = built.products.flatMap((product) =>
+    product.sections.flatMap((section) =>
+      section.operations.map((operation) => `${product.name} ${section.id} ${operation.operationId} ${operation.slug}`),
+    ),
+  );
+  assert.deepEqual(placed, [
+    'iam iam-applications zero_trust.access.applications.list applications/methods/list',
+    'zero_trust devices devices_list devices/methods/list',
+    'zero_trust zero-trust-access-applications zero_trust.access.applications.list access/applications/methods/list',
+    'zero_trust zero-trust-access-applications zero_trust.access.applications.list access/apps/methods/list',
+  ]);
+});
+
+test('an untagged SDK operation joins the section of an OpenAPI tag with the same section ID, in any order', () => {
+  const tagged = {
+    operationId: 'organization_get',
+    tags: ['Zero Trust organization'],
+    'x-fern-sdk-group-name': 'zero-trust.organization',
+    'x-fern-sdk-method-name': 'get',
+  };
+  const untagged = { 'x-fern-sdk-group-name': 'zero-trust.organization', 'x-fern-sdk-method-name': 'list' };
+  for (const paths of [
+    { '/a': { get: tagged }, '/b': { get: untagged } },
+    { '/a': { get: untagged }, '/b': { get: tagged } },
+  ]) {
+    const source: OpenApiDocumentSchema = { paths };
+    const products = discoverFernProducts(source);
+    assert.deepEqual(products, [
+      {
+        id: 'zero-trust',
+        sdkGroup: 'zero-trust',
+        sections: [{ id: 'zero-trust-organization', tag: 'Zero Trust organization' }],
+      },
+    ]);
+    const sections = buildDocsModel({ source, products }).products[0]?.sections ?? [];
+    assert.deepEqual(
+      sections.map((section) => [section.id, section.operations.map((operation) => operation.operationId).sort()]),
+      [['zero-trust-organization', ['organization_get', 'zero-trust.organization.list']]],
+    );
+  }
+});
+
+test('fernOperationId prefers the operationId, then joins the SDK group path and method name', () => {
+  assert.equal(
+    fernOperationId({ operationId: 'list-apps', 'x-fern-sdk-method-name': 'list' }, 'get', '/apps'),
+    'list-apps',
+  );
+  assert.equal(
+    fernOperationId({ 'x-fern-sdk-group-name': ['a', 'b'], 'x-fern-sdk-method-name': 'list' }, 'get', '/x'),
+    'a.b.list',
+  );
+  assert.equal(
+    fernOperationId({ 'x-fern-sdk-group-name': 'a.b', 'x-fern-sdk-method-name': 'get' }, 'get', '/x'),
+    'a.b.get',
+  );
+  // Without a group, the method is in the root, as in Forge.
+  assert.equal(fernOperationId({ 'x-fern-sdk-method-name': 'ping' }, 'get', '/ping'), 'ping');
+  assert.equal(fernOperationId({ 'x-fern-sdk-group-name': 'a' }, 'get', '/x'), undefined);
+  assert.equal(fernOperationId({}, 'get', '/x'), undefined);
+  assert.throws(
+    () => fernOperationId({ 'x-fern-sdk-group-name': 'a..b', 'x-fern-sdk-method-name': 'list' }, 'get', '/x'),
+    /operation "GET \/x" has an invalid x-fern-sdk-group-name/,
+  );
+});
+
+test("an SDK address that is also another operation's operationId is a duplicate", () => {
+  const source: OpenApiDocumentSchema = {
+    paths: {
+      '/a': {
+        get: {
+          operationId: 'zero_trust.apps.list',
+          tags: ['Devices'],
+          'x-fern-sdk-group-name': 'zero_trust.apps',
+          'x-fern-sdk-method-name': 'all',
+        },
+      },
+      '/b': {
+        get: { tags: ['Devices'], 'x-fern-sdk-group-name': 'zero_trust.apps', 'x-fern-sdk-method-name': 'list' },
+      },
+    },
+  };
+  assert.throws(
+    () => buildDocsModel({ source, products: [sdkProduct] }),
+    /duplicate operationId "zero_trust\.apps\.list" in product "zero-trust"/,
+  );
 });
 
 test('SDK aliases in the same product generate independent placements', () => {

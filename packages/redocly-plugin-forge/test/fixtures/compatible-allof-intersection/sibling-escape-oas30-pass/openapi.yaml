@@ -1,0 +1,33 @@
+openapi: 3.0.3
+info:
+  title: Sibling escape idiom
+  version: 1.0.0
+paths:
+  /events:
+    get:
+      operationId: listEvents
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  created_at:
+                    allOf:
+                      - $ref: '#/components/schemas/Timestamp'
+                    description: When the event was recorded.
+                  tags:
+                    allOf:
+                      - $ref: '#/components/schemas/TagList'
+                    description: Labels attached to the event.
+components:
+  schemas:
+    Timestamp:
+      type: string
+      format: date-time
+    TagList:
+      type: array
+      items:
+        type: string

@@ -1,0 +1,104 @@
+{
+  "$schema": "https://nimbus-docs.com/schema/nimbus.json",
+  "version": "0.9.0",
+  "lastReviewedNimbusVersion": "0.20.1",
+  "templatesTag": "templates-v0.9.0",
+  "templatesTagByFile": {
+    "src/components/Header.astro": "templates-v0.9.1",
+    "src/components/ui/aside/Aside.astro": "templates-v0.9.1",
+    "src/components/ui/search/providers/pagefind.ts": "templates-v0.9.1",
+    "src/components/ui/toc/MobileTOC.astro": "templates-v0.9.1",
+    "src/styles/prose.css": "templates-v0.9.1"
+  },
+  "variant": "empty",
+  "registry": "https://nimbus-docs.com/registry",
+  "install": {
+    "root": "src",
+    "aliases": {
+      "@/*": "src/*"
+    }
+  },
+  "components": [
+    {
+      "slug": "cn",
+      "type": "registry:lib",
+      "version": "0.20.0",
+      "source": "https://nimbus-docs.com/registry",
+      "hash": "sha256:7c54894573a1398333b41a63838db5de40ba05ad3fdb71048414baf912bb0070",
+      "files": [
+        "src/lib/cn.ts"
+      ],
+      "fileHashes": {
+        "src/lib/cn.ts": "sha256:4575f5bcc29804b00c7cc1e3090aec2194b462bdd3c33a5620dc47d09bfe26d8"
+      }
+    },
+    {
+      "slug": "link-card",
+      "type": "registry:ui",
+      "version": "0.19.4",
+      "source": "https://nimbus-docs.com/registry",
+      "hash": "sha256:e6a1dc40185f3676153884a6dca63b4cb49e26e5f7aa5b0b9248a9d22cb58a6e",
+      "files": [
+        "src/components/ui/link-card/LinkCard.astro",
+        "src/components/ui/link-card/index.ts"
+      ],
+      "fileHashes": {
+        "src/components/ui/link-card/LinkCard.astro": "sha256:54018f5df6e5a9f5a2f4a0fb925938a229130b64dff528335eacc8cd4da342fb",
+        "src/components/ui/link-card/index.ts": "sha256:3267e55393cb50330609feea3e7db92d122893e331400c48392851ca6545e4af"
+      }
+    },
+    {
+      "slug": "layer-card",
+      "type": "registry:ui",
+      "version": "0.20.0",
+      "source": "https://nimbus-docs.com/registry",
+      "hash": "sha256:ff1f8173d09b8523284fb8777be508b71a7519553a3960e340387426c3d24b1f",
+      "files": [
+        "src/components/ui/layer-card/LayerCard.astro",
+        "src/components/ui/layer-card/LayerCardContent.astro",
+        "src/components/ui/layer-card/LayerCardHeader.astro",
+        "src/components/ui/layer-card/index.ts"
+      ],
+      "fileHashes": {
+        "src/components/ui/layer-card/LayerCard.astro": "sha256:0803c1f9fe69649466526a7266e64a1cf83edf7a8d06978fb2629e57f961bb9d",
+        "src/components/ui/layer-card/LayerCardContent.astro": "sha256:702b2d01f6219fa4feb02ca14475bdb6ad8736c4e800b24a30f3b65495c22638",
+        "src/components/ui/layer-card/LayerCardHeader.astro": "sha256:97bf782f09930c2e7a6158531f20291d2acf6830d0b61c0ec233c2f5d5b0db53",
+        "src/components/ui/layer-card/index.ts": "sha256:165fe2d8ac54c9dd5679725bb6767e11bf57c3301b5c630a8ec9afa6ae47bc8e"
+      }
+    },
+    {
+      "slug": "code-group",
+      "type": "registry:ui",
+      "version": "0.20.0",
+      "source": "https://nimbus-docs.com/registry",
+      "hash": "sha256:550bf7fdc3040b622023750e21ab9ec528ab11a646071e3d4fd46ad264ee86cc",
+      "files": [
+        "src/components/ui/code-group/CodeGroup.astro",
+        "src/components/ui/code-group/code-group.client.ts",
+        "src/components/ui/code-group/index.ts"
+      ],
+      "fileHashes": {
+        "src/components/ui/code-group/CodeGroup.astro": "sha256:7c3ac83e2cd206a1fd57a80a3d8e1551455de547902aa366e345c2b9729faec1",
+        "src/components/ui/code-group/code-group.client.ts": "sha256:a98cac76a28ed0a2c9f7281d0514ea89f597bdce5fd07698a7220fa295c2d9d1",
+        "src/components/ui/code-group/index.ts": "sha256:e45a6215bbbd860bb57bc0f23eedf5a31159e2ff1692ebb44f1ef1327b403443"
+      }
+    },
+    {
+      "slug": "file-tree",
+      "type": "registry:ui",
+      "version": "0.20.0",
+      "source": "https://nimbus-docs.com/registry",
+      "hash": "sha256:906c84956387d5f1ff8902959604fca8fb46ca6ee5945ff37c109d3954c9ac17",
+      "files": [
+        "src/components/ui/file-tree/FileTree.astro",
+        "src/components/ui/file-tree/file-tree.client.ts",
+        "src/components/ui/file-tree/index.ts"
+      ],
+      "fileHashes": {
+        "src/components/ui/file-tree/FileTree.astro": "sha256:bbd039c20afb5a8669fe2bb96b0b08038004c2b2b4239ed21c1a09b134d00523",
+        "src/components/ui/file-tree/file-tree.client.ts": "sha256:d344a27d2da373a4534861b47106e4d9ebb1f92c2096612b8f3366e23b7619e8",
+        "src/components/ui/file-tree/index.ts": "sha256:5c259d51244d7989ec19589a0d84e9aac35e5f6e7e0b2b94b904f411a858afdb"
+      }
+    }
+  ]
+}

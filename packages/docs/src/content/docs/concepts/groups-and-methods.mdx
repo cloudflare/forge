@@ -1,0 +1,135 @@
+---
+title: Groups and methods
+description: A method is one callable operation, grouped by the dotted path of its name, and it carries the metadata SDKs, CLIs and agents use to call it safely.
+content_type: concept
+sidebar:
+  order: 3
+---
+
+OpenAPI organizes an API by path. SDKs organize it by resource: `client.accounts.members.list()`.
+Forge gets from one to the other with each operation's `operationId`, or the `x-forge-*` names
+that replace it, and nothing else. It never guesses a grouping from paths or tags.
+
+## What makes a method
+
+An operation under `paths` becomes a method when it has an `operationId`, written as
+`<group>.<method>`. It is split at the last dot: the group path before it, top level first, and the
+method's name after it. An `operationId` with no dot, such as `status`, is a method of the
+[root group](/concepts/the-model/#the-forge).
+
+```json
+"/accounts/{account_id}/members": {
+  "get": {
+    "operationId": "accounts.members.list"
+  }
+}
+```
+
+`x-forge-method-name` and `x-forge-group-name` name a method without touching the `operationId`.
+An operation with neither an `operationId` nor `x-forge-method-name`, or with `x-forge-skip: true`,
+is not a method. It is not an error: Forge leaves it out, and its parameters, body and responses are
+never built. That makes it easy to adopt Forge on a large document a group at a time.
+
+Operations come from everywhere OpenAPI allows: the fixed methods of each path item, path items
+reached by `$ref`, and, from OpenAPI 3.2, `additionalOperations` and the `query` method. Webhooks
+and callbacks are not read.
+
+## Names
+
+Group and method names are [`Name`s](/concepts/names/): words, not strings. `list_all`, `listAll`
+and `list-all` are the same name, and spelled however a target likes. Two consequences:
+
+- Two methods in a group whose names are equal as names are an error, even if they are written
+  differently.
+- Two groups whose names are equal as names are the same group: `abuse-reports` and `abuse_reports`
+  merge.
+
+A name with no letters or digits, such as the empty middle part of `a..b.list`, is an error.
+
+## Order
+
+Groups and methods are sorted by name, at every level, so the model is the same from run to run and
+does not depend on the order of `paths`. `forge.groups()` walks depth first: each group comes before
+its subgroups, and all of them before its next sibling.
+
+## Descriptions
+
+Groups have no operation of their own to describe them, so their descriptions come from
+`x-forge-commands` at the root of the document. It has an entry per top-level group, with a
+`description` and nested `groups`:
+
+```json
+"x-forge-commands": {
+  "accounts": {
+    "description": "Manage accounts.",
+    "groups": {
+      "members": { "description": "People with access to an account." }
+    }
+  }
+}
+```
+
+A dotted key reaches into nested groups from anywhere above them: `"accounts.members"` at the root
+describes the same group as `members` under `accounts`. Entries for groups that do not exist are
+ignored. Two entries for the same group are an error.
+
+## Aliases: one operation, several methods
+
+Sometimes one HTTP operation deserves more than one method. `PATCH /scripts/{id}/status` might be
+`scripts.status.edit` in an SDK, and also `scripts.pause` and `scripts.resume` in a CLI.
+`x-forge-aliases` makes that explicit: an array of objects, each a method of the operation, with its
+own `operationId` or `x-forge-method-name`.
+
+```json
+"patch": {
+  "x-forge-aliases": [
+    { "operationId": "scripts.status.edit" },
+    { "operationId": "scripts.pause", "x-forge-hidden": true }
+  ]
+}
+```
+
+With aliases, the operation's own `operationId` makes no method. Only the aliases do. Each alias
+says, as an operation would, its name, availability, hidden flag, confirmation and other extensions,
+and inherits **none** of them from the operation. Everything about the request and
+response (the HTTP method, path, parameters, body and responses) is the operation's, shared by every
+alias. An empty array makes no method at all.
+
+## Metadata a method carries
+
+These do not change how a method is called. They tell a target how to present it.
+
+| Member         | From                                    | Meaning                                                                                       |
+| -------------- | --------------------------------------- | --------------------------------------------------------------------------------------------- |
+| `is_deprecated`| `deprecated`                            | OpenAPI's own flag.                                                                           |
+| `availability` | `x-forge-availability`                  | `alpha`, `beta`, `preview`, `generally-available` or `deprecated`, or none. Separate from the above. |
+| `is_hidden`    | `x-forge-hidden`                        | Leave it out of listings, such as a CLI's help. It can still be called.                       |
+| `confirmation` | `x-forge-require-confirmation`          | A sentence to show before calling it, because it changes or deletes something irreversibly. An empty string means "confirm, with nothing to add". |
+
+`is_deprecated` and `availability` are deliberately apart: an operation can be `deprecated: true`
+with no availability, or have a `deprecated` availability without OpenAPI's flag, and a target can
+treat the two differently. [`forge normalize`](/reference/cli/) rewrites other tools' stage
+extensions into `x-forge-availability`.
+
+## Extensions for plugins
+
+Forge passes every `x-` key on an operation (or alias) that it does not read itself through to
+plugins, unread, in the order it was written. This is how a plugin gets data that only it understands, without Forge having
+to know about it:
+
+```json
+"get": {
+  "operationId": "zones.list",
+  "x-my-cli": { "aliases": ["ls"], "table": ["id", "name", "status"] }
+}
+```
+
+A plugin reads it with `method.extension("x-my-cli")`, which returns the JSON value, or nothing.
+Extensions on path items, parameters, responses and schemas are not passed through.
+
+## Related resources
+
+- [Requests and responses](/concepts/requests-and-responses/): what a method takes and returns.
+- [Method names](/openapi/naming/): how operationIds become groups and methods.
+- [Extensions](/openapi/extensions/): every extension Forge reads.
+- [Get started](/start/get-started/): generate a TypeScript SDK and MCP tools from a small document.

@@ -1,0 +1,14 @@
+openapi: 3.0.3
+info:
+  title: Inline members with incompatible types
+  version: 1.0.0
+paths: {}
+components:
+  schemas:
+    Impossible:
+      allOf:
+        - type: string
+        - type: object
+          properties:
+            name:
+              type: string

@@ -1,0 +1,85 @@
+---
+title: Install Forge
+description: Install Forge with your package manager, or build it from source, and check that it runs.
+content_type: how-to
+sidebar:
+  order: 2
+---
+
+Forge is one native binary. Install it with your package manager, or build it from source.
+
+## With a package manager
+
+Each build of the `@cloudflare/forge` package on pkg.pr.new carries prebuilt binaries for six
+platforms, and a small launcher that picks the right one. Releases on npm will put each platform's
+binary in a package of its own, so an install fetches only the one it needs. There is no release on
+npm yet (the `@cloudflare/forge` there is a placeholder): builds are published to
+[pkg.pr.new](https://pkg.pr.new) from the repository, and you install one by URL. The newest build
+of `main` is:
+
+<PackageManagers pkg="https://pkg.pr.new/cloudflare/forge/@cloudflare/forge@main" dev />
+
+Check that it runs, through your package manager:
+
+<PackageManagers type="exec" pkg="forge" args="--version" />
+
+It prints the version, such as `forge 0.2.0`.
+
+Every build can be installed in three ways, each a suffix on
+`https://pkg.pr.new/cloudflare/forge/@cloudflare/forge`:
+
+| Suffix      | Installs                                                  |
+| ----------- | --------------------------------------------------------- |
+| `@main`     | The newest build of `main`.                               |
+| `@<number>` | The newest build of pull request `<number>`.              |
+| `@<sha>`    | The build of one commit, which never changes. Pin this one. |
+
+The package has the binaries for these platforms. The Linux ones are statically linked against
+musl, so they run on any distribution, Alpine included, and the Windows ones do not need the Visual
+C++ Redistributable.
+
+| Platform       | Rust target                  |
+| -------------- | ---------------------------- |
+| macOS, Apple   | `aarch64-apple-darwin`       |
+| macOS, Intel   | `x86_64-apple-darwin`        |
+| Linux, arm64   | `aarch64-unknown-linux-musl` |
+| Linux, x64     | `x86_64-unknown-linux-musl`  |
+| Windows, arm64 | `aarch64-pc-windows-msvc`    |
+| Windows, x64   | `x86_64-pc-windows-msvc`     |
+
+<Aside type="note" title="Installing a tarball">
+In the repository, `just build <target>` (or `just build-all`, or `just fetch <run>` for a CI run's)
+puts release binaries in `target/binaries/`, and `just pack --bundled` packs them into one tarball
+in `packages/forge/dist/`, the same package pkg.pr.new serves. Install it by path, or reference it as
+`"file:../cloudflare-forge-0.2.0.tgz"` in `devDependencies`:
+
+<PackageManagers pkg="/path/to/cloudflare-forge-0.2.0.tgz" dev />
+</Aside>
+
+## From source
+
+Forge is a Rust crate. The repository pins its toolchain in `rust-toolchain.toml`, so `rustup`
+installs the right one on first build.
+
+```sh
+git clone https://github.com/cloudflare/forge.git
+cd forge
+cargo build --release --features wasm
+./target/release/forge --version
+```
+
+The last command prints the version, such as `forge 0.2.0`.
+
+The `wasm` feature is what lets the command run [WebAssembly plugins](/plugins/overview/). It adds
+[Wasmtime](https://wasmtime.dev) to the build, so it is off by default. Without it,
+`--target wasm://...` fails with a message telling you to rebuild with `--features wasm`. The
+package's binaries are always built with it.
+
+## Related resources
+
+- [About Forge](/start/about/): what Forge is, and the model every output shares.
+- [CLI](/reference/cli/): every command and option.
+
+## Next steps
+
+- [Get started](/start/get-started/): generate a TypeScript SDK and MCP tools from a small document.

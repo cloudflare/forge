@@ -4,6 +4,26 @@ Forge is a schema-first OpenAPI code generation and surface tooling framework. I
 
 It's [still early-days](https://blog.cloudflare.com/forge-open-source-generation-pipeline) for Forge and we're laser focused on the first Forge output, the [cf CLI](https://blog.cloudflare.com/cloudflare-cf-cli-launch). Rest assured, in short order we'll be making it easier and easier for other targets (namely, TypeScript, Go, Python, Terraform, etc. - and docs for all of the above), but that will track in parallel to us releasing those targets for our own SDKs. That's just how we do things at Cloudflare: we often open source as soon as we can (often, sooner than others might) and always test our products on ourselves first.
 
+## Documentation
+
+The guides and reference for Forge, its model and its plugins are in the
+[Forge documentation source](https://github.com/cloudflare/forge/tree/main/packages/docs/src/content/docs).
+Start with [About Forge](https://github.com/cloudflare/forge/blob/main/packages/docs/src/content/docs/start/about.mdx)
+and [Get started](https://github.com/cloudflare/forge/blob/main/packages/docs/src/content/docs/start/get-started.mdx).
+
+## Rust library
+
+Forge is published to crates.io as `cloudflare-forge`. Its library target remains `forge`, so Rust
+code imports its API through `forge::`:
+
+```sh
+cargo add cloudflare-forge --no-default-features
+```
+
+The default `cli` feature also builds the `forge` command. Enable `wasm` to run WebAssembly plugins
+from a Rust host. The [Rust API reference](https://github.com/cloudflare/forge/blob/main/packages/docs/src/content/docs/reference/rust-api.mdx)
+lists the public model and plugin interfaces.
+
 ## License
 
 Apache-2.0 © Cloudflare, Inc.

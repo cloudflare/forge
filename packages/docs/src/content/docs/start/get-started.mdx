@@ -1,0 +1,244 @@
+---
+title: Get started
+description: Generate a TypeScript SDK and MCP tools with Forge from a small OpenAPI document, and type-check the SDK. Needs Forge installed, and Node.js.
+content_type: get-started
+sidebar:
+  order: 3
+---
+
+This page takes one small document through Forge's built-in targets: the TypeScript SDK and the MCP
+tools. To write a target of your own, refer to [Get started with plugins](/plugins/get-started/).
+
+## Prerequisites
+
+- Forge, [installed](/start/install/) in a project with your package manager, or built from source.
+- Node.js. Code that runs the generated SDK needs Node.js 26 or later, which has `Temporal`.
+
+## 1. Write a document
+
+Forge reads OpenAPI 3.0, 3.1 and 3.2, as JSON. It needs two things from each operation you want in
+an SDK: the **group** it belongs to, and its **method name** within that group. Both come from the
+operation's `operationId`, written as `<group>.<method>`: `pets.list` is the method `list` of the
+group `pets`, `client.pets.list()` in the SDK. An `operationId` with no dot, such as `listPets`, is a
+method of the root group, `client.listPets()`.
+
+Save this as `openapi.json`:
+
+```json title="openapi.json"
+{
+  "openapi": "3.1.0",
+  "info": { "title": "Pet Store", "version": "1.0.0" },
+  "servers": [{ "url": "https://api.example.com/v1" }],
+  "paths": {
+    "/pets": {
+      "get": {
+        "operationId": "pets.list",
+        "summary": "List pets",
+        "parameters": [{ "name": "limit", "in": "query", "schema": { "type": "integer" } }],
+        "responses": {
+          "200": {
+            "description": "The pets.",
+            "content": {
+              "application/json": {
+                "schema": { "type": "array", "items": { "$ref": "#/components/schemas/Pet" } }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "pets.create",
+        "summary": "Add a pet",
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/NewPet" } } }
+        },
+        "responses": {
+          "201": {
+            "description": "The pet.",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Pet" } } }
+          }
+        }
+      }
+    },
+    "/pets/{pet_id}": {
+      "delete": {
+        "operationId": "pets.delete",
+        "x-forge-require-confirmation": "This deletes the pet.",
+        "summary": "Delete a pet",
+        "parameters": [
+          { "name": "pet_id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": { "204": { "description": "Deleted." } }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Pet": {
+        "type": "object",
+        "description": "A pet in the store.",
+        "required": ["id", "name"],
+        "properties": {
+          "id": { "type": "string", "readOnly": true },
+          "name": { "type": "string" },
+          "born_at": { "type": "string", "format": "date-time" }
+        }
+      },
+      "NewPet": {
+        "type": "object",
+        "required": ["name"],
+        "properties": { "name": { "type": "string" } }
+      }
+    }
+  }
+}
+```
+
+That is one group, `pets`, with three methods. The `delete` method also says it needs a
+confirmation, which the MCP target turns into a destructive hint.
+
+## 2. Generate a TypeScript SDK
+
+Run the `ts` target:
+
+<PackageManagers type="exec" pkg="forge" args="generate openapi.json --target ts --out sdk" />
+
+Forge writes a directory per group, and a small runtime in `_/`. The root `client.ts` has a
+property per top-level group, `pets/client.ts` has `list`, `create` and `delete`, and
+`pets/models.ts` has `Pet` and `NewPet`:
+
+<FileTree>
+- sdk/
+  - _/
+    - ...
+  - client.ts
+  - index.ts
+  - pets/
+    - **client.ts**
+    - index.ts
+    - **models.ts**
+</FileTree>
+
+The models are plain TypeScript. Names come out in the casing of the language: `born_at` is
+`bornAt`, and a `date-time` is a `Temporal.Instant`:
+
+```ts title="sdk/pets/models.ts"
+/**
+ * A pet in the store.
+ */
+export interface Pet {
+  bornAt?: Temporal.Instant;
+  id: string;
+  name: string;
+}
+```
+
+## 3. Check the SDK
+
+Write a script that uses it: create a client, and call a method through its group. The client sends
+each call to `baseUrl`, so in your own code that is your API. The script uses top-level `await`, so
+the project is an ES module, with `"type": "module"` in its `package.json`:
+
+```ts title="main.ts"
+import { ApiError, createClient } from './sdk/index.js';
+
+const client = createClient({ baseUrl: 'https://api.example.com/v1', token: process.env.API_TOKEN! });
+
+const pets = await client.pets.list({ limit: 10 });
+console.log(pets[0]?.name, pets[0]?.bornAt?.toString());
+
+try {
+  await client.pets.delete({ petId: 'p2' });
+} catch (err) {
+  if (err instanceof ApiError) console.error(err.status, err.message);
+}
+```
+
+Type-check the script and the SDK together. Install TypeScript, with Node.js's types for
+`process`:
+
+<PackageManagers pkg="typescript @types/node" dev />
+
+The SDK uses `Temporal`, which TypeScript has from version 6, and the web's `fetch` types, so the
+configuration needs both libraries:
+
+```json title="tsconfig.json"
+{
+  "compilerOptions": {
+    "target": "esnext",
+    "module": "nodenext",
+    "lib": ["esnext", "dom"],
+    "types": ["node"],
+    "strict": true,
+    "noEmit": true
+  },
+  "include": ["main.ts"]
+}
+```
+
+`include` names only the script. The compiler follows its imports into the SDK, and leaves out
+anything else Forge generates, such as the MCP tools in the next step.
+
+Then run the compiler:
+
+<PackageManagers type="exec" pkg="tsc" />
+
+It prints nothing and exits with status 0: the SDK compiles, and every call in `main.ts` matches the
+document.
+
+## 4. Generate MCP tools
+
+The `mcp` target writes the tools of a [Model Context Protocol](https://modelcontextprotocol.io)
+server in TypeScript, one tool per method, for the official MCP TypeScript SDK:
+
+<PackageManagers type="exec" pkg="forge" args="generate openapi.json --target mcp --out tools" />
+
+Forge writes the tools, and you write the server around them:
+
+<FileTree>
+- tools/
+  - _/
+    - tool.ts
+  - index.ts
+  - pets/
+    - outputs.ts
+    - schemas.ts
+    - **tools.ts**
+</FileTree>
+
+`tools/pets/tools.ts` has three tools, `pets_create`, `pets_delete` and `pets_list`. The confirmation
+on `delete` makes its tool destructive, and adds the sentence to its description:
+
+```ts title="tools/pets/tools.ts (excerpt)"
+{
+  name: "pets_delete",
+  title: "Delete a pet",
+  description: "Delete a pet\n\nConfirm with the user before calling this tool. This deletes the pet.\n\nDELETE /pets/{pet_id}",
+  // ...
+  annotations: {
+    "destructiveHint": true,
+    "idempotentHint": true,
+    "openWorldHint": true,
+    "readOnlyHint": false,
+    "title": "Delete a pet"
+  },
+}
+```
+
+To serve them, refer to [`registerTools`](/targets/mcp/#registertools).
+
+## Related resources
+
+- [Forge](/): what Forge is for, and where to start.
+- [About Forge](/start/about/): what Forge is, and the model every output shares.
+- [TypeScript SDK](/targets/typescript/): everything `--target ts` generates.
+- [MCP tools](/targets/mcp/): everything `--target mcp` generates, and how to serve the tools.
+- [Method names](/openapi/naming/): how operationIds become groups and methods.
+- [Troubleshooting OpenAPI documents](/openapi/errors/): each error, and its fix.
+
+## Next steps
+
+- [Adopt Forge on an existing API](/guides/adopting/): bring in a large document a group at a time.
+- [Generate in CI](/guides/ci/): regenerate on every change, and fail on a stale SDK.
+- [Get started with plugins](/plugins/get-started/): write a target of your own.

@@ -1,0 +1,17 @@
+openapi: 3.0.3
+info:
+  title: nullable has no effect without an explicit type keyword
+  version: 1.0.0
+paths: {}
+components:
+  schemas:
+    MaybeString:
+      type: string
+      nullable: true
+    Enclosing:
+      nullable: true
+      properties:
+        foo:
+          type: string
+      allOf:
+        - $ref: '#/components/schemas/MaybeString'

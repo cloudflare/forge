@@ -1,0 +1,198 @@
+---
+title: Extensions
+description: Every OpenAPI extension Forge reads, where it goes, what values it takes, and what it does.
+content_type: reference
+sidebar:
+  order: 3
+---
+
+Forge needs no extensions: methods are named by `operationId`, as
+[Method names](/openapi/naming/) explains. The extensions below add what OpenAPI has no field for,
+such as names that differ from the document's, group descriptions and confirmation prompts. Any
+other `x-` key on an operation is passed to plugins, unread. Any other `x-` key elsewhere is
+ignored.
+
+Forge reads only these. A document annotated for another tool can have that tool's extensions
+rewritten into these with [`forge normalize`](/reference/cli/#forge-normalize). Refer to **Compatibility
+Modes** in the sidebar.
+
+A value of the wrong JSON type, such as a string where a boolean goes, is an error, wherever it is.
+
+| Extension | On | Value |
+| --- | --- | --- |
+| [`x-forge-method-name`](#x-forge-method-name-and-x-forge-group-name) | Operation, alias | String |
+| [`x-forge-group-name`](#x-forge-method-name-and-x-forge-group-name) | Operation, alias | Dotted string, or array of strings |
+| [`x-forge-skip`](#x-forge-skip) | Operation, alias | Boolean |
+| [`x-forge-availability`](#x-forge-availability) | Operation, alias | `alpha`, `beta`, `preview`, `generally-available` or `deprecated` |
+| [`x-forge-hidden`](#x-forge-hidden) | Operation, alias | Boolean |
+| [`x-forge-require-confirmation`](#x-forge-require-confirmation) | Operation, alias | String |
+| [`x-forge-aliases`](#x-forge-aliases) | Operation | Array of alias objects |
+| [`x-forge-parameter-name`](#x-forge-parameter-name) | Parameter | String |
+| [`x-forge-model-name`](#x-forge-model-name) | Schema in `components.schemas` | String |
+| [`x-forge-property-name`](#x-forge-property-name) | Property schema | String |
+| [`x-forge-sensitive`](#x-forge-sensitive) | Property schema | Boolean |
+| [`x-forge-skip`](#x-forge-skip-1) | Property schema | Boolean |
+| [`x-forge-commands`](#x-forge-commands) | Document root | Object of group descriptions |
+
+## On operations
+
+These go on an Operation Object, or on an alias in `x-forge-aliases`.
+
+### x-forge-method-name and x-forge-group-name
+
+The method's name, and its group, instead of the `operationId`'s. The method name is a string. The
+group is names separated by dots, top level first, or an array of names. They take effect together
+with a non-empty `x-forge-method-name`: with it, the method is named by these two, and a method name
+with no group name is a method of the root group. Without it, or with `""`, `x-forge-group-name` is
+ignored, and both names come from the `operationId`. Refer to
+[Groups and methods](/concepts/groups-and-methods/).
+
+```json
+"x-forge-group-name": "accounts.members",
+"x-forge-method-name": "list"
+```
+
+### x-forge-skip
+
+`true` to leave the operation out: it is not a method, and its parameters, body and responses are
+never built. A boolean.
+
+On an operation with [`x-forge-aliases`](#x-forge-aliases), only the aliases make methods, so the
+operation's own `x-forge-skip` stops none of them. Put it on each alias to leave out.
+
+### x-forge-availability
+
+The method's stage: `alpha`, `beta`, `preview`, `generally-available` or `deprecated`. Separate from
+OpenAPI's `deprecated`. Refer to [Groups and methods](/concepts/groups-and-methods/).
+
+### x-forge-hidden
+
+`true` to leave the method out of listings, such as a CLI's help, while keeping it callable. A
+boolean. A hidden operation is still a method, and the MCP target still makes a tool for it.
+
+### x-forge-require-confirmation
+
+A sentence to show before the method is called, because it changes or deletes something
+irreversibly:
+
+```json
+"x-forge-require-confirmation": "This deletes the zone and every record in it."
+```
+
+A string, kept as written. An empty string means the method needs confirmation, with no sentence of
+its own. The MCP target marks the tool destructive and appends the sentence to its description.
+
+### x-forge-aliases
+
+Exposes one operation as several methods. An array of objects, each an alias, named by its own
+`operationId`:
+
+```json
+"patch": {
+  "operationId": "workers.scripts.status.edit",
+  "x-forge-aliases": [
+    { "operationId": "workers.scripts.edit" },
+    { "operationId": "workers.scripts.pause", "x-forge-hidden": true }
+  ],
+  "requestBody": { "...": "..." }
+}
+```
+
+With aliases, the operation's own `operationId` makes no method. Each alias says, as an operation
+would, its `operationId`, `x-forge-hidden`, `x-forge-require-confirmation` and other extensions, and
+takes **none** of them from the operation. The HTTP method, path, parameters, body and responses are
+the operation's, shared by every alias.
+
+An empty array makes no method. An element that is not an object is ignored, and a value that is not
+an array is an error. Aliases do not nest. An alias's error names its position:
+
+```text
+POST /e: x-forge-aliases[0]: operationId has a group name with no letters or digits
+```
+
+Each alias is a method of its own group, so a model one uses is [placed](/concepts/models/) as
+though each alias were a separate operation.
+
+### Anything else
+
+Every other `x-` key on an operation, or alias, is kept for plugins, in the order written, as JSON:
+
+```json
+"x-my-cli": { "aliases": ["ls"], "columns": ["id", "name"] }
+```
+
+A plugin reads it by name:
+
+```ts
+const cli = method.extension('x-my-cli');
+```
+
+A key written twice keeps the last value, in the place of the first. Extensions on path items,
+parameters, bodies, responses and schemas are not kept.
+
+## On parameters
+
+### x-forge-parameter-name
+
+The parameter's field name, instead of its `name`, which stays what is sent. A string.
+
+```json
+{ "name": "page_size", "in": "query", "x-forge-parameter-name": "limit", "schema": { "type": "integer" } }
+```
+
+## On schemas
+
+### x-forge-model-name
+
+The model's name, instead of the schema's name in `components.schemas`. A string, on the schema.
+Refer to [Models and placement](/concepts/models/).
+
+### x-forge-property-name
+
+The field's name, instead of the property's wire name, which stays what is sent. A string, on the
+property's schema.
+
+### x-forge-sensitive
+
+`true` on a property's schema to mark its value a secret, such as a password or token, that a client
+should mask. A boolean. It counts next to a `$ref`, in any version, and along a chain of `$ref`s.
+On a parameter, it goes on the parameter's schema, not the Parameter Object.
+
+### x-forge-skip
+
+`true` on a property's schema to leave the property out of its object. A boolean.
+
+## At the root
+
+### x-forge-commands
+
+Descriptions for groups, which have no object of their own in OpenAPI. An object with an entry per
+top-level group, each with a `description` and nested `groups`:
+
+```json
+"x-forge-commands": {
+  "accounts": {
+    "description": "Manage accounts.",
+    "groups": {
+      "members": { "description": "People with access to an account." }
+    }
+  },
+  "dns.records": { "description": "DNS records of a zone." }
+}
+```
+
+A key with dots is a path from where it is: `dns.records` at the root, or `records` under `dns`'s
+`groups`, describe the same group. Keys match groups when they are equal as names. Two entries for
+the same group are an error. Entries for groups that do not exist are ignored.
+
+## Not read
+
+Other tools' extensions have no effect, such as `x-codeSamples`. `forge normalize` rewrites the ones
+with an equivalent here into it. **Compatibility Modes** in the sidebar lists them.
+
+## Related resources
+
+- [OpenAPI documents](/openapi/overview/): what Forge reads, and what each method needs.
+- [Method names](/openapi/naming/): how operationIds become groups and methods.
+- [Adopt Forge on an existing API](/guides/adopting/): a large document, a group at a time.
+- [Convert Fern extensions](/compatibility/fern/): rewrite Fern extensions into Forge's own.

@@ -1,15 +1,16 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { sample } from 'openapi-sampler';
-import type { ApiSpec } from '@cloudflare/nimbus-docs/types';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import type { ApiSpec, ApiVersionSpec } from '@cloudflare/nimbus-docs/types';
 import {
   buildFernContent,
   defineFernManifest,
-  getOperationExtensionData,
   type FernContentProjectData,
   type FernManifestProvider,
   type FernSourceOperation,
+  fernOperationId,
+  getOperationExtensionData,
 } from 'astro-fern';
 import { forgeExtension, hasRemovedForgeOperationFields, hoistForgeCommands } from 'fern-forge';
+import { sample } from 'openapi-sampler';
 import {
   CLOUDFLARE_RESPONSE_PAYLOAD_KEY,
   CLOUDFLARE_TARGETS,
@@ -17,11 +18,18 @@ import {
   cloudflareOperationRoutingPreference,
   cloudflareSnippets,
 } from './cloudflare.ts';
-import { loadForgeOpenApi } from './openapi-source.ts';
-import { cloudflareTerraformExtension } from './terraform-extension.ts';
-import { TERRAFORM_EXTENSION_NAME, type TerraformOperationData, terraformOperationDataSchema } from './terraform.ts';
 import { assertToolingRouteNamespace } from './command-reference/routing.ts';
-import { cloudflareApiVersionLabel, parseCloudflareApiVersion } from './version.ts';
+import { planStainlessRedirects, type StainlessSnapshot } from './stainless-redirects.ts';
+import {
+  type SdkSnippets,
+  STAINLESS_LANGUAGES,
+  type StainlessLanguage,
+  snippetsByOperation,
+  stainlessSnippetsFileSchema,
+} from './stainless-snippets.ts';
+import { TERRAFORM_EXTENSION_NAME, type TerraformOperationData, terraformOperationDataSchema } from './terraform.ts';
+import { cloudflareTerraformExtension } from './terraform-extension.ts';
+import { parseCloudflareApiVersion } from './version.ts';
 
 export const TERRAFORM_EXTENSION = 'x-cloudflare-terraform';
 const HTTP_METHODS = ['get', 'put', 'post', 'delete', 'options', 'head', 'patch', 'trace'] as const;
@@ -44,6 +52,20 @@ function addResponseExamples(responses: Record<string, JsonResponse>, document: 
   }
 }
 
+/**
+ * Returns the operationId to give Nimbus for an ID that astro-fern derived from an SDK address.
+ *
+ * Nimbus treats the dots in an operationId as namespaces, and it reserves a few of them, such as
+ * `tags`, for its own pages. When a derived ID starts with one of those products, the product is
+ * renamed the same way its URL slug already is, so `tags.account-resources.get` becomes
+ * `tagging.account-resources.get`.
+ */
+function nimbusOperationId(operationId: string): string {
+  const [product, ...rest] = operationId.split('.');
+  const moved = product === undefined || rest.length === 0 ? undefined : MOVED_PRODUCT_SLUGS[product];
+  return moved === undefined ? operationId : [moved, ...rest].join('.');
+}
+
 /** Where Nimbus serves a product or resource page: today's URL, with moved products renamed. */
 function sectionPath(productSlug: string, slugs: string[] = []): string {
   return `/${[MOVED_PRODUCT_SLUGS[productSlug] ?? productSlug, ...slugs].join('/')}/`;
@@ -62,8 +84,8 @@ export interface PreparedForgeApi {
   products: ForgeProduct[];
   /** Collection-relative pathnames the site served and Nimbus doesn't → where they live now. */
   redirects: Record<string, string>;
-  /** Tag name → the URL segment that replaces it, for products Nimbus holds a segment for. */
-  tagSegments: Record<string, string>;
+  /** The product and resource pages Nimbus draws, collection-relative. */
+  sections: string[];
 }
 
 interface Tag {
@@ -100,9 +122,24 @@ export function prepareForgeApi(
   source: Record<string, unknown>,
   data: FernContentProjectData,
   snapshotId: string,
+  /** `operationId` → the retired Stainless site's SDK snippets; see `snippetsByOperation`. */
+  sdkSnippets: ReadonlyMap<string, SdkSnippets> = new Map(),
 ): PreparedForgeApi {
   const document = structuredClone(source);
   document.info = { ...(document.info as Record<string, unknown>), title: API_TITLE };
+  // Collect the IDs astro-fern derives for operations that have no operationId. Only these are
+  // renamed for Nimbus; an operationId written in the spec is left as its author wrote it.
+  const derivedIds = new Set<string>();
+  for (const [path, item] of Object.entries((document.paths ?? {}) as Record<string, Record<string, unknown>>)) {
+    for (const method of HTTP_METHODS) {
+      const op = item?.[method] as Record<string, unknown> | undefined;
+      if (!op || typeof op.operationId === 'string') continue;
+      const derived = fernOperationId(op, method, path);
+      if (derived !== undefined) derivedIds.add(derived);
+    }
+  }
+  const nimbusId = (operationId: string) =>
+    derivedIds.has(operationId) ? nimbusOperationId(operationId) : operationId;
   const schemas =
     (document.components as { schemas?: Record<string, Record<string, unknown>> } | undefined)?.schemas ?? {};
   for (const [name, title] of Object.entries(SCHEMA_TITLES)) {
@@ -184,19 +221,28 @@ export function prepareForgeApi(
     if (taken)
       throw new Error(`cloudflare-api-site: "${taken}" and "${operation.operationId}" both route to "${slug}"`);
     bySlug.set(slug, operation.operationId);
-    operations[operation.operationId] = slug;
+    const id = nimbusId(operation.operationId);
+    if (operations[id] !== undefined) {
+      throw new Error(
+        `cloudflare-api-site: "${operation.operationId}" and another operation are both "${id}" to Nimbus`,
+      );
+    }
+    operations[id] = slug;
   }
   for (const alias of aliases) {
-    const primary = byId.get(alias.operation.operationId);
-    if (!primary) throw new Error(`cloudflare-api-site: alias of "${alias.operation.operationId}" has no primary page`);
     const { product, operation } = alias;
-    redirects[`/${product.slug}/${operation.slug}/`] = `/${operations[operation.operationId]}/`;
+    const primary = byId.get(operation.operationId);
+    const primarySlug = operations[nimbusId(operation.operationId)];
+    const primarySection = leafPath.get(operation.operationId);
+    if (!primary || primarySlug === undefined || primarySection === undefined) {
+      throw new Error(`cloudflare-api-site: alias of "${operation.operationId}" has no primary page`);
+    }
+    redirects[`/${product.slug}/${operation.slug}/`] = `/${primarySlug}/`;
     const slugs = operation.placement?.resourcePath.map((segment) => segment.slug) ?? [];
     for (let depth = 0; depth <= slugs.length; depth++) {
       const from = `/${[product.slug, ...slugs.slice(0, depth)].join('/')}/`;
       if (sections.has(from)) continue;
-      redirects[from] ??=
-        depth === slugs.length ? leafPath.get(operation.operationId)! : sectionPath(primary.product.slug);
+      redirects[from] ??= depth === slugs.length ? primarySection : sectionPath(primary.product.slug);
     }
   }
 
@@ -208,15 +254,21 @@ export function prepareForgeApi(
       const raw = item[method];
       if (!raw || typeof raw !== 'object') continue;
       const op = raw as Record<string, unknown>;
-      const entry = typeof op.operationId === 'string' ? byId.get(op.operationId) : undefined;
+      const operationId = fernOperationId(op, method, path);
+      const entry = operationId === undefined ? undefined : byId.get(operationId);
       if (!entry) {
         delete item[method];
         continue;
       }
       kept++;
+      // Nimbus needs an operationId on every operation, so give the derived one to those without.
+      op.operationId = nimbusId(entry.operation.operationId);
       op.tags = [leafTag.get(entry.operation.operationId)];
+      // Nimbus reads each page's URL from the spec, so the config carries no route map.
+      op['x-nimbus-route'] = operations[entry.operation.operationId];
       if (entry.operation.deprecated) op.deprecated = true;
-      const rank = LIFECYCLE.findIndex((name) => name === op['x-fern-sdk-method-name']);
+      const methodName = op['x-fern-sdk-method-name'];
+      const rank = typeof methodName === 'string' ? LIFECYCLE.indexOf(methodName) : -1;
       if (rank !== -1) op['x-nimbus-order'] = rank + 1;
       const terraform = getOperationExtensionData(
         entry.operation,
@@ -225,12 +277,16 @@ export function prepareForgeApi(
       );
       if (terraform) op[TERRAFORM_EXTENSION] = terraform;
       const snippets = new Map(entry.snippets.map((snippet) => [snippet.targetId, snippet.code]));
+      const sdk = sdkSnippets.get(entry.operation.operationId);
       op['x-codeSamples'] = CLOUDFLARE_TARGETS.flatMap((target) => {
         const lang = target.id;
         const code = snippets.get(target.id);
         if (code) return [{ lang, label: target.label, source: code }];
         if (target.id === 'terraform') {
           return [{ lang, label: target.label, source: terraformSample(terraform) }];
+        }
+        if (isStainlessLanguage(target.id)) {
+          return [{ lang, label: target.label, source: sdk?.[target.id] ?? sdkPlaceholder(target.id, target.label) }];
         }
         return [
           {
@@ -249,19 +305,26 @@ export function prepareForgeApi(
     document,
   );
 
-  document.tags = [...tags.values()].map(({ key: _key, ...tag }) => tag);
+  document.tags = [...tags.values()].map(({ key: _key, ...tag }) =>
+    tag.name in MOVED_PRODUCT_SLUGS ? { ...tag, 'x-nimbus-route': MOVED_PRODUCT_SLUGS[tag.name] } : tag,
+  );
 
   return {
     document,
     operations,
     products: primaryProducts.map(({ id, slug, title }) => ({ id, slug, title })),
     redirects,
-    tagSegments: Object.fromEntries(
-      primaryProducts
-        .filter((product) => product.slug in MOVED_PRODUCT_SLUGS)
-        .map((product) => [product.slug, MOVED_PRODUCT_SLUGS[product.slug]!]),
-    ),
+    sections: [...sections],
   };
+}
+
+function isStainlessLanguage(id: string): id is StainlessLanguage {
+  return (STAINLESS_LANGUAGES as readonly string[]).includes(id);
+}
+
+/** What an SDK tab shows for an operation the old site had no snippet for, as a comment in its language. */
+function sdkPlaceholder(language: StainlessLanguage, label: string): string {
+  return `${language === 'python' ? '#' : '//'} This operation is not available in the ${label} SDK.`;
 }
 
 /**
@@ -287,12 +350,16 @@ function terraformSample(terraform: TerraformOperationData | undefined): string 
     .join('\n\n');
 }
 
-/** Builds the prepared spec for every version and returns the Nimbus `api` entry. */
-export async function forgeApi(): Promise<ApiSpec> {
-  const document = hoistForgeCommands(await loadForgeOpenApi());
-  const label = cloudflareApiVersionLabel(air);
+/**
+ * Nimbus's transform for the API: prepares the spec it reads (from the Forge
+ * release, or `FORGE_OPENAPI_SPEC`) for rendering, and writes the products and
+ * redirects the site reads to `.forge/`. Nimbus runs it in Node at each build
+ * and dev start, and `astro preview` reuses the last build's result.
+ */
+export function prepareForgeSpec(source: Record<string, unknown>): Record<string, unknown> {
+  const document = hoistForgeCommands(source);
   const data = buildFernContent({
-    source: { kind: 'snapshots', snapshots: [{ id: air.wire, source: document, label, default: true }] },
+    source: { kind: 'snapshots', snapshots: [{ id: air.wire, source: document, label: air.label, default: true }] },
     manifest,
     responsePayloadKey: CLOUDFLARE_RESPONSE_PAYLOAD_KEY,
     formatIdentifier: cloudflareFormatIdentifier,
@@ -302,23 +369,29 @@ export async function forgeApi(): Promise<ApiSpec> {
     extensions: [forgeExtension(), cloudflareTerraformExtension],
     onWarning: (message) => console.warn(`[forge-api] ${message}`),
   });
-  const prepared = prepareForgeApi(document, data, air.wire);
+  const snapshot = readStainlessSnapshot();
+  const prepared = prepareForgeApi(document, data, air.wire, readStainlessSnippets(snapshot));
   assertToolingRouteNamespace(prepared.products, Object.values(prepared.operations));
 
   const dir = new URL('../.forge/', import.meta.url);
   mkdirSync(dir, { recursive: true });
-  const specFile = `openapi-${air.wire}.json`;
-  writeFileSync(new URL(specFile, dir), JSON.stringify(prepared.document));
   writeFileSync(new URL('products.json', dir), JSON.stringify(prepared.products, null, 2));
   writeFileSync(new URL('redirects.json', dir), JSON.stringify(prepared.redirects, null, 2));
+  writeStainlessRedirects(snapshot, prepared, dir);
+  return prepared.document;
+}
 
-  const api: ApiSpec = {
+/** The Nimbus `api` entry, reading `spec`; `prepareForgeSpec` is its transform. */
+export function forgeApi(spec: ApiVersionSpec['spec']): ApiSpec {
+  return {
     collection: 'api',
     label: 'Cloudflare API',
     versionUrl: { in: 'query' },
     bundle: false,
     // Nimbus pretty-prints the published spec: 36 MB here, over the 25 MiB Workers asset limit (20 MB minified).
     publishSpec: false,
+    // Nothing cites this site's operations yet, and it sits behind Access.
+    publishCoordinates: false,
     sidebar: 'on-demand',
     requireOperationId: true,
     samples: { generate: [] },
@@ -326,38 +399,44 @@ export async function forgeApi(): Promise<ApiSpec> {
     versions: [
       {
         version: air.wire,
-        label,
+        label: air.label,
         default: true,
-        spec: `.forge/${specFile}`,
-        routes: {
-          convention: 'resource-action-v2',
-          sections: 'hierarchical',
-          tagSegments: prepared.tagSegments,
-          operations: prepared.operations,
-        },
+        spec,
+        routes: { convention: 'resource-action-v2', sections: 'hierarchical' },
       },
     ],
   };
-  writeFileSync(new URL(BUILT_API_FILE, dir), JSON.stringify(api));
-  return api;
 }
 
-const BUILT_API_FILE = 'api.json';
-
-/**
- * Whether this process is `astro preview`: the command is the argument after
- * the Astro binary, so `astro build --mode preview` doesn't count.
- */
-export function isAstroPreview(argv: readonly string[] = process.argv): boolean {
-  const bin = argv.findIndex((arg) => /(^|[\\/])astro(\.m?js)?$/.test(arg));
-  return bin !== -1 && argv[bin + 1] === 'preview';
+function readStainlessSnapshot(): StainlessSnapshot {
+  return JSON.parse(readFileSync(new URL('./stainless-redirects.json', import.meta.url), 'utf8')) as StainlessSnapshot;
 }
 
-/**
- * The Nimbus `api` entry the last `forgeApi()` run wrote. `astro preview` only
- * serves the last build, so it reads this instead of preparing the spec again.
- */
-export function builtForgeApi(): ApiSpec | undefined {
-  const file = new URL(`../.forge/${BUILT_API_FILE}`, import.meta.url);
-  return existsSync(file) ? (JSON.parse(readFileSync(file, 'utf8')) as ApiSpec) : undefined;
+/** The retired Stainless site's SDK snippets, by the operation their old page redirects to. */
+function readStainlessSnippets(snapshot: StainlessSnapshot): Map<string, SdkSnippets> {
+  const file = stainlessSnippetsFileSchema.parse(
+    JSON.parse(readFileSync(new URL('./stainless-snippets.json', import.meta.url), 'utf8')),
+  );
+  const { byOperation, shared } = snippetsByOperation(snapshot, file);
+  if (shared.length > 0) {
+    console.warn(
+      `[forge-api] ${shared.length} operations have several old Stainless method pages; each uses the first page's SDK snippets`,
+    );
+  }
+  return byOperation;
+}
+
+/** Plans the retired Stainless site's redirects against today's pages, for the middleware. */
+function writeStainlessRedirects(snapshot: StainlessSnapshot, prepared: PreparedForgeApi, dir: URL): void {
+  const plan = planStainlessRedirects(snapshot, {
+    operations: prepared.operations,
+    sections: new Set(prepared.sections),
+  });
+  if (plan.fallbacks.length > 0) {
+    console.warn(
+      `[forge-api] ${plan.fallbacks.length} Stainless pages have no page today and redirect to an ancestor's; see .forge/stainless-fallbacks.json`,
+    );
+  }
+  writeFileSync(new URL('stainless-fallbacks.json', dir), JSON.stringify(plan.fallbacks, null, 2));
+  writeFileSync(new URL('stainless-lookup.json', dir), JSON.stringify(plan.lookup));
 }

@@ -1,0 +1,18 @@
+# build output: cf's Build Output, and Astro's own scratch
+.cloudflare/
+dist/
+# generated types
+.astro/
+# nimbus build scratch: materialized lint config and the route manifest.
+# `nimbus.json` next to it is the opposite -- hand-owned, and committed.
+.nimbus/
+# local state of the Cloudflare Vite plugin under `astro dev` and `astro preview`
+.wrangler/
+# dependencies
+node_modules/
+# environment variables
+.env
+.env.production
+.dev.vars
+# pagefind writes its index into dist/, but leaves a cache here
+.pagefind/

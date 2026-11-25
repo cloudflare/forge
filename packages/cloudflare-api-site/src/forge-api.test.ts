@@ -16,7 +16,7 @@ import {
   cloudflareOperationRoutingPreference,
   cloudflareSnippets,
 } from './cloudflare.ts';
-import { isAstroPreview, prepareForgeApi, TERRAFORM_EXTENSION } from './forge-api.ts';
+import { prepareForgeApi, TERRAFORM_EXTENSION } from './forge-api.ts';
 import { TERRAFORM_EXTENSION_NAME, terraformOperationDataSchema } from './terraform.ts';
 
 const SNAPSHOT = '2026-11-30.air';
@@ -201,9 +201,9 @@ const terraform = defineFernExtension({
 const manifest: FernManifestProvider = (_openapi, { discoverProducts }) =>
   defineFernManifest({ targets: CLOUDFLARE_TARGETS, products: discoverProducts() });
 
-function prepare() {
+function prepare(source: Record<string, unknown> = spec, sdkSnippets?: Map<string, Record<string, string>>) {
   const data = buildFernContent({
-    source: { kind: 'snapshots', snapshots: [{ id: SNAPSHOT, source: spec as never, default: true }] },
+    source: { kind: 'snapshots', snapshots: [{ id: SNAPSHOT, source: source as never, default: true }] },
     manifest,
     responsePayloadKey: CLOUDFLARE_RESPONSE_PAYLOAD_KEY,
     formatIdentifier: cloudflareFormatIdentifier,
@@ -213,7 +213,7 @@ function prepare() {
     extensions: [forgeExtension(), terraform],
     onWarning: () => {},
   });
-  return { ...prepareForgeApi(spec, data, SNAPSHOT), data };
+  return { ...prepareForgeApi(source, data, SNAPSHOT, sdkSnippets), data };
 }
 
 const ops = (doc: Record<string, unknown>) =>
@@ -260,6 +260,29 @@ function prepareEntries(...entries: FernSourceOperation[]) {
   return prepareForgeApi({ paths: {} }, data, SNAPSHOT);
 }
 
+test('an operation without an operationId gets its page, and the spec gets the id astro-fern derives from its SDK address', () => {
+  const source = structuredClone(spec);
+  const { operationId: _operationId, ...apps } = operation('alpha.apps.list', ['alpha', 'apps'], 'list');
+  (source.paths as Record<string, unknown>)['/{account_or_zone}/{account_or_zone_id}/alpha/apps'] = { get: apps };
+  const { document, operations } = prepare(source);
+  assert.equal(operations['alpha.apps.list'], 'alpha/apps/methods/list');
+  const paths = document.paths as Record<string, Record<string, { operationId?: string }>>;
+  assert.equal(paths['/{account_or_zone}/{account_or_zone_id}/alpha/apps']?.get?.operationId, 'alpha.apps.list');
+});
+
+test('a derived id in a product Nimbus keeps is renamed as the product slug is; a written one stays', () => {
+  const source = structuredClone(spec);
+  const { operationId: _operationId, ...resources } = operation('tags.resources.list', ['tags', 'resources'], 'list');
+  (source.paths as Record<string, unknown>)['/{account_or_zone}/{account_or_zone_id}/tags'] = { get: resources };
+  const { document, operations } = prepare(source);
+  assert.equal(operations['tagging.resources.list'], 'tagging/resources/methods/list');
+  assert.equal(operations['tags.resources.list'], undefined);
+  // The spec's own id is the author's, so Nimbus reports it instead.
+  assert.equal(operations['tags.keys.list'], 'tagging/keys/methods/list');
+  const paths = document.paths as Record<string, Record<string, { operationId?: string }>>;
+  assert.equal(paths['/{account_or_zone}/{account_or_zone_id}/tags']?.get?.operationId, 'tagging.resources.list');
+});
+
 test('keeps exactly the operations astro-fern gives a primary page, keyed by operationId', () => {
   const { document, operations, data } = prepare();
   const kept = ops(document).sort();
@@ -290,6 +313,15 @@ test("routes are today's URLs, with moved product slugs", () => {
   assert.equal(redirects['/tags/keys/methods/list/'], '/tagging/keys/methods/list/');
 });
 
+test('every operation carries its route in the spec, as x-nimbus-route', () => {
+  const { document, operations } = prepare();
+  const routes = Object.values(document.paths as Record<string, Record<string, Record<string, unknown>>>).flatMap(
+    (item) => Object.values(item).map((op) => [op.operationId, op['x-nimbus-route']]),
+  );
+  assert.ok(routes.length > 0);
+  assert.deepEqual(Object.fromEntries(routes), operations);
+});
+
 test('alias projections redirect to the primary page, in and outside its product', () => {
   const { operations, redirects, document } = prepare();
   assert.equal(operations['alpha.items.get'], 'alpha/items/methods/get');
@@ -315,13 +347,18 @@ test('tags nest product → resource and resources with one name stay apart by p
 });
 
 test("landing pages are Nimbus's section pages; section ids and moved products redirect", () => {
-  const { redirects, tagSegments } = prepare();
+  const { redirects, document } = prepare();
   assert.equal(redirects['/alpha/'], undefined);
   assert.equal(redirects['/alpha/items/'], undefined);
   assert.equal(redirects['/alpha/items/notes/'], undefined);
   assert.equal(redirects['/tags/'], '/tagging/');
   assert.equal(redirects['/tags/keys/'], '/tagging/keys/');
-  assert.deepEqual(tagSegments, { tags: 'tagging' });
+  const tags = document.tags as { name: string; 'x-nimbus-route'?: string }[];
+  assert.deepEqual(
+    tags.filter((tag) => tag['x-nimbus-route']).map((tag) => [tag.name, tag['x-nimbus-route']]),
+    [['tags', 'tagging']],
+    'a moved product sets its section segment on its tag',
+  );
   const unplaced = prepareEntries(entry('a.misc', 'a', 'misc/methods/list', { placement: undefined }));
   assert.equal(unplaced.redirects['/a/sections/a/'], '/a/');
   assert.equal(unplaced.operations['a.misc'], 'a/misc/methods/list');
@@ -340,6 +377,28 @@ test('an alias path that is also a real section keeps the real page', () => {
   assert.equal(redirects['/b/items/'], undefined);
 });
 
+test('the SDK samples are the Stainless snippets of their operation, else a comment that the SDK lacks it', () => {
+  const { document } = prepare(
+    spec,
+    new Map([['beta.zones.list', { typescript: 'client.zones.list();', go: 'client.Zones.List()' }]]),
+  );
+  const paths = document.paths as Record<string, Record<string, Record<string, unknown>>>;
+  const sdk = (op: Record<string, unknown>) =>
+    (op['x-codeSamples'] as { lang: string; source: string }[])
+      .filter((sample) => ['typescript', 'python', 'go'].includes(sample.lang))
+      .map((sample) => sample.source);
+  assert.deepEqual(sdk(paths['/beta/zones']!.get!), [
+    'client.zones.list();',
+    '# This operation is not available in the Python SDK.',
+    'client.Zones.List()',
+  ]);
+  assert.deepEqual(sdk(paths['/beta/zones']!.post!), [
+    '// This operation is not available in the TypeScript SDK.',
+    '# This operation is not available in the Python SDK.',
+    '// This operation is not available in the Go SDK.',
+  ]);
+});
+
 test('samples cover every target, with placeholders, one Terraform sample joining every declaration example and its import command, and an example per JSON response; Terraform data rides the extension', () => {
   const { document } = prepare();
   const paths = document.paths as Record<string, Record<string, Record<string, unknown>>>;
@@ -350,6 +409,9 @@ test('samples cover every target, with placeholders, one Terraform sample joinin
     [
       ['cf', 'cf CLI'],
       ['curl', 'curl'],
+      ['typescript', 'TypeScript'],
+      ['python', 'Python'],
+      ['go', 'Go'],
       ['terraform', 'Terraform'],
     ],
   );
@@ -370,7 +432,7 @@ test('samples cover every target, with placeholders, one Terraform sample joinin
   const listSamples = list['x-codeSamples'] as { lang: string; source: string }[];
   assert.deepEqual(
     listSamples.map((sample) => sample.lang),
-    ['cf', 'curl', 'terraform'],
+    ['cf', 'curl', 'typescript', 'python', 'go', 'terraform'],
   );
   assert.equal(listSamples.at(-1)!.source, '# This operation is not implemented in Terraform.');
   assert.equal(list[TERRAFORM_EXTENSION], undefined);
@@ -459,13 +521,4 @@ test('refuses data that would give two pages one URL or one tag two meanings', (
 
 test('the prepared spec is titled for the API home', () => {
   assert.equal((prepare().document.info as { title: string }).title, 'API Reference');
-});
-
-test('only `astro preview` reuses the last build', () => {
-  const bin = '/repo/node_modules/astro/bin/astro.mjs';
-  assert.equal(isAstroPreview(['node', bin, 'preview', '--port', '8788']), true);
-  assert.equal(isAstroPreview(['node', '/repo/node_modules/.bin/astro', 'preview']), true);
-  assert.equal(isAstroPreview(['node', bin, 'build', '--mode', 'preview']), false);
-  assert.equal(isAstroPreview(['node', bin, 'dev', '--mode', 'preview']), false);
-  assert.equal(isAstroPreview(['node', '/repo/preview.mjs']), false);
 });

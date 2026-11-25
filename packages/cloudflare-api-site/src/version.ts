@@ -55,12 +55,16 @@ export const LEGACY_API_VERSION = 'legacy';
 /** The channel suffix used by the rolling preview version. */
 export const PREVIEW_API_VERSION_SUFFIX = 'preview';
 
-/** A parsed, validated Cloudflare API version identity. Discriminated on `channel`. */
+/**
+ * A parsed, validated Cloudflare API version identity. Discriminated on `channel`.
+ * `label` is what readers see: "Legacy", "2027-01-01 (Air)", "2027-02-01 (Preview)".
+ */
 export type CloudflareApiVersion =
-  | { readonly channel: 'legacy'; readonly wire: 'legacy' }
+  | { readonly channel: 'legacy'; readonly wire: 'legacy'; readonly label: string }
   | {
       readonly channel: 'preview';
       readonly wire: string;
+      readonly label: string;
       readonly date: string;
       readonly year: number;
       readonly month: number;
@@ -69,6 +73,7 @@ export type CloudflareApiVersion =
   | {
       readonly channel: 'dated';
       readonly wire: string;
+      readonly label: string;
       readonly date: string;
       readonly year: number;
       readonly month: number;
@@ -107,7 +112,7 @@ export function parseCloudflareApiVersion(input: string): CloudflareApiVersion {
   }
 
   if (wire === LEGACY_API_VERSION) {
-    return { channel: 'legacy', wire: LEGACY_API_VERSION };
+    return { channel: 'legacy', wire: LEGACY_API_VERSION, label: 'Legacy' };
   }
 
   if (wire === 'latest') {
@@ -134,13 +139,22 @@ export function parseCloudflareApiVersion(input: string): CloudflareApiVersion {
   }
 
   if (suffix === PREVIEW_API_VERSION_SUFFIX) {
-    return { channel: 'preview', wire: `${date}.${PREVIEW_API_VERSION_SUFFIX}`, date, year, month, day };
+    return {
+      channel: 'preview',
+      wire: `${date}.${PREVIEW_API_VERSION_SUFFIX}`,
+      label: `${date} (Preview)`,
+      date,
+      year,
+      month,
+      day,
+    };
   }
 
   if (CODENAME_SET.has(suffix)) {
     return {
       channel: 'dated',
       wire: `${date}.${suffix}`,
+      label: `${date} (${capitalize(suffix)})`,
       date,
       year,
       month,
@@ -181,13 +195,6 @@ export function compareCloudflareApiVersions(a: CloudflareApiVersion, b: Cloudfl
   if (keyA < keyB) return -1;
   if (keyA > keyB) return 1;
   return 0;
-}
-
-/** Human-facing display label, e.g. "Legacy", "2027-01-01 (Air)", "2027-02-01 (Preview)". */
-export function cloudflareApiVersionLabel(version: CloudflareApiVersion): string {
-  if (version.channel === 'legacy') return 'Legacy';
-  const suffix = version.channel === 'preview' ? 'Preview' : capitalize(version.codename);
-  return `${version.date} (${suffix})`;
 }
 
 function capitalize(value: string): string {

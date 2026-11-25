@@ -17,4 +17,4 @@ publish = false
 crate-type = ["cdylib"]
 
 [dependencies]
-forge = { path = "../../..", default-features = false, features = ["library"] }
+forge = { package = "cloudflare-forge", path = "../../..", default-features = false, features = ["library"] }

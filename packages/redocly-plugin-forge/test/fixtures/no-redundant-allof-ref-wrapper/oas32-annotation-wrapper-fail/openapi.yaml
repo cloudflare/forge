@@ -1,0 +1,14 @@
+openapi: 3.2.0
+info:
+  title: Annotation wrapper on 3.2
+  version: 1.0.0
+paths: {}
+components:
+  schemas:
+    Timestamp:
+      type: string
+      format: date-time
+    CreatedAt:
+      allOf:
+        - $ref: '#/components/schemas/Timestamp'
+      description: When the row was first inserted.

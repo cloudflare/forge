@@ -99,3 +99,21 @@ jobs:
           name: docs-site-e2e-results
           path: packages/cloudflare-api-site/e2e/__test-results__
           retention-days: 7
+
+  # Workers Builds skips forks, so this builds every pull request. `astro
+  # check` runs in the job above, as the package's `typecheck`.
+  forge-docs:
+    name: Forge docs build
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v7.0.1
+
+      - uses: ./.github/actions/setup-workspace
+
+      # The build lints every page after building it, so a broken internal
+      # link fails here.
+      - name: Build
+        run: pnpm --filter forge-docs build

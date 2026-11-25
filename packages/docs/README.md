@@ -1,0 +1,51 @@
+# Forge docs
+
+The documentation site for Forge, built with Astro and [Nimbus](https://nimbus-docs.com).
+
+```sh
+pnpm install                        # at the repository root
+pnpm --filter forge-docs dev        # http://localhost:4321
+pnpm --filter forge-docs build      # cf build, into ./.cloudflare/output
+```
+
+## How it looks, and why
+
+The site is a Nimbus site with as few changes as possible. Every file under `src/` outside
+`src/content/` is Nimbus's starter, as `create-nimbus-docs` writes it for the version in
+`package.json`, so a Nimbus update is a copy and a diff. The changes, each for a reason:
+
+| Change                          | Where                                                    | Why                                                                                                                                                                                                                                                                                                                                                                                                         |
+| ------------------------------- | -------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Cloudflare orange as the brand  | `--nb-brand` in `src/styles/globals.css`                 | Darkened to 5:1 on white so it reads as text; Nimbus uses the brand only for where you are and what you can act on.                                                                                                                                                                                                                                                                                         |
+| The logo                        | `src/components/logo.ts`, `Logo.astro`                   | Cloudflare's cloud in its own two colours, beside the word "Forge". `logo.ts` adds `fills`, which `src/pages/og/_card.ts` reads, so the social cards don't recolour the mark.                                                                                                                                                                                                                               |
+| The page body's theme           | `src/styles/forge.css`, one import in `BaseLayout.astro` | Forge's own look, "Furnace": Nimbus's neutral surfaces on a white ground, a glow from the top and Space Grotesk headings in the content and its table of contents, with orange buttons in dark mode. Only `--nb-*` tokens scoped to those two regions. Two small rules outside them: a hovered sidebar row takes the current page's wash, and the contents mark the current section in Cloudflare's orange. |
+| The sidebar filter stays put    | `src/layouts/DocsLayout.astro`                           | The filter sits in a sticky bar at the top of the tree, so it is in reach however far the sidebar scrolls. Worth reporting upstream.                                                                                                                                                                                                                                                                        |
+| The "Updated" date              | `ui/page-actions/PageActions.astro`                      | Formatted in the site's locale and UTC, so a build doesn't depend on the machine it runs on.                                                                                                                                                                                                                                                                                                                |
+| A content type on every page    | `content_type` in `src/content.config.ts`                | Each page declares one of the Cloudflare docs style guide's content types, so the build rejects a page that has none.                                                                                                                                                                                                                                                                                       |
+| A minute of freshness for pages | `public/_headers`                                        | A hover-prefetched page can be reused on the click instead of fetched again.                                                                                                                                                                                                                                                                                                                                |
+
+Add a row before adding a change. A change Nimbus should make itself is better reported upstream.
+
+## Content
+
+Pages are in `src/content/docs/`, one directory per sidebar group: start, concepts, plugins,
+targets, openapi, compatibility, guides, reference. `AGENTS.md` has the rules for writing them; the most important
+is that every statement about Forge is checked against its source or its output. Pages follow the
+[Cloudflare docs style guide](https://developers.cloudflare.com/style-guide/), and each declares its
+content type in `content_type`.
+
+## Deployment
+
+`pnpm --filter forge-docs build` runs `cf build`, then `nimbus-docs lint`, so a broken internal link
+fails it. `pnpm --filter forge-docs run deploy` runs that build and uploads it with `cf deploy`, as
+a Worker with no script, serving the pages as static assets. (`run` is needed because `pnpm deploy`
+is a built-in pnpm command.)
+
+[Workers Builds](https://developers.cloudflare.com/workers/ci-cd/builds/) deploys the site from the
+`forge-docs` Worker's Git connection. Every push to `main` deploys production. Every push to another
+branch deploys a Worker Preview named after the branch, and the Cloudflare bot comments its URL on
+the pull request. Forks get no preview, so CI builds every pull request too.
+
+`cf` builds an Astro site through the Cloudflare adapter, so `astro.config.ts` has it, although every
+page is prerendered. Images are optimized at build time and sessions are off, so the Worker has no
+binding but its assets.

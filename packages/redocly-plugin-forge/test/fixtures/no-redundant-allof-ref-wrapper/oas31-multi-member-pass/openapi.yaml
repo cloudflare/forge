@@ -1,0 +1,23 @@
+openapi: 3.1.0
+info:
+  title: Multi-member allOf is never redundant
+  version: 1.0.0
+paths: {}
+components:
+  schemas:
+    Base:
+      type: object
+      properties:
+        id:
+          type: string
+    Timestamped:
+      type: object
+      properties:
+        created_at:
+          type: string
+          format: date-time
+    Row:
+      allOf:
+        - $ref: '#/components/schemas/Base'
+        - $ref: '#/components/schemas/Timestamped'
+      description: Combination of Base and Timestamped.
