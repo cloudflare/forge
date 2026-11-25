@@ -185,8 +185,8 @@ test('a resource page lists its endpoints, then its child resources', async ({ p
   );
   const headings = page.locator('main h2');
   await expect(headings.nth(0)).toHaveText(/^Endpoints\s*4 endpoints$/);
-  await expect(headings.nth(1)).toHaveText('Resources');
-  await expect(page.locator('main a[href="/api/zero-trust/devices/ip-profiles/"]')).toHaveText('IP Profiles');
+  await expect(headings.nth(1)).toHaveText(/^Resources\s*\d+ resources$/);
+  await expect(page.locator('main a[href="/api/zero-trust/devices/ip-profiles/"]')).toHaveText(/^IP Profiles\s*\d+$/);
 });
 
 test('a resource marks its deprecated endpoints', async ({ page }) => {

@@ -1,41 +1,45 @@
 ---
+/** A command's reference, as an operation page draws one: the endpoint it calls, then its arguments and flags as field rows. */
+import { ApiFieldList } from '@/components/ui/api-field-row';
 import type { CommandMetadata } from '../../command-reference/schema.ts';
-import CommandParameters from './CommandParameters.astro';
-import CopyableCommand from './CopyableCommand.astro';
+import CommandEndpoint from './CommandEndpoint.astro';
+import { argumentFields, flagFields } from './fields.ts';
+import '@/components/ui/api-field-row/field-list.css';
 
 interface Props {
   command: CommandMetadata;
 }
 
 const { command } = Astro.props;
+const args = argumentFields(command);
+const flags = flagFields(command);
 ---
 
-<article class="command-reference">
-  <CopyableCommand command={command.usage} label={`Copy ${command.command} usage`} />
-  <p class="command-description">{command.description}</p>
+<div class="command-reference">
+  {command.apiPath && command.httpMethod && <CommandEndpoint method={command.httpMethod} path={command.apiPath} />}
+  {args.length > 0 && <ApiFieldList as="h2" title="Arguments" fields={args} />}
+  {flags.length > 0 && <ApiFieldList as="h2" title="Flags" fields={flags} />}
   {
-    command.arguments.length > 0 ? (
-      <CommandParameters id="arguments" title="Arguments" kind="argument" parameters={command.arguments} />
-    ) : null
+    args.length === 0 && flags.length === 0 && (
+      <section>
+        <h2 class="fl-title mb-2">Flags</h2>
+        <p class="command-reference-none">This command takes no arguments or flags.</p>
+      </section>
+    )
   }
-  {
-    command.options.length > 0 ? (
-      <CommandParameters id="options" title="Options" kind="option" parameters={command.options} />
-    ) : null
-  }
-</article>
+</div>
 
 <style>
   .command-reference {
-    max-width: 58rem;
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
+    min-width: 0;
   }
 
-  .command-description {
-    max-width: 46rem;
-    margin: 1.5rem 0 0;
-    color: var(--cf-muted-foreground);
-    font-size: 0.9375rem;
-    line-height: 1.7;
-    white-space: pre-line;
+  .command-reference-none {
+    margin: 0;
+    color: var(--nb-muted-foreground);
+    font-size: 0.875rem;
   }
 </style>

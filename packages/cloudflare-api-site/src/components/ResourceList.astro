@@ -1,0 +1,108 @@
+---
+/**
+ * A section page's resources: rows divided by hairlines, each the resource's
+ * name and how many endpoints it holds. Hover fills the row and the hairlines
+ * either side step aside; keyboard focus draws an inset ring.
+ */
+import { withBase } from '@cloudflare/nimbus-docs/runtime';
+import type { ApiRef } from '@cloudflare/nimbus-docs/api';
+import { endpointCount } from '@/forge-pages';
+
+interface Props {
+  sections: ApiRef[];
+}
+
+const { sections } = Astro.props;
+const plural = (n: number, one: string) => `${n.toLocaleString('en-US')} ${n === 1 ? one : `${one}s`}`;
+---
+
+<section>
+  <h2 class="fl-title mb-3 flex items-baseline justify-between gap-4">
+    Resources
+    <span class="text-xs font-normal text-muted-foreground">{plural(sections.length, 'resource')}</span>
+  </h2>
+  <ul class="resource-list">
+    {
+      sections.map((s) => {
+        const count = endpointCount(s.href);
+        return (
+          <li>
+            <a href={withBase(s.href, import.meta.env.BASE_URL)}>
+              <span class="resource-label">{s.label}</span>
+              {count !== undefined && (
+                <span class="resource-count" title={plural(count, 'endpoint')}>
+                  {count.toLocaleString('en-US')}
+                </span>
+              )}
+            </a>
+          </li>
+        );
+      })
+    }
+  </ul>
+</section>
+
+<style>
+  .resource-list {
+    margin: 0 -0.75rem;
+    padding: 0;
+    list-style: none;
+  }
+
+  li {
+    position: relative;
+  }
+
+  li + li::before {
+    position: absolute;
+    inset: 0 0.75rem auto;
+    border-top: 1px solid var(--nb-border);
+    content: '';
+  }
+
+  a {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    min-height: 2.75rem;
+    padding: 0 0.75rem;
+    border-radius: 0.5rem;
+    color: var(--nb-foreground);
+    text-decoration: none;
+    -webkit-tap-highlight-color: transparent;
+    transition: background-color 120ms ease-out;
+  }
+
+  a:hover {
+    background: var(--nb-accent);
+  }
+
+  a:focus-visible {
+    outline: none;
+    box-shadow: inset 0 0 0 2px var(--nb-ring);
+  }
+
+  /* The hairlines either side of a hovered or focused row step aside. */
+  li:is(:hover, :has(:focus-visible))::before,
+  li:is(:hover, :has(:focus-visible)) + li::before {
+    opacity: 0;
+  }
+
+  .resource-label {
+    min-width: 0;
+    overflow: hidden;
+    font-size: 0.9375rem;
+    font-weight: 500;
+    line-height: 1.5rem;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .resource-count {
+    flex: none;
+    color: var(--nb-muted-foreground);
+    font-size: 0.75rem;
+    font-variant-numeric: tabular-nums;
+  }
+</style>

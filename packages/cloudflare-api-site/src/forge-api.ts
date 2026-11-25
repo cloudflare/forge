@@ -86,6 +86,10 @@ export interface PreparedForgeApi {
   redirects: Record<string, string>;
   /** The product and resource pages Nimbus draws, collection-relative. */
   sections: string[];
+  /** Each of `sections` → how many endpoints it and the resources below it hold. */
+  endpointCounts: Record<string, number>;
+  /** `METHOD /path` as the spec writes it → the operation's page, collection-relative. */
+  operationPages: Record<string, string>;
 }
 
 interface Tag {
@@ -173,6 +177,7 @@ export function prepareForgeApi(
   const sections = new Set<string>();
   const leafTag = new Map<string, string>();
   const leafPath = new Map<string, string>();
+  const operationPages: Record<string, string> = {};
   const section = (productSlug: string, slugs: string[] = []) => {
     const path = sectionPath(productSlug, slugs);
     sections.add(path);
@@ -266,6 +271,7 @@ export function prepareForgeApi(
       op.tags = [leafTag.get(entry.operation.operationId)];
       // Nimbus reads each page's URL from the spec, so the config carries no route map.
       op['x-nimbus-route'] = operations[entry.operation.operationId];
+      operationPages[`${method.toUpperCase()} ${path}`] ??= `/${operations[entry.operation.operationId]}/`;
       if (entry.operation.deprecated) op.deprecated = true;
       const methodName = op['x-fern-sdk-method-name'];
       const rank = typeof methodName === 'string' ? LIFECYCLE.indexOf(methodName) : -1;
@@ -309,12 +315,20 @@ export function prepareForgeApi(
     tag.name in MOVED_PRODUCT_SLUGS ? { ...tag, 'x-nimbus-route': MOVED_PRODUCT_SLUGS[tag.name] } : tag,
   );
 
+  // Resources nest by path, so a section holds every endpoint whose resource path starts with its own.
+  const leaves = [...leafPath.values()];
+  const endpointCounts = Object.fromEntries(
+    [...sections].map((section) => [section, leaves.filter((leaf) => leaf.startsWith(section)).length]),
+  );
+
   return {
     document,
     operations,
     products: primaryProducts.map(({ id, slug, title }) => ({ id, slug, title })),
     redirects,
     sections: [...sections],
+    endpointCounts,
+    operationPages,
   };
 }
 
@@ -377,6 +391,8 @@ export function prepareForgeSpec(source: Record<string, unknown>): Record<string
   mkdirSync(dir, { recursive: true });
   writeFileSync(new URL('products.json', dir), JSON.stringify(prepared.products, null, 2));
   writeFileSync(new URL('redirects.json', dir), JSON.stringify(prepared.redirects, null, 2));
+  writeFileSync(new URL('endpoint-counts.json', dir), JSON.stringify(prepared.endpointCounts));
+  writeFileSync(new URL('operation-pages.json', dir), JSON.stringify(prepared.operationPages));
   writeStainlessRedirects(snapshot, prepared, dir);
   return prepared.document;
 }

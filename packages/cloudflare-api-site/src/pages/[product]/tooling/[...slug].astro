@@ -1,6 +1,9 @@
 ---
 import CommandPage from '../../../components/CommandPage.astro';
+import CommandLine from '../../../components/commands/CommandLine.astro';
 import CommandReference from '../../../components/commands/CommandReference.astro';
+import { commandBreadcrumbs } from '../../../components/commands/command-page.ts';
+import { proseHtml } from '../../../components/commands/fields.ts';
 import { commandProducts } from '../../../command-sidebar.ts';
 import { commandTitle } from '../../../command-reference/routing.ts';
 import { stripBase } from '@cloudflare/nimbus-docs/runtime';
@@ -13,6 +16,14 @@ const markdownUrl = `${stripBase(Astro.url.pathname, import.meta.env.BASE_URL)}i
 const product = commandProducts.find((item) => item.id === command.fullPath[0]);
 ---
 
-<CommandPage title={commandTitle(command)} description={command.description} href={product ? `/${product.slug}/` : '/'} markdownUrl={markdownUrl}>
+<CommandPage
+  title={commandTitle(command)}
+  description={command.description}
+  descriptionHtml={proseHtml(command.description)}
+  breadcrumbs={commandBreadcrumbs(command, product)}
+  href={product ? `/${product.slug}/` : '/'}
+  markdownUrl={markdownUrl}
+>
+  <CommandLine slot="request" command={command.command} tail={command.usage.slice(command.command.length).trim()} label="Copy command" />
   <CommandReference command={command} />
 </CommandPage>

@@ -1,7 +1,15 @@
 ---
+/**
+ * The commands `cf` implements itself, as a cheat sheet: each group's title
+ * over its rows, the command column as wide as the longest command so every
+ * group lines up, each command with the first sentence of what it does.
+ */
 import type { CommandRouter } from '../../command-reference/routing.ts';
 import type { CommandMetadata } from '../../command-reference/schema.ts';
 import { commandTitle } from '../../command-reference/routing.ts';
+import CommandRows from './CommandRows.astro';
+import { summaryHtml } from './fields.ts';
+import '@/components/ui/api-field-row/field-list.css';
 
 interface Props {
   router: CommandRouter;
@@ -14,186 +22,63 @@ const standalone = commands.filter((command) => command.fullPath.length === 1);
 const grouped = new Map<string, CommandMetadata[]>();
 for (const command of commands) {
   if (command.fullPath.length === 1) continue;
-  const name = command.fullPath[0];
-  const group = grouped.get(name) ?? [];
-  group.push(command);
-  grouped.set(name, group);
+  const name = command.fullPath[0]!;
+  grouped.set(name, [...(grouped.get(name) ?? []), command]);
 }
 const sections = [
-  ...(standalone.length > 0 ? [{ id: 'command-list', title: 'Commands', commands: standalone }] : []),
-  ...[...grouped].map(([name, groupCommands]) => ({
-    id: `command-group-${name}`,
-    title: commandTitle({ name }),
-    description: descriptions[name],
-    commands: groupCommands,
-  })),
+  ...(standalone.length > 0 ? [{ id: 'commands', title: 'Commands', description: undefined, commands: standalone }] : []),
+  ...[...grouped].map(([name, groupCommands]) => {
+    const title = commandTitle({ name });
+    const description = descriptions[name];
+    // A description that only repeats the group's name says nothing.
+    return {
+      id: name,
+      title,
+      description: description && description.trim().toLowerCase() !== title.toLowerCase() ? description : undefined,
+      commands: groupCommands,
+    };
+  }),
 ];
+// One command column for every group: the mono font advances 0.6em a character, at 0.8125rem.
+const widest = Math.max(...commands.map((command) => command.command.length));
 ---
 
-<div class="command-directory">
-  <p class="command-introduction">
-    Commands implemented directly by <code>cf</code> rather than generated from the Cloudflare OpenAPI specification.
-  </p>
-  <div class="command-sections">
-    {
-      sections.map((section) => (
-        <section aria-labelledby={section.id}>
-          <header>
-            <h2 id={section.id}>{section.title}</h2>
-            {'description' in section && section.description ? <p>{section.description}</p> : null}
-          </header>
-          <ul>
-            {section.commands.map((command) => (
-              <li>
-                <a href={router.commandHref(command)}>
-                  <span class="command-marker" aria-hidden="true">$</span>
-                  <span class="command-summary">
-                    <code>{command.command}</code>
-                    <span>{command.description}</span>
-                  </span>
-                  <span class="command-count">
-                    {command.arguments.length + command.options.length}{' '}
-                    {command.arguments.length + command.options.length === 1 ? 'parameter' : 'parameters'}
-                  </span>
-                  <span class="command-arrow" aria-hidden="true">&rarr;</span>
-                </a>
-              </li>
-            ))}
-          </ul>
-        </section>
-      ))
-    }
-  </div>
+<div class="command-directory" style={`--command-width:${(widest * 0.6 * 0.8125).toFixed(3)}rem`}>
+  {
+    sections.map((section) => (
+      <section aria-labelledby={section.id}>
+        <h2 id={section.id} class="fl-title">
+          {section.title}
+          {section.description && <span>{section.description}</span>}
+        </h2>
+        <CommandRows
+          rows={section.commands.map((command) => ({
+            command: command.command,
+            href: router.commandHref(command),
+            html: summaryHtml(command.description),
+          }))}
+        />
+      </section>
+    ))
+  }
 </div>
 
 <style>
   .command-directory {
-    max-width: 58rem;
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
   }
 
-  .command-introduction {
-    max-width: 46rem;
-    margin: 0 0 2rem;
-    color: var(--cf-muted-foreground);
-    font-size: 1rem;
-    line-height: 1.7;
-  }
-
-  .command-introduction code {
-    color: var(--cf-foreground);
-    font-family: var(--nb-font-mono);
-  }
-
-  .command-sections {
-    display: grid;
-    gap: 2.5rem;
-  }
-
-  header {
+  h2 {
+    flex-wrap: wrap;
+    column-gap: 0.625rem;
     margin-bottom: 0.75rem;
+    scroll-margin-top: calc(var(--nb-header-height, 3.5rem) + 1rem);
   }
 
-  header h2 {
-    margin: 0;
-    color: var(--cf-foreground);
-    font-size: 1.125rem;
-    font-weight: 650;
-    line-height: 1.35;
-    letter-spacing: -0.015em;
-  }
-
-  header p {
-    max-width: 46rem;
-    margin: 0.5rem 0 0;
-    color: var(--cf-muted-foreground);
-    font-size: 0.8125rem;
-    line-height: 1.6;
-    white-space: pre-line;
-  }
-
-  ul {
-    overflow: hidden;
-    margin: 0;
-    border: 1px solid var(--cf-border);
-    border-radius: 0.5rem;
-    padding: 0;
-    list-style: none;
-  }
-
-  li + li {
-    border-top: 1px solid var(--cf-border);
-  }
-
-  a {
-    display: grid;
-    grid-template-columns: 1.5rem minmax(0, 1fr) auto auto;
-    align-items: center;
-    gap: 1rem;
-    padding: 1rem;
-    color: inherit;
-    text-decoration: none;
-  }
-
-  a:hover {
-    background: var(--cf-accent);
-  }
-
-  .command-marker {
-    color: var(--cf-primary);
-    font-family: var(--nb-font-mono);
-    font-size: 0.8125rem;
-    font-weight: 700;
-  }
-
-  .command-summary {
-    display: grid;
-    min-width: 0;
-    gap: 0.3rem;
-  }
-
-  .command-summary code {
-    overflow: hidden;
-    color: var(--cf-foreground);
-    background: transparent;
-    font-family: var(--nb-font-mono);
-    font-size: 0.875rem;
-    font-weight: 600;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  .command-summary > span,
-  .command-count {
-    color: var(--cf-muted-foreground);
-    font-size: 0.8125rem;
-  }
-
-  .command-summary > span {
-    display: -webkit-box;
-    overflow: hidden;
-    line-height: 1.5;
-    -webkit-box-orient: vertical;
-    -webkit-line-clamp: 2;
-  }
-
-  .command-count {
-    white-space: nowrap;
-  }
-
-  .command-arrow {
-    color: var(--cf-border-strong);
-  }
-
-  @media (max-width: 39.99rem) {
-    a {
-      grid-template-columns: 1rem minmax(0, 1fr);
-      gap: 0.75rem;
-      padding: 0.875rem;
-    }
-
-    .command-count,
-    .command-arrow {
-      display: none;
-    }
+  h2 span {
+    color: var(--nb-muted-foreground);
+    font-weight: 400;
   }
 </style>

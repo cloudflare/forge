@@ -17,6 +17,7 @@
  * takes a row, the rail spans rows 1 to 12 and previous/next sits in row 13.
  * Keep it to 12 top-level children (it has 5), or raise both numbers there.
  */
+import ResourceList from "@/components/ResourceList.astro";
 import TerraformDeclarations from "@/components/TerraformDeclarations.astro";
 import { ApiFieldList, ApiUnionExplorer } from "@/components/ui/api-field-row";
 import ApiPageHeader from "./ApiPageHeader.astro";
@@ -326,18 +327,7 @@ const terraform = page.kind === "operation" ? page.extensions?.["x-cloudflare-te
           <ApiOperationList operations={page.operations} />
         </section>
       )}
-      {page.sections && (
-        <section>
-          <h2 class="fl-title mb-3">Resources</h2>
-          <ul class="flex list-none flex-col gap-1 p-0">
-            {page.sections.map((s) => (
-              <li>
-                <a href={withBase(s.href, import.meta.env.BASE_URL)} class="font-medium underline-offset-4 hover:underline">{s.label}</a>
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
+      {page.sections && <ResourceList sections={page.sections} />}
     </>
   )}
 
