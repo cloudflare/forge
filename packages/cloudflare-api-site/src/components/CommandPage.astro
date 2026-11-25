@@ -1,12 +1,14 @@
 ---
 /**
- * A command page, drawn like an API page: DocsLayout with the API sidebar,
- * opened at `href` (the API overview, or a product's section), and the API
- * page head: breadcrumbs, the title, the `request` slot where an operation
- * shows its endpoint, page actions, then the description as page prose.
+ * A command page in the API pages' own shell (ApiLayout, without a code rail)
+ * and head (ApiPageHeader's markup): breadcrumbs, the title, the `request`
+ * slot where an operation shows its endpoint card, page actions, then the
+ * description as the same prose, and the body in the same column of sections.
+ * The sidebar is the API's, opened at `href` (the overview, or a product).
  */
-import DocsLayout from '@/layouts/DocsLayout.astro';
-import ApiNavigation from '@/components/ApiNavigation.astro';
+import Header from '@/components/Header.astro';
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import { ApiLayout } from '@/components/ui/api-layout';
 import { Breadcrumbs } from '@/components/ui/breadcrumbs';
 import { PageActions } from '@/components/ui/page-actions';
 import { getApiNav, type Breadcrumb } from '@cloudflare/nimbus-docs/runtime';
@@ -30,54 +32,27 @@ const api = await getApiNav(Astro, { collection: 'api', href });
 if (!api) throw new Error(`No API sidebar for ${href}`);
 ---
 
-<DocsLayout title={title} description={description} sidebar={[]} headings={false} breadcrumbs={[]} showDescription={false} markdownUrl={markdownUrl}>
-  {/* The mobile drawer borrows `[data-nb-sidebar-nav]` from the desktop rail. */}
-  <div slot="sidebar" data-nb-sidebar-nav class="flex min-h-0 flex-1 flex-col">
-    <ApiNavigation nav={api.nav} version={api.version} />
-  </div>
-  <Fragment slot="page-title">
-    <div data-pagefind-ignore>
+<BaseLayout title={title} description={description} markdownUrl={markdownUrl} collection="api">
+  <Header showSidebar />
+  <ApiLayout nav={api.nav} version={api.version}>
+    <div data-pagefind-ignore class="max-w-(--api-header-measure)">
       <Breadcrumbs items={breadcrumbs} endsAtCurrentPage={false} class="pb-2" />
     </div>
-    <div class="mt-6 flex flex-col gap-4">
-      <h1 class="mb-0 leading-tight text-foreground [text-wrap:balance]" style="font-size:var(--nb-h1-size);font-weight:var(--nb-h1-weight);letter-spacing:var(--nb-h1-tracking)">{title}</h1>
-      <slot name="request" />
+    <div data-slot="page-header" class="mt-6 flex flex-col gap-4">
+      <div class="flex flex-wrap items-center gap-3">
+        <h1
+          class="mb-0 leading-tight text-foreground [text-wrap:balance]"
+          style="font-size:var(--nb-h1-size);font-weight:var(--nb-h1-weight);letter-spacing:var(--nb-h1-tracking)"
+        >
+          {title}
+        </h1>
+      </div>
+      <div class="max-w-(--api-header-measure)"><slot name="request" /></div>
       <PageActions markdownUrl={markdownUrl} />
     </div>
-    {descriptionHtml && <div class="command-page-description" set:html={descriptionHtml} />}
-  </Fragment>
-  <div class="command-page-body">
-    <slot />
-  </div>
-</DocsLayout>
-
-<style>
-  .command-page-description {
-    margin-top: 2rem;
-    font-size: 1rem;
-    line-height: 1.7;
-    overflow-wrap: anywhere;
-    text-wrap: pretty;
-  }
-
-  .command-page-description :global(p) {
-    margin: 0;
-  }
-
-  .command-page-description :global(p + p) {
-    margin-top: 0.75rem;
-  }
-
-  .command-page-description :global(code) {
-    padding: 0.0625rem 0.3125rem;
-    border: 1px solid var(--nb-border);
-    border-radius: 0.25rem;
-    background: var(--nb-muted);
-    font-family: var(--nb-font-mono);
-    font-size: 0.9em;
-  }
-
-  .command-page-body {
-    margin-top: 2rem;
-  }
-</style>
+    {descriptionHtml && <div class="nb-md nb-md-intro mt-8 [overflow-wrap:anywhere]" set:html={descriptionHtml} />}
+    <div class="mt-8 flex flex-col gap-8">
+      <slot />
+    </div>
+  </ApiLayout>
+</BaseLayout>

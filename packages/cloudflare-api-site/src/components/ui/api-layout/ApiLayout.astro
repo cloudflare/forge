@@ -5,6 +5,8 @@
  * `ApiPageProps` by kind, reading the frozen view-model only. Drop it inside a
  * page that provides the document shell; widths inherit the site's layout
  * tokens (`--nb-sidebar-width`, `--nb-content-max`, `--nb-code-rail-width`).
+ * Without a `page`, the default slot is the body: a site's own page (a `cf`
+ * command) in the same shell as an API page without a code rail.
  */
 import Icon from "@cloudflare/nimbus-docs/components/Icon.astro";
 import ApiNavigation from "@/components/ApiNavigation.astro";
@@ -19,7 +21,7 @@ import type { ApiNav, ApiPageProps } from "@cloudflare/nimbus-docs/api";
 import type { ApiHome } from "@cloudflare/nimbus-docs/runtime";
 
 interface Props {
-  page: ApiPageProps;
+  page?: ApiPageProps;
   nav: ApiNav;
   /** API family + this page's version/coordinate — enables the version
    *  picker and the deprecated-version banner. Omit for an unversioned API. */
@@ -49,9 +51,9 @@ const currentSiblingHref = withBase(currentSiblingUrl ?? "/", import.meta.env.BA
 // response example or Try it (mirrors ApiCodeRail's own gate). A bodyless GET with no
 // samples otherwise pins an empty sticky column at the page's right edge.
 // Try it, when the route passes the panel in and the page's API has it on.
-const hasTryIt = page.kind === "operation" && page.tryIt !== undefined && Astro.slots.has("try-it");
+const hasTryIt = page?.kind === "operation" && page.tryIt !== undefined && Astro.slots.has("try-it");
 const hasRail =
-  page.kind === "operation" &&
+  page?.kind === "operation" &&
   (page.samples.length > 0 || page.responses.some((r) => r.example !== undefined) || hasTryIt);
 
 const pagefindAttrs: Record<string, string> = {};
@@ -134,7 +136,8 @@ if (versionStatus?.isHidden || homePart) {
             />
           </div>
         )}
-        <ApiBody page={page} home={home}>
+        {!page && <slot />}
+        {page && <ApiBody page={page} home={home}>
           {hasRail && (
             <div slot="sample" data-api-place="rail" data-pagefind-ignore class="mt-8 min-[90rem]:col-start-2 min-[90rem]:row-span-12 min-[90rem]:row-start-1 min-[90rem]:-mt-8 min-[90rem]:self-start min-[90rem]:sticky min-[90rem]:top-(--nb-header-height) min-[90rem]:h-[calc(100vh-var(--nb-header-height))] min-[90rem]:w-(--nb-code-rail-width) min-[90rem]:flex min-[90rem]:flex-col min-[90rem]:overflow-y-auto min-[90rem]:pt-8 min-[90rem]:pe-6 min-[90rem]:pb-8 min-[90rem]:ps-1">
               <ApiCodeRail
@@ -148,7 +151,7 @@ if (versionStatus?.isHidden || homePart) {
               </ApiCodeRail>
             </div>
           )}
-        </ApiBody>
+        </ApiBody>}
         {nav.prevNext && !hasRail && <Pagination prevNext={nav.prevNext} data-pagefind-ignore />}
         {/* With a rail, previous/next comes after the body. From 90rem it takes
             the grid's last row (13, after the rail's rows 1 to 12; a rail
@@ -174,7 +177,7 @@ if (versionStatus?.isHidden || homePart) {
     transition:animate="none"
     class="sticky top-(--nb-header-height) hidden h-[calc(100vh-var(--nb-header-height))] w-60 shrink-0 flex-col border-e border-border bg-background md:col-start-1 md:row-start-1 md:flex lg:w-(--nb-sidebar-width)"
   >
-    <ApiNavigation nav={nav} version={version} overviewCurrent={page.kind === "api" && !homePart} />
+    <ApiNavigation nav={nav} version={version} overviewCurrent={page?.kind === "api" && !homePart} />
   </aside>
 </div>
 
