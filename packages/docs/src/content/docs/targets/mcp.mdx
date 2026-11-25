@@ -120,7 +120,8 @@ before the call reaches the tool. The body's own objects keep what their schemas
 Schemas are JSON Schema 2020-12, built from Forge's [model](/concepts/the-model/) rather than
 copied from the document, so every target agrees on each type. A model that is only a scalar or an
 enum is written inline. Any other is a `$ref` into the tool's own `$defs`, which holds only the
-models it reaches.
+models it reaches. A union is `anyOf` its members, also when the document says `oneOf`: the model
+has no `maxLength` or `pattern`, so two string members can match the same value.
 
 Arguments and responses use different schemas. Argument schemas leave out read-only fields, which a
 client does not send, and keep descriptions and defaults for the model choosing arguments. Response

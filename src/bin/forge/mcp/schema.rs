@@ -79,10 +79,13 @@ impl Schemas {
                 Value::Object(schema)
             }
             Type::Object(object) => self.object(object, refs),
+            // `anyOf` even for an exclusive union: these schemas leave out the
+            // string constraints (`maxLength`, `pattern`) that keep members
+            // apart, so a value could match two members, and `oneOf` would
+            // reject it.
             Type::Union(union) => {
                 let members: Vec<Value> = union.members().map(|m| self.ty(m, refs)).collect();
-                let keyword = if union.is_exclusive() { "oneOf" } else { "anyOf" };
-                json!({ keyword: members })
+                json!({ "anyOf": members })
             }
             Type::Intersection(intersection) => {
                 let members: Vec<Value> = intersection.members().map(|m| self.ty(m, refs)).collect();

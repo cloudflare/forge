@@ -1590,6 +1590,53 @@ mod tests {
         );
     }
 
+    /// A `oneOf` of strings that only their length tells apart is `anyOf`:
+    /// the schemas keep no `maxLength`, so every string would match both
+    /// members, and `oneOf` would reject it.
+    #[test]
+    fn exclusive_unions_are_any_of() {
+        let tools = file(
+            &generate(
+                r##"{
+                  "openapi": "3.1.0",
+                  "info": {"title": "t", "version": "1"},
+                  "paths": {
+                    "/apps/{app_id}": {
+                      "get": {
+                        "x-forge-group-name": "apps",
+                        "x-forge-method-name": "get",
+                        "parameters": [
+                          {
+                            "name": "app_id",
+                            "in": "path",
+                            "required": true,
+                            "schema": {"$ref": "#/components/schemas/app_id"}
+                          }
+                        ],
+                        "responses": {"200": {"description": "ok"}}
+                      }
+                    }
+                  },
+                  "components": {
+                    "schemas": {
+                      "app_id": {
+                        "oneOf": [
+                          {"$ref": "#/components/schemas/identifier"},
+                          {"$ref": "#/components/schemas/uuid"}
+                        ]
+                      },
+                      "identifier": {"type": "string", "maxLength": 32, "description": "Identifier."},
+                      "uuid": {"type": "string", "maxLength": 36, "description": "UUID."}
+                    }
+                  }
+                }"##,
+            ),
+            "apps/tools.ts",
+        );
+        assert!(tools.contains(r#""anyOf": ["#), "{tools}");
+        assert!(!tools.contains("oneOf"), "{tools}");
+    }
+
     /// Every source of the runtime library is embedded.
     #[test]
     fn runtime_is_complete() {
