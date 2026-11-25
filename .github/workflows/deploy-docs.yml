@@ -1,8 +1,6 @@
-name: Deploy docs
+name: Deploy docs on spec release
 
 on:
-  push:
-    branches: [main]
   release:
     types: [published]
   workflow_dispatch:
@@ -18,7 +16,7 @@ concurrency:
 
 jobs:
   deploy:
-    name: Deploy docs
+    name: Deploy docs on spec release
     if: >-
       github.event_name != 'release' ||
       (github.event.release.prerelease == false && contains(github.event.release.assets.*.name, 'openapi.forge.json'))
