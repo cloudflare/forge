@@ -132,10 +132,6 @@ const { rows } = Astro.props;
       color 120ms ease-out;
   }
 
-  button:hover {
-    color: var(--nb-foreground);
-    background: color-mix(in oklab, var(--nb-accent) 60%, var(--nb-border));
-  }
 
   button:focus-visible {
     outline: none;
@@ -151,19 +147,40 @@ const { rows } = Astro.props;
       opacity 200ms;
   }
 
-  /* Hover and keyboard focus only: focus a click leaves behind lights nothing. */
-  li:is(:hover, :has(:focus-visible)) a {
+  /* Hover (on devices that hover, so a tap leaves nothing behind) and keyboard
+     focus only: focus a click leaves behind lights nothing. */
+  li:has(:focus-visible) a {
     background: var(--nb-accent);
   }
 
-  li:is(:hover, :has(:focus-visible)) button,
+  li:has(:focus-visible) button,
   button[data-copied] {
     opacity: 1;
   }
 
-  li:is(:hover, :has(:focus-visible))::before,
-  li:is(:hover, :has(:focus-visible)) + li::before {
+  li:has(:focus-visible)::before,
+  li:has(:focus-visible) + li::before {
     opacity: 0;
+  }
+
+  @media (hover: hover) {
+    li:hover a {
+      background: var(--nb-accent);
+    }
+
+    li:hover button {
+      opacity: 1;
+    }
+
+    li:hover::before,
+    li:hover + li::before {
+      opacity: 0;
+    }
+
+    button:hover {
+      color: var(--nb-foreground);
+      background: color-mix(in oklab, var(--nb-accent) 60%, var(--nb-border));
+    }
   }
 
   @media (max-width: 39.99rem) {
