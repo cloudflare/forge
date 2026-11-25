@@ -31,11 +31,17 @@ const { rows } = Astro.props;
           <code dir="ltr">{row.command}</code>
           <span class="command-summary" set:html={row.html} />
         </a>
-        <button type="button" class="group" data-cf-copy-command={row.command} aria-label={`Copy ${row.command}`} title="Copy command">
-          <span class="command-icon group-data-[copied]:-translate-y-full group-data-[copied]:opacity-0">
+        <button
+          type="button"
+          class="group"
+          data-cf-copy-command={row.command}
+          aria-label={`Copy ${row.command}`}
+          title="Copy command"
+        >
+          <span class="pointer-events-none absolute inset-0 flex items-center justify-center transition-all duration-200 group-data-[copied]:-translate-y-full group-data-[copied]:opacity-0">
             <Icon name="ph:copy" class="size-3.5" />
           </span>
-          <span class="command-icon translate-y-full text-success opacity-0 group-data-[copied]:translate-y-0 group-data-[copied]:opacity-100">
+          <span class="pointer-events-none absolute inset-0 flex translate-y-full items-center justify-center text-success opacity-0 transition-all duration-200 group-data-[copied]:translate-y-0 group-data-[copied]:opacity-100">
             <Icon name="ph:check" class="size-3.5" />
           </span>
           <span class="sr-only" aria-live="polite" data-copy-status />
@@ -138,15 +144,6 @@ const { rows } = Astro.props;
     box-shadow: inset 0 0 0 2px var(--nb-ring);
   }
 
-  .command-icon {
-    display: grid;
-    grid-area: 1 / 1;
-    place-items: center;
-    transition:
-      transform 200ms,
-      opacity 200ms;
-  }
-
   /* Hover (on devices that hover, so a tap leaves nothing behind) and keyboard
      focus only: focus a click leaves behind lights nothing. */
   li:has(:focus-visible) a {
@@ -179,7 +176,6 @@ const { rows } = Astro.props;
 
     button:hover {
       color: var(--nb-foreground);
-      background: color-mix(in oklab, var(--nb-accent) 60%, var(--nb-border));
     }
   }
 
@@ -201,7 +197,7 @@ const { rows } = Astro.props;
   }
 
   @media (prefers-reduced-motion: reduce) {
-    .command-icon {
+    button span {
       transition: none;
     }
   }
