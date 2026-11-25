@@ -252,6 +252,16 @@ test('command pages have a Markdown version, listed in llms.txt', async ({ page,
   expect(llms).toContain('/api/d1/tooling/migrations/list/index.md');
 });
 
+test('the tooling directory has a Markdown version listing its commands', async ({ page, request }) => {
+  await page.goto('/api/tooling/');
+  await expect(page.getByRole('link', { name: 'View as Markdown' })).toHaveAttribute('href', '/api/tooling/index.md');
+  const markdown = await request.get('/api/tooling/index.md');
+  expect(markdown.headers()['content-type']).toContain('text/markdown');
+  const body = await markdown.text();
+  expect(body).toContain('# Developer Tooling');
+  expect(body).toContain('/api/tooling/deploy/index.md');
+});
+
 test('the sidebar filter finds cf commands beside API pages', async ({ page }) => {
   await page.goto('/api/tooling/');
   await page.getByPlaceholder('Filter sidebar').first().fill('migrations list');
