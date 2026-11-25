@@ -23,6 +23,7 @@ use forge::{Err, Forge, Plugin};
 use strum::{EnumString, VariantNames};
 
 mod capnweb;
+mod detect;
 mod file;
 mod inspect;
 mod log;
@@ -35,11 +36,9 @@ mod ts;
 #[derive(Parser)]
 #[command(version, subcommand_required = true)]
 struct Args {
-    /// Increase diagnostic logging on stderr (`-v` info, `-vv` debug, `-vvv` trace).
-    #[arg(short, long, action = clap::ArgAction::Count, global = true)]
-    verbose: u8,
-    /// Set the diagnostic log level on stderr (also configurable via `FORGE_LOG`).
-    #[arg(long, value_enum, global = true, conflicts_with = "verbose")]
+    /// Set the diagnostic log level on stderr: `error`, `warn`, `info`,
+    /// `debug`, or `trace` (also configurable via `FORGE_LOG`).
+    #[arg(long, value_name = "LEVEL", value_parser = log::Level::parse, global = true)]
     log_level: Option<log::Level>,
     #[command(subcommand)]
     command: Command,
@@ -143,7 +142,7 @@ fn main() -> ExitCode {
             std::process::exit(if err.use_stderr() { 2 } else { 0 });
         }
     };
-    log::init(log::resolve(args.log_level, args.verbose));
+    log::init(log::resolve(args.log_level));
     match run(args) {
         Ok(()) => ExitCode::SUCCESS,
         Err(err) => {
@@ -184,148 +183,55 @@ fn run(args: Args) -> Result<(), Err> {
 fn generate(args: GenerateArgs) -> Result<(), Err> {
     let spec = args.spec.as_path();
     let out = args.out.as_path();
-    let preloaded = if spec == Path::new("-") {
-        None
-    } else {
-        Some(fs::read(spec).map_err(|err| format!("{}: {err}", spec.display()))?)
-    };
-    let input_is_overlay = preloaded.as_deref().is_some_and(bytes_look_like_overlay);
-    // Fast path: no preprocessing needed. This is the historical shape plus
-    // the wasm-target rayon parallelism, reusing the already-read bytes so
-    // the spec is never read from disk twice.
-    if !input_is_overlay {
-        return generate_from_path(spec, preloaded, args.target, out);
-    }
-    // Preprocess into an in-memory Value, then deserialize that into Forge
-    // and hand to the chosen generator. This path does not parallelize the
-    // read: overlay apply is fast enough that overlapping it with a wasm
-    // plugin compile would complicate the code without a meaningful win.
-    let doc = openapi::overlay::apply_extends(spec, preloaded)?;
-    let label = doc.source_path().unwrap_or(spec).to_path_buf();
-    let forge = read_value(&label, doc.into_value())?;
-    run_plugin_on(&forge, args.target, out)
-}
-
-/// Peeks at top-level mapping keys of `bytes` to decide whether to treat the
-/// input as an overlay (apply its `extends` before generating) or as a plain
-/// spec. Uses a streaming visitor that skips all values via `IgnoredAny` so
-/// sniffing a large OpenAPI spec allocates no DOM.
-///
-/// `overlay:` present AND `openapi:` absent means overlay. Otherwise the input
-/// is treated as a plain spec — the generator will produce a real parse error
-/// if the file is unusable.
-fn bytes_look_like_overlay(bytes: &[u8]) -> bool {
-    let content = bytes.strip_prefix(b"\xEF\xBB\xBF").unwrap_or(bytes);
-    let keys = serde_json::from_slice::<TopLevelKeys>(content)
-        .ok()
-        .or_else(|| serde_saphyr::from_slice::<TopLevelKeys>(content).ok());
-    matches!(
-        keys,
-        Some(TopLevelKeys {
-            has_overlay: true,
-            has_openapi: false,
-        })
-    )
-}
-
-/// Streaming deserializer that records only whether the top-level mapping
-/// contains `overlay` and `openapi`, skipping every value with `IgnoredAny`.
-struct TopLevelKeys {
-    has_overlay: bool,
-    has_openapi: bool,
-}
-
-impl<'de> serde::Deserialize<'de> for TopLevelKeys {
-    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-        struct Visitor;
-        impl<'de> serde::de::Visitor<'de> for Visitor {
-            type Value = TopLevelKeys;
-            fn expecting(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-                f.write_str("a top-level mapping")
-            }
-            fn visit_map<A: serde::de::MapAccess<'de>>(self, mut map: A) -> Result<Self::Value, A::Error> {
-                let mut keys = TopLevelKeys {
-                    has_overlay: false,
-                    has_openapi: false,
-                };
-                while let Some(key) = map.next_key::<std::borrow::Cow<'de, str>>()? {
-                    match key.as_ref() {
-                        "overlay" => keys.has_overlay = true,
-                        "openapi" => keys.has_openapi = true,
-                        _ => {}
-                    }
-                    map.next_value::<serde::de::IgnoredAny>()?;
-                }
-                Ok(keys)
-            }
-        }
-        deserializer.deserialize_map(Visitor)
-    }
-}
-
-/// Generator path that reads directly from `spec` (no overlay preprocessing).
-fn generate_from_path(spec: &Path, preloaded: Option<Vec<u8>>, target: Target, out: &Path) -> Result<(), Err> {
-    match target {
-        Target::Ts => run_plugin(&ts::Generator, spec, preloaded, out),
-        Target::Capnweb => run_plugin(&capnweb::Generator, spec, preloaded, out),
-        Target::Mcp => run_plugin(&mcp::Generator, spec, preloaded, out),
+    match args.target {
+        Target::Ts => run_plugin(&ts::Generator, spec, out),
+        Target::Capnweb => run_plugin(&capnweb::Generator, spec, out),
+        Target::Mcp => run_plugin(&mcp::Generator, spec, out),
         #[cfg(feature = "wasm")]
         Target::Wasm(path) => {
             // Compiling the plugin and reading the document are both slow,
             // so they run at the same time.
-            let (plugin, forge) = rayon::join(
-                || forge::wasm::WasmPlugin::from_file(&path),
-                || read_preloaded(spec, preloaded),
-            );
+            let (plugin, forge) = rayon::join(|| forge::wasm::WasmPlugin::from_file(&path), || read(spec));
             let (plugin, forge) = (plugin?, forge?);
             forge::write(out, plugin.generate(&forge)?)
         }
     }
 }
 
-fn run_plugin(plugin: &impl Plugin, spec: &Path, preloaded: Option<Vec<u8>>, out: &Path) -> Result<(), Err> {
-    forge::write(out, plugin.generate(&read_preloaded(spec, preloaded)?)?)
-}
-
-fn run_plugin_on(forge: &Forge, target: Target, out: &Path) -> Result<(), Err> {
-    match target {
-        Target::Ts => forge::write(out, ts::Generator.generate(forge)?),
-        Target::Capnweb => forge::write(out, capnweb::Generator.generate(forge)?),
-        Target::Mcp => forge::write(out, mcp::Generator.generate(forge)?),
-        #[cfg(feature = "wasm")]
-        Target::Wasm(path) => {
-            let plugin = forge::wasm::WasmPlugin::from_file(&path)?;
-            forge::write(out, plugin.generate(forge)?)
-        }
-    }
+fn run_plugin(plugin: &impl Plugin, spec: &Path, out: &Path) -> Result<(), Err> {
+    forge::write(out, plugin.generate(&read(spec)?)?)
 }
 
 /// Reads the document at `path`, or from standard input when `path` is `-`.
+///
+/// Detects the specification family up front using an early-exit streaming
+/// probe, applying an OpenAPI Overlay (via `extends`) when given one, or
+/// returning a clear error for recognized but unsupported spec families.
 fn read(path: &Path) -> Result<Forge, Err> {
-    read_preloaded(path, None)
-}
-
-/// Like [`read`], reusing `preloaded` file bytes when already read from disk.
-fn read_preloaded(path: &Path, preloaded: Option<Vec<u8>>) -> Result<Forge, Err> {
-    let parse = || -> Result<Forge, Err> {
-        let json = match preloaded {
-            Some(bytes) => bytes,
-            None if path == Path::new("-") => {
-                let mut json = Vec::new();
-                io::stdin().read_to_end(&mut json)?;
-                json
-            }
-            None => fs::read(path)?,
-        };
-        Ok(serde_json::from_slice(&json)?)
+    let bytes = if path == Path::new("-") {
+        let mut buf = Vec::new();
+        io::stdin()
+            .read_to_end(&mut buf)
+            .map_err(|err| format!("{}: {err}", path.display()))?;
+        buf
+    } else {
+        fs::read(path).map_err(|err| format!("{}: {err}", path.display()))?
     };
-    parse().map_err(|err| format!("{}: {err}", path.display()).into())
-}
 
-/// Deserializes a preprocessed (overlay-applied) document into [`Forge`].
-/// `source` is used only for the error label.
-fn read_value(source: &Path, value: serde_json::Value) -> Result<Forge, Err> {
-    serde_json::from_value(value).map_err(|err| format!("{}: {err}", source.display()).into())
+    let kind = detect::detect(&bytes);
+    if !matches!(kind, detect::SpecKind::Unknown) {
+        log::debug!("{}: detected {kind}", path.display());
+    }
+    if let Some(msg) = kind.unsupported_error() {
+        return Err(format!("{}: {msg}", path.display()).into());
+    }
+    if matches!(kind, detect::SpecKind::Overlay { .. }) {
+        let doc = openapi::overlay::apply_extends(path, Some(bytes))?;
+        let label = doc.source_path().unwrap_or(path).to_path_buf();
+        return serde_json::from_value(doc.into_value()).map_err(|err| format!("{}: {err}", label.display()).into());
+    }
+
+    serde_json::from_slice(&bytes).map_err(|err| format!("{}: {err}", path.display()).into())
 }
 
 #[cfg(test)]
@@ -386,16 +292,13 @@ mod tests {
         let openapi_b = parse(&["openapi", "overlay", "spec.yaml", "a.yaml", "b.yaml"]).unwrap();
         assert!(matches!(openapi_b.command, Command::Openapi(_)));
 
-        // Global logging flags work before or after the subcommand and conflict with each other.
-        let v1 = parse(&["openapi", "overlay", "-v", "a.yaml"]).unwrap();
-        assert_eq!(v1.verbose, 1);
-        let v2 = parse(&["-vv", "openapi", "overlay", "a.yaml"]).unwrap();
-        assert_eq!(v2.verbose, 2);
+        // Global `--log-level` works before or after the subcommand and is case-insensitive.
         let ll = parse(&["openapi", "overlay", "--log-level", "debug", "a.yaml"]).unwrap();
         assert_eq!(ll.log_level, Some(super::log::Level::Debug));
-        assert!(parse(&["openapi", "overlay", "-v", "--log-level", "debug", "a.yaml"]).is_err());
-        let norm_v = parse(&["normalize", "-v", "a.json"]).unwrap();
-        assert_eq!(norm_v.verbose, 1);
+        let ll_upper = parse(&["--log-level", "INFO", "normalize", "a.json"]).unwrap();
+        assert_eq!(ll_upper.log_level, Some(super::log::Level::Info));
+        assert!(parse(&["openapi", "overlay", "-v", "a.yaml"]).is_err());
+        assert!(parse(&["openapi", "overlay", "--log-level", "loud", "a.yaml"]).is_err());
 
         // Each subcommand still requires its own arguments.
         assert!(parse(&["normalize"]).is_err());

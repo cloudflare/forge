@@ -187,7 +187,7 @@ fn top_level_overlay_with_overlay_key_after_64kb_is_detected() {
     );
 }
 
-/// Global `-vv` (`--log-level debug`) logs overlay execution on stderr when
+/// Global `--log-level debug` logs overlay execution on stderr when
 /// `forge generate` processes a self-contained overlay (with `extends`).
 #[test]
 fn top_level_generate_overlay_logs_at_debug_level() {
@@ -214,7 +214,8 @@ fn top_level_generate_overlay_logs_at_debug_level() {
             "ts",
             "--out",
             out_dir.to_str().unwrap(),
-            "-vv",
+            "--log-level",
+            "debug",
         ],
         "",
     );
@@ -361,4 +362,129 @@ fn top_level_overlay_subcommand_still_prints_merged_spec() {
     succeeded(&out);
     let doc: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
     assert_eq!(doc["info"]["description"], "d");
+}
+
+/// `forge generate` detects recognized but unsupported specification families
+/// (in JSON, YAML, or text IDL form) and reports a clear error without
+/// mentioning a version number for families with no supported versions.
+#[test]
+fn top_level_generate_reports_unsupported_spec_families() {
+    let dir = dir("unsupported-specs");
+    let out_dir = dir.join("sdk");
+
+    let cases = [
+        (
+            "asyncapi.json",
+            r#"{"asyncapi": "3.0.0", "info": {"title": "t", "version": "1"}}"#,
+            "AsyncAPI",
+            Some("3.0.0"),
+        ),
+        (
+            "asyncapi.yaml",
+            "asyncapi: 2.6.0\ninfo:\n  title: t\n",
+            "AsyncAPI",
+            Some("2.6.0"),
+        ),
+        (
+            "swagger.json",
+            r#"{"swagger": "2.0", "info": {"title": "t", "version": "1"}}"#,
+            "Swagger",
+            Some("2.0"),
+        ),
+        (
+            "swagger.yaml",
+            "swagger: '2.0'\ninfo:\n  title: t\n",
+            "Swagger",
+            Some("2.0"),
+        ),
+        (
+            "arazzo.yaml",
+            "arazzo: 1.0.1\ninfo:\n  title: t\n",
+            "Arazzo",
+            Some("1.0.1"),
+        ),
+        (
+            "openrpc.json",
+            r#"{"openrpc": "1.3.2", "info": {"title": "t", "version": "1"}}"#,
+            "OpenRPC",
+            Some("1.3.2"),
+        ),
+        (
+            "schema.json",
+            r#"{"$schema": "https://json-schema.org/draft/2020-12/schema", "type": "object"}"#,
+            "JSON Schema",
+            Some("2020-12"),
+        ),
+        ("api.raml", "#%RAML 1.0\ntitle: Pets\n", "RAML", Some("1.0")),
+        (
+            "api.proto",
+            "syntax = \"proto3\";\npackage pets;\n",
+            "Protocol Buffers",
+            Some("proto3"),
+        ),
+        (
+            "api.wsdl",
+            "<?xml version=\"1.0\"?>\n<definitions xmlns=\"http://schemas.xmlsoap.org/wsdl/\"/>",
+            "WSDL",
+            None,
+        ),
+        ("api.graphql", "type Query {\n  hello: String\n}\n", "GraphQL", None),
+        (
+            "api.smithy",
+            "$version: \"2.0\"\nnamespace com.example\n",
+            "Smithy",
+            Some("2.0"),
+        ),
+    ];
+
+    for (name, content, expected_family, forbidden_version) in cases {
+        let path = dir.join(name);
+        fs::write(&path, content).unwrap();
+        let err = failed(forge(
+            &[
+                "generate",
+                path.to_str().unwrap(),
+                "--target",
+                "ts",
+                "--out",
+                out_dir.to_str().unwrap(),
+            ],
+            "",
+        ));
+        assert!(
+            err.contains(expected_family),
+            "{name}: expected {expected_family:?} in error: {err}"
+        );
+        if let Some(ver) = forbidden_version {
+            assert!(
+                !err.contains(ver),
+                "{name}: unsupported spec error should not mention version {ver:?}: {err}"
+            );
+        }
+    }
+}
+
+/// `forge generate` gives a clear YAML error when passed a YAML OpenAPI doc.
+#[test]
+fn top_level_generate_rejects_yaml_openapi_with_clear_error() {
+    let dir = dir("yaml-openapi");
+    let spec = dir.join("openapi.yaml");
+    fs::write(&spec, "openapi: 3.1.0\ninfo:\n  title: t\n  version: '1'\npaths: {}\n").unwrap();
+    let out_dir = dir.join("sdk");
+
+    let err = failed(forge(
+        &[
+            "generate",
+            spec.to_str().unwrap(),
+            "--target",
+            "ts",
+            "--out",
+            out_dir.to_str().unwrap(),
+        ],
+        "",
+    ));
+    assert!(
+        err.contains("YAML OpenAPI documents are not supported yet"),
+        "expected YAML OpenAPI error: {err}"
+    );
 }

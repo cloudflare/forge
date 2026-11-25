@@ -99,18 +99,17 @@ The normative baselines forge is tested against live in the repo:
 
 ## Logging
 
-Use the global `-v`/`--verbose` flag (repeatable) or `--log-level <level>`
-(`error`, `warn`, `info`, `debug`, `trace`; also configurable via `FORGE_LOG`)
-to emit diagnostic logs to stderr without affecting stdout:
+Use the global `--log-level <level>` flag (`error`, `warn`, `info`, `debug`,
+`trace`; also configurable via `FORGE_LOG`) to emit diagnostic logs to stderr
+without affecting stdout:
 
 - `warn` (default) — warnings such as future `1.x` overlay versions.
-- `info` (`-v`) — zero-match no-op actions and per-overlay summaries.
-- `debug` (`-vv`) — per-action execution details (verb, target, ref name,
+- `info` — zero-match no-op actions and per-overlay summaries.
+- `debug` — per-action execution details (verb, target, ref name,
   matched/mutated counts) and `extends` resolution.
 
 ```
-forge openapi overlay spec.yaml fix.yaml -v
-forge openapi overlay spec.yaml fix.yaml -vv
+forge openapi overlay spec.yaml fix.yaml --log-level info
 forge openapi overlay spec.yaml fix.yaml --log-level debug
 ```
 

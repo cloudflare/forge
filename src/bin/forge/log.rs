@@ -1,15 +1,18 @@
 //! Process-wide stderr logging for the `forge` CLI.
 //!
-//! Configured once at startup from `--log-level`, `-v`/`--verbose`, or the
-//! `FORGE_LOG` environment variable. Defaults to `warn` so normal runs stay
-//! quiet on stderr unless something needs attention.
+//! Configured once at startup from `--log-level` or the `FORGE_LOG`
+//! environment variable. Defaults to `warn` so normal runs stay quiet on
+//! stderr unless something needs attention.
 
 use std::fmt;
 use std::io::{self, Write};
 use std::sync::atomic::{AtomicU8, Ordering};
 
+use strum::{Display, EnumString, VariantNames};
+
 /// Log severity, ordered from quietest to loudest.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, clap::ValueEnum)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Display, EnumString, VariantNames)]
+#[strum(serialize_all = "lowercase", ascii_case_insensitive)]
 #[repr(u8)]
 pub enum Level {
     Error = 1,
@@ -20,51 +23,23 @@ pub enum Level {
 }
 
 impl Level {
-    pub fn as_str(self) -> &'static str {
-        match self {
-            Level::Error => "error",
-            Level::Warn => "warn",
-            Level::Info => "info",
-            Level::Debug => "debug",
-            Level::Trace => "trace",
-        }
-    }
-
-    /// Maps `-v` count to a log level: 0 -> `warn`, 1 -> `info`, 2 -> `debug`,
-    /// 3+ -> `trace`.
-    pub fn from_verbose(count: u8) -> Level {
-        match count {
-            0 => Level::Warn,
-            1 => Level::Info,
-            2 => Level::Debug,
-            _ => Level::Trace,
-        }
-    }
-
-    /// Parses a level name (case-insensitive), for `FORGE_LOG`.
-    fn parse_env(s: &str) -> Option<Level> {
-        match s.trim().to_ascii_lowercase().as_str() {
-            "error" => Some(Level::Error),
-            "warn" | "warning" => Some(Level::Warn),
-            "info" => Some(Level::Info),
-            "debug" => Some(Level::Debug),
-            "trace" => Some(Level::Trace),
-            _ => None,
-        }
+    /// Parses a level name (case-insensitive) for `--log-level`.
+    pub fn parse(s: &str) -> Result<Level, String> {
+        s.trim().parse::<Level>().map_err(|_| {
+            format!(
+                "unrecognized log level {s}, possible values: {}",
+                Level::VARIANTS.join(", "),
+            )
+        })
     }
 }
 
-/// Resolves the effective log level from CLI flags (`--log-level`, `-v`) and
-/// `FORGE_LOG`, defaulting to `warn`.
-pub fn resolve(explicit: Option<Level>, verbose: u8) -> Level {
-    match explicit {
-        Some(level) => level,
-        None if verbose > 0 => Level::from_verbose(verbose),
-        None => std::env::var("FORGE_LOG")
-            .ok()
-            .and_then(|v| Level::parse_env(&v))
-            .unwrap_or(Level::Warn),
-    }
+/// Resolves the effective log level from `--log-level` and `FORGE_LOG`,
+/// defaulting to `warn`.
+pub fn resolve(explicit: Option<Level>) -> Level {
+    explicit
+        .or_else(|| std::env::var("FORGE_LOG").ok().and_then(|v| v.trim().parse().ok()))
+        .unwrap_or(Level::Warn)
 }
 
 static MAX_LEVEL: AtomicU8 = AtomicU8::new(Level::Warn as u8);
@@ -86,7 +61,7 @@ pub fn emit(level: Level, args: fmt::Arguments<'_>) {
     }
     let stderr = io::stderr();
     let mut lock = stderr.lock();
-    let _ = writeln!(lock, "{}: {args}", level.as_str());
+    let _ = writeln!(lock, "{level}: {args}");
 }
 
 macro_rules! warn_impl {

@@ -70,7 +70,7 @@ cat openapi.json | npx forge normalize -
 Without `--write` it changes nothing and prints one document to standard
 output, so several files need `--write` or `--check`. A file with nothing to
 rewrite is left as it is, a link is followed and stays a link, and a read-only
-file is left as it is, with an error. `-v` says how many times each key was
+file is left as it is, with an error. `--log-level info` says how many times each key was
 rewritten. Documents have to be JSON: YAML is not supported yet.
 
 By default every compatibility source is normalized. Use `--from cloudflare`,
@@ -168,7 +168,7 @@ npx forge generate overlay.yaml --target ts --out sdk
 ```
 
 See [`docs/openapi/overlay.md`](https://github.com/cloudflare/forge/blob/main/docs/openapi/overlay.md)
-for version dispatch, security profile, `$ref` rebasing, and logging (`-v` / `--log-level`).
+for version dispatch, security profile, `$ref` rebasing, and logging (`--log-level`).
 
 ## Plugins
 

@@ -1,12 +1,12 @@
-//! Tests for global logging (`-v` / `-vv`, `--log-level`, `FORGE_LOG`) on
+//! Tests for global logging (`--log-level`, `FORGE_LOG`) on
 //! `forge openapi overlay`.
 
 use std::fs;
 use std::process::{Command, Stdio};
 
-use crate::common::{SPEC, dir, files, overlay, succeeded, text};
+use crate::common::{SPEC, dir, failed, files, overlay, succeeded, text};
 
-/// At `-vv` (`debug`), a simple update logs verb, target, index, and result.
+/// At `--log-level debug`, a simple update logs verb, target, index, and result.
 #[test]
 fn debug_update_logs_matched_and_mutated() {
     let (spec, ov) = files(
@@ -18,7 +18,10 @@ fn debug_update_logs_matched_and_mutated() {
   "actions": [{"target": "$.info", "update": {"description": "d"}}]
 }"#,
     );
-    let out = overlay(&[spec.to_str().unwrap(), ov.to_str().unwrap(), "-vv"], "");
+    let out = overlay(
+        &[spec.to_str().unwrap(), ov.to_str().unwrap(), "--log-level", "debug"],
+        "",
+    );
     succeeded(&out);
     let err = text(&out.stderr);
     assert!(err.contains("update"), "names the verb: {err}");
@@ -27,8 +30,8 @@ fn debug_update_logs_matched_and_mutated() {
     assert!(err.contains(":0"), "names the action index: {err}");
 }
 
-/// At `-v` (`info`), a zero-match target is logged as a no-op alongside the
-/// per-overlay summary, while normal matched actions stay at `debug`.
+/// At `--log-level info`, a zero-match target is logged as a no-op alongside
+/// the per-overlay summary, while normal matched actions stay at `debug`.
 #[test]
 fn info_logs_zero_match_noop_and_summary_without_matched_action_details() {
     let (spec, ov) = files(
@@ -43,7 +46,10 @@ fn info_logs_zero_match_noop_and_summary_without_matched_action_details() {
   ]
 }"#,
     );
-    let out = overlay(&[spec.to_str().unwrap(), ov.to_str().unwrap(), "-v"], "");
+    let out = overlay(
+        &[spec.to_str().unwrap(), ov.to_str().unwrap(), "--log-level", "info"],
+        "",
+    );
     succeeded(&out);
     let err = text(&out.stderr);
     assert!(err.contains("matched 0 nodes"), "no-op wording at info: {err}");
@@ -83,7 +89,7 @@ fn debug_multi_action_logs_each_action_in_order() {
     assert!(i0 < i1 && i1 < i2, "action indices in order: {err}");
 }
 
-/// At `-vv`, a copy action logs both the source and target paths.
+/// At `--log-level debug`, a copy action logs both the source and target paths.
 #[test]
 fn debug_copy_logs_source() {
     let (spec, ov) = files(
@@ -95,7 +101,10 @@ fn debug_copy_logs_source() {
   "actions": [{"target": "$.paths[\"/a\"]", "copy": "$.paths[\"/a\"].get"}]
 }"#,
     );
-    let out = overlay(&[spec.to_str().unwrap(), ov.to_str().unwrap(), "-vv"], "");
+    let out = overlay(
+        &[spec.to_str().unwrap(), ov.to_str().unwrap(), "--log-level", "debug"],
+        "",
+    );
     succeeded(&out);
     let err = text(&out.stderr);
     assert!(err.contains("copy"), "names verb: {err}");
@@ -103,7 +112,7 @@ fn debug_copy_logs_source() {
     assert!(err.contains("$.paths[\"/a\"]"), "names target: {err}");
 }
 
-/// At `-vv`, a remove action logs the removed count.
+/// At `--log-level debug`, a remove action logs the removed count.
 #[test]
 fn debug_remove_logs_count() {
     let spec = r#"{
@@ -125,14 +134,22 @@ fn debug_remove_logs_count() {
   "actions": [{"target": "$.paths[\"/a\"][\"get\",\"post\"]", "remove": true}]
 }"#,
     );
-    let out = overlay(&[spec_path.to_str().unwrap(), ov.to_str().unwrap(), "-vv"], "");
+    let out = overlay(
+        &[
+            spec_path.to_str().unwrap(),
+            ov.to_str().unwrap(),
+            "--log-level",
+            "debug",
+        ],
+        "",
+    );
     succeeded(&out);
     let err = text(&out.stderr);
     assert!(err.contains("remove"), "names verb: {err}");
     assert!(err.contains("removed 2 nodes"), "removed-count: {err}");
 }
 
-/// At `-vv`, an overlay with a `$ref` reusable action logs `ref=<name>`.
+/// At `--log-level debug`, an overlay with a `$ref` reusable action logs `ref=<name>`.
 #[test]
 fn debug_ref_action_names_component() {
     let (spec, ov) = files(
@@ -149,7 +166,10 @@ fn debug_ref_action_names_component() {
   "actions": [{"$ref": "#/components/actions/setDescription", "target": "$.info"}]
 }"##,
     );
-    let out = overlay(&[spec.to_str().unwrap(), ov.to_str().unwrap(), "-vv"], "");
+    let out = overlay(
+        &[spec.to_str().unwrap(), ov.to_str().unwrap(), "--log-level", "debug"],
+        "",
+    );
     succeeded(&out);
     let err = text(&out.stderr);
     assert!(
@@ -186,7 +206,10 @@ fn info_structured_copy_with_zero_target_logs_noop() {
   "actions": [{"target": "$.info.contact", "copy": "$.components[\"x-contact\"]"}]
 }"#,
     );
-    let out = overlay(&[spec_path.to_str().unwrap(), ov.to_str().unwrap(), "-v"], "");
+    let out = overlay(
+        &[spec_path.to_str().unwrap(), ov.to_str().unwrap(), "--log-level", "info"],
+        "",
+    );
     succeeded(&out);
     let err = text(&out.stderr);
     assert!(
@@ -198,8 +221,8 @@ fn info_structured_copy_with_zero_target_logs_noop() {
     assert!(doc["info"].get("contact").is_none(), "target was not materialized");
 }
 
-/// Mode A (`forge openapi overlay <overlay-with-extends> -vv`) logs both
-/// `extends` resolution and per-action details.
+/// Mode A (`forge openapi overlay <overlay-with-extends> --log-level debug`)
+/// logs both `extends` resolution and per-action details.
 #[test]
 fn debug_mode_a_overlay_logs_extends_and_actions() {
     let dir = dir("log-mode-a");
@@ -216,7 +239,7 @@ fn debug_mode_a_overlay_logs_extends_and_actions() {
     )
     .unwrap();
 
-    let out = overlay(&[ov.to_str().unwrap(), "-vv"], "");
+    let out = overlay(&[ov.to_str().unwrap(), "--log-level", "debug"], "");
     succeeded(&out);
     let doc: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
     assert_eq!(doc["info"]["description"], "d");
@@ -246,6 +269,27 @@ fn log_level_error_suppresses_warnings() {
     );
     succeeded(&out);
     assert!(out.stderr.is_empty(), "warnings suppressed: {}", text(&out.stderr));
+}
+
+/// An unrecognized `--log-level` lists the valid level names.
+#[test]
+fn invalid_log_level_lists_possible_values() {
+    let (spec, ov) = files(
+        "log-level-invalid",
+        SPEC,
+        r#"{
+  "overlay": "1.0.0",
+  "info": {"title": "fix", "version": "1"},
+  "actions": [{"target": "$.info", "update": {"description": "d"}}]
+}"#,
+    );
+
+    let err = failed(overlay(
+        &[spec.to_str().unwrap(), ov.to_str().unwrap(), "--log-level", "verbose"],
+        "",
+    ));
+    assert!(err.contains("unrecognized log level"), "{err}");
+    assert!(err.contains("error, warn, info, debug, trace"), "{err}");
 }
 
 /// `FORGE_LOG=debug` configures logging when no CLI flag is given.

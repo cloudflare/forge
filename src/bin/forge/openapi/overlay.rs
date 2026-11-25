@@ -69,7 +69,7 @@ pub fn apply_extends(overlay_path: &Path, preloaded: Option<Vec<u8>>) -> Result<
     if let Some(obj) = raw_value.as_object()
         && !obj.contains_key("overlay")
     {
-        return Err(disambiguation_error(overlay_path, obj.contains_key("openapi")));
+        return Err(disambiguation_error(overlay_path, &bytes));
     }
     let overlay = Overlay::from_value(&raw_value).map_err(|e| format!("{}: {e}", overlay_path.display()))?;
     overlay.diagnose_warnings();
@@ -277,26 +277,39 @@ fn write_stdout(doc: &Document) -> Result<(), Err> {
     Ok(())
 }
 
-fn disambiguation_error(path: &Path, is_spec: bool) -> Err {
+fn disambiguation_error(path: &Path, bytes: &[u8]) -> Err {
     let shown = path.display();
-    if is_spec {
-        format!(
+    match crate::detect::detect(bytes) {
+        crate::detect::SpecKind::OpenApi { .. } => format!(
             "{shown}: looks like an OpenAPI spec, not an Overlay document. Did you mean \
              `forge openapi overlay <spec> <overlay>` or add an `overlay` version key?"
         )
-        .into()
-    } else {
-        format!(
-            "{shown}: not an overlay (missing `overlay` version key) and not an OpenAPI spec \
-             (missing `openapi` key). Pass a single overlay document, or `<spec> <overlay>...`."
-        )
-        .into()
+        .into(),
+        other => match other.family_name() {
+            Some(name) => {
+                let article = if matches!(name.as_bytes().first(), Some(b'A' | b'E' | b'I' | b'O' | b'U')) {
+                    "an"
+                } else {
+                    "a"
+                };
+                format!(
+                    "{shown}: looks like {article} {name} document, not an Overlay document. \
+                     Pass a single overlay document, or `<spec> <overlay>...`."
+                )
+                .into()
+            }
+            None => format!(
+                "{shown}: not an overlay (missing `overlay` version key) and not an OpenAPI spec \
+                 (missing `openapi` key). Pass a single overlay document, or `<spec> <overlay>...`."
+            )
+            .into(),
+        },
     }
 }
 
 /// Log overlay action outcomes to stderr according to the active log level:
-/// zero-match no-op actions and the per-overlay summary log at `info` (`-v`),
-/// and every matched action logs at `debug` (`-vv`).
+/// zero-match no-op actions and the per-overlay summary log at `info`, and
+/// every matched action logs at `debug`.
 fn log_reports(path: &Path, reports: &[apply::ActionReport]) {
     if !crate::log::enabled(crate::log::Level::Info) {
         return;

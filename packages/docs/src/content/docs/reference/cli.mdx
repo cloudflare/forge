@@ -61,6 +61,7 @@ With `wasm://`, the plugin is compiled while the document is read, in parallel.
 | Variable       | Meaning                                                                   |
 | -------------- | ------------------------------------------------------------------------- |
 | `FORGE_BINARY` | Read by the package's launcher, `bin/forge.cjs`: the native binary to run instead of the one for this platform. |
+| `FORGE_LOG`    | Diagnostic log level on standard error (`error`, `warn`, `info`, `debug`, `trace`). Defaults to `warn`; overridden by `--log-level`. |
 
 ### Without WebAssembly support
 
@@ -89,7 +90,7 @@ forge normalize [OPTIONS] <INPUTS>...
 | `--check`                | Say what would be rewritten, and write nothing. Fails if there is anything to rewrite. |
 | `--from <SOURCE>`        | Rewrite only keys from one source. `forge normalize --help` lists them. May be repeated. |
 | `--leave-old-extensions` | Keep each rewritten key beside the native one, for tools that still read it.  |
-| `-v`, `--verbose`        | Say how many times each key was rewritten.                                    |
+| `--log-level <LEVEL>`    | Set diagnostic logging on standard error (`info` lists each rewritten key).   |
 
 Without `--write`, nothing is changed, and one document is printed to standard output, with the
 same indentation as the input:
