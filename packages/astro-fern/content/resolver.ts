@@ -61,6 +61,7 @@ export interface ResolvedOperation {
   description: string;
   pathParams: SchemaNode[];
   queryParams: SchemaNode[];
+  headerParams: SchemaNode[];
   requestBody: RequestBody | null;
   responses: OperationResponse[];
   examples: OperationExampleSchema[];
@@ -452,7 +453,7 @@ function buildSchemaNode(
 function extractParamNodes(
   doc: OpenApiDocumentSchema,
   params: ParameterSchema[],
-  where: 'path' | 'query',
+  where: 'path' | 'query' | 'header',
 ): SchemaNode[] {
   const out: SchemaNode[] = [];
   for (const raw of params) {
@@ -479,7 +480,9 @@ function effectiveParameters(
   const apply = (raw: ParameterSchema): void => {
     const parameter = resolveParam(doc, raw);
     if (!parameter?.name || !parameter.in) return;
-    const key = `${parameter.in}\0${parameter.name}`;
+    // Header names aren't case-sensitive, so an operation's `x-shared` overrides its path's `X-Shared`.
+    const name = parameter.in === 'header' ? parameter.name.toLowerCase() : parameter.name;
+    const key = `${parameter.in}\0${name}`;
     if (isParameterIgnored(doc, raw)) effective.delete(key);
     else effective.set(key, raw);
   };
@@ -937,6 +940,7 @@ export function resolveOperation(
     description: op.description ?? '',
     pathParams: extractParamNodes(doc, params, 'path'),
     queryParams: extractParamNodes(doc, params, 'query'),
+    headerParams: extractParamNodes(doc, params, 'header'),
     requestBody,
     responses: extractResponses(
       doc,

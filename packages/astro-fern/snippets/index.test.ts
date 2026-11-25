@@ -16,15 +16,19 @@ function op(partial: Partial<SnippetOperation> = {}): SnippetOperation {
     method: 'get',
     pathParams: [{ name: 'widget_id', required: true, type: 'string' }],
     queryParams: [],
+    headerParams: [],
     ...partial,
   };
 }
 
 const input: SnippetInput = { op: op(), accessorPath: ['widgets', 'items'], methodName: 'list' };
 
-test('toEnvVar upcases and separates on non-alphanumerics', () => {
+test('toEnvVar upcases, separates on non-alphanumerics, and steps around variables a shell sets', () => {
   assert.equal(toEnvVar('widget_id'), 'WIDGET_ID');
   assert.equal(toEnvVar('a-b.c'), 'A_B_C');
+  assert.equal(toEnvVar('path'), 'PATH_VALUE');
+  assert.equal(toEnvVar('hostname'), 'HOSTNAME_VALUE');
+  assert.equal(toEnvVar('tz'), 'TZ_VALUE');
 });
 
 test('interpolatePath replaces slots with $ENV by default and honours a custom replacer', () => {

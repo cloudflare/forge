@@ -18,6 +18,7 @@ function op(partial: Partial<SnippetOperation> = {}): SnippetOperation {
     method: 'get',
     pathParams: [{ name: 'zone_id', required: true, type: 'string' }],
     queryParams: [],
+    headerParams: [],
     ...partial,
   };
 }
@@ -208,6 +209,31 @@ test('curl: GET interpolates path params as $ENV and adds the bearer header', ()
   assert.doesNotMatch(curl, /Content-Type/);
 });
 
+test('curl: sends required headers, and names a variable a shell owns otherwise', () => {
+  const curl = cloudflareSnippetsByTarget({
+    ...listInput,
+    op: op({
+      path: '/accounts/{account_id}/stream/{path}',
+      pathParams: [
+        { name: 'account_id', required: true, type: 'string' },
+        { name: 'path', required: true, type: 'string' },
+      ],
+      headerParams: [
+        { name: 'Tus-Resumable', required: true, type: 'string' },
+        { name: 'Upload-Metadata', required: false, type: 'string' },
+        { name: 'authorization', required: true, type: 'string' },
+        { name: 'X-Auth-Key', required: true, type: 'string' },
+      ],
+    }),
+  }).get('curl');
+  assert.ok(curl);
+  assert.match(curl, /\/stream\/\$PATH_VALUE /);
+  assert.match(curl, /-H "Tus-Resumable: \$TUS_RESUMABLE"/);
+  assert.doesNotMatch(curl, /Upload-Metadata/);
+  assert.equal(curl.match(/authorization/gi)?.length, 1);
+  assert.doesNotMatch(curl, /X-Auth-Key/);
+});
+
 test('curl: POST adds verb, content-type and a body built from required leaves', () => {
   const curl = cloudflareSnippetsByTarget(createInput).get('curl');
   assert.ok(curl);
@@ -370,6 +396,7 @@ test('SDK property aliases do not change HTTP wire fields', () => {
       method: 'post',
       pathParams: [{ name: 'account_id', required: true, type: 'string' }],
       queryParams: [],
+      headerParams: [],
       requestBody: {
         required: true,
         representations: [

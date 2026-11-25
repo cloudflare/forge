@@ -57,6 +57,8 @@ export interface SnippetOperation {
   method: string;
   pathParams: SnippetParam[];
   queryParams: SnippetParam[];
+  /** Header parameters. Optional, so inputs built without them stay valid. */
+  headerParams?: SnippetParam[];
   /** Request requiredness and every media-type representation. */
   requestBody?: SnippetRequestBody;
 }
@@ -128,9 +130,39 @@ export function createSnippetProvider(
 
 //#region Reusable renderer helpers
 
-/** Turn a param name into an ENV-style token, e.g. "zone_id" → "ZONE_ID". */
+/** Variables a shell sets itself; setting one to run a sample breaks the reader's shell. */
+const SHELL_VARIABLES = new Set([
+  'CDPATH',
+  'COLUMNS',
+  'EDITOR',
+  'HOME',
+  'HOST',
+  'HOSTNAME',
+  'IFS',
+  'LANG',
+  'LINES',
+  'LOGNAME',
+  'MAIL',
+  'OLDPWD',
+  'PATH',
+  'PS1',
+  'PWD',
+  'SHELL',
+  'SHLVL',
+  'TERM',
+  'TMPDIR',
+  'TZ',
+  'UID',
+  'USER',
+]);
+
+/**
+ * Turn a param name into an ENV-style token, e.g. "zone_id" → "ZONE_ID". A name a shell already
+ * uses gets `_VALUE`, so "path" is `PATH_VALUE`, not `PATH`.
+ */
 export function toEnvVar(name: string): string {
-  return name.replace(/[^a-zA-Z0-9]+/g, '_').toUpperCase();
+  const variable = name.replace(/[^a-zA-Z0-9]+/g, '_').toUpperCase();
+  return SHELL_VARIABLES.has(variable) ? `${variable}_VALUE` : variable;
 }
 
 /**

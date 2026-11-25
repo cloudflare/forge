@@ -156,11 +156,25 @@ function sampleBody(schema: SnippetParam): unknown {
   return Object.fromEntries(fields.map((field) => [field.name, placeholderValue(field)]));
 }
 
+/** Headers a curl sample already sends, or that the token it shows stands in for. */
+const SENT_HEADERS = new Set([
+  'authorization',
+  'content-type',
+  'x-auth-email',
+  'x-auth-key',
+  'x-auth-user-service-key',
+]);
+
 const renderCurl: SnippetRenderer = ({ op }) => {
   const url = `${CLOUDFLARE_API_BASE}${interpolatePath(op.path)}`;
   const verb = op.method.toUpperCase();
   const head = verb === 'GET' ? `curl ${url}` : `curl -X ${verb} ${url}`;
   const args = [head, '-H "Authorization: Bearer $CLOUDFLARE_API_TOKEN"'];
+  for (const param of op.headerParams ?? []) {
+    if (param.required && !SENT_HEADERS.has(param.name.toLowerCase())) {
+      args.push(`-H "${param.name}: $${toEnvVar(param.name)}"`);
+    }
+  }
   for (const param of op.queryParams) {
     if (param.required) args.push(`--url-query "${param.name}=$${toEnvVar(param.name)}"`);
   }
