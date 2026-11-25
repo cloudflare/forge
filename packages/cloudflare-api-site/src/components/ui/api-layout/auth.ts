@@ -1,4 +1,4 @@
-import type { ApiAuthView, ApiFieldView } from "@cloudflare/nimbus-docs/api";
+import type { ApiAuthView, ApiFieldView, ApiUnionView } from "@cloudflare/nimbus-docs/api";
 
 function authTypeLabel(a: ApiAuthView): string {
   if (a.type === "http") {
@@ -32,28 +32,20 @@ const code = (value: string): string => `<code>${escapeHtml(value)}</code>`;
 const authAnchor = (scheme: string): string =>
   `auth-${scheme.replace(/[^A-Za-z0-9._-]/g, "-")}`;
 
-interface AuthAgg {
-  view: ApiAuthView;
-  scopes: Set<string>;
-  required: boolean;
-}
-
-function toField(agg: AuthAgg): ApiFieldView {
-  const a = agg.view;
-  const scopes = [...agg.scopes];
+function toField(a: ApiAuthView, anchor: string): ApiFieldView {
   const example = authExample(a);
   // Built as HTML here rather than rendered from Markdown: this file runs where
   // the page renders, which on a request-rendered site is the server bundle.
   const parts = [
     example ? code(example) : "",
-    scopes.length > 0 ? `Scopes: ${scopes.map(code).join(", ")}` : "",
+    a.scopes.length > 0 ? `Scopes: ${a.scopes.map(code).join(", ")}` : "",
   ].filter(Boolean);
   return {
-    coordinate: `auth:${a.scheme}`,
+    coordinate: `auth:${anchor}`,
     name: a.scheme,
     type: authTypeLabel(a),
-    required: agg.required,
-    anchor: authAnchor(a.scheme),
+    required: true,
+    anchor,
     children: [],
     childCount: 0,
     truncated: false,
@@ -61,25 +53,37 @@ function toField(agg: AuthAgg): ApiFieldView {
   };
 }
 
-// Every distinct scheme across the alternatives as one field list. `auth` is
-// `ApiAuthView[][]` (outer OR, inner AND): a scheme is `required` only when it
-// appears in EVERY alternative, and scopes are unioned. First-seen order.
-export function authFields(auth: ApiAuthView[][]): ApiFieldView[] {
-  const order: string[] = [];
-  const byScheme = new Map<string, AuthAgg>();
-  for (const alt of auth) {
-    for (const a of alt) {
-      let agg = byScheme.get(a.scheme);
-      if (!agg) {
-        agg = { view: a, scopes: new Set(), required: true };
-        byScheme.set(a.scheme, agg);
-        order.push(a.scheme);
-      }
-      for (const s of a.scopes) agg.scopes.add(s);
-    }
-  }
-  for (const [scheme, agg] of byScheme) {
-    agg.required = auth.every((alt) => alt.some((a) => a.scheme === scheme));
-  }
-  return order.map((s) => toField(byScheme.get(s)!));
+/**
+ * What an operation's Authorization section lists. `auth` is OR-of-AND: send
+ * every scheme of any one alternative. One alternative is its schemes, each
+ * required; several are a union, one option per alternative, so a token, or an
+ * email and a key, never reads as three optional headers. An empty alternative
+ * makes the whole section optional, and a repeated one is listed once.
+ */
+export function authSection(auth: ApiAuthView[][]): { fields: ApiFieldView[]; union?: ApiUnionView; optional: boolean } {
+  const seen = new Set<string>();
+  const alternatives = auth.filter((alt) => {
+    const key = JSON.stringify(alt.map((a) => [a.scheme, a.scopes]));
+    if (alt.length === 0 || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+  const optional = auth.some((alt) => alt.length === 0);
+  // A scheme in several alternatives keeps its anchor in the first and numbers the rest.
+  const uses = new Map<string, number>();
+  const fields = (alt: ApiAuthView[]) =>
+    alt.map((a) => {
+      const n = (uses.get(a.scheme) ?? 0) + 1;
+      uses.set(a.scheme, n);
+      return toField(a, n === 1 ? authAnchor(a.scheme) : `${authAnchor(a.scheme)}-${n}`);
+    });
+  if (alternatives.length < 2) return { fields: fields(alternatives[0] ?? []), optional };
+  return {
+    fields: [],
+    optional,
+    union: {
+      kind: "oneOf",
+      variants: alternatives.map((alt) => ({ label: alt.map((a) => a.scheme).join(" and "), fields: fields(alt) })),
+    },
+  };
 }
