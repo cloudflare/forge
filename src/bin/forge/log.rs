@@ -66,19 +66,25 @@ pub fn emit(level: Level, args: fmt::Arguments<'_>) {
 
 macro_rules! warn_impl {
     ($($arg:tt)*) => {
-        $crate::log::emit($crate::log::Level::Warn, format_args!($($arg)*))
+        if $crate::log::enabled($crate::log::Level::Warn) {
+            $crate::log::emit($crate::log::Level::Warn, format_args!($($arg)*));
+        }
     };
 }
 
 macro_rules! info_impl {
     ($($arg:tt)*) => {
-        $crate::log::emit($crate::log::Level::Info, format_args!($($arg)*))
+        if $crate::log::enabled($crate::log::Level::Info) {
+            $crate::log::emit($crate::log::Level::Info, format_args!($($arg)*));
+        }
     };
 }
 
 macro_rules! debug_impl {
     ($($arg:tt)*) => {
-        $crate::log::emit($crate::log::Level::Debug, format_args!($($arg)*))
+        if $crate::log::enabled($crate::log::Level::Debug) {
+            $crate::log::emit($crate::log::Level::Debug, format_args!($($arg)*));
+        }
     };
 }
 

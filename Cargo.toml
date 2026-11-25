@@ -13,7 +13,6 @@ edition = "2024"
 [dependencies]
 clap = { version = "4.6.7", features = ["derive"], optional = true }
 fluent-uri = { version = "0.4.1", optional = true }
-indexmap = { version = "2.14.2", optional = true }
 rayon = "1.12.0"
 serde = { version = "1.0.229", features = ["derive"] }
 serde_json = { version = "1.0.151", features = ["preserve_order"], optional = true }
@@ -36,7 +35,7 @@ harness = false
 default = ["cli"]
 # The `forge` command. Library users can turn it off with
 # `default-features = false`.
-cli = ["dep:clap", "dep:serde_json", "dep:strum", "dep:serde-saphyr", "dep:serde_json_path", "dep:fluent-uri", "dep:indexmap"]
+cli = ["dep:clap", "dep:serde_json", "dep:strum", "dep:serde-saphyr", "dep:serde_json_path", "dep:fluent-uri"]
 # `forge::wasm`, which runs plugins compiled to WebAssembly components.
 wasm = ["dep:wasmtime", "dep:wasmtime-wasi"]
 # `forge::library` implements the WIT's `library` world. `@cloudflare/forge`

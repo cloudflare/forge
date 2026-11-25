@@ -1,7 +1,12 @@
 //! Wrapper around `serde_json_path` (RFC 9535 JSONPath).
 
+use std::borrow::Cow;
+use std::cmp::Ordering;
+use std::collections::HashSet;
+use std::ptr;
+
 use serde_json::Value;
-use serde_json_path::JsonPath;
+use serde_json_path::{JsonPath, LocatedNode, PathElement};
 
 /// A parsed RFC 9535 JSONPath expression.
 pub struct Path {
@@ -28,29 +33,50 @@ impl Path {
         &self.source
     }
 
-    /// Return the paths of every node selected by this expression,
-    /// represented as sequences of [`Segment`]s so callers can mutate the
-    /// source document in place.
-    pub fn select(&self, root: &Value) -> Vec<Pointer> {
-        collect_locations(&self.expr, root)
+    /// Select nodes matching this expression and deduplicate by node identity
+    /// while preserving first-seen order.
+    ///
+    /// RFC 9535 §2.5.1 permits duplicate outputs for selectors like `$['a', 'a']`.
+    /// Because a `serde_json::Value` is a strict non-ZST tree, two `LocatedNode`s
+    /// borrowed from `root` refer to the same location iff their node pointers
+    /// are equal — deduping by pointer identity is O(1) per node with no path
+    /// string allocations.
+    pub fn query_deduped<'a>(&self, root: &'a Value) -> Vec<LocatedNode<'a>> {
+        let mut nodes = self.expr.query_located(root).all();
+        if nodes.len() <= 1 {
+            return nodes;
+        }
+        let mut seen: HashSet<*const Value> = HashSet::with_capacity(nodes.len());
+        nodes.retain(|n| seen.insert(ptr::from_ref(n.node())));
+        nodes
     }
 }
 
-fn collect_locations(expr: &JsonPath, root: &Value) -> Vec<Pointer> {
-    expr.query_located(root)
-        .into_iter()
-        .map(|n| {
-            let segs = n
-                .location()
-                .iter()
-                .map(|s| match s {
-                    serde_json_path::PathElement::Name(name) => Segment::Name(name.to_string()),
-                    serde_json_path::PathElement::Index(i) => Segment::Index(*i),
-                })
-                .collect();
-            Pointer(segs)
-        })
-        .collect()
+/// Fast byte scan: true only when `s` has a `.` followed by an ASCII digit or
+/// a shorthand name containing `-`, the only cases `normalize_shorthand` can
+/// rewrite.
+fn may_need_shorthand_normalization(s: &str) -> bool {
+    let bytes = s.as_bytes();
+    let mut i = 0;
+    while i + 1 < bytes.len() {
+        if bytes[i] == b'.' {
+            let next = bytes[i + 1];
+            if next.is_ascii_digit() {
+                return true;
+            }
+            if next.is_ascii_alphabetic() || next == b'_' || next == b'-' {
+                let mut j = i + 1;
+                while j < bytes.len() && (bytes[j].is_ascii_alphanumeric() || bytes[j] == b'_' || bytes[j] == b'-') {
+                    if bytes[j] == b'-' {
+                        return true;
+                    }
+                    j += 1;
+                }
+            }
+        }
+        i += 1;
+    }
+    false
 }
 
 /// Rewrite dot-shorthand names that RFC 9535 does not permit (names with
@@ -58,7 +84,10 @@ fn collect_locations(expr: &JsonPath, root: &Value) -> Vec<Pointer> {
 /// the OAI test corpus (e.g. `@.x-oai-traits.paged`). Leaves quoted strings,
 /// floating-point numeric literals (e.g. `1.5`), and `..` descendant prefixes
 /// intact.
-fn normalize_shorthand(s: &str) -> String {
+fn normalize_shorthand(s: &str) -> Cow<'_, str> {
+    if !may_need_shorthand_normalization(s) {
+        return Cow::Borrowed(s);
+    }
     let chars: Vec<char> = s.chars().collect();
     let mut out = String::with_capacity(s.len());
     let mut i = 0;
@@ -112,7 +141,7 @@ fn normalize_shorthand(s: &str) -> String {
         out.push(c);
         i += 1;
     }
-    out
+    Cow::Owned(out)
 }
 
 /// If `chars[start..]` begins with an ASCII shorthand name containing `-` or
@@ -159,40 +188,118 @@ fn ends_with_number_literal(out: &str) -> bool {
     !(prev.is_ascii_alphabetic() || prev == b'_' || prev == b'.')
 }
 
-/// A single edge in a JSONPath pointer.
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
-pub enum Segment {
-    Name(String),
+/// A single edge stored inside a [`PointerList`].
+#[derive(Clone, Copy, Debug)]
+pub enum Seg {
+    /// Byte range `(start, end)` inside [`PointerList::names`].
+    Name(usize, usize),
+    /// Array element index.
     Index(usize),
 }
 
-/// A sequence of segments resolving to a node in the document.
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
-pub struct Pointer(pub Vec<Segment>);
-
-/// Resolve a pointer to a mutable reference into `root`. Returns `None` if
-/// any segment is missing.
-pub fn resolve_mut<'a>(root: &'a mut Value, pointer: &Pointer) -> Option<&'a mut Value> {
-    let mut cur = root;
-    for seg in &pointer.0 {
-        cur = match (cur, seg) {
-            (Value::Object(map), Segment::Name(n)) => map.get_mut(n)?,
-            (Value::Array(arr), Segment::Index(i)) => arr.get_mut(*i)?,
-            _ => return None,
-        };
-    }
-    Some(cur)
+/// Flat arena of owned JSONPath locations built from a `LocatedNode` slice so
+/// the immutable borrow of the document can be released before mutating.
+///
+/// Packs all segment slices and object key strings into three contiguous
+/// buffers instead of allocating a `Vec` per match and a `String` per segment.
+pub struct PointerList {
+    names: String,
+    segs: Vec<Seg>,
+    spans: Vec<(usize, usize)>,
 }
 
-/// Resolve a pointer to a shared reference.
-pub fn resolve<'a>(root: &'a Value, pointer: &Pointer) -> Option<&'a Value> {
-    let mut cur = root;
-    for seg in &pointer.0 {
-        cur = match (cur, seg) {
-            (Value::Object(map), Segment::Name(n)) => map.get(n)?,
-            (Value::Array(arr), Segment::Index(i)) => arr.get(*i)?,
-            _ => return None,
-        };
+impl PointerList {
+    pub fn from_located(nodes: &[LocatedNode<'_>]) -> PointerList {
+        let mut total_segs = 0usize;
+        let mut total_bytes = 0usize;
+        for n in nodes {
+            let loc = n.location();
+            total_segs += loc.len();
+            for elem in loc.iter() {
+                if let PathElement::Name(name) = elem {
+                    total_bytes += name.len();
+                }
+            }
+        }
+        let mut names = String::with_capacity(total_bytes);
+        let mut segs = Vec::with_capacity(total_segs);
+        let mut spans = Vec::with_capacity(nodes.len());
+        for n in nodes {
+            let start_seg = segs.len();
+            for elem in n.location().iter() {
+                match elem {
+                    PathElement::Name(name) => {
+                        let start = names.len();
+                        names.push_str(name);
+                        let end = names.len();
+                        segs.push(Seg::Name(start, end));
+                    }
+                    PathElement::Index(i) => segs.push(Seg::Index(*i)),
+                }
+            }
+            spans.push((start_seg, segs.len()));
+        }
+        PointerList { names, segs, spans }
     }
-    Some(cur)
+
+    pub fn len(&self) -> usize {
+        self.spans.len()
+    }
+
+    pub fn segs(&self, idx: usize) -> &[Seg] {
+        let (start, end) = self.spans[idx];
+        &self.segs[start..end]
+    }
+
+    pub fn name(&self, start: usize, end: usize) -> &str {
+        &self.names[start..end]
+    }
+
+    /// Resolve a slice of segments from this list to a mutable reference inside
+    /// `root`, returning `None` if any segment is missing.
+    pub fn resolve_mut<'a>(&self, root: &'a mut Value, segs: &[Seg]) -> Option<&'a mut Value> {
+        let mut cur = root;
+        for &seg in segs {
+            cur = match (cur, seg) {
+                (Value::Object(map), Seg::Name(s, e)) => map.get_mut(&self.names[s..e])?,
+                (Value::Array(arr), Seg::Index(i)) => arr.get_mut(i)?,
+                _ => return None,
+            };
+        }
+        Some(cur)
+    }
+
+    /// Sort locations in place for safe removal: deepest paths first, then
+    /// lexicographically with array indices descending (so removing later
+    /// indices does not invalidate earlier ones) and object keys ascending.
+    pub fn sort_for_remove(&mut self) {
+        let names = &self.names;
+        let segs = &self.segs;
+        self.spans.sort_by(|&(as_, ae), &(bs, be)| {
+            let a = &segs[as_..ae];
+            let b = &segs[bs..be];
+            b.len().cmp(&a.len()).then_with(|| {
+                for (&x, &y) in a.iter().zip(b.iter()) {
+                    let ord = cmp_seg_for_remove(names, x, y);
+                    if ord != Ordering::Equal {
+                        return ord;
+                    }
+                }
+                Ordering::Equal
+            })
+        });
+    }
+}
+
+/// Total order on [`Seg`] for removal sorting: array indices sort descending so
+/// removing later indices does not invalidate earlier ones; object keys sort
+/// ascending; indices consistently precede keys so equal-length mixed pointers
+/// never violate strict weak ordering.
+fn cmp_seg_for_remove(names: &str, a: Seg, b: Seg) -> Ordering {
+    match (a, b) {
+        (Seg::Index(i), Seg::Index(j)) => j.cmp(&i),
+        (Seg::Name(as_, ae), Seg::Name(bs, be)) => names[as_..ae].cmp(&names[bs..be]),
+        (Seg::Index(_), Seg::Name(_, _)) => Ordering::Less,
+        (Seg::Name(_, _), Seg::Index(_)) => Ordering::Greater,
+    }
 }

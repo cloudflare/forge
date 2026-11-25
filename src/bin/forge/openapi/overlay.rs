@@ -65,7 +65,7 @@ fn apply_extends(overlay_path: &Path) -> Result<Document, Err> {
     {
         return Err(disambiguation_error(overlay_path, obj.contains_key("openapi")));
     }
-    let overlay = Overlay::from_value(&raw_value).map_err(|e| format!("{}: {e}", overlay_path.display()))?;
+    let overlay = Overlay::from_value(raw_value).map_err(|e| format!("{}: {e}", overlay_path.display()))?;
     overlay.diagnose_warnings();
 
     let extends = overlay
@@ -87,7 +87,7 @@ fn apply_extends(overlay_path: &Path) -> Result<Document, Err> {
     );
 
     let spec_bytes = fs::read(&spec_path).map_err(|e| format!("{}: {e}", spec_path.display()))?;
-    let mut doc = parse_spec_document(&spec_path, &spec_bytes)?;
+    let mut doc = parse_spec_document(&spec_path, spec_bytes)?;
 
     // 1.2 §Base URI rule 5: even though `extends` chose the file we loaded,
     // the spec may declare a `$self` identifier that disagrees (e.g. a URN) —
@@ -96,7 +96,8 @@ fn apply_extends(overlay_path: &Path) -> Result<Document, Err> {
         .check_extends_identity(&spec_uri, &doc)
         .map_err(|e| format!("{}: {e}", overlay_path.display()))?;
 
-    let reports = overlay.with_base_uri(Some(base)).apply(&mut doc)?;
+    let overlay = overlay.with_base_uri(Some(base));
+    let reports = overlay.apply(&mut doc)?;
     log_reports(overlay_path, &reports);
     Ok(doc)
 }
@@ -105,7 +106,7 @@ fn apply_extends(overlay_path: &Path) -> Result<Document, Err> {
 /// up front, and apply them in order.
 fn apply_to_spec(spec_path: &Path, overlay_paths: &[PathBuf]) -> Result<Document, Err> {
     let spec_bytes = read_file(spec_path)?;
-    let mut doc = parse_spec_document(spec_path, &spec_bytes)?;
+    let mut doc = parse_spec_document(spec_path, spec_bytes)?;
     apply_overlays_to_doc(&mut doc, overlay_paths)?;
     Ok(doc)
 }
@@ -113,8 +114,8 @@ fn apply_to_spec(spec_path: &Path, overlay_paths: &[PathBuf]) -> Result<Document
 /// Parses `bytes` as an OpenAPI document and attaches its canonical retrieval
 /// base URI (so relative `$ref`s inserted by overlays stay relative to the
 /// spec) and on-disk source path (for in-place `--out` detection).
-fn parse_spec_document(spec_path: &Path, bytes: &[u8]) -> Result<Document, Err> {
-    let format = Format::sniff(bytes);
+fn parse_spec_document(spec_path: &Path, bytes: Vec<u8>) -> Result<Document, Err> {
+    let format = Format::sniff(&bytes);
     let is_stdin = spec_path == Path::new("-");
     let display = if is_stdin {
         "stdin".to_owned()
@@ -291,7 +292,7 @@ fn disambiguation_error(path: &Path, is_spec: bool) -> Err {
 /// Log overlay action outcomes to stderr according to the active log level:
 /// zero-match no-op actions and the per-overlay summary log at `info`, and
 /// every matched action logs at `debug`.
-fn log_reports(path: &Path, reports: &[apply::ActionReport]) {
+fn log_reports(path: &Path, reports: &[apply::ActionReport<'_>]) {
     if !crate::log::enabled(crate::log::Level::Info) {
         return;
     }

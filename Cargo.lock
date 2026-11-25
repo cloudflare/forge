@@ -639,7 +639,6 @@ dependencies = [
  "clap",
  "divan",
  "fluent-uri",
- "indexmap",
  "rayon",
  "serde",
  "serde-saphyr",

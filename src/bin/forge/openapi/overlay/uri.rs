@@ -129,21 +129,25 @@ pub fn to_path(uri: &str) -> Result<PathBuf, String> {
     Ok(PathBuf::from(decoded))
 }
 
-/// The scheme of a URI, lowercased, or `None` for a relative reference.
-pub fn scheme(uri: &str) -> Option<String> {
+/// The raw (case-preserved) scheme slice of a URI, or `None` for a relative
+/// reference. Zero-allocation check for RFC 3986 `ALPHA *( ALPHA / DIGIT / "+" / "-" / "." )`.
+pub fn scheme_str(uri: &str) -> Option<&str> {
     let (s, _) = uri.split_once(':')?;
-    // Ensure the "scheme" is a valid RFC 3986 scheme (ALPHA (ALPHA/DIGIT/+/-/.)*).
-    let mut chars = s.chars();
-    let first = chars.next()?;
+    let mut bytes = s.bytes();
+    let first = bytes.next()?;
     if !first.is_ascii_alphabetic() {
         return None;
     }
-    for c in chars {
-        if !(c.is_ascii_alphanumeric() || c == '+' || c == '-' || c == '.') {
-            return None;
-        }
+    if bytes.all(|b| b.is_ascii_alphanumeric() || matches!(b, b'+' | b'-' | b'.')) {
+        Some(s)
+    } else {
+        None
     }
-    Some(s.to_ascii_lowercase())
+}
+
+/// The scheme of a URI, lowercased, or `None` for a relative reference.
+pub fn scheme(uri: &str) -> Option<String> {
+    scheme_str(uri).map(str::to_ascii_lowercase)
 }
 
 /// Does `uri` contain a `#` fragment?
@@ -160,10 +164,10 @@ pub fn has_fragment(uri: &str) -> bool {
 /// the output; the path portion is percent-encoded as a file URI path.
 pub fn relative_file_ref(base: &str, target: &str) -> Option<String> {
     // Both URIs must be file: for a path-relative expression to make sense.
-    if !scheme(base).is_some_and(|s| s == "file") {
+    if !scheme_str(base).is_some_and(|s| s.eq_ignore_ascii_case("file")) {
         return None;
     }
-    if !scheme(target).is_some_and(|s| s == "file") {
+    if !scheme_str(target).is_some_and(|s| s.eq_ignore_ascii_case("file")) {
         return None;
     }
     // Split target fragment off the URI, not the path, so a `#` in the

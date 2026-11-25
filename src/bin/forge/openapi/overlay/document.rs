@@ -1,6 +1,7 @@
 //! A spec document that tracks its original format (JSON or YAML) and its
 //! unmutated source bytes, so a no-op overlay round-trips byte-identically.
 
+use std::borrow::Cow;
 use std::path::{Path, PathBuf};
 
 use forge::Err;
@@ -39,7 +40,13 @@ impl Format {
 pub struct Document {
     value: Value,
     format: Format,
-    original: Vec<u8>,
+    /// Original input bytes, kept only until the first mutation so a no-op
+    /// round-trips byte-identically without re-serializing and a mutated
+    /// document releases the raw buffer immediately.
+    original: Option<Vec<u8>>,
+    /// Original input byte length, used to pre-size the output buffer on
+    /// serialization and avoid repeated reallocations on large specs.
+    original_len: usize,
     mutated: bool,
     /// Retrieval URI the document was loaded from (a `file:` URI for a path
     /// on disk, or an absolute `file:` URI for CWD when the input was stdin).
@@ -73,12 +80,14 @@ pub(super) fn parse_value(bytes: &[u8], format: Format, label: &str) -> Result<(
 }
 
 impl Document {
-    pub fn parse(bytes: &[u8], format: Format) -> Result<Document, Err> {
-        let (value, format) = parse_value(bytes, format, "")?;
+    pub fn parse(bytes: Vec<u8>, format: Format) -> Result<Document, Err> {
+        let (value, format) = parse_value(&bytes, format, "")?;
+        let original_len = bytes.len();
         Ok(Document {
             value,
             format,
-            original: bytes.to_vec(),
+            original: Some(bytes),
+            original_len,
             mutated: false,
             base_uri: None,
             source_path: None,
@@ -114,24 +123,35 @@ impl Document {
     }
 
     pub fn mark_mutated(&mut self) {
-        self.mutated = true;
+        if !self.mutated {
+            self.mutated = true;
+            // No longer needed for byte-identical no-op round-trips; release now.
+            self.original = None;
+        }
     }
 
     pub fn mutated(&self) -> bool {
         self.mutated
     }
 
-    pub fn to_bytes(&self) -> Result<Vec<u8>, Err> {
-        if !self.mutated {
-            return Ok(self.original.clone());
+    pub fn to_bytes(&self) -> Result<Cow<'_, [u8]>, Err> {
+        if !self.mutated
+            && let Some(orig) = self.original.as_deref()
+        {
+            return Ok(Cow::Borrowed(orig));
         }
         match self.format {
             Format::Json => {
-                Ok(serde_json::to_vec_pretty(&self.value).map_err(|e| format!("could not serialize JSON: {e}"))?)
+                let mut buf = Vec::with_capacity(self.original_len);
+                serde_json::to_writer_pretty(&mut buf, &self.value)
+                    .map_err(|e| format!("could not serialize JSON: {e}"))?;
+                Ok(Cow::Owned(buf))
             }
-            Format::Yaml => Ok(serde_saphyr::to_string(&self.value)
-                .map_err(|e| format!("could not serialize YAML: {e}"))?
-                .into_bytes()),
+            Format::Yaml => Ok(Cow::Owned(
+                serde_saphyr::to_string(&self.value)
+                    .map_err(|e| format!("could not serialize YAML: {e}"))?
+                    .into_bytes(),
+            )),
         }
     }
 }

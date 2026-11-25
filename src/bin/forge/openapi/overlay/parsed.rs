@@ -60,10 +60,10 @@ impl Version {
 impl Overlay {
     pub fn parse(bytes: &[u8], format: super::document::Format) -> Result<Overlay, Err> {
         let (value, _) = super::document::parse_value(bytes, format, "overlay as ")?;
-        parse_overlay(&value)
+        parse_overlay(value)
     }
 
-    pub fn from_value(value: &Value) -> Result<Overlay, Err> {
+    pub fn from_value(value: Value) -> Result<Overlay, Err> {
         parse_overlay(value)
     }
 
@@ -99,7 +99,7 @@ impl Overlay {
         let resolved_target_self = match doc.base_uri() {
             Some(base) => uri::resolve_reference(base, target_self)
                 .map_err(|e| format!("cannot resolve target spec's $self {target_self:?} against {base}: {e}"))?,
-            None if uri::scheme(target_self).is_some() => target_self.to_owned(),
+            None if uri::scheme_str(target_self).is_some() => target_self.to_owned(),
             None => {
                 return Err(format!(
                     "target spec's $self {target_self:?} is relative, but the spec has no \
@@ -127,7 +127,7 @@ impl Overlay {
             None => Ok(retrieval_uri.to_owned()),
             Some(s) => {
                 // Absolute? Then it IS the base (possibly after normalizing).
-                if uri::scheme(s).is_some() {
+                if uri::scheme_str(s).is_some() {
                     Ok(s.clone())
                 } else {
                     // Relative $self: resolve against retrieval.
@@ -149,7 +149,7 @@ impl Overlay {
         }
     }
 
-    pub fn apply(&self, doc: &mut Document) -> Result<Vec<super::apply::ActionReport>, Err> {
+    pub fn apply<'a>(&'a self, doc: &mut Document) -> Result<Vec<super::apply::ActionReport<'a>>, Err> {
         let mut reports = Vec::with_capacity(self.actions.len());
         let overlay_base = self.base_uri();
         let spec_base = doc.base_uri().map(str::to_owned);
@@ -163,7 +163,7 @@ impl Overlay {
                              no such component in this overlay"
                         )
                     })?;
-                    (fields, Some(name.clone()))
+                    (fields, Some(name.as_str()))
                 }
             };
             let mut report = super::apply::apply_action(
@@ -182,10 +182,10 @@ impl Overlay {
     }
 }
 
-fn parse_overlay(value: &Value) -> Result<Overlay, Err> {
-    let obj = value
-        .as_object()
-        .ok_or_else(|| "overlay document root must be an object".to_owned())?;
+fn parse_overlay(value: Value) -> Result<Overlay, Err> {
+    let Value::Object(mut obj) = value else {
+        return Err("overlay document root must be an object".into());
+    };
 
     // ---- overlay version ----
     let overlay_v = obj
@@ -249,21 +249,22 @@ fn parse_overlay(value: &Value) -> Result<Overlay, Err> {
     };
 
     // ---- components (1.2 only; rejected above as an unknown key in 1.0/1.1) ----
-    let components_actions = match obj.get("components") {
+    let components_actions = match obj.shift_remove("components") {
         Some(c) => parse_components(c)?,
         None => Default::default(),
     };
 
     // ---- actions ----
     let actions_v = obj
-        .get("actions")
+        .shift_remove("actions")
         .ok_or_else(|| "overlay document is missing the required `actions` array".to_owned())?;
-    let actions_arr = actions_v.as_array().ok_or_else(|| {
-        format!(
+    let Value::Array(actions_arr) = actions_v else {
+        return Err(format!(
             "`actions` must be an array, got {} — it holds the ordered list of overlay actions",
-            type_name(actions_v)
+            type_name(&actions_v)
         )
-    })?;
+        .into());
+    };
     if actions_arr.is_empty() {
         return Err("`actions` array must contain at least one entry".into());
     }
@@ -271,11 +272,17 @@ fn parse_overlay(value: &Value) -> Result<Overlay, Err> {
     // and `x-*` extensions): two actions that differ in `description` or an
     // extension are NOT duplicates; identical actions (even with different key
     // ordering) are rejected in O(1) via a HashSet.
-    let mut seen: std::collections::HashSet<String> = std::collections::HashSet::with_capacity(actions_arr.len());
+    let check_dups = actions_arr.len() > 1;
+    let mut seen: std::collections::HashSet<Vec<u8>> = if check_dups {
+        std::collections::HashSet::with_capacity(actions_arr.len())
+    } else {
+        std::collections::HashSet::new()
+    };
     let mut actions = Vec::with_capacity(actions_arr.len());
-    for (i, a) in actions_arr.iter().enumerate() {
+    for (i, a) in actions_arr.into_iter().enumerate() {
+        let key = if check_dups { dedup_key(&a) } else { None };
         let action = parse_action(a, version, &components_actions, i)?;
-        if let Some(key) = dedup_key(a)
+        if let Some(key) = key
             && !seen.insert(key)
         {
             return Err(format!(
@@ -353,56 +360,56 @@ fn validate_info(info: &Value, version: Version) -> Result<(), Err> {
 /// Object keys are sorted recursively (since `serde_json` uses `preserve_order`),
 /// so key order at any depth does not affect the fingerprint, matching
 /// `serde_json::Value::eq`.
-fn dedup_key(a: &Value) -> Option<String> {
+fn dedup_key(a: &Value) -> Option<Vec<u8>> {
     if !a.is_object() {
         return None;
     }
-    let mut out = String::new();
+    let mut out = Vec::with_capacity(128);
     write_canonical_json(a, &mut out);
     Some(out)
 }
 
-fn write_canonical_json(v: &Value, out: &mut String) {
+fn write_canonical_json(v: &Value, out: &mut Vec<u8>) {
     match v {
         Value::Object(map) => {
-            let mut entries: Vec<(&String, &Value)> = map.iter().collect();
-            entries.sort_by_key(|(a, _)| *a);
-            out.push('{');
+            let mut entries: Vec<(&str, &Value)> = map.iter().map(|(k, v)| (k.as_str(), v)).collect();
+            entries.sort_unstable_by_key(|&(k, _)| k);
+            out.push(b'{');
             for (idx, (k, val)) in entries.into_iter().enumerate() {
                 if idx > 0 {
-                    out.push(',');
+                    out.push(b',');
                 }
-                out.push_str(&serde_json::to_string(k).unwrap_or_default());
-                out.push(':');
+                let _ = serde_json::to_writer(&mut *out, k);
+                out.push(b':');
                 write_canonical_json(val, out);
             }
-            out.push('}');
+            out.push(b'}');
         }
         Value::Array(arr) => {
-            out.push('[');
+            out.push(b'[');
             for (idx, val) in arr.iter().enumerate() {
                 if idx > 0 {
-                    out.push(',');
+                    out.push(b',');
                 }
                 write_canonical_json(val, out);
             }
-            out.push(']');
+            out.push(b']');
         }
         other => {
-            out.push_str(&serde_json::to_string(other).unwrap_or_default());
+            let _ = serde_json::to_writer(&mut *out, other);
         }
     }
 }
 
 fn parse_action(
-    v: &Value,
+    v: Value,
     version: Version,
     components: &std::collections::BTreeMap<String, Fields>,
     i: usize,
 ) -> Result<Action, Err> {
-    let obj = v
-        .as_object()
-        .ok_or_else(|| format!("action at index {i} must be an object, got {}", type_name(v)))?;
+    let Value::Object(mut obj) = v else {
+        return Err(format!("action at index {i} must be an object, got {}", type_name(&v)).into());
+    };
 
     let has_ref = obj.contains_key("$ref");
     if has_ref {
@@ -483,7 +490,7 @@ fn parse_action(
     })?;
     let target_path = JPath::parse(target_s).map_err(|e| format!("action at index {i}: {e}"))?;
 
-    let fields = parse_fields(obj, version, Some(i))?;
+    let fields = parse_fields(&mut obj, version, Some(i))?;
 
     Ok(Action {
         target_path,
@@ -491,8 +498,12 @@ fn parse_action(
     })
 }
 
-fn parse_fields(obj: &serde_json::Map<String, Value>, version: Version, index: Option<usize>) -> Result<Fields, Err> {
-    let mut update = None;
+fn parse_fields(
+    obj: &mut serde_json::Map<String, Value>,
+    version: Version,
+    index: Option<usize>,
+) -> Result<Fields, Err> {
+    let mut has_update = false;
     let mut copy = None;
     let mut remove = false;
     let inside_components = index.is_none();
@@ -507,7 +518,7 @@ fn parse_fields(obj: &serde_json::Map<String, Value>, version: Version, index: O
         }
         match k.as_str() {
             "update" => {
-                update = Some(val.clone());
+                has_update = true;
             }
             "copy" => {
                 if !version.supports_copy() {
@@ -546,15 +557,16 @@ fn parse_fields(obj: &serde_json::Map<String, Value>, version: Version, index: O
         }
     }
 
+    let update = if has_update { obj.shift_remove("update") } else { None };
     Ok(Fields { update, copy, remove })
 }
 
-fn parse_components(v: &Value) -> Result<std::collections::BTreeMap<String, Fields>, Err> {
-    let obj = v
-        .as_object()
-        .ok_or_else(|| format!("`components` must be an object, got {}", type_name(v)))?;
+fn parse_components(v: Value) -> Result<std::collections::BTreeMap<String, Fields>, Err> {
+    let Value::Object(obj) = v else {
+        return Err(format!("`components` must be an object, got {}", type_name(&v)).into());
+    };
     let mut out = std::collections::BTreeMap::new();
-    for (k, val) in obj.iter() {
+    for (k, val) in obj {
         if k.starts_with("x-") {
             continue;
         }
@@ -564,15 +576,18 @@ fn parse_components(v: &Value) -> Result<std::collections::BTreeMap<String, Fiel
                 return Err(format!("unknown `components` key {other:?}: only `actions` is allowed").into());
             }
         }
-        let actions = val
-            .as_object()
-            .ok_or_else(|| format!("`components.actions` must be an object, got {}", type_name(val)))?;
-        for (name, ra_v) in actions.iter() {
-            let ra = ra_v
-                .as_object()
-                .ok_or_else(|| format!("`components.actions.{name}` must be an object, got {}", type_name(ra_v)))?;
+        let Value::Object(actions) = val else {
+            return Err(format!("`components.actions` must be an object, got {}", type_name(&val)).into());
+        };
+        for (name, ra_v) in actions {
+            let Value::Object(mut ra) = ra_v else {
+                return Err(format!(
+                    "`components.actions.{name}` must be an object, got {}",
+                    type_name(&ra_v)
+                )
+                .into());
+            };
             // Peer-fields check.
-            let has_fields = ra.contains_key("fields");
             for (rk, rv) in ra.iter() {
                 if rk.starts_with("x-") {
                     continue;
@@ -597,20 +612,19 @@ fn parse_components(v: &Value) -> Result<std::collections::BTreeMap<String, Fiel
                     return Err(format!("`components.actions.{name}.description` must be a string").into());
                 }
             }
-            let fields_v = if has_fields {
-                &ra["fields"]
-            } else {
+            let Some(fields_v) = ra.shift_remove("fields") else {
                 return Err(format!("`components.actions.{name}` is missing the required `fields` object").into());
             };
-            let fields_obj = fields_v.as_object().ok_or_else(|| {
-                format!(
+            let Value::Object(mut fields_obj) = fields_v else {
+                return Err(format!(
                     "`components.actions.{name}.fields` must be an object, got {}",
-                    type_name(fields_v)
+                    type_name(&fields_v)
                 )
-            })?;
-            let fields = parse_fields(fields_obj, Version::V1_2, None)
+                .into());
+            };
+            let fields = parse_fields(&mut fields_obj, Version::V1_2, None)
                 .map_err(|e| format!("in components.actions.{name}: {e}"))?;
-            out.insert(name.clone(), fields);
+            out.insert(name, fields);
         }
     }
     Ok(out)
