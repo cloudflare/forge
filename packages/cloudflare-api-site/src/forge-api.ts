@@ -10,7 +10,6 @@ import {
   getOperationExtensionData,
 } from 'astro-fern';
 import { forgeExtension, hasRemovedForgeOperationFields, hoistForgeCommands } from 'fern-forge';
-import { sample } from 'openapi-sampler';
 import {
   CLOUDFLARE_RESPONSE_PAYLOAD_KEY,
   CLOUDFLARE_TARGETS,
@@ -38,19 +37,6 @@ const MOVED_PRODUCT_SLUGS: Record<string, string> = { tags: 'tagging' };
 const SLUG_SEGMENT = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 /** SDK method names that lead a resource's operations, in reading order; the rest follow in spec order. */
 const LIFECYCLE = ['list', 'get', 'create', 'update', 'edit', 'delete'];
-
-interface JsonResponse {
-  content?: Record<string, { schema?: object; example?: unknown }>;
-}
-
-function addResponseExamples(responses: Record<string, JsonResponse>, document: object) {
-  for (const response of Object.values(responses)) {
-    const media = response.content?.['application/json'];
-    if (media?.schema && media.example === undefined) {
-      media.example = sample(media.schema, { skipWriteOnly: true, quiet: true }, document);
-    }
-  }
-}
 
 /**
  * Returns the operationId to give Nimbus for an ID that astro-fern derived from an SDK address.
@@ -296,14 +282,9 @@ export function prepareForgeApi(
           },
         ];
       });
-      addResponseExamples((op.responses ?? {}) as Record<string, JsonResponse>, document);
     }
     if (kept === 0) delete paths[path];
   }
-  addResponseExamples(
-    (document.components as { responses?: Record<string, JsonResponse> } | undefined)?.responses ?? {},
-    document,
-  );
 
   document.tags = [...tags.values()].map(({ key: _key, ...tag }) =>
     tag.name in MOVED_PRODUCT_SLUGS ? { ...tag, 'x-nimbus-route': MOVED_PRODUCT_SLUGS[tag.name] } : tag,
