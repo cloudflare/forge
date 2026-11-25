@@ -6,11 +6,14 @@ sidebar:
   order: 2
 ---
 
-The crates.io package is `cloudflare-forge`. Its library crate and CLI binary are both named
-`forge`. Add the library without the default CLI feature:
+The package is `cloudflare-forge`. Registry publishing is currently paused. Depend on the
+repository, rename the package to `forge`, and turn off the default CLI feature:
 
-```sh
-cargo add cloudflare-forge --no-default-features
+```toml title="Cargo.toml"
+[dependencies.forge]
+package = "cloudflare-forge"
+git = "https://github.com/cloudflare/forge"
+default-features = false
 ```
 
 This page lists the public API under `forge::`. The rustdoc on each item is the complete reference,
