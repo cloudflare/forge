@@ -1,11 +1,14 @@
 ---
 /**
- * A command as the API pages show a request line: the endpoint card's raised
- * layer on its own, the command in 13px mono and the same copy button, split
- * off by a divider. What follows the command (`[options]`) is shown muted and
- * left out of the copy, so what's pasted runs. A line too long for the strip scrolls under a fading edge.
+ * A command as the API pages show a request line: ApiEndpointCard without its
+ * recessed method header. The same LayerCard parts and classes, so the strip is
+ * the endpoint card's raised layer: 13px mono on a 24px line, as tall as the
+ * card (42px), and the same copy button split off by a divider. What follows
+ * the command (`[options]`) is shown muted and left out of the copy, so what's
+ * pasted runs. A line too long for the strip scrolls under a fading edge.
  */
 import Icon from '@cloudflare/nimbus-docs/components/Icon.astro';
+import { LayerCard, LayerCardContent } from '@/components/ui/layer-card';
 
 interface Props {
   command: string;
@@ -17,63 +20,37 @@ interface Props {
 const { command, tail, label = 'Copy command' } = Astro.props;
 ---
 
-<div class="command-line" dir="ltr">
-  <code>{command}{tail && <span> {tail}</span>}</code>
-  <button
-    type="button"
-    data-cf-copy-command={command}
-    aria-label={`${label}, ${command}`}
-    title={label}
-    class="group relative isolate flex w-10 shrink-0 cursor-pointer items-center justify-center overflow-hidden rounded-e-lg border-0 border-s border-border bg-inherit text-muted-foreground hover:bg-accent hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
-  >
-    <span class="pointer-events-none absolute inset-0 flex items-center justify-center transition-all duration-200 group-data-[copied]:-translate-y-full group-data-[copied]:opacity-0">
-      <Icon name="ph:copy" class="size-3.5" />
-    </span>
-    <span class="pointer-events-none absolute inset-0 flex translate-y-full items-center justify-center text-success opacity-0 transition-all duration-200 group-data-[copied]:translate-y-0 group-data-[copied]:opacity-100">
-      <Icon name="ph:check" class="size-3.5" />
-    </span>
-    <span class="invisible size-3.5"></span>
-    <span class="sr-only" aria-live="polite" data-copy-status></span>
-  </button>
-</div>
+<LayerCard orientation="horizontal" dir="ltr">
+  <LayerCardContent class="min-h-[2.625rem] flex-row items-stretch gap-0 p-0">
+    <code class="command-line min-w-0 grow self-center overflow-x-auto px-3 font-mono text-[0.8125rem] leading-6 whitespace-pre text-foreground">{command}{tail && <span class="text-muted-foreground"> {tail}</span>}</code>
+    <button
+      type="button"
+      data-cf-copy-command={command}
+      aria-label={`${label}, ${command}`}
+      title={label}
+      class="group relative isolate flex shrink-0 cursor-pointer items-center justify-center overflow-hidden border-0 border-s border-border bg-inherit px-3 text-muted-foreground hover:bg-accent hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+    >
+      <span class="pointer-events-none absolute inset-0 flex items-center justify-center transition-all duration-200 group-data-[copied]:-translate-y-full group-data-[copied]:opacity-0">
+        <Icon name="ph:copy" class="size-3.5" />
+      </span>
+      <span class="pointer-events-none absolute inset-0 flex translate-y-full items-center justify-center text-success opacity-0 transition-all duration-200 group-data-[copied]:translate-y-0 group-data-[copied]:opacity-100">
+        <Icon name="ph:check" class="size-3.5" />
+      </span>
+      <span class="invisible size-3.5"></span>
+      <span class="sr-only" aria-live="polite" data-copy-status></span>
+    </button>
+  </LayerCardContent>
+</LayerCard>
 
 <style>
   .command-line {
-    display: flex;
-    align-items: stretch;
-    min-width: 0;
-    min-height: 2.25rem;
-    border-radius: 0.5rem;
-    background: var(--nb-card);
-    box-shadow: 0 0 0 1px var(--nb-border);
-  }
-
-  code {
-    flex: 1;
-    min-width: 0;
-    align-self: center;
-    overflow-x: auto;
-    padding: 0.5rem 0.75rem;
-    color: var(--nb-foreground);
     background: transparent;
-    font-family: var(--nb-font-mono);
-    font-size: 0.8125rem;
-    line-height: 1.25rem;
-    white-space: pre;
     scrollbar-width: none;
     mask-image: linear-gradient(to right, black calc(100% - 1.5rem), transparent);
   }
 
-  code span {
-    color: var(--nb-muted-foreground);
-  }
-
   @media print {
-    button {
-      display: none;
-    }
-
-    code {
+    .command-line {
       white-space: pre-wrap;
       mask-image: none;
     }
@@ -84,5 +61,5 @@ const { command, tail, label = 'Copy command' } = Astro.props;
   import { mount } from '@cloudflare/nimbus-docs/client';
   import { copyOnClick } from './copy.client';
 
-  mount('[data-cf-copy-command]', copyOnClick);
+  mount('code.command-line + [data-cf-copy-command]', copyOnClick);
 </script>
