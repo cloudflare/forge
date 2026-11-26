@@ -10,8 +10,8 @@ function operation(id: string, group: string[], method: string, extra: Record<st
     operationId: id,
     summary: id,
     tags: [group[0]!],
-    'x-fern-sdk-group-name': group,
-    'x-fern-sdk-method-name': method,
+    'x-forge-group-name': group,
+    'x-forge-method-name': method,
     responses: {
       '200': { description: 'ok', content: { 'application/json': { schema: { type: 'object' } } } },
       '4XX': {
@@ -51,7 +51,7 @@ const spec: Record<string, unknown> = {
       get: operation('alpha.items.list', ['alpha', 'items'], 'list'),
       post: operation('alpha.items.create', ['alpha', 'items'], 'create', {
         deprecated: false,
-        'x-fern-availability': 'deprecated',
+        'x-forge-availability': 'deprecated',
       }),
     },
     '/alpha/items/{id}': {
@@ -73,8 +73,8 @@ const spec: Record<string, unknown> = {
           '404': { $ref: '#/components/responses/NotFound' },
         },
         'x-forge-aliases': [
-          { 'x-fern-sdk-group-name': ['legacy', 'items'], 'x-fern-sdk-method-name': 'get' },
-          { 'x-fern-sdk-group-name': ['alpha', 'legacy-items'], 'x-fern-sdk-method-name': 'get' },
+          { 'x-forge-group-name': ['legacy', 'items'], 'x-forge-method-name': 'get' },
+          { 'x-forge-group-name': ['alpha', 'legacy-items'], 'x-forge-method-name': 'get' },
         ],
       }),
       delete: operation('alpha.items.delete', ['alpha', 'items'], 'delete', {
@@ -286,8 +286,8 @@ test('an alias path that is also a real section keeps the real page', () => {
   const op = (group: string, method: string, extra: Record<string, unknown> = {}) => ({
     operationId: `${group}.${method}`,
     tags: [group],
-    'x-fern-sdk-group-name': group,
-    'x-fern-sdk-method-name': method,
+    'x-forge-group-name': group,
+    'x-forge-method-name': method,
     responses: { '200': { description: 'ok' } },
     ...extra,
   });
@@ -298,7 +298,7 @@ test('an alias path that is also a real section keeps the real page', () => {
       paths: {
         '/a/items': {
           get: op('a.items', 'list', {
-            'x-forge-aliases': [{ 'x-fern-sdk-group-name': 'b.items', 'x-fern-sdk-method-name': 'list' }],
+            'x-forge-aliases': [{ 'x-forge-group-name': 'b.items', 'x-forge-method-name': 'list' }],
           }),
         },
         '/b/items/{id}': { get: op('b.items', 'get') },
@@ -473,7 +473,7 @@ test('availability deprecation becomes OAS deprecated; Forge notices stay', () =
   const { document } = prepare();
   const paths = document.paths as Record<string, Record<string, Record<string, unknown>>>;
   assert.equal(paths['/alpha/items']!.post!.deprecated, true);
-  assert.equal(paths['/alpha/items']!.post!['x-fern-availability'], 'deprecated');
+  assert.equal(paths['/alpha/items']!.post!['x-forge-availability'], 'deprecated');
   assert.equal(paths['/alpha/items/{id}']!.delete!['x-forge-require-confirmation'], 'This deletes the item.');
   assert.equal(paths['/alpha/items']!.get!.deprecated, undefined);
 });

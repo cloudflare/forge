@@ -4,9 +4,9 @@
  * another page, and each operation's samples and Terraform data.
  * `forge-api.ts` applies the result to the spec Nimbus renders.
  *
- * Forge reads the spec's Fern extensions through its `fern` adapter. A
- * top-level group is a product, the groups below it are the page's
- * resources, and the method's name ends its URL.
+ * Forge reads the spec's `x-forge-*` metadata directly. A top-level group is
+ * a product, the groups below it are the page's resources, and the method's
+ * name ends its URL.
  */
 import { type Method, parse } from '@cloudflare/forge';
 import { cloudflareFormatIdentifier, cloudflareSamples } from './cloudflare.ts';
@@ -97,11 +97,11 @@ function hasRemovedMetadata(method: Method): boolean {
 }
 
 /**
- * Returns what the site documents of `document`, an OpenAPI document with
- * Fern's extensions. Throws with Forge's message when Forge doesn't read it.
+ * Returns what the site documents of `document`, a normalized OpenAPI
+ * document. Throws with Forge's message when Forge doesn't read it.
  */
 export function readContent(document: Record<string, unknown>, terraform: TerraformLookup): Content {
-  const forge = parse(JSON.stringify(document), { adapters: ['fern'] });
+  const forge = parse(JSON.stringify(document));
   const products = new Map<string, ContentProduct>();
   const operations: ContentOperation[] = [];
   for (const group of forge.groups) {

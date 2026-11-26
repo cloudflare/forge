@@ -242,7 +242,7 @@ export function prepareForgeApi(
       // Nimbus reads each page's URL from the spec, so the config carries no route map.
       op['x-nimbus-route'] = operations[nimbusId(entry.operationId)];
       if (entry.deprecated) op.deprecated = true;
-      const methodName = op['x-fern-sdk-method-name'];
+      const methodName = op['x-forge-method-name'] ?? op['x-fern-sdk-method-name'];
       const rank = typeof methodName === 'string' ? LIFECYCLE.indexOf(methodName) : -1;
       if (rank !== -1) op['x-nimbus-order'] = rank + 1;
       const { terraform } = entry;

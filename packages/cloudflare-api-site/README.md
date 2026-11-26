@@ -38,7 +38,7 @@ The spec is the `openapi.forge.json` asset on the latest stable Forge GitHub
 release. `src/openapi-source.ts` declares it as a Nimbus URL source, which
 Nimbus saves under `.nimbus/sources/forge/` and checks with one conditional
 request on each build, downloading it only when it changed. Forge reads its
-Fern SDK group and method metadata through its `fern` adapter: a top-level
+`x-forge-group-name` and `x-forge-method-name` metadata directly: a top-level
 group is a product, the groups below it are the resource hierarchy, and the
 method's name ends the route. OpenAPI tags remain internal ownership
 metadata and do not appear in URLs.
