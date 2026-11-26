@@ -82,6 +82,9 @@ jobs:
 
       - uses: ./.github/actions/setup-workspace
 
+      # The site reads the spec with the workspace's @cloudflare/forge.
+      - uses: ./.github/actions/build-forge
+
       - name: Install Playwright browser
         run: pnpm --filter cloudflare-api-site exec playwright install --with-deps chromium
 

@@ -1,33 +1,17 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import {
-  buildFernContent,
-  defineFernExtension,
-  defineFernManifest,
-  type FernContentProjectData,
-  type FernManifestProvider,
-  type FernSourceOperation,
-} from 'astro-fern';
-import { forgeExtension, hasRemovedForgeOperationFields } from 'fern-forge';
-import {
-  CLOUDFLARE_RESPONSE_PAYLOAD_KEY,
-  CLOUDFLARE_TARGETS,
-  cloudflareFormatIdentifier,
-  cloudflareOperationRoutingPreference,
-  cloudflareSnippets,
-} from './cloudflare.ts';
 import { prepareForgeApi, TERRAFORM_EXTENSION } from './forge-api.ts';
-import { TERRAFORM_EXTENSION_NAME, terraformOperationDataSchema } from './terraform.ts';
-
-const SNAPSHOT = '2026-11-30.air';
+import { readContent } from './forge-content.ts';
+import type { TerraformIndex } from './terraform-extension.ts';
+import { canonicalTerraformEndpoint } from './terraform.ts';
 
 function operation(id: string, group: string[], method: string, extra: Record<string, unknown> = {}) {
   return {
     operationId: id,
     summary: id,
     tags: [group[0]!],
-    'x-fern-sdk-group-name': group,
-    'x-fern-sdk-method-name': method,
+    'x-forge-group-name': group,
+    'x-forge-method-name': method,
     responses: {
       '200': { description: 'ok', content: { 'application/json': { schema: { type: 'object' } } } },
       '4XX': {
@@ -67,7 +51,7 @@ const spec: Record<string, unknown> = {
       get: operation('alpha.items.list', ['alpha', 'items'], 'list'),
       post: operation('alpha.items.create', ['alpha', 'items'], 'create', {
         deprecated: false,
-        'x-fern-availability': 'deprecated',
+        'x-forge-availability': 'deprecated',
       }),
     },
     '/alpha/items/{id}': {
@@ -89,8 +73,8 @@ const spec: Record<string, unknown> = {
           '404': { $ref: '#/components/responses/NotFound' },
         },
         'x-forge-aliases': [
-          { 'x-fern-sdk-group-name': ['legacy', 'items'], 'x-fern-sdk-method-name': 'get' },
-          { 'x-fern-sdk-group-name': ['alpha', 'legacy-items'], 'x-fern-sdk-method-name': 'get' },
+          { 'x-forge-group-name': ['legacy', 'items'], 'x-forge-method-name': 'get' },
+          { 'x-forge-group-name': ['alpha', 'legacy-items'], 'x-forge-method-name': 'get' },
         ],
       }),
       delete: operation('alpha.items.delete', ['alpha', 'items'], 'delete', {
@@ -113,7 +97,7 @@ const spec: Record<string, unknown> = {
         },
       }),
       put: operation('alpha.settings.update', ['alpha', 'settings'], 'update'),
-      patch: operation('alpha.settings.edit', ['alpha', 'settings'], 'update'),
+      patch: operation('alpha.settings.edit', ['alpha', 'settings'], 'edit'),
     },
     '/alpha/retired': {
       get: operation('alpha.retired.list', ['alpha', 'retired'], 'list', { 'x-forge-sunset': '2026-01-01' }),
@@ -154,66 +138,45 @@ const spec: Record<string, unknown> = {
   },
 };
 
-const terraform = defineFernExtension({
-  name: TERRAFORM_EXTENSION_NAME,
-  schema: terraformOperationDataSchema,
-  prepare: () => undefined,
-  operation: ({ path, method }) =>
-    path === '/beta/zones' && method === 'post'
-      ? {
-          data: {
-            declarations: [
-              {
-                kind: 'resource',
-                name: 'cloudflare_zone',
-                example: 'resource "cloudflare_zone" "x" {}',
-                importExample: "$ terraform import cloudflare_zone.x '<zone_id>'",
-                roles: ['create'],
-                required: [],
-                optional: [],
-                computed: [],
-              },
-              {
-                kind: 'data-source',
-                name: 'cloudflare_zone',
-                example: 'data "cloudflare_zone" "x" {}',
-                roles: ['read'],
-                required: [],
-                optional: [],
-                computed: [],
-              },
-              {
-                kind: 'resource',
-                name: 'cloudflare_zone_setting',
-                importExample:
-                  "# One setting at a time.\n$ terraform import cloudflare_zone_setting.x '<zone_id>/<setting_id>'",
-                roles: ['update'],
-                required: [],
-                optional: [],
-                computed: [],
-              },
-            ],
-          },
-        }
-      : undefined,
-});
-
-const manifest: FernManifestProvider = (_openapi, { discoverProducts }) =>
-  defineFernManifest({ targets: CLOUDFLARE_TARGETS, products: discoverProducts() });
+const terraform: TerraformIndex = new Map([
+  [
+    canonicalTerraformEndpoint('post', '/beta/zones'),
+    [
+      {
+        kind: 'resource',
+        name: 'cloudflare_zone',
+        example: 'resource "cloudflare_zone" "x" {}',
+        importExample: "$ terraform import cloudflare_zone.x '<zone_id>'",
+        roles: ['create'],
+        required: [],
+        optional: [],
+        computed: [],
+      },
+      {
+        kind: 'data-source',
+        name: 'cloudflare_zone',
+        example: 'data "cloudflare_zone" "x" {}',
+        roles: ['read'],
+        required: [],
+        optional: [],
+        computed: [],
+      },
+      {
+        kind: 'resource',
+        name: 'cloudflare_zone_setting',
+        importExample:
+          "# One setting at a time.\n$ terraform import cloudflare_zone_setting.x '<zone_id>/<setting_id>'",
+        roles: ['update'],
+        required: [],
+        optional: [],
+        computed: [],
+      },
+    ],
+  ],
+]);
 
 function prepare(source: Record<string, unknown> = spec, sdkSnippets?: Map<string, Record<string, string>>) {
-  const data = buildFernContent({
-    source: { kind: 'snapshots', snapshots: [{ id: SNAPSHOT, source: source as never, default: true }] },
-    manifest,
-    responsePayloadKey: CLOUDFLARE_RESPONSE_PAYLOAD_KEY,
-    formatIdentifier: cloudflareFormatIdentifier,
-    operationRoutingPreference: cloudflareOperationRoutingPreference,
-    isOperationHidden: hasRemovedForgeOperationFields,
-    snippets: cloudflareSnippets,
-    extensions: [forgeExtension(), terraform],
-    onWarning: () => {},
-  });
-  return { ...prepareForgeApi(source, data, SNAPSHOT, sdkSnippets), data };
+  return prepareForgeApi(source, terraform, sdkSnippets);
 }
 
 const ops = (doc: Record<string, unknown>) =>
@@ -221,46 +184,7 @@ const ops = (doc: Record<string, unknown>) =>
     Object.values(item).map((op) => op.operationId),
   );
 
-/** A hand-built astro-fern entry for the cases `buildFernContent` never produces. */
-function entry(
-  id: string,
-  product: string,
-  slug: string,
-  operation: Record<string, unknown> = {},
-  resourcePath: { id: string; slug: string }[] = [],
-): FernSourceOperation {
-  return {
-    id: `${product}:${id}`,
-    snapshotId: SNAPSHOT,
-    product: { id: product, slug: product, title: product, description: '' },
-    section: { id: product, tag: product, title: product },
-    operation: {
-      operationId: id,
-      slug,
-      placement: {
-        projectionId: 'primary',
-        method: 'list',
-        resourcePath: resourcePath.map((s) => ({ ...s, title: s.slug })),
-      },
-      ...operation,
-    } as never,
-    snippets: [],
-  };
-}
-
-function prepareEntries(...entries: FernSourceOperation[]) {
-  const products = [...new Set(entries.map((e) => e.product.id))].map((id) => ({
-    id,
-    slug: id,
-    title: id,
-    description: '',
-    snapshots: [],
-  }));
-  const data = { catalog: { products }, operations: entries } as unknown as FernContentProjectData;
-  return prepareForgeApi({ paths: {} }, data, SNAPSHOT);
-}
-
-test('an operation without an operationId gets its page, and the spec gets the id astro-fern derives from its SDK address', () => {
+test('an operation without an operationId gets its page, and the spec gets the id derived from its SDK address', () => {
   const source = structuredClone(spec);
   const { operationId: _operationId, ...apps } = operation('alpha.apps.list', ['alpha', 'apps'], 'list');
   (source.paths as Record<string, unknown>)['/{account_or_zone}/{account_or_zone_id}/alpha/apps'] = { get: apps };
@@ -283,26 +207,23 @@ test('a derived id in a product Nimbus keeps is renamed as the product slug is; 
   assert.equal(paths['/{account_or_zone}/{account_or_zone_id}/tags']?.get?.operationId, 'tagging.resources.list');
 });
 
-test('keeps exactly the operations astro-fern gives a primary page, keyed by operationId', () => {
-  const { document, operations, data } = prepare();
+test('keeps exactly the operations Forge gives a page, keyed by operationId', () => {
+  const { document, operations } = prepare();
   const kept = ops(document).sort();
   assert.deepEqual(kept, Object.keys(operations).sort());
   assert.deepEqual(
     kept,
-    data.operations
-      .filter((entry) => (entry.operation.placement?.projectionId ?? 'primary') === 'primary')
-      .map((entry) => entry.operation.operationId)
+    readContent(spec, () => undefined)
+      .operations.filter((entry) => !entry.alias)
+      .map((entry) => entry.operationId)
       .sort(),
   );
   assert.ok(!kept.includes('alpha.retired.list'), 'hidden operation');
   assert.equal((document.paths as Record<string, unknown>)['/alpha/retired'], undefined);
   assert.equal((document.paths as Record<string, unknown>)['/alpha/anonymous'], undefined, 'operation without an id');
-  assert.equal((document.paths as Record<string, unknown>)['/alpha/misc'], undefined, 'operation without an SDK group');
+  assert.equal(operations['alpha.misc'], 'alpha/methods/misc', 'an operationId names an operation without SDK names');
   assert.ok(kept.includes('alpha.settings.get'));
-  assert.ok(
-    !kept.includes('alpha.settings.update') && !kept.includes('alpha.settings.edit'),
-    'astro-fern drops both of a colliding pair the routing preference cannot split',
-  );
+  assert.ok(kept.includes('alpha.settings.update') && kept.includes('alpha.settings.edit'));
 });
 
 test("routes are today's URLs, with moved product slugs", () => {
@@ -359,18 +280,31 @@ test("landing pages are Nimbus's section pages; section ids and moved products r
     [['tags', 'tagging']],
     'a moved product sets its section segment on its tag',
   );
-  const unplaced = prepareEntries(entry('a.misc', 'a', 'misc/methods/list', { placement: undefined }));
-  assert.equal(unplaced.redirects['/a/sections/a/'], '/a/');
-  assert.equal(unplaced.operations['a.misc'], 'a/misc/methods/list');
 });
 
 test('an alias path that is also a real section keeps the real page', () => {
-  const items = [{ id: 'items', slug: 'items' }];
-  const alias = { projectionId: 'alias', method: 'list', resourcePath: items.map((s) => ({ ...s, title: s.slug })) };
-  const { redirects } = prepareEntries(
-    entry('a.items.list', 'a', 'items/methods/list', {}, items),
-    entry('b.items.get', 'b', 'items/methods/get', {}, items),
-    entry('a.items.list', 'b', 'items/methods/list', { placement: alias }),
+  const op = (group: string, method: string, extra: Record<string, unknown> = {}) => ({
+    operationId: `${group}.${method}`,
+    tags: [group],
+    'x-forge-group-name': group,
+    'x-forge-method-name': method,
+    responses: { '200': { description: 'ok' } },
+    ...extra,
+  });
+  const { redirects } = prepareForgeApi(
+    {
+      openapi: '3.1.0',
+      info: { title: 'Fixture', version: '1' },
+      paths: {
+        '/a/items': {
+          get: op('a.items', 'list', {
+            'x-forge-aliases': [{ 'x-forge-group-name': 'b.items', 'x-forge-method-name': 'list' }],
+          }),
+        },
+        '/b/items/{id}': { get: op('b.items', 'get') },
+      },
+    },
+    new Map(),
   );
   assert.equal(redirects['/b/items/methods/list/'], '/a/items/methods/list/');
   assert.equal(redirects['/b/'], undefined);
@@ -445,6 +379,83 @@ test('samples cover every target, with placeholders, one Terraform sample joinin
   assert.deepEqual(example((document.components as { responses: Responses }).responses, 'NotFound'), { code: 0 });
 });
 
+/** Returns the JSON body of the curl sample for a POST that sends `schema`, with `schemas` as components. */
+function curlBody(schema: unknown, schemas: Record<string, unknown> = {}): unknown {
+  const { document } = prepareForgeApi(
+    {
+      openapi: '3.1.0',
+      info: { title: 'Fixture' },
+      components: { schemas },
+      paths: {
+        '/reports': {
+          post: operation('reports.create', ['reports'], 'create', {
+            requestBody: { content: { 'application/json': { schema } } },
+          }),
+        },
+      },
+    },
+    new Map(),
+  );
+  const post = (document.paths as Record<string, Record<string, Record<string, unknown>>>)['/reports']!.post!;
+  const curl = (post['x-codeSamples'] as { lang: string; source: string }[]).find((sample) => sample.lang === 'curl')!;
+  return JSON.parse(curl.source.match(/-d '(.*)'$/)![1]!);
+}
+
+test('a curl sample merges a field that several allOf members declare, so its narrowest type shows', () => {
+  const base = {
+    type: 'object',
+    properties: { act: { type: 'string' }, email: { type: 'string' } },
+    required: ['act', 'email'],
+  };
+  const report = {
+    allOf: [{ $ref: '#/components/schemas/Base' }, { properties: { act: { type: 'string', enum: ['abuse_dmca'] } } }],
+  };
+  assert.deepEqual(curlBody(report, { Base: base }), { act: 'abuse_dmca', email: '<email>' });
+});
+
+test("a curl sample sends the required fields of an object's first oneOf option", () => {
+  const body = {
+    type: 'object',
+    properties: { url: { type: 'string' }, html: { type: 'string' }, timeout: { type: 'number' } },
+    oneOf: [
+      { type: 'object', properties: { url: { type: 'string' } }, required: ['url'] },
+      { type: 'object', properties: { html: { type: 'string' } }, required: ['html'] },
+    ],
+  };
+  const options = {
+    type: 'object',
+    properties: { name: { type: 'string' } },
+    required: ['name'],
+    oneOf: [
+      { type: 'object', properties: { ips: { type: 'array', items: { type: 'string' } } }, required: ['ips'] },
+      { type: 'object', properties: { identity: { type: 'string' } }, required: ['identity'] },
+    ],
+  };
+  assert.deepEqual(curlBody(body), { url: '<url>' });
+  assert.deepEqual(curlBody(options), { name: '<name>', ips: ['<value>'] });
+});
+
+test('a curl sample leaves out read-only fields', () => {
+  const policy = {
+    type: 'object',
+    properties: { id: { type: 'string', readOnly: true }, pattern: { type: 'string' } },
+    required: ['id', 'pattern'],
+  };
+  assert.deepEqual(curlBody(policy), { pattern: '<pattern>' });
+});
+
+test('a curl sample shows a field whose allOf combines arrays as an array', () => {
+  const app = {
+    type: 'object',
+    properties: {
+      hostnames: { allOf: [{ $ref: '#/components/schemas/Hostnames' }, { type: 'array', minItems: 1 }] },
+    },
+    required: ['hostnames'],
+  };
+  const hostnames = { type: 'array', items: { type: 'string' } };
+  assert.deepEqual(curlBody(app, { Hostnames: hostnames }), { hostnames: ['<value>'] });
+});
+
 test('lifecycle methods get x-nimbus-order; others get none', () => {
   const { document } = prepare();
   const paths = document.paths as Record<string, Record<string, Record<string, unknown>>>;
@@ -462,7 +473,7 @@ test('availability deprecation becomes OAS deprecated; Forge notices stay', () =
   const { document } = prepare();
   const paths = document.paths as Record<string, Record<string, Record<string, unknown>>>;
   assert.equal(paths['/alpha/items']!.post!.deprecated, true);
-  assert.equal(paths['/alpha/items']!.post!['x-fern-availability'], 'deprecated');
+  assert.equal(paths['/alpha/items']!.post!['x-forge-availability'], 'deprecated');
   assert.equal(paths['/alpha/items/{id}']!.delete!['x-forge-require-confirmation'], 'This deletes the item.');
   assert.equal(paths['/alpha/items']!.get!.deprecated, undefined);
 });
@@ -489,34 +500,6 @@ test('a product that exists only through aliases gets redirects, not pages', () 
   assert.ok(!products.some((product) => product.slug === 'legacy'));
   assert.equal(redirects['/legacy/'], '/alpha/');
   assert.equal(redirects['/legacy/items/'], '/alpha/items/');
-});
-
-test('refuses data that would give two pages one URL or one tag two meanings', () => {
-  const items = [{ id: 'items', slug: 'items' }];
-  assert.throws(
-    () => prepareEntries(entry('a.list', 'a', 'items/methods/list'), entry('a.list', 'a', 'items/methods/list')),
-    /two primary placements/,
-  );
-  assert.throws(
-    () =>
-      prepareEntries(
-        entry('a.list', 'a', 'items/methods/list', {}, items),
-        entry('a.list-v2', 'a', 'items-v2/methods/list', {}, [{ id: 'items-v2', slug: 'items' }]),
-      ),
-    /produced by both/,
-  );
-  assert.throws(
-    () => prepareEntries(entry('a.list', 'a', 'items/methods/list'), entry('a.index', 'a', 'items/methods/list')),
-    /both route to/,
-  );
-  assert.throws(
-    () =>
-      prepareEntries(
-        entry('a.get', 'a', 'items/methods/get', { placement: { projectionId: 'legacy', resourcePath: [] } }),
-      ),
-    /has no primary page/,
-  );
-  assert.throws(() => prepareEntries(entry('a.get', 'a', 'Items/methods/get')), /not lowercase kebab-case/);
 });
 
 test('the prepared spec is titled for the API home', () => {

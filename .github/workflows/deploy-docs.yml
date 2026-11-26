@@ -34,6 +34,9 @@ jobs:
 
       - uses: ./.github/actions/setup-workspace
 
+      # The site reads the spec with the workspace's @cloudflare/forge.
+      - uses: ./.github/actions/build-forge
+
       # `cf deploy` builds the site (`astro build`) and deploys it. `run` is
       # needed because `pnpm deploy` is a built-in pnpm command.
       - name: Build and deploy
