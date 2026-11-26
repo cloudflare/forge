@@ -13,10 +13,11 @@ test('the sitemap lists every command page, each at the URL it resolves at', () 
     { id: 'ai', slug: 'ai' },
   ];
   const urls = commandPageUrls('https://example.com', '/api', products);
+  const listed = new Set(urls);
 
-  assert.equal(urls.length, router.commands.length);
-  assert.ok(urls.includes('https://example.com/api/tooling/deploy/'));
-  assert.ok(urls.includes('https://example.com/api/d1/tooling/migrations/apply/'));
+  assert.equal(listed.size, router.commands.length);
+  assert.ok(listed.has('https://example.com/api/tooling/deploy/'));
+  assert.ok(listed.has('https://example.com/api/d1/tooling/migrations/apply/'));
   urls.forEach((url, index) => assert.equal(router.resolve(new URL(url), products), router.commands[index], url));
 });
 
