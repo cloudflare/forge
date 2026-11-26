@@ -17,7 +17,7 @@ test('the sitemap lists every command page, each at the URL it resolves at', () 
   assert.equal(urls.length, router.commands.length);
   assert.ok(urls.includes('https://example.com/api/tooling/deploy/'));
   assert.ok(urls.includes('https://example.com/api/d1/tooling/migrations/apply/'));
-  for (const url of urls) assert.ok(router.resolve(new URL(url), products), url);
+  urls.forEach((url, index) => assert.equal(router.resolve(new URL(url), products), router.commands[index], url));
 });
 
 test('command routes resolve under the API tooling namespace', () => {
