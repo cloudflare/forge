@@ -1,14 +1,15 @@
 /**
- * Reads OpenAPI documents with forge, in the same process.
+ * Reads and normalizes OpenAPI documents with forge, in the same process.
  *
  * `parse` parses a document with forge compiled to WebAssembly. It returns
  * the document's forge, with the same groups, methods, models and types a
- * plugin reads.
+ * plugin reads. `normalize` rewrites third-party metadata extensions into
+ * Forge's native `x-forge-*` extensions before parsing.
  *
  * ```ts
- * import { parse } from "@cloudflare/forge";
+ * import { normalize, parse } from "@cloudflare/forge";
  *
- * const forge = parse(await readFile("openapi.json", "utf8"), { adapters: ["fern"] });
+ * const forge = parse(normalize(await readFile("openapi.json", "utf8")));
  * for (const group of forge.groups) {
  *   console.log(group.path.join("."), group.methods.map((m) => m.name.camel()));
  * }
@@ -17,25 +18,25 @@
  * @module
  */
 
-import { parser } from './component/forge.js';
+import { normalizer, parser } from './component/forge.js';
+import type { Adapter } from './component/interfaces/forge-plugin-normalizer.js';
 import { type Forge, forgeOf } from './forge.js';
 
+export type { Adapter };
 export type * from './forge.js';
 
-/**
- * Third-party tool supported for extension normalization, matching
- * `forge normalize --from` (for example, `'fern'` maps
- * `x-fern-sdk-group-name` to `x-forge-group-name`).
- */
-export type Adapter = 'cloudflare' | 'fern' | 'stainless';
-
-/** Options for {@link parse}. */
-export interface ParseOptions {
+/** Options for {@link normalize}. */
+export interface NormalizeOptions {
   /**
-   * Adapters used to normalize third-party extensions before parsing. When
-   * omitted, only native `x-forge-*` extensions are read.
+   * Adapters to apply, in precedence order. Defaults to all built-in
+   * adapters (`cloudflare`, `fern`, `stainless`).
    */
   readonly adapters?: readonly Adapter[];
+  /**
+   * Keeps rewritten keys alongside their native replacements instead of
+   * removing them. Defaults to `false`.
+   */
+  readonly leaveOldExtensions?: boolean;
 }
 
 /**
@@ -43,14 +44,30 @@ export interface ParseOptions {
  * forge's message when forge doesn't read the document, such as one that is
  * not OpenAPI 3.x, or one with two methods of the same name in a group.
  */
-export function parse(json: string, options: ParseOptions = {}): Forge {
+export function parse(json: string): Forge {
   let parsed: ReturnType<typeof parser.parse>;
   try {
-    parsed = parser.parse(json, [...(options.adapters ?? [])]);
+    parsed = parser.parse(json);
   } catch (err) {
     throw new Error(componentMessage(err));
   }
   return forgeOf(parsed);
+}
+
+/**
+ * Rewrites third-party metadata extensions in the OpenAPI JSON document `json`
+ * into Forge's native `x-forge-*` extensions, matching `forge normalize`.
+ * Returns `json` unchanged when nothing needed rewriting.
+ */
+export function normalize(json: string, options: NormalizeOptions = {}): string {
+  try {
+    return normalizer.normalize(json, {
+      adapters: options.adapters ? [...options.adapters] : undefined,
+      leaveOldExtensions: options.leaveOldExtensions ?? false,
+    });
+  } catch (err) {
+    throw new Error(componentMessage(err));
+  }
 }
 
 /** Returns the message of a component's error case, or of what was thrown. */

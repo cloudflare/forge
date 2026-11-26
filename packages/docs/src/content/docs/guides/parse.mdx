@@ -60,11 +60,35 @@ Every type and property of the result is in the [Plugin API](/reference/plugin-a
 forge of its own, so several documents can be read side by side, such as one for each version of an
 API.
 
+## Normalize extensions before parsing
+
+`parse` reads only Forge's native `x-forge-*` extensions. If a document uses extensions from a
+compatibility mode, pass it through `normalize` first:
+
+```js title="normalize-and-parse.mjs"
+import { readFile } from 'node:fs/promises';
+import { normalize, parse } from '@cloudflare/forge';
+
+const raw = await readFile('openapi.json', 'utf8');
+const forge = parse(normalize(raw));
+```
+
+`normalize` returns the rewritten JSON string, or the input unchanged when nothing needed rewriting.
+By default it applies every compatibility mode listed under **Compatibility Modes** in the sidebar.
+Pass `options` to limit the adapters or keep the original keys alongside the native ones:
+
+```js
+const normalized = normalize(raw, {
+  adapters: ['cloudflare'],
+  leaveOldExtensions: true,
+});
+```
+
 ## Errors
 
-`parse` throws an `Error` when Forge cannot read the document, with the message the `forge` command
-prints after `forge: ` and the file name. A document with no `openapi` key, such as a Swagger 2.0
-document, throws:
+`parse` and `normalize` throw an `Error` when Forge cannot read the document, with the message the
+`forge` command prints after `forge: ` and the file name. A document with no `openapi` key, such as
+a Swagger 2.0 document, throws:
 
 ```text
 the document has no openapi version: only OpenAPI 3.0, 3.1 and 3.2 are read

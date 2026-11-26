@@ -1,5 +1,5 @@
-//! Implements the WIT's `library` world, which parses documents in the
-//! caller's own process.
+//! Implements the WIT's `library` world, which parses and normalizes
+//! documents in the caller's own process.
 //!
 //! `packages/forge/library` builds this crate to WebAssembly, and
 //! `@cloudflare/forge` turns the build into JavaScript. `parse` returns the
@@ -27,7 +27,7 @@ mod bindings {
     });
 }
 
-use bindings::exports::forge::plugin::parser as exports;
+use bindings::exports::forge::plugin::{normalizer, parser};
 
 // The crate built to WebAssembly links this crate, and so exports the world
 // these functions implement. Only a WebAssembly build has anything to
@@ -38,32 +38,40 @@ bindings::export!(Library with_types_in bindings);
 /// Implements the `library` world.
 struct Library;
 
-impl exports::Guest for Library {
-    fn parse(json: String, adapters: Vec<String>) -> Result<ForgeWasm, String> {
-        let adapters = adapters
-            .iter()
-            .map(|name| {
-                Adapter::named(name)
-                    .ok_or_else(|| format!("unknown adapter {name:?}; expected cloudflare, fern, or stainless"))
-            })
-            .collect::<Result<Vec<_>, _>>()?;
-        // Skip normalization when no adapters are requested.
-        let normalized: Option<Vec<u8>> = if adapters.is_empty() {
-            None
-        } else {
-            let options = Options {
-                leave_old_extensions: false,
-                adapters: &adapters,
-            };
-            normalize(json.as_bytes(), &options)
-                .map_err(|err| err.to_string())?
-                .json
-        };
-        let forge: Forge = match &normalized {
-            Some(normalized) => serde_json::from_slice(normalized),
-            None => serde_json::from_str(&json),
-        }
-        .map_err(|err| err.to_string())?;
+impl parser::Guest for Library {
+    fn parse(json: String) -> Result<ForgeWasm, String> {
+        let forge: Forge = serde_json::from_str(&json).map_err(|err| err.to_string())?;
         Ok(ForgeWasm::from(&forge))
+    }
+}
+
+impl normalizer::Guest for Library {
+    fn normalize(json: String, options: normalizer::Options) -> Result<String, String> {
+        let adapters: Vec<Adapter> = match options.adapters {
+            Some(list) => list
+                .into_iter()
+                .map(|adapter| {
+                    let name = match adapter {
+                        normalizer::Adapter::Cloudflare => "cloudflare",
+                        normalizer::Adapter::Fern => "fern",
+                        normalizer::Adapter::Stainless => "stainless",
+                    };
+                    Adapter::named(name).expect("built-in adapter")
+                })
+                .collect(),
+            None => Adapter::all().collect(),
+        };
+        let normalized = normalize(
+            json.as_bytes(),
+            &Options {
+                leave_old_extensions: options.leave_old_extensions,
+                adapters: &adapters,
+            },
+        )
+        .map_err(|err| err.to_string())?;
+        match normalized.json {
+            Some(bytes) => String::from_utf8(bytes).map_err(|err| err.to_string()),
+            None => Ok(json),
+        }
     }
 }

@@ -222,15 +222,41 @@ world plugin {
 interface parser {
     use forge.{forge};
 
-    /// Parses the OpenAPI JSON document `json` into a forge, normalizing
-    /// extensions for each tool named in `adapters` (matching
-    /// `forge normalize --from`). Fails with the same error message as the
-    /// `forge` CLI.
-    parse: func(json: string, adapters: list<string>) -> result<forge, string>;
+    /// Parses the OpenAPI JSON document `json` into a forge. Fails with the
+    /// message the `forge` command prints for the same document.
+    parse: func(json: string) -> result<forge, string>;
 }
 
-/// Runs forge as a library. `@cloudflare/forge` uses this world to parse
-/// documents in JavaScript.
+/// Rewrites third-party OpenAPI metadata extensions into Forge's native
+/// `x-forge-*` extensions.
+interface normalizer {
+    /// Third-party tool supported for extension normalization, matching
+    /// `forge normalize --from`.
+    enum adapter {
+        cloudflare,
+        fern,
+        stainless,
+    }
+
+    /// Options for `normalize`.
+    record options {
+        /// Adapters to apply, in precedence order. When omitted, all built-in
+        /// adapters are applied.
+        adapters: option<list<adapter>>,
+        /// Keeps rewritten keys alongside their native replacements instead of
+        /// removing them.
+        leave-old-extensions: bool,
+    }
+
+    /// Rewrites third-party metadata extensions in `json` into Forge's native
+    /// `x-forge-*` keys. Returns `json` unchanged when nothing needed
+    /// rewriting.
+    normalize: func(json: string, options: options) -> result<string, string>;
+}
+
+/// Runs forge as a library. `@cloudflare/forge` uses this world to parse and
+/// normalize documents in JavaScript.
 world library {
     export parser;
+    export normalizer;
 }

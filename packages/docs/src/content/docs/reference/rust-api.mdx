@@ -15,11 +15,12 @@ cargo doc --no-deps --features wasm --open
 
 ## Features
 
-| Feature   | Default | Enables                                                                       |
-| --------- | ------- | ----------------------------------------------------------------------------- |
-| `cli`     | yes     | The `forge` binary. Turn it off with `default-features = false` in a library. |
-| `wasm`    | no      | `forge::wasm`, which runs WebAssembly plugins with Wasmtime.                  |
-| `library` | no      | The WIT's `library` world, which `@cloudflare/forge` builds to WebAssembly for [`parse`](/guides/parse/). It adds nothing to the public API. |
+| Feature     | Default | Enables                                                                       |
+| ----------- | ------- | ----------------------------------------------------------------------------- |
+| `cli`       | yes     | The `forge` binary (enables `normalize`). Turn it off with `default-features = false` in a library. |
+| `normalize` | no      | `forge::normalize`, which rewrites compatibility-mode extensions into Forge's native `x-forge-*` keys. |
+| `wasm`      | no      | `forge::wasm`, which runs WebAssembly plugins with Wasmtime.                  |
+| `library`   | no      | The WIT's `library` world (enables `normalize`), which `@cloudflare/forge` builds to WebAssembly for [`parse` and `normalize`](/guides/parse/). It adds nothing to the public API. |
 
 ## Reading a document
 
@@ -223,6 +224,40 @@ pub fn write<F: File>(dir: impl AsRef<Path>, files: impl IntoIterator<Item = F>)
 
 Run a plugin with `forge::write(out, plugin.generate(&forge)?)`. `write` checks every path, renders
 every file in parallel, and only then writes. Refer to [The pipeline](/concepts/pipeline/).
+
+## forge::normalize
+
+With the `normalize` feature (also enabled by `cli` and `library`):
+
+```rust
+pub struct Adapter(/* private */);              // Clone, Copy, Eq, Debug
+impl Adapter {
+    pub fn named(name: &str) -> Option<Adapter>;
+    pub fn all() -> impl ExactSizeIterator<Item = Adapter>;
+    pub fn name(self) -> &'static str;
+}
+
+pub struct Options<'a> {                        // Clone, Copy, Debug
+    pub leave_old_extensions: bool,
+    pub adapters: &'a [Adapter],
+}
+
+pub struct Report {                             // Debug, Default
+    pub migrated: BTreeMap<String, usize>,
+    /* private */
+}
+impl Report {
+    pub fn changed(&self) -> bool;
+    pub fn details(&self) -> impl Iterator<Item = (usize, &'static str)> + '_;
+}
+
+pub struct Normalized {                         // Debug
+    pub json: Option<Vec<u8>>,
+    pub report: Report,
+}
+
+pub fn normalize(json: &[u8], options: &Options) -> Result<Normalized, serde_json::Error>;
+```
 
 ## forge::wasm
 

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { parse } from '../plugin/index.js';
+import { normalize, parse } from '../plugin/index.js';
 
 /** A document with a group, a method with path and query parameters and a body, and a model. */
 const pets = {
@@ -168,21 +168,42 @@ const fern = {
   },
 };
 
-test('the fern adapter normalizes Fern extensions before parsing', () => {
-  const plain = parse(JSON.stringify(fern));
+test('normalize rewrites extensions for all adapters by default, and feeds into parse', () => {
+  const raw = JSON.stringify(fern);
+  const plain = parse(raw);
   assert.deepEqual(
     plain.groups.flatMap((group) => group.methods),
     [],
   );
 
-  const adapted = parse(JSON.stringify(fern), { adapters: ['fern'] });
-  const methods = adapted.groups.flatMap((group) => group.methods);
+  const normalized = normalize(raw);
+  const methods = parse(normalized).groups.flatMap((group) => group.methods);
   assert.deepEqual(
     methods.map((m) => [m.group.path.map((name) => name.kebab()).join('.'), m.name.camel(), m.availability]),
     [['pets', 'list', 'beta']],
   );
 });
 
-test('unknown adapter names throw an error', () => {
-  assert.throws(() => parse(JSON.stringify(fern), { adapters: ['swagger'] }), /unknown adapter "swagger"/);
+test('normalize respects adapters and leaveOldExtensions options', () => {
+  const raw = JSON.stringify(fern);
+
+  // Only the matching adapter rewrites Fern keys.
+  assert.equal(normalize(raw, { adapters: ['stainless'] }), raw);
+  assert.equal(normalize(raw, { adapters: [] }), raw);
+
+  // Keeping old extensions writes the native key ahead of the original key.
+  const kept = JSON.parse(normalize(raw, { adapters: ['fern'], leaveOldExtensions: true }));
+  const get = kept.paths['/pets'].get;
+  assert.equal(get['x-forge-group-name'], 'pets');
+  assert.deepEqual(get['x-fern-sdk-group-name'], ['pets']);
+});
+
+test('normalize leaves a document with only native extensions unchanged', () => {
+  const raw = JSON.stringify(pets, null, 2);
+  assert.equal(normalize(raw), raw);
+});
+
+test('normalize rejects invalid JSON and unknown adapters', () => {
+  assert.throws(() => normalize('not json'), /expected/);
+  assert.throws(() => normalize(JSON.stringify(fern), { adapters: ['swagger'] }), /"swagger" is not one of/);
 });

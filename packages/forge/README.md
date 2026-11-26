@@ -35,12 +35,16 @@ for (const group of forge.groups) {
 }
 ```
 
-By default, `parse` reads only Forge's native `x-forge-*` extensions. Pass
-`adapters` to normalize extensions from `cloudflare`, `fern`, or `stainless`
-before parsing, matching `forge normalize --from`:
+`parse` reads only Forge's native `x-forge-*` extensions. Call `normalize`
+first to rewrite extensions from `cloudflare`, `fern`, or `stainless`,
+matching `forge normalize`:
 
 ```ts
-const forge = parse(json, { adapters: ['fern'] });
+import { normalize, parse } from '@cloudflare/forge';
+
+const forge = parse(normalize(json));
+// Or limit normalization to specific adapters and optionally keep old keys:
+const normalized = normalize(json, { adapters: ['fern'], leaveOldExtensions: true });
 ```
 
 See [Normalizing a document](#normalizing-a-document) for the extensions each
