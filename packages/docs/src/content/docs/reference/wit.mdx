@@ -74,9 +74,9 @@ world plugin {
 
 The same file has a second world, `library`, which exports the `parser` and `normalizer` interfaces.
 `parser.parse` takes an OpenAPI document as JSON text and returns the same `forge` record.
-`normalizer.normalize` rewrites compatibility-mode extensions into Forge's native `x-forge-*` keys
-and returns the rewritten JSON text. `parse` and `normalize` in `@cloudflare/forge` are built from
-it. Refer to [Read a document in JavaScript](/guides/parse/).
+`normalizer.normalize` rewrites other tools' extensions into `x-forge-*` keys and returns the JSON
+text. `parse` and `normalize` in `@cloudflare/forge` are built from it. Refer to
+[Read a document in JavaScript](/guides/parse/).
 
 ## The complete file
 

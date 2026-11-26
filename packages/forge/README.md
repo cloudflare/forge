@@ -35,15 +35,14 @@ for (const group of forge.groups) {
 }
 ```
 
-`parse` reads only Forge's native `x-forge-*` extensions. Call `normalize`
-first to rewrite extensions from `cloudflare`, `fern`, or `stainless`,
-matching `forge normalize`:
+`parse` reads only `x-forge-*` extensions. Call `normalize` first to rewrite
+extensions from `cloudflare`, `fern`, or `stainless`:
 
 ```ts
 import { normalize, parse } from '@cloudflare/forge';
 
 const forge = parse(normalize(json));
-// Or limit normalization to specific adapters and optionally keep old keys:
+// Limit to specific adapters or keep the original keys:
 const normalized = normalize(json, { adapters: ['fern'], leaveOldExtensions: true });
 ```
 

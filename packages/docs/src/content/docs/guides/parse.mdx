@@ -62,8 +62,8 @@ API.
 
 ## Normalize extensions before parsing
 
-`parse` reads only Forge's native `x-forge-*` extensions. If a document uses extensions from a
-compatibility mode, pass it through `normalize` first:
+`parse` reads only `x-forge-*` extensions. To read extensions from a compatibility mode, pass the
+document through `normalize` first:
 
 ```js title="normalize-and-parse.mjs"
 import { readFile } from 'node:fs/promises';
@@ -73,9 +73,9 @@ const raw = await readFile('openapi.json', 'utf8');
 const forge = parse(normalize(raw));
 ```
 
-`normalize` returns the rewritten JSON string, or the input unchanged when nothing needed rewriting.
-By default it applies every compatibility mode listed under **Compatibility Modes** in the sidebar.
-Pass `options` to limit the adapters or keep the original keys alongside the native ones:
+`normalize` returns the rewritten JSON, or the input unchanged when nothing changes. By default it
+runs every mode listed under **Compatibility Modes** in the sidebar. Pass `options` to select
+specific adapters or keep the original keys:
 
 ```js
 const normalized = normalize(raw, {
@@ -86,13 +86,15 @@ const normalized = normalize(raw, {
 
 ## Errors
 
-`parse` and `normalize` throw an `Error` when Forge cannot read the document, with the message the
-`forge` command prints after `forge: ` and the file name. A document with no `openapi` key, such as
-a Swagger 2.0 document, throws:
+`parse` throws an `Error` when Forge cannot read the document, with the message the `forge` command
+prints after `forge: ` and the file name. A document with no `openapi` key, such as a Swagger 2.0
+document, throws:
 
 ```text
 the document has no openapi version: only OpenAPI 3.0, 3.1 and 3.2 are read
 ```
+
+`normalize` throws an `Error` when the input is not valid JSON.
 
 Refer to [Troubleshooting OpenAPI documents](/openapi/errors/) for each message.
 

@@ -18,9 +18,9 @@ cargo doc --no-deps --features wasm --open
 | Feature     | Default | Enables                                                                       |
 | ----------- | ------- | ----------------------------------------------------------------------------- |
 | `cli`       | yes     | The `forge` binary (enables `normalize`). Turn it off with `default-features = false` in a library. |
-| `normalize` | no      | `forge::normalize`, which rewrites compatibility-mode extensions into Forge's native `x-forge-*` keys. |
+| `normalize` | no      | `forge::normalize`, which rewrites other tools' extensions into `x-forge-*` keys. |
 | `wasm`      | no      | `forge::wasm`, which runs WebAssembly plugins with Wasmtime.                  |
-| `library`   | no      | The WIT's `library` world (enables `normalize`), which `@cloudflare/forge` builds to WebAssembly for [`parse` and `normalize`](/guides/parse/). It adds nothing to the public API. |
+| `library`   | no      | The WIT's `library` world (enables `normalize`), which `@cloudflare/forge` builds to WebAssembly for [`parse` and `normalize`](/guides/parse/). It adds no public Rust API of its own. |
 
 ## Reading a document
 
@@ -227,7 +227,7 @@ every file in parallel, and only then writes. Refer to [The pipeline](/concepts/
 
 ## forge::normalize
 
-With the `normalize` feature (also enabled by `cli` and `library`):
+With the `normalize` feature (enabled by `cli` and `library`):
 
 ```rust
 pub struct Adapter(/* private */);              // Clone, Copy, Eq, Debug
