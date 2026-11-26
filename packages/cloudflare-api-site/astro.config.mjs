@@ -9,6 +9,19 @@ import { forgeApi, prepareForgeSpec } from './src/forge-api.ts';
 import { forgeOpenApiSource } from './src/openapi-source.ts';
 
 const site = 'https://docs.experiments.devprod.cloudflare.dev';
+
+const internalSiteDomain = process.env['INTERNAL_SITE_DOMAIN']?.trim();
+// `*.cloudflare.com` only one sub domain on purpose
+const allowedDomains = [
+  { protocol: 'https', hostname: '*.cloudflare.com' },
+  { protocol: 'https', hostname: '**.cloudflare.dev' },
+];
+if (internalSiteDomain) {
+  allowedDomains.push({ protocol: 'https', hostname: internalSiteDomain });
+}
+
+const { sources, spec } = forgeOpenApiSource();
+
 const base = '/api';
 
 /**
@@ -26,18 +39,6 @@ function prepareSpec(source) {
   commandPages.splice(0, commandPages.length, ...commandPageUrls(site, base, products));
   return document;
 }
-
-const internalSiteDomain = process.env['INTERNAL_SITE_DOMAIN']?.trim();
-// `*.cloudflare.com` only one sub domain on purpose
-const allowedDomains = [
-  { protocol: 'https', hostname: '*.cloudflare.com' },
-  { protocol: 'https', hostname: '**.cloudflare.dev' },
-];
-if (internalSiteDomain) {
-  allowedDomains.push({ protocol: 'https', hostname: internalSiteDomain });
-}
-
-const { sources, spec } = forgeOpenApiSource();
 
 const nimbusConfig = defineNimbusConfig({
   site,
