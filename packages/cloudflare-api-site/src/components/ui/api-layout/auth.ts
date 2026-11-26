@@ -13,11 +13,43 @@ function authTypeLabel(a: ApiAuthView): string {
   return a.type ?? a.scheme;
 }
 
+interface SchemeCopy {
+  label: string;
+  placeholder?: string;
+  descriptionHtml: string;
+}
+
+/**
+ * The names and descriptions developers.cloudflare.com/api gives Cloudflare's
+ * security schemes, which the spec doesn't carry. Other schemes show their key.
+ */
+const SCHEME_COPY: Record<string, SchemeCopy> = {
+  api_token: {
+    label: "API Token",
+    descriptionHtml:
+      'The preferred authorization scheme for interacting with the Cloudflare API. <a href="https://developers.cloudflare.com/fundamentals/api/get-started/create-token/">Create a token</a>.',
+  },
+  api_email: {
+    label: "API Email",
+    placeholder: "<email>",
+    descriptionHtml:
+      "The previous authorization scheme for interacting with the Cloudflare API, used in conjunction with a Global API key.",
+  },
+  api_key: {
+    label: "API Key",
+    placeholder: "<key>",
+    descriptionHtml:
+      "The previous authorization scheme for interacting with the Cloudflare API. When possible, use API tokens instead of Global API keys.",
+  },
+};
+
+const schemeLabel = (a: ApiAuthView): string => SCHEME_COPY[a.scheme]?.label ?? a.scheme;
+
 function authExample(a: ApiAuthView): string | null {
   if (!a.headerName) return null;
   if (a.type === "http" && a.httpScheme === "bearer") return `${a.headerName}: Bearer <token>`;
   if (a.type === "http" && a.httpScheme === "basic") return `${a.headerName}: Basic <credentials>`;
-  return `${a.headerName}: <token>`;
+  return `${a.headerName}: ${SCHEME_COPY[a.scheme]?.placeholder ?? "<token>"}`;
 }
 
 /** `value` as text in HTML. The row renders `descriptionHtml` as is, and a
@@ -40,16 +72,18 @@ function toField(a: ApiAuthView, anchor: string): ApiFieldView {
     example ? code(example) : "",
     a.scopes.length > 0 ? `Scopes: ${a.scopes.map(code).join(", ")}` : "",
   ].filter(Boolean);
+  const paragraphs = [parts.join(" · "), SCHEME_COPY[a.scheme]?.descriptionHtml ?? ""].filter(Boolean);
   return {
     coordinate: `auth:${anchor}`,
-    name: a.scheme,
+    // What the reader sends: a header by its name, any other scheme by its key.
+    name: a.headerName ?? a.scheme,
     type: authTypeLabel(a),
     required: true,
     anchor,
     children: [],
     childCount: 0,
     truncated: false,
-    descriptionHtml: parts.length > 0 ? `<p>${parts.join(" · ")}</p>` : undefined,
+    descriptionHtml: paragraphs.length > 0 ? paragraphs.map((p) => `<p>${p}</p>`).join("") : undefined,
   };
 }
 
@@ -83,7 +117,7 @@ export function authSection(auth: ApiAuthView[][]): { fields: ApiFieldView[]; un
     optional,
     union: {
       kind: "oneOf",
-      variants: alternatives.map((alt) => ({ label: alt.map((a) => a.scheme).join(" and "), fields: fields(alt) })),
+      variants: alternatives.map((alt) => ({ label: alt.map(schemeLabel).join(" + "), fields: fields(alt) })),
     },
   };
 }

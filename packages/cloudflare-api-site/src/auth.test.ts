@@ -28,9 +28,31 @@ test('several alternatives are one option each, listed once', () => {
   assert.deepEqual(section.fields, []);
   assert.deepEqual(
     section.union!.variants.map((v) => v.label),
-    ['api_token', 'api_email and api_key'],
+    ['API Token', 'API Email + API Key'],
   );
   assert.ok(section.union!.variants.every((v) => v.fields!.every((f) => f.required)));
+});
+
+test("each field is the header it sends, with production's description of Cloudflare's schemes", () => {
+  const bearer = { scheme: 'api_token', type: 'http', httpScheme: 'bearer', headerName: 'Authorization', scopes: [] };
+  const emailHeader = { scheme: 'api_email', type: 'apiKey', in: 'header', headerName: 'X-Auth-Email', scopes: [] };
+  const section = authSection([[bearer as ApiAuthView], [emailHeader as ApiAuthView]]);
+  const [tokenField, emailField] = section.union!.variants.flatMap((v) => v.fields!);
+
+  assert.equal(tokenField!.name, 'Authorization');
+  assert.equal(tokenField!.anchor, 'auth-api_token');
+  assert.match(tokenField!.descriptionHtml!, /Authorization: Bearer &#60;token&#62;/);
+  assert.match(tokenField!.descriptionHtml!, /The preferred authorization scheme/);
+  assert.equal(emailField!.name, 'X-Auth-Email');
+  assert.match(emailField!.descriptionHtml!, /X-Auth-Email: &#60;email&#62;/);
+});
+
+test('a scheme without a description shows its key', () => {
+  const section = authSection([[scheme('oauth')], [key]]);
+  assert.deepEqual(
+    section.union!.variants.map((v) => v.label),
+    ['oauth', 'API Key'],
+  );
 });
 
 test('a scheme in two alternatives keeps its scopes in each, with an anchor of its own', () => {
