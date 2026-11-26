@@ -132,6 +132,17 @@ export interface Method {
    * keys starting with `x-`, for plugins to read as they need.
    */
   readonly extensions: readonly (readonly [string, Json])[];
+  /**
+   * The operation's own method, when this method is one of the operation's
+   * `x-forge-aliases`. Undefined when this method is not an alias, or when
+   * the operation makes no method of its own.
+   */
+  readonly aliasOf: Method | undefined;
+  /**
+   * The aliases of this method, in the order `x-forge-aliases` lists them.
+   * Empty for an alias, and for a method of an operation without aliases.
+   */
+  readonly aliases: readonly Method[];
   /** The value of the extension `name`, such as `x-forge-params`, or undefined if there is none. */
   extension(name: string): Json | undefined;
   /**
@@ -600,6 +611,8 @@ class MethodImpl implements Method {
     responses: Response[];
     errors: Response[];
     extensions: (readonly [string, Json])[];
+    aliasOf: host.MethodId | undefined;
+    aliases: host.MethodId[];
   };
 
   constructor(
@@ -632,6 +645,8 @@ class MethodImpl implements Method {
         responses: m.responses.map((r) => response(forge, r)),
         errors: m.errors.map((r) => response(forge, r)),
         extensions: m.extensions.map(([name, value]) => [name, parseJson(value)] as const),
+        aliasOf: opt(m.aliasOf),
+        aliases: ids(m.aliases),
       };
     });
   }
@@ -704,6 +719,15 @@ class MethodImpl implements Method {
 
   get extensions(): readonly (readonly [string, Json])[] {
     return this.info().extensions;
+  }
+
+  get aliasOf(): Method | undefined {
+    const id = this.info().aliasOf;
+    return id === undefined ? undefined : this.forge.method(id);
+  }
+
+  get aliases(): readonly Method[] {
+    return this.info().aliases.map((id) => this.forge.method(id));
   }
 
   extension(name: string): Json | undefined {

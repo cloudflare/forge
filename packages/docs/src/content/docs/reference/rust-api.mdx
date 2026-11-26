@@ -85,6 +85,8 @@ impl<'f> Method<'f> {           // Copy, Eq, Hash
     pub fn errors(self) -> impl ExactSizeIterator<Item = Response<'f>>;
     pub fn extension(self, name: &str) -> Option<&'f Json>;
     pub fn extensions(self) -> impl ExactSizeIterator<Item = (&'f str, &'f Json)>;
+    pub fn alias_of(self) -> Option<Method<'f>>;
+    pub fn aliases(self) -> impl ExactSizeIterator<Item = Method<'f>>;
 }
 
 impl<'f> Model<'f> {            // Copy, Eq, Hash, Display (the schema name)

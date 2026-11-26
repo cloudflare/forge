@@ -112,6 +112,13 @@ interface forge {
         /// The extensions of the operation, or alias, that forge does not
         /// read itself, in the order they are written.
         extensions: list<tuple<string, json>>,
+        /// The operation's own method, when this method is an alias. None
+        /// when it is not an alias, or when the operation makes no method of
+        /// its own.
+        alias-of: option<method-id>,
+        /// The aliases of this method, in the order `x-forge-aliases` lists
+        /// them.
+        aliases: list<method-id>,
     }
 
     record model-info {
