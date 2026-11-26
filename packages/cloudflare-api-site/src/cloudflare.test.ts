@@ -227,7 +227,7 @@ test('curl: sends required headers, and names a variable a shell owns otherwise'
     }),
   }).get('curl');
   assert.ok(curl);
-  assert.match(curl, /\/stream\/\$PATH_VALUE /);
+  assert.match(curl, /\/stream\/\$PATH /);
   assert.match(curl, /-H "Tus-Resumable: \$TUS_RESUMABLE"/);
   assert.doesNotMatch(curl, /Upload-Metadata/);
   assert.equal(curl.match(/authorization/gi)?.length, 1);
