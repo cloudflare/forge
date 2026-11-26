@@ -284,7 +284,7 @@ pnpm --filter cloudflare-api-site test            # unit tests
 pnpm --filter cloudflare-api-site test:e2e        # serves the last build
 pnpm --filter cloudflare-api-site build           # cf build
 pnpm --filter cloudflare-api-site preview         # serve the last build locally
-pnpm --filter cloudflare-api-site deploy          # cf deploy
+pnpm --filter cloudflare-api-site run deploy      # cf deploy
 pnpm --filter cloudflare-api-site deploy:preview  # cf previews deploy
 ```
 
@@ -294,10 +294,15 @@ runs `astro build` and writes Build Output to `.cloudflare/output/v0/`.
 `cf previews deploy` deploys a Worker Preview named after the current branch,
 served at `<preview-name>-docs.<subdomain>.workers.dev` (`previewUrls` in
 `cloudflare.config.ts`).
-`.github/workflows/preview-docs.yml` deploys one for every same-repository pull
-request and comments its URL. `.github/workflows/deploy-docs.yml` deploys the
-site on every push to `main`, on each stable Forge release that carries
-`openapi.forge.json`, and on manual dispatch.
+
+Workers Builds deploys the site from the `docs` Worker's Git connection. Every
+push to `main` that changes this package, `astro-fern` or `fern-forge` deploys
+production. Every push to another branch that changes this package deploys a
+Worker Preview, and the Cloudflare bot comments its URL on the pull request.
+Forks get no preview, so CI builds every pull request too.
+
+`.github/workflows/deploy-docs.yml` also deploys the site on each stable Forge
+release that carries `openapi.forge.json`, and on manual dispatch.
 
 Build-time environment variables:
 

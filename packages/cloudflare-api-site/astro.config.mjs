@@ -6,7 +6,7 @@ import { defineConfig } from 'astro/config';
 import { forgeApi, prepareForgeSpec } from './src/forge-api.ts';
 import { forgeOpenApiSource } from './src/openapi-source.ts';
 
-const site = 'https://docs.experiments.devprod.cloudflare.dev';
+const site = 'https://docs.cf-api-docs.workers.dev';
 
 const internalSiteDomain = process.env['INTERNAL_SITE_DOMAIN']?.trim();
 // `*.cloudflare.com` only one sub domain on purpose
