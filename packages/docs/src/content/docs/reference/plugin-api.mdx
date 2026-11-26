@@ -89,6 +89,8 @@ interface Method {
   /** Every other response, `default` last. */
   readonly errors: readonly Response[];
   readonly extensions: readonly (readonly [string, Json])[];
+  readonly aliasOf: Method | undefined;
+  readonly aliases: readonly Method[];
   extension(name: string): Json | undefined;
   location(field: Field): Location | undefined;
 }

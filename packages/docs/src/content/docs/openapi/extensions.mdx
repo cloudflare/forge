@@ -54,11 +54,11 @@ ignored, and both names come from the `operationId`. Refer to
 
 ### x-forge-skip
 
-`true` to leave the operation out: it is not a method, and its parameters, body and responses are
-never built. A boolean.
+`true` to leave the operation out: it is not a method, its aliases are not built, and its
+parameters, body and responses are never built. A boolean.
 
-On an operation with [`x-forge-aliases`](#x-forge-aliases), only the aliases make methods, so the
-operation's own `x-forge-skip` stops none of them. Put it on each alias to leave out.
+To drop a single alias while keeping the operation's other methods, put `x-forge-skip: true` on that
+alias instead.
 
 ### x-forge-availability
 
@@ -84,8 +84,8 @@ its own. The MCP target marks the tool destructive and appends the sentence to i
 
 ### x-forge-aliases
 
-Exposes one operation as several methods. An array of objects, each an alias, named by its own
-`operationId`:
+Exposes one operation as more methods, beside the operation's own method. An array of objects, each
+an alias, named by its own `operationId` or `x-forge-method-name`:
 
 ```json
 "patch": {
@@ -98,13 +98,14 @@ Exposes one operation as several methods. An array of objects, each an alias, na
 }
 ```
 
-With aliases, the operation's own `operationId` makes no method. Each alias says, as an operation
-would, its `operationId`, `x-forge-hidden`, `x-forge-require-confirmation` and other extensions, and
-takes **none** of them from the operation. The HTTP method, path, parameters, body and responses are
-the operation's, shared by every alias.
+The operation's own `operationId` or `x-forge-method-name` still makes a method, and each alias
+makes an additional method linked to it through `alias_of` (`aliasOf` in TypeScript) and `aliases`.
+Each alias specifies its own name, `x-forge-hidden`, `x-forge-require-confirmation` and other
+extensions, and takes **none** of them from the operation. The HTTP method, path, parameters, body
+and responses are the operation's, shared by every alias.
 
-An empty array makes no method. An element that is not an object is ignored, and a value that is not
-an array is an error. Aliases do not nest. An alias's error names its position:
+An empty array makes no additional methods. An element that is not an object is ignored, and a value
+that is not an array is an error. Aliases do not nest. An alias's error names its position:
 
 ```text
 POST /e: x-forge-aliases[0]: operationId has a group name with no letters or digits

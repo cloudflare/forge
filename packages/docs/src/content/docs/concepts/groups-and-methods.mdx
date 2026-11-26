@@ -82,18 +82,21 @@ own `operationId` or `x-forge-method-name`.
 
 ```json
 "patch": {
+  "operationId": "scripts.status.edit",
   "x-forge-aliases": [
-    { "operationId": "scripts.status.edit" },
-    { "operationId": "scripts.pause", "x-forge-hidden": true }
+    { "operationId": "scripts.pause", "x-forge-hidden": true },
+    { "operationId": "scripts.resume", "x-forge-hidden": true }
   ]
 }
 ```
 
-With aliases, the operation's own `operationId` makes no method. Only the aliases do. Each alias
-says, as an operation would, its name, availability, hidden flag, confirmation and other extensions,
-and inherits **none** of them from the operation. Everything about the request and
-response (the HTTP method, path, parameters, body and responses) is the operation's, shared by every
-alias. An empty array makes no method at all.
+The operation keeps its own method at its own group and name, and each alias makes an additional
+method. `alias_of` (`aliasOf` in TypeScript) links each alias back to the operation's own method,
+and `aliases` lists them in order. Each alias declares its own name, availability, hidden flag,
+confirmation and other extensions, and inherits **none** of them from the operation. Everything
+about the request and response (the HTTP method, path, parameters, body and responses) is the
+operation's, shared by every alias. Skipping the operation with `x-forge-skip: true` skips its
+aliases too. An empty array makes no additional methods.
 
 ## Metadata a method carries
 
