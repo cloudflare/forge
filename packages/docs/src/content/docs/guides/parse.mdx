@@ -23,7 +23,7 @@ It runs Forge compiled to WebAssembly, so it needs neither the `forge` binary no
 
 `parse` is the main export of Forge's package:
 
-<PackageManagers pkg="https://pkg.pr.new/cloudflare/forge/@cloudflare/forge@main" dev />
+<PackageManagers pkg="@cloudflare/forge" dev />
 
 ## 2. Parse a document
 
@@ -57,8 +57,8 @@ GET /pets list
 
 Every type and property of the result is in the [Plugin API](/reference/plugin-api/#the-model).
 `@cloudflare/forge` exports the same model types as `@cloudflare/forge/plugin`. Each call returns a
-forge of its own, so several documents can be read side by side, such as one for each version of an
-API.
+separate Forge model, so several documents can be read side by side, such as one for each version of
+an API.
 
 ## Errors
 

@@ -33,6 +33,10 @@ Decide a casing for each kind of identifier, and spell [names](/concepts/names/)
 | Model          | `PascalCase` type          | A schema constant, by schema name       |
 | Field          | `camelCase`, mapped to the wire name by a codec | The wire name, as sent |
 
+Also choose the names outside the model: the output package or module, public entry points,
+generated files, and the root client or factory. The TypeScript target exports `createClient` from
+its root `index.ts`. Forge supplies none of these names, because each target owns its public API.
+
 Then decide what happens when two names collide **in your output**. Forge catches collisions within
 a group or object, but a casing can create new ones: a digit belongs to the word before it, so
 `x1b` and `x_1b` are both `x1b` in camelCase. The MCP target keeps the tool name for the first

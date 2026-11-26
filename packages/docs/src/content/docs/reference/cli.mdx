@@ -74,9 +74,8 @@ The npm package's binaries are built with it.
 
 ## forge normalize
 
-Rewrites other tools' extensions into the native `x-forge-*` ones. **Compatibility Modes** in the
-sidebar lists them. A native key is never replaced: when a document says the same thing
-twice, the native key is kept.
+Rewrites extensions from the supported compatibility modes into native `x-forge-*` keys. The pages
+under **Compatibility Modes** list them. An existing destination key is never overwritten.
 
 ```text
 forge normalize [OPTIONS] <INPUTS>...
@@ -145,8 +144,9 @@ forge normalize openapi.json | forge inspect methods -
 ```
 
 Methods come in the order of their groups, depth first from the root, and by name within a group.
-`availability` is `null` when the operation does not say. A document Forge cannot read, such as one
-with two methods of the same name in a group, exits with status 1, as it does for `forge generate`.
+`availability` is the method's release stage from `x-forge-availability`, or `null` when the
+operation does not declare one. A document Forge cannot read, such as one with two methods of the
+same name in a group, exits with status 1, as it does for `forge generate`.
 
 ## forge-plugin
 

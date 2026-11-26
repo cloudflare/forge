@@ -1,6 +1,6 @@
 ---
 title: Get started with plugins
-description: Write a Forge plugin in TypeScript, build it into a WebAssembly component, and run it on a document. Needs Node.js and the document from Get started.
+description: Write a Forge plugin in TypeScript, build it into a WebAssembly component, and run it on a document.
 content_type: get-started
 sidebar:
   order: 2
@@ -45,7 +45,7 @@ export const { generate } = definePlugin({
 Install Forge's package, which has `forge-plugin` and the `@cloudflare/forge/plugin` library,
 and jco, which `forge-plugin build` uses:
 
-<PackageManagers pkg="https://pkg.pr.new/cloudflare/forge/@cloudflare/forge@main @bytecodealliance/jco" dev />
+<PackageManagers pkg="@cloudflare/forge @bytecodealliance/jco" dev />
 
 Build the plugin into a WebAssembly component, and run it:
 

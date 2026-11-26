@@ -12,14 +12,13 @@ steps work in any CI.
 
 ## 1. Pin the version
 
-`@cloudflare/forge` is installed from pkg.pr.new, by branch, pull request or commit. A branch moves,
-but a commit does not. Pin a commit in `package.json`, so a new Forge changes your output only when you
-choose:
+Install `@cloudflare/forge` from npm and pin an exact version in `package.json`, so Forge changes
+your output only when you choose to update it:
 
 ```json title="package.json"
 {
   "devDependencies": {
-    "@cloudflare/forge": "https://pkg.pr.new/cloudflare/forge/@cloudflare/forge@<sha>"
+    "@cloudflare/forge": "0.3.0"
   },
   "scripts": {
     "generate": "rm -rf sdk && forge generate openapi.json --target ts --out sdk"
