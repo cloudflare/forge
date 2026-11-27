@@ -744,6 +744,37 @@ test('applies Fern ignore to inherited parameters, schemas, properties, and exam
   ]);
 });
 
+test("an operation's header overrides its path's whatever the case, and an ignored one removes it", () => {
+  const source: OpenApiDocumentSchema = {
+    paths: {
+      '/widgets': {
+        parameters: [
+          { name: 'X-Shared', in: 'header', required: true, schema: { type: 'string' } },
+          { name: 'X-Internal', in: 'header', required: true, schema: { type: 'string' } },
+          { name: 'X-Kept', in: 'header', required: true, schema: { type: 'string' } },
+        ],
+        get: {
+          operationId: 'widgets_list',
+          tags: ['Widget Management'],
+          parameters: [
+            { name: 'x-shared', in: 'header', schema: { type: 'string' } },
+            { name: 'x-internal', in: 'header', 'x-fern-ignore': true, schema: { type: 'string' } },
+          ],
+          responses: { '200': { description: 'ok' } },
+        },
+      },
+    },
+  };
+  const operation = buildDocsModel({ source, products: [widgetsProduct] }).products[0]?.sections[0]?.operations[0];
+  assert.deepEqual(
+    operation?.headerParams?.map(({ name, required }) => [name, required]),
+    [
+      ['x-shared', false],
+      ['X-Kept', true],
+    ],
+  );
+});
+
 test('prunes ignored union fields without truncating deeply nested authored examples', () => {
   const deepValue = {
     level1: { level2: { level3: { level4: { level5: { level6: { level7: { retained: 'value' } } } } } } },

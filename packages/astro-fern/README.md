@@ -333,9 +333,9 @@ defineFernCollections({
 });
 ```
 
-The provider receives the HTTP method, path and query parameters, request body
-representations, SDK accessor path, method name, and snapshot ID. Header and
-cookie parameters are not supplied. A renderer that returns `null` or throws
+The provider receives the HTTP method, path, query and header parameters, request
+body representations, SDK accessor path, method name, and snapshot ID. Cookie
+parameters are not supplied. A renderer that returns `null` or throws
 produces `code: null` for that target. The application can show an unavailable
 state without failing the content build.
 

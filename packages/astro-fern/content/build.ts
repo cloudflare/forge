@@ -438,6 +438,7 @@ function toSnippetOp(op: DocOperation): SnippetOperation {
     method: op.httpMethod.toLowerCase(),
     pathParams: op.pathParams.map(toSnippetParam),
     queryParams: op.queryParams.map(toSnippetParam),
+    headerParams: (op.headerParams ?? []).map(toSnippetParam),
     ...(requestBody ? { requestBody } : {}),
   };
 }
@@ -674,6 +675,7 @@ export function buildDocsModelResult(
             examples: resolved.examples,
             pathParams: resolved.pathParams,
             queryParams: resolved.queryParams,
+            headerParams: resolved.headerParams,
             requestBody: resolved.requestBody,
             responses: resolved.responses,
             snippets: [],

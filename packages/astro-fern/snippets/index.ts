@@ -57,6 +57,8 @@ export interface SnippetOperation {
   method: string;
   pathParams: SnippetParam[];
   queryParams: SnippetParam[];
+  /** Header parameters. Optional, so inputs built without them stay valid. */
+  headerParams?: SnippetParam[];
   /** Request requiredness and every media-type representation. */
   requestBody?: SnippetRequestBody;
 }

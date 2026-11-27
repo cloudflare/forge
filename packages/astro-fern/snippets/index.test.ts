@@ -16,6 +16,7 @@ function op(partial: Partial<SnippetOperation> = {}): SnippetOperation {
     method: 'get',
     pathParams: [{ name: 'widget_id', required: true, type: 'string' }],
     queryParams: [],
+    headerParams: [],
     ...partial,
   };
 }

@@ -92,6 +92,8 @@ export type DocOperation = Omit<
   description: string;
   pathParams: SchemaNode[];
   queryParams: SchemaNode[];
+  /** Header parameters, for request samples; pages don't list them. */
+  headerParams?: SchemaNode[];
   /** Request-body metadata and representations; `null` when there is no body. */
   requestBody: RequestBody | null;
   /** Every declared OpenAPI response, in source order. */
