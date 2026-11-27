@@ -346,6 +346,24 @@ function terraformSample(terraform: TerraformOperationData | undefined): string 
     .join('\n\n');
 }
 
+/** The Workers for Platforms limits page, which the spec's intro gives as the API's rate limits. */
+const PLATFORM_LIMITS =
+  'https://developers.cloudflare.com/cloudflare-for-platforms/workers-for-platforms/platform/limits/#api-rate-limits';
+const API_LIMITS = 'https://developers.cloudflare.com/fundamentals/api/reference/limits/';
+
+/**
+ * The API's introduction (`info.description`), which the home page and
+ * `llms.txt` lead with, without two mistakes the spec carries: a sentence
+ * sending readers to a preview of this site, which they can't open, and a
+ * rate-limits link to the Workers for Platforms limits instead of the API's.
+ * Once the spec is fixed, it passes through unchanged.
+ */
+export function apiIntro(description: string): string {
+  return description
+    .replace(/ We are experimenting with an updated version of our API documentation[^\n]*?new experience\./, '')
+    .replaceAll(PLATFORM_LIMITS, API_LIMITS);
+}
+
 /**
  * Nimbus's transform for the API: prepares the spec it reads (from the Forge
  * release, or `FORGE_OPENAPI_SPEC`) for rendering, and writes the products and
@@ -376,6 +394,8 @@ export function prepareForgeSpec(source: Record<string, unknown>): Record<string
   writeFileSync(new URL('endpoint-counts.json', dir), JSON.stringify(prepared.endpointCounts));
   writeFileSync(new URL('operation-pages.json', dir), JSON.stringify(prepared.operationPages));
   writeStainlessRedirects(snapshot, prepared, dir);
+  const info = prepared.document.info as { description?: unknown } | undefined;
+  if (info && typeof info.description === 'string') info.description = apiIntro(info.description);
   return prepared.document;
 }
 
