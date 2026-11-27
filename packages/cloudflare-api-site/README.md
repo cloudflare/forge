@@ -182,6 +182,16 @@ Terraform natively, remove it:
    `packages/cloudflare-api-site/src/generated` from `.oxfmtrc.json`.
 6. Run `pnpm install`, then `test`, `check`, and `test:e2e`.
 
+## Footer
+
+Every page ends with the developers.cloudflare.com footer: Cloudflare's link
+columns, then the copyright, the legal links and "Your privacy choices"
+(`src/components/footer/`). The links are a copy of cloudflare-docs'
+`src/util/footer.ts`, so they change when that file does. "Your privacy
+choices" is the consent manager developers.cloudflare.com uses, loaded from
+`ot.www.cloudflare.com`; it shows its cookie banner on a first visit, and uses
+its test configuration on any host but developers.cloudflare.com.
+
 ## Routes
 
 API pages render on request under `/api/`. Products, resources, and
@@ -204,16 +214,6 @@ Agent routes:
 /api/llms-full.txt
 /api/zero-trust/devices/ip-profiles/methods/list/index.md
 ```
-
-## Footer
-
-Every page ends with the developers.cloudflare.com footer: Cloudflare's link
-columns, then the copyright, the legal links and "Your privacy choices"
-(`src/components/footer/`). The links are a copy of cloudflare-docs'
-`src/util/footer.ts`, so they change when that file does. "Your privacy
-choices" is the consent manager developers.cloudflare.com uses, loaded from
-`ot.www.cloudflare.com`; it shows its cookie banner on a first visit, and uses
-its test configuration on any host but developers.cloudflare.com.
 
 ## Stainless redirects
 
