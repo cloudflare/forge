@@ -10,6 +10,7 @@ import {
   withBase,
 } from "@cloudflare/nimbus-docs/runtime";
 import AgentDirective from "@/components/AgentDirective.astro";
+import Footer from "@/components/footer/Footer.astro";
 import NimbusHead from "@cloudflare/nimbus-docs/components/NimbusHead.astro";
 import type { BasePageProps } from "@cloudflare/nimbus-docs/types";
 
@@ -152,6 +153,7 @@ const resolvedMarkdownUrl =
       <AgentDirective markdownUrl={resolvedMarkdownUrl ?? null} llmsUrl={llmsUrl} />
     )}
     <slot />
+    <Footer />
 
     <script>
       import { codeCopy, headingAnchors } from "@cloudflare/nimbus-docs/client";
