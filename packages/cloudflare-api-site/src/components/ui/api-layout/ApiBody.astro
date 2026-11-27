@@ -26,7 +26,7 @@ import ApiOperationList from "./ApiOperationList.astro";
 import ApiHomeChunk from "./ApiHomeChunk.astro";
 import ApiScalarType from "./ApiScalarType.astro";
 import Icon from "@cloudflare/nimbus-docs/components/Icon.astro";
-import { authFields } from "./auth";
+import { authSection } from "./auth";
 import { cn } from "@/lib/cn";
 import { withBase } from "@cloudflare/nimbus-docs/runtime";
 import type { ApiPageProps, ApiResponseView } from "@cloudflare/nimbus-docs/api";
@@ -84,7 +84,7 @@ const responseBodies = (r: ApiResponseView) => [
   ...(r.additionalMedia ?? []),
 ];
 
-const authFieldList = page.kind === "operation" ? authFields(page.auth) : [];
+const auth = page.kind === "operation" ? authSection(page.auth) : { fields: [], optional: false };
 // Named examples when the spec has them. Otherwise the request body shows
 // through the code samples; with none (e.g. `samples.generate: []`), the
 // primary example renders here so the page still shows what to send.
@@ -137,8 +137,10 @@ const terraform = page.kind === "operation" ? page.extensions?.["x-cloudflare-te
 
   {page.kind === "operation" && (
     <div class="flex flex-col gap-8" data-api-http-ref>
-      {authFieldList.length > 0 && (
-        <ApiFieldList as="h2" title="Authorization" fields={authFieldList} />
+      {(auth.fields.length > 0 || auth.union) && (
+        <ApiFieldList as="h2" title="Authorization" required={auth.optional ? false : undefined} fields={auth.fields.length > 0 ? auth.fields : undefined}>
+          {auth.union && <ApiUnionExplorer union={auth.union} />}
+        </ApiFieldList>
       )}
 
       {page.parameters.map((group) => (

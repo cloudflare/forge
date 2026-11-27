@@ -1,5 +1,6 @@
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import type { ApiSpec, ApiVersionSpec } from '@cloudflare/nimbus-docs/types';
+import { z } from 'astro/zod';
 import {
   buildFernContent,
   defineFernManifest,
@@ -55,6 +56,26 @@ function nimbusOperationId(operationId: string): string {
 /** Where Nimbus serves a product or resource page: today's URL, with moved products renamed. */
 function sectionPath(productSlug: string, slugs: string[] = []): string {
   return `/${[MOVED_PRODUCT_SLUGS[productSlug] ?? productSlug, ...slugs].join('/')}/`;
+}
+
+const TOKEN_GROUP_EXTENSION = 'x-api-token-group';
+
+const tokenPermissionsSchema = z
+  .array(z.string().trim().min(1))
+  .min(1)
+  .transform((names) => {
+    const escaped = names.map((name) => name.replace(/[\\`*_[\]<>]/g, '\\$&'));
+    return `Accepted token permissions (at least one required): ${escaped.join(', ')}.`;
+  });
+
+/**
+ * The API token permissions that can call an operation, any one of which is enough, as a sentence
+ * for its description. In the description, it reaches the page, its Markdown and `llms-full.txt`,
+ * which don't carry vendor extensions.
+ */
+function tokenPermissions(groups: unknown): string | undefined {
+  const parsed = tokenPermissionsSchema.safeParse(groups);
+  return parsed.success ? parsed.data : undefined;
 }
 
 export interface ForgeProduct {
@@ -269,6 +290,8 @@ export function prepareForgeApi(
         terraformOperationDataSchema,
       );
       if (terraform) op[TERRAFORM_EXTENSION] = terraform;
+      const permissions = tokenPermissions(op[TOKEN_GROUP_EXTENSION]);
+      if (permissions) op.description = [op.description, permissions].filter(Boolean).join('\n\n');
       const snippets = new Map(entry.snippets.map((snippet) => [snippet.targetId, snippet.code]));
       const sdk = sdkSnippets.get(entry.operation.operationId);
       op['x-codeSamples'] = CLOUDFLARE_TARGETS.flatMap((target) => {

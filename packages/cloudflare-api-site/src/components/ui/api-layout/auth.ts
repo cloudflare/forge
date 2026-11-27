@@ -1,4 +1,4 @@
-import type { ApiAuthView, ApiFieldView } from "@cloudflare/nimbus-docs/api";
+import type { ApiAuthView, ApiFieldView, ApiUnionView } from "@cloudflare/nimbus-docs/api";
 
 function authTypeLabel(a: ApiAuthView): string {
   if (a.type === "http") {
@@ -13,11 +13,43 @@ function authTypeLabel(a: ApiAuthView): string {
   return a.type ?? a.scheme;
 }
 
+interface SchemeCopy {
+  label: string;
+  placeholder?: string;
+  descriptionHtml: string;
+}
+
+/**
+ * The names and descriptions developers.cloudflare.com/api gives Cloudflare's
+ * security schemes, which the spec doesn't carry. Other schemes show their key.
+ */
+const SCHEME_COPY: Record<string, SchemeCopy> = {
+  api_token: {
+    label: "API Token",
+    descriptionHtml:
+      'The preferred authorization scheme for interacting with the Cloudflare API. <a href="https://developers.cloudflare.com/fundamentals/api/get-started/create-token/">Create a token</a>.',
+  },
+  api_email: {
+    label: "API Email",
+    placeholder: "<email>",
+    descriptionHtml:
+      "The previous authorization scheme for interacting with the Cloudflare API, used in conjunction with a Global API key.",
+  },
+  api_key: {
+    label: "API Key",
+    placeholder: "<key>",
+    descriptionHtml:
+      "The previous authorization scheme for interacting with the Cloudflare API. When possible, use API tokens instead of Global API keys.",
+  },
+};
+
+const schemeLabel = (a: ApiAuthView): string => SCHEME_COPY[a.scheme]?.label ?? a.scheme;
+
 function authExample(a: ApiAuthView): string | null {
   if (!a.headerName) return null;
   if (a.type === "http" && a.httpScheme === "bearer") return `${a.headerName}: Bearer <token>`;
   if (a.type === "http" && a.httpScheme === "basic") return `${a.headerName}: Basic <credentials>`;
-  return `${a.headerName}: <token>`;
+  return `${a.headerName}: ${SCHEME_COPY[a.scheme]?.placeholder ?? "<token>"}`;
 }
 
 /** `value` as text in HTML. The row renders `descriptionHtml` as is, and a
@@ -32,54 +64,54 @@ const code = (value: string): string => `<code>${escapeHtml(value)}</code>`;
 const authAnchor = (scheme: string): string =>
   `auth-${scheme.replace(/[^A-Za-z0-9._-]/g, "-")}`;
 
-interface AuthAgg {
-  view: ApiAuthView;
-  scopes: Set<string>;
-  required: boolean;
-}
-
-function toField(agg: AuthAgg): ApiFieldView {
-  const a = agg.view;
-  const scopes = [...agg.scopes];
+function toField(a: ApiAuthView, anchor: string): ApiFieldView {
   const example = authExample(a);
   // Built as HTML here rather than rendered from Markdown: this file runs where
   // the page renders, which on a request-rendered site is the server bundle.
   const parts = [
     example ? code(example) : "",
-    scopes.length > 0 ? `Scopes: ${scopes.map(code).join(", ")}` : "",
+    a.scopes.length > 0 ? `Scopes: ${a.scopes.map(code).join(", ")}` : "",
   ].filter(Boolean);
+  const paragraphs = [parts.join(" · "), SCHEME_COPY[a.scheme]?.descriptionHtml ?? ""].filter(Boolean);
   return {
-    coordinate: `auth:${a.scheme}`,
-    name: a.scheme,
+    coordinate: `auth:${anchor}`,
+    // What the reader sends: a header by its name, any other scheme by its key.
+    name: a.headerName ?? a.scheme,
     type: authTypeLabel(a),
-    required: agg.required,
-    anchor: authAnchor(a.scheme),
+    required: true,
+    anchor,
     children: [],
     childCount: 0,
     truncated: false,
-    descriptionHtml: parts.length > 0 ? `<p>${parts.join(" · ")}</p>` : undefined,
+    descriptionHtml: paragraphs.length > 0 ? paragraphs.map((p) => `<p>${p}</p>`).join("") : undefined,
   };
 }
 
-// Every distinct scheme across the alternatives as one field list. `auth` is
-// `ApiAuthView[][]` (outer OR, inner AND): a scheme is `required` only when it
-// appears in EVERY alternative, and scopes are unioned. First-seen order.
-export function authFields(auth: ApiAuthView[][]): ApiFieldView[] {
-  const order: string[] = [];
-  const byScheme = new Map<string, AuthAgg>();
+/**
+ * What an operation's Authorization section lists. `auth` is OR-of-AND: send
+ * every scheme of any one alternative. One alternative is its schemes, each
+ * required; several are a union, one option per alternative, so a token, or an
+ * email and a key, never reads as three optional headers. An empty alternative
+ * makes the whole section optional, and a repeated one is listed once.
+ */
+export function authSection(auth: ApiAuthView[][]): { fields: ApiFieldView[]; union?: ApiUnionView; optional: boolean } {
+  const seen = new Set<string>();
+  const alternatives: ApiAuthView[][] = [];
   for (const alt of auth) {
-    for (const a of alt) {
-      let agg = byScheme.get(a.scheme);
-      if (!agg) {
-        agg = { view: a, scopes: new Set(), required: true };
-        byScheme.set(a.scheme, agg);
-        order.push(a.scheme);
-      }
-      for (const s of a.scopes) agg.scopes.add(s);
-    }
+    const key = JSON.stringify(alt.map((a) => [a.scheme, a.scopes]));
+    if (alt.length === 0 || seen.has(key)) continue;
+    seen.add(key);
+    alternatives.push(alt);
   }
-  for (const [scheme, agg] of byScheme) {
-    agg.required = auth.every((alt) => alt.some((a) => a.scheme === scheme));
-  }
-  return order.map((s) => toField(byScheme.get(s)!));
+  const optional = auth.some((alt) => alt.length === 0);
+  const fields = (alt: ApiAuthView[]) => alt.map((a) => toField(a, authAnchor(a.scheme)));
+  if (alternatives.length < 2) return { fields: fields(alternatives[0] ?? []), optional };
+  return {
+    fields: [],
+    optional,
+    union: {
+      kind: "oneOf",
+      variants: alternatives.map((alt) => ({ label: alt.map(schemeLabel).join(" + "), fields: fields(alt) })),
+    },
+  };
 }

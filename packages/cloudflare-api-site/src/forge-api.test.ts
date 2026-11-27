@@ -114,6 +114,8 @@ const spec: Record<string, unknown> = {
     },
     '/alpha/settings': {
       get: operation('alpha.settings.get', ['alpha', 'settings'], 'get', {
+        description: 'Reads the settings.',
+        'x-api-token-group': ['Settings Read', 'Settings_Write'],
         responses: {
           '200': {
             description: 'ok',
@@ -556,4 +558,14 @@ test('refuses data that would give two pages one URL or one tag two meanings', (
 
 test('the prepared spec is titled for the API home', () => {
   assert.equal((prepare().document.info as { title: string }).title, 'API Reference');
+});
+
+test("an operation's token permissions follow its description, any one of them enough", () => {
+  const { document } = prepare();
+  const paths = document.paths as Record<string, Record<string, Record<string, unknown>>>;
+  assert.equal(
+    paths['/alpha/settings']!.get!.description,
+    'Reads the settings.\n\nAccepted token permissions (at least one required): Settings Read, Settings\\_Write.',
+  );
+  assert.equal(paths['/alpha/items/{id}']!.get!.description, undefined);
 });
