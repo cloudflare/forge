@@ -2,40 +2,31 @@
 import Icon from '@cloudflare/nimbus-docs/components/Icon.astro';
 import CopyButton from './CopyButton.astro';
 
-// No version numbers: they went stale here. Each card links to its package
-// registry, which always shows the current release.
+// No version numbers: written here by hand, they went stale.
 const libraries = [
   {
     id: 'typescript',
     name: 'TypeScript',
     install: 'npm install cloudflare',
     icon: 'simple-icons:typescript',
-    github: 'https://github.com/cloudflare/cloudflare-typescript',
-    registry: { label: 'npm', href: 'https://www.npmjs.com/package/cloudflare' },
   },
   {
     id: 'python',
     name: 'Python',
     install: 'pip install cloudflare',
     icon: 'simple-icons:python',
-    github: 'https://github.com/cloudflare/cloudflare-python',
-    registry: { label: 'PyPI', href: 'https://pypi.org/project/cloudflare/' },
   },
   {
     id: 'go',
     name: 'Go',
     install: 'go get -u github.com/cloudflare/cloudflare-go/v7',
     icon: 'simple-icons:go',
-    github: 'https://github.com/cloudflare/cloudflare-go',
-    registry: { label: 'pkg.go.dev', href: 'https://pkg.go.dev/github.com/cloudflare/cloudflare-go/v7' },
   },
   {
     id: 'terraform',
     name: 'Terraform',
     install: 'cloudflare = { source = "cloudflare/cloudflare", version = "~> 5.0" }',
     icon: 'simple-icons:terraform',
-    github: 'https://github.com/cloudflare/terraform-provider-cloudflare',
-    registry: { label: 'Terraform Registry', href: 'https://registry.terraform.io/providers/cloudflare/cloudflare/latest' },
   },
 ] as const;
 ---
@@ -61,10 +52,6 @@ const libraries = [
               copiedLabel="Copied install command"
             />
           </div>
-          <p class="library-links">
-            <a href={library.github}>GitHub</a>
-            <a href={library.registry.href}>{library.registry.label}</a>
-          </p>
         </article>
       ))
     }
@@ -156,21 +143,6 @@ const libraries = [
     font-size: 1rem;
     font-weight: 650;
     line-height: 1.25;
-  }
-
-  .library-links {
-    display: flex;
-    gap: 1rem;
-    font-size: 0.875rem;
-    line-height: 1.25;
-  }
-
-  .library-links a {
-    color: var(--cf-muted-foreground);
-  }
-
-  .library-links a:hover {
-    color: var(--cf-foreground);
   }
 
   .library-install-command {
