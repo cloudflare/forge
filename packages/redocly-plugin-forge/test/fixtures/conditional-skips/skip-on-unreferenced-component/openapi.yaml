@@ -1,0 +1,23 @@
+openapi: 3.1.0
+info:
+  title: Skip on unreferenced component
+  version: 1.0.0
+paths:
+  /thing:
+    get:
+      operationId: getThing
+      responses:
+        '200':
+          description: OK
+components:
+  parameters:
+    UnusedParam:
+      name: q
+      in: query
+      schema:
+        type: string
+      x-forge-skip: terraform
+  responses:
+    UnusedResponse:
+      description: OK
+      x-forge-only-for: true

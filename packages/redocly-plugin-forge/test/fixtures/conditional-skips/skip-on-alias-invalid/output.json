@@ -1,0 +1,14 @@
+[
+  {
+    "ruleId": "forge/conditional-skips",
+    "severity": "error",
+    "message": "x-forge-only-for must be a non-empty array of non-empty condition names; got empty array.",
+    "location": "openapi.yaml#/paths/~1thing/get/x-forge-aliases/0/x-forge-only-for (key)"
+  },
+  {
+    "ruleId": "forge/conditional-skips",
+    "severity": "error",
+    "message": "x-forge-skip must be a boolean or a non-empty array of non-empty condition names; got string.",
+    "location": "openapi.yaml#/paths/~1thing/get/x-forge-aliases/0/x-forge-skip (key)"
+  }
+]

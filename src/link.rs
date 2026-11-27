@@ -29,9 +29,9 @@ use crate::{
     ModelId, Name, Number, Scalar,
 };
 use openapi::{
-    Commands, ContentEncoding, Definition, Discriminator, Doc, Format, Info, Item, Literal, Operation, Parameter,
-    ParameterLocation, ParameterStyle, PathItem, Referable, RequestBody, Response, Schema, SchemaObject, SchemaType,
-    Server,
+    Commands, ContentEncoding, Definition, Discriminator, Doc, FilterId, Format, Info, Item, Literal, Operation,
+    Parameter, ParameterLocation, ParameterStyle, PathItem, Referable, RequestBody, Response, Schema, SchemaObject,
+    SchemaType, Server, Skip,
 };
 
 /// Reads a `Forge` from an OpenAPI document of version 3.0, 3.1 or 3.2,
@@ -63,15 +63,99 @@ use openapi::{
 impl<'de> Deserialize<'de> for Forge {
     fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Forge, D::Error> {
         let doc = Doc::read(deserializer)?;
-        match build(doc) {
+        // Without conditions, conditional filters (`x-forge-skip: [names]`
+        // and `x-forge-only-for`) are no-ops; `x-forge-skip: true` still
+        // drops the element.
+        match build(doc, None) {
             Ok(forge) => Ok(forge),
             Err(errors) => Err(de::Error::custom(errors.join("\n"))),
         }
     }
 }
 
+impl Forge {
+    /// Reads a `Forge` from `deserializer` with `conditions` active.
+    ///
+    /// A condition changes what elements marked `x-forge-skip` or
+    /// `x-forge-only-for` are kept: see RFC 0003. Unlike
+    /// [`Forge::deserialize`], an empty slice still enables conditional
+    /// filtering with no conditions active, so elements carrying
+    /// `x-forge-only-for` are dropped.
+    pub fn deserialize_with_conditions<'de, D: Deserializer<'de>>(
+        deserializer: D,
+        conditions: &[String],
+    ) -> Result<Forge, D::Error> {
+        let doc = Doc::read(deserializer)?;
+        match build(doc, Some(conditions)) {
+            Ok(forge) => Ok(forge),
+            Err(errors) => Err(de::Error::custom(errors.join("\n"))),
+        }
+    }
+}
+
+/// Reads a `Forge` from an OpenAPI JSON document with the given conditions
+/// active. A condition changes what elements marked `x-forge-skip` or
+/// `x-forge-only-for` are kept: see RFC 0003.
+#[cfg(any(feature = "cli", feature = "library"))]
+pub fn parse_json(json: &[u8], conditions: &[String]) -> Result<Forge, String> {
+    let doc = {
+        let mut de = serde_json::Deserializer::from_slice(json);
+        let doc = Doc::read(&mut de).map_err(|err| err.to_string())?;
+        de.end().map_err(|err| err.to_string())?;
+        doc
+    };
+    build(doc, Some(conditions)).map_err(|errors| errors.join("\n"))
+}
+
+/// Returns whether an element with `filter` is kept in a generation where
+/// `conditions` are active, or kept without conditional filtering when
+/// `conditions` is `None`. See RFC 0003 for the full semantics; `x-forge-skip`
+/// wins over `x-forge-only-for`.
+fn is_kept(doc: &Doc, conditions: Option<&[String]>, filter: FilterId) -> bool {
+    let Some(filter) = doc.filter(filter) else {
+        return true;
+    };
+    match filter.skip {
+        Skip::Always => return false,
+        Skip::Never => {}
+        Skip::Any(names) => {
+            if let Some(active) = conditions
+                && doc
+                    .list(names)
+                    .iter()
+                    .any(|&name| active.iter().any(|c| c == doc.str(name)))
+            {
+                return false;
+            }
+        }
+    }
+    let Some(active) = conditions else {
+        return true;
+    };
+    if filter.only_for.is_empty() {
+        return true;
+    }
+    doc.list(filter.only_for)
+        .iter()
+        .any(|&name| active.iter().any(|c| c == doc.str(name)))
+}
+
+/// Returns an error if `schema` was removed by `x-forge-skip` or
+/// `x-forge-only-for` under `conditions`.
+fn check_kept_schema(doc: &Doc, conditions: Option<&[String]>, schema: Schema, reference: &str) -> Result<(), String> {
+    if let Schema::Object(object) = schema {
+        let object = doc.get(object);
+        if !is_kept(doc, conditions, object.filter) {
+            return Err(format!(
+                "$ref {reference:?} points to a schema removed by x-forge-skip or x-forge-only-for"
+            ));
+        }
+    }
+    Ok(())
+}
+
 /// Returns the `Forge` of `doc`, or every error in it.
-fn build(mut doc: Doc) -> Result<Forge, Vec<String>> {
+fn build(mut doc: Doc, conditions: Option<&[String]>) -> Result<Forge, Vec<String>> {
     let version = mem::take(&mut doc.openapi);
     if version.is_empty() {
         return Err(vec![
@@ -93,7 +177,7 @@ fn build(mut doc: Doc) -> Result<Forge, Vec<String>> {
     // Taken whole too: a field keeps the `Id` of its schema's default.
     let defaults = mem::take(&mut doc.defaults);
     let index = Index::new(&doc);
-    let mut builder = Builder::new(&doc, &index, v30);
+    let mut builder = Builder::new(&doc, &index, v30, conditions);
     let url = match base_url(&servers) {
         Ok(url) => url,
         Err(err) => {
@@ -390,6 +474,11 @@ struct Builder<'d> {
     /// Whether the document is OpenAPI 3.0, where the keywords next to a
     /// `$ref` are ignored.
     v30: bool,
+    /// The conditions pinned on the CLI, used to filter elements marked
+    /// `x-forge-skip` or `x-forge-only-for`. `None` means no conditional
+    /// filtering (the `Deserialize` path); `Some(&[])` means CLI-mode
+    /// filtering with no condition active.
+    conditions: Option<&'d [String]>,
 
     groups: Groups,
     /// Each group but the root by its parent and name.
@@ -445,11 +534,12 @@ enum Context<'d> {
 }
 
 impl<'d> Builder<'d> {
-    fn new(doc: &'d Doc, index: &'d Index<'d>, v30: bool) -> Builder<'d> {
+    fn new(doc: &'d Doc, index: &'d Index<'d>, v30: bool, conditions: Option<&'d [String]>) -> Builder<'d> {
         Builder {
             doc,
             index,
             v30,
+            conditions,
             groups: Groups::default(),
             group_index: HashMap::new(),
             methods: Vec::new(),
@@ -483,6 +573,9 @@ impl<'d> Builder<'d> {
             let Some(item) = self.follow(item, &index.path_items, "pathItems") else {
                 continue;
             };
+            if !is_kept(doc, self.conditions, item.filter) {
+                continue;
+            }
             let fixed = [
                 (item.get, HttpMethod::Get, "GET"),
                 (item.put, HttpMethod::Put, "PUT"),
@@ -557,7 +650,7 @@ impl<'d> Builder<'d> {
         http_method: HttpMethod,
     ) {
         let doc = self.doc;
-        if definition.skip {
+        if !is_kept(doc, self.conditions, definition.filter) {
             return;
         }
         // `x-forge-method-name` names the method, with `x-forge-group-name`
@@ -637,13 +730,15 @@ impl<'d> Builder<'d> {
         if let Context::Alias(method, path, _) = self.context {
             self.context = Context::Operation(method, path);
         }
-        let declared = self.declared(item, operation);
+        let declared = self.declared(path, item, operation);
         let (mut fields, locations) = self.params(path, &declared);
         let headers = self.headers(&declared);
         let mut body = None;
         if let Some(request_body) = operation.request_body {
             let index = self.index;
-            if let Some(request_body) = self.follow(request_body, &index.request_bodies, "requestBodies") {
+            if let Some(request_body) = self.follow(request_body, &index.request_bodies, "requestBodies")
+                && is_kept(doc, self.conditions, request_body.filter)
+            {
                 body = Some(self.body(request_body));
             }
         }
@@ -731,29 +826,72 @@ impl<'d> Builder<'d> {
         id
     }
 
-    /// Returns each parameter of `operation` and of its path item `item`,
+    /// Returns each kept parameter of `operation` and of its path item `item`,
     /// with its own description, as [`param`](Builder::param) gives them:
     /// the path item's in the order they are declared, then the
     /// operation's. An operation's parameter that is the same as one
-    /// before it, as [`same_param`] says, takes its place instead.
-    fn declared(&mut self, item: &'d PathItem, operation: &'d Operation) -> Vec<(&'d Parameter, Str)> {
+    /// before it, as [`same_param`] says, takes its place instead — including
+    /// when the operation overrides a path-item parameter only to skip it.
+    ///
+    /// Removing a path parameter whose name appears as a `{placeholder}` in
+    /// `path` is an error, since the path template still requires it.
+    fn declared(&mut self, path: &'d str, item: &'d PathItem, operation: &'d Operation) -> Vec<(&'d Parameter, Str)> {
         let doc = self.doc;
         let mut declared: Vec<(&'d Parameter, Str)> = Vec::new();
+        // Kept empty (no heap allocation) in the common case where no
+        // parameter is skipped.
+        let mut skipped: Vec<&'d Parameter> = Vec::new();
         for &param in doc.list(item.parameters) {
-            if let Some(declaration) = self.param(param) {
-                declared.push(declaration);
+            if let Some((param, description, kept)) = self.param(param) {
+                if kept {
+                    declared.push((param, description));
+                } else {
+                    skipped.push(param);
+                }
             }
         }
         for &param in doc.list(operation.parameters) {
-            let Some(declaration) = self.param(param) else {
+            let Some((param, description, kept)) = self.param(param) else {
                 continue;
             };
-            match declared
-                .iter_mut()
-                .find(|other| same_param(doc, other.0, declaration.0))
-            {
-                Some(other) => *other = declaration,
-                None => declared.push(declaration),
+            let named = !param.name.is_empty() && param.location.is_some();
+            if kept {
+                if named {
+                    if let Some(pos) = skipped.iter().position(|other| same_param(doc, other, param)) {
+                        skipped.swap_remove(pos);
+                    }
+                    if let Some(other) = declared.iter_mut().find(|other| same_param(doc, other.0, param)) {
+                        *other = (param, description);
+                        continue;
+                    }
+                }
+                declared.push((param, description));
+            } else {
+                if named && let Some(pos) = declared.iter().position(|other| same_param(doc, other.0, param)) {
+                    declared.remove(pos);
+                }
+                skipped.push(param);
+            }
+        }
+        if !skipped.is_empty() {
+            let path_placeholders = placeholders(path);
+            for param in skipped {
+                if param.location == Some(ParameterLocation::Path) && path_placeholders.contains(&doc.str(param.name)) {
+                    self.error(format_args!(
+                        "path parameter {:?} is required by the path template and cannot be removed by x-forge-skip or x-forge-only-for",
+                        doc.str(param.name)
+                    ));
+                }
+            }
+        }
+        let mut i = 0;
+        while i < declared.len() {
+            let param = declared[i].0;
+            if param.name.is_empty() || param.location.is_none() {
+                self.error("a parameter has no name or no in");
+                declared.remove(i);
+            } else {
+                i += 1;
             }
         }
         declared
@@ -869,14 +1007,15 @@ impl<'d> Builder<'d> {
         Some(self.object_of(fields, None))
     }
 
-    /// Returns `param`, after following its `$ref`, and its own
-    /// description, or `None` if it has no name or location.
+    /// Returns `param`, after following its `$ref`, its own description, and
+    /// whether it is kept under the active conditions, or `None` if its `$ref`
+    /// could not be followed.
     ///
     /// From OpenAPI 3.1, a Reference Object's `description` overrides the
     /// referenced parameter's, so the description is the first one next
     /// to a `$ref` along the way, or else the parameter's. In 3.0 the
     /// keywords next to a `$ref` are ignored.
-    fn param(&mut self, param: Id<Parameter>) -> Option<(&'d Parameter, Str)> {
+    fn param(&mut self, param: Id<Parameter>) -> Option<(&'d Parameter, Str, bool)> {
         let index = self.index;
         let v30 = self.v30;
         let mut description = Str::default();
@@ -885,14 +1024,11 @@ impl<'d> Builder<'d> {
                 description = reference.description;
             }
         })?;
-        if param.name.is_empty() || param.location.is_none() {
-            self.error("a parameter has no name or no in");
-            return None;
-        }
+        let kept = is_kept(self.doc, self.conditions, param.filter);
         if description.is_empty() {
             description = param.description;
         }
-        Some((param, description))
+        Some((param, description, kept))
     }
 
     /// Reports whether `param` is covered: it has a `schema` rather than
@@ -1112,6 +1248,9 @@ impl<'d> Builder<'d> {
             let Some(response) = self.follow(response, &index.responses, "responses") else {
                 continue;
             };
+            if !is_kept(doc, self.conditions, response.filter) {
+                continue;
+            }
             let status = doc.str(status);
             let (contents, json) = self.contents(response.content);
             let data = ResponseData {
@@ -1655,7 +1794,7 @@ impl<'d> Builder<'d> {
                 Schema::Bool(true) => {}
                 Schema::Object(object) => {
                     let object = doc.get(object);
-                    if object.skip {
+                    if !is_kept(doc, self.conditions, object.filter) {
                         continue;
                     }
                     extension = object.field_name;
@@ -2153,6 +2292,7 @@ impl<'d> Builder<'d> {
         let Some(&(mut schema)) = self.index.schemas.get(name.as_ref()) else {
             return Err(points_to_nothing());
         };
+        check_kept_schema(doc, self.conditions, schema, reference)?;
         // The schema name, while every segment so far is in `$defs`.
         let mut schema_name = Some(name);
         let mut rest = segments.peekable();
@@ -2190,6 +2330,7 @@ impl<'d> Builder<'d> {
                 }
             }
             schema = child;
+            check_kept_schema(doc, self.conditions, schema, reference)?;
         }
         Ok((schema, schema_name))
     }

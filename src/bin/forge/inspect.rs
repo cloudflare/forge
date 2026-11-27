@@ -28,11 +28,16 @@ enum Command {
 struct Spec {
     /// The OpenAPI JSON document, or - to read it from standard input.
     spec: PathBuf,
+    /// Conditions that are active for this inspection, as a comma-separated
+    /// list. Elements marked `x-forge-skip: [name]` or
+    /// `x-forge-only-for: [name]` are filtered against them. See RFC 0003.
+    #[arg(long = "conditions", value_delimiter = ',', value_name = "NAME")]
+    conditions: Vec<String>,
 }
 
 pub fn run(args: Args) -> Result<(), Err> {
     match args.command {
-        Command::Methods(Spec { spec }) => print(&methods(&super::read(&spec)?)),
+        Command::Methods(Spec { spec, conditions }) => print(&methods(&super::read(&spec, &conditions)?)),
     }
 }
 

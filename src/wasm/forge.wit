@@ -225,6 +225,12 @@ interface parser {
     /// Parses the OpenAPI JSON document `json` into a forge. Fails with the
     /// message the `forge` command prints for the same document.
     parse: func(json: string) -> result<forge, string>;
+
+    /// Like `parse` but filters the document against the pinned
+    /// `conditions`: elements marked `x-forge-skip: [name]` or
+    /// `x-forge-only-for: [name]` are kept or dropped as the CLI's
+    /// `--conditions=name,...` would. See RFC 0003.
+    parse-with-conditions: func(json: string, conditions: list<string>) -> result<forge, string>;
 }
 
 /// Runs forge as a library. `@cloudflare/forge` uses this world to parse

@@ -1,6 +1,7 @@
 import type { RuleDefinition } from '../utils/types.ts';
 import { booleanExtensions } from './boolean-extensions.ts';
 import { compatibleAllofIntersection } from './compatible-allof-intersection.ts';
+import { conditionalSkips } from './conditional-skips.ts';
 import { contentTypeOnlyForMultipart } from './content-type-only-for-multipart.ts';
 import { explodedFormDataIsArray } from './exploded-form-data-is-array.ts';
 import { noComplexQueryParams } from './no-complex-query-params.ts';
@@ -23,6 +24,7 @@ import { validSchemaDefaults } from './valid-schema-defaults.ts';
 export const ruleDefinitions: RuleDefinition[] = [
   booleanExtensions,
   compatibleAllofIntersection,
+  conditionalSkips,
   contentTypeOnlyForMultipart,
   explodedFormDataIsArray,
   noComplexQueryParams,

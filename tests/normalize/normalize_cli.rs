@@ -765,3 +765,150 @@ fn a_file_in_a_folder_that_cannot_be_written_to_is_rewritten_in_place() {
     succeeded(&out);
     assert_eq!(fs::read_to_string(&file).unwrap(), NATIVE);
 }
+
+#[test]
+fn conditional_vendor_extensions_normalize_across_all_placements() {
+    let doc = r##"{
+      "openapi": "3.0.3",
+      "info": {"title": "t", "version": "1"},
+      "paths": {
+        "/skipped-path": {
+          "x-stainless-skip": ["terraform"],
+          "get": {
+            "x-fern-sdk-group-name": "p",
+            "x-fern-sdk-method-name": "get",
+            "responses": {"204": {"description": "ok"}}
+          }
+        },
+        "/items": {
+          "post": {
+            "x-fern-sdk-group-name": "items",
+            "x-fern-sdk-method-name": "create",
+            "x-fern-audiences": ["sdk"],
+            "parameters": [
+              {
+                "name": "debug",
+                "in": "query",
+                "x-fern-ignore": true,
+                "schema": {"type": "boolean"}
+              }
+            ],
+            "requestBody": {
+              "x-stainless-skip": ["mcp"],
+              "content": {"application/json": {"schema": {"type": "string"}}}
+            },
+            "responses": {
+              "200": {
+                "description": "ok",
+                "x-fern-audiences": ["sdk"],
+                "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Item"}}}
+              }
+            }
+          }
+        }
+      },
+      "components": {
+        "schemas": {
+          "Item": {
+            "type": "object",
+            "properties": {
+              "id": {"type": "string"},
+              "internal": {"type": "string", "x-stainless-skip": ["sdk"]},
+              "sdk_only": {"type": "string", "x-fern-audiences": ["sdk"]}
+            }
+          }
+        }
+      }
+    }"##;
+
+    let out = normalize(&["-"], doc);
+    succeeded(&out);
+
+    let text = text(&out.stdout);
+    for old in ["x-stainless-skip", "x-fern-audiences", "x-fern-ignore"] {
+        assert!(!text.contains(old), "{old} was not normalized: {text}");
+    }
+
+    // Under `sdk`: `/skipped-path` and `/items` are kept; `debug` param is
+    // skipped; requestBody is kept (`mcp` inactive); `Item` drops `internal`
+    // and keeps `id` + `sdk_only`.
+    let parsed = forge::parse_json(&out.stdout, &["sdk".to_owned()]).unwrap();
+    let items = parsed
+        .groups()
+        .find(|g| *g.name() == Name::new("items"))
+        .unwrap()
+        .methods()
+        .next()
+        .unwrap();
+    assert!(items.body().is_some());
+    assert_eq!(items.responses().count(), 1);
+    let Type::Model(model) = items.responses().next().unwrap().json().unwrap().ty() else {
+        panic!("expected model response");
+    };
+    let Type::Object(object) = model.ty() else {
+        panic!("expected object model");
+    };
+    let field_names: Vec<_> = object.fields().map(|f| f.wire_name()).collect();
+    assert_eq!(field_names, ["id", "sdk_only"]);
+
+    // Under `terraform`: `/skipped-path` is dropped, and `/items` (`only-for: [sdk]`) is dropped.
+    let parsed = forge::parse_json(&out.stdout, &["terraform".to_owned()]).unwrap();
+    assert_eq!(parsed.groups().flat_map(|g| g.methods()).count(), 0);
+}
+
+#[test]
+fn native_conditional_extensions_win_over_vendor_and_distinct_vendors_compose() {
+    let doc = r#"{
+      "openapi": "3.0.3",
+      "info": {"title": "t", "version": "1"},
+      "paths": {
+        "/native-wins": {
+          "get": {
+            "x-forge-group-name": "a",
+            "x-forge-method-name": "native",
+            "x-forge-only-for": ["cli"],
+            "x-fern-audiences": ["sdk"],
+            "x-forge-skip": ["mcp"],
+            "x-stainless-skip": ["terraform"],
+            "responses": {"204": {"description": "ok"}}
+          }
+        },
+        "/composed-vendors": {
+          "get": {
+            "x-forge-group-name": "a",
+            "x-forge-method-name": "composed",
+            "x-fern-audiences": ["sdk"],
+            "x-stainless-skip": ["terraform"],
+            "responses": {"204": {"description": "ok"}}
+          }
+        }
+      }
+    }"#;
+
+    let out = normalize(&["-"], doc);
+    succeeded(&out);
+
+    let value: Value = serde_json::from_slice(&out.stdout).unwrap();
+    let native = &value["paths"]["/native-wins"]["get"];
+    assert_eq!(native["x-forge-only-for"], serde_json::json!(["cli"]));
+    assert_eq!(native["x-forge-skip"], serde_json::json!(["mcp"]));
+    assert!(native.get("x-fern-audiences").is_none());
+    assert!(native.get("x-stainless-skip").is_none());
+
+    let composed = &value["paths"]["/composed-vendors"]["get"];
+    assert_eq!(composed["x-forge-only-for"], serde_json::json!(["sdk"]));
+    assert_eq!(composed["x-forge-skip"], serde_json::json!(["terraform"]));
+
+    let method_names = |conditions: &[&str]| -> Vec<String> {
+        let conditions: Vec<String> = conditions.iter().map(|c| (*c).to_owned()).collect();
+        let forge = forge::parse_json(&out.stdout, &conditions).unwrap();
+        forge
+            .groups()
+            .flat_map(|g| g.methods().map(|m| m.name().kebab()).collect::<Vec<_>>())
+            .collect()
+    };
+    assert_eq!(method_names(&["cli"]), ["native"]);
+    assert_eq!(method_names(&["sdk"]), ["composed"]);
+    // Exclusion wins when both composed vendor conditions are active.
+    assert!(method_names(&["sdk", "terraform"]).is_empty());
+}

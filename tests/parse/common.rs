@@ -13,6 +13,18 @@ pub fn parse(json: &str) -> Forge {
     }
 }
 
+/// Parses `json` with `conditions` active, filtering elements marked with
+/// `x-forge-skip` or `x-forge-only-for` accordingly.
+#[track_caller]
+pub fn parse_with_conditions(json: &str, conditions: &[&str]) -> Forge {
+    let conditions: Vec<String> = conditions.iter().map(|c| (*c).to_owned()).collect();
+    let mut de = serde_json::Deserializer::from_str(json);
+    match Forge::deserialize_with_conditions(&mut de, &conditions).and_then(|forge| de.end().map(|()| forge)) {
+        Ok(forge) => forge,
+        Err(err) => panic!("parse: {err}"),
+    }
+}
+
 /// Returns an OpenAPI 3.0.3 document with one method, `a.get`, whose JSON
 /// response has the schema `schema`.
 pub fn responding_with(schema: &str) -> String {
@@ -66,6 +78,18 @@ pub fn responding_with_schemas(schema: &str, schemas: &str) -> String {
 #[track_caller]
 pub fn parse_err(json: &str) -> String {
     match serde_json::from_str::<Forge>(json) {
+        Ok(_) => panic!("parse: want an error, got a Forge"),
+        Err(err) => err.to_string(),
+    }
+}
+
+/// Parses `json` with `conditions` active, which must fail, and returns the
+/// error message.
+#[track_caller]
+pub fn parse_with_conditions_err(json: &str, conditions: &[&str]) -> String {
+    let conditions: Vec<String> = conditions.iter().map(|c| (*c).to_owned()).collect();
+    let mut de = serde_json::Deserializer::from_str(json);
+    match Forge::deserialize_with_conditions(&mut de, &conditions).and_then(|forge| de.end().map(|()| forge)) {
         Ok(_) => panic!("parse: want an error, got a Forge"),
         Err(err) => err.to_string(),
     }

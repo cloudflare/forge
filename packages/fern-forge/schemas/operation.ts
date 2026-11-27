@@ -73,17 +73,16 @@ export const operationProjectionFieldsSchema = z.object({
   'x-forge-args': z.array(methodArgumentSchema).optional(),
   'x-forge-params': z.record(z.string(), paramOverrideSchema).optional(),
   'x-forge-require-confirmation': nonEmptyStringSchema.optional(),
+  // These keys appear on primary operations and on `x-forge-aliases[*]` in
+  // Forge release artifacts but are not projected onto documentation data
+  // today. Accept them with no shape so strict alias parsing lets them
+  // through; their shape is validated by `redocly-plugin-forge`.
+  'x-forge-oauth-scopes': z.unknown().optional(),
+  'x-forge-skip': z.unknown().optional(),
+  'x-forge-only-for': z.unknown().optional(),
 });
 
-// x-forge-oauth-scopes and x-forge-skip appear in Forge release artifacts but
-// are not projected onto documentation data today. Acknowledge them so
-// unknown-extension validation does not flag them; no shape is enforced.
-const knownOperationForgeKeys = new Set([
-  ...operationProjectionFieldsSchema.keyof().options,
-  'x-forge-aliases',
-  'x-forge-oauth-scopes',
-  'x-forge-skip',
-]);
+const knownOperationForgeKeys = new Set([...operationProjectionFieldsSchema.keyof().options, 'x-forge-aliases']);
 const unknownRecordSchema = z.record(z.string(), z.unknown());
 
 /** Removed Forge metadata that excludes an operation from generated documentation. */

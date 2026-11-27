@@ -252,3 +252,218 @@ fn inspect_methods_of_an_invalid_document() {
     let err = failure(inspect(&["methods", "-"], spec));
     assert!(err.contains("in the same group"), "{err}");
 }
+
+#[test]
+fn inspect_methods_filters_with_conditions_flag() {
+    let spec = r#"{
+      "openapi": "3.0.3",
+      "info": {"title": "t", "version": "1"},
+      "paths": {
+        "/a": {
+          "get": {
+            "x-forge-group-name": "a",
+            "x-forge-method-name": "get",
+            "x-forge-skip": ["terraform"],
+            "responses": {"200": {"description": "ok"}}
+          }
+        },
+        "/b": {
+          "get": {
+            "x-forge-group-name": "b",
+            "x-forge-method-name": "get",
+            "x-forge-only-for": ["sdk"],
+            "responses": {"200": {"description": "ok"}}
+          }
+        },
+        "/c": {
+          "get": {
+            "x-forge-group-name": "c",
+            "x-forge-method-name": "get",
+            "x-forge-only-for": ["mcp"],
+            "responses": {"200": {"description": "ok"}}
+          }
+        }
+      }
+    }"#;
+
+    let names = |args: &[&str]| -> Vec<String> {
+        let out = inspect(args, spec);
+        assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr));
+        let list: Vec<serde_json::Value> = serde_json::from_slice(&out.stdout).unwrap();
+        list.into_iter()
+            .map(|entry| {
+                let group = entry["group"][0].as_str().unwrap();
+                let name = entry["name"].as_str().unwrap();
+                format!("{group}.{name}")
+            })
+            .collect()
+    };
+
+    // Omitted `--conditions`: active set is empty, so only `/a` is kept.
+    assert_eq!(names(&["methods", "-"]), ["a.get"]);
+    // Comma-separated conditions: `sdk,mcp` keeps all three.
+    assert_eq!(
+        names(&["methods", "--conditions=sdk,mcp", "-"]),
+        ["a.get", "b.get", "c.get"]
+    );
+    // Repeated `--conditions` flags combine.
+    assert_eq!(
+        names(&["methods", "--conditions=terraform", "--conditions=sdk", "-"]),
+        ["b.get"]
+    );
+}
+
+#[test]
+fn generate_filters_with_conditions_flag() {
+    let spec = r#"{
+      "openapi": "3.0.3",
+      "info": {"title": "t", "version": "1"},
+      "paths": {
+        "/a": {
+          "get": {
+            "x-forge-group-name": "a",
+            "x-forge-method-name": "get",
+            "x-forge-skip": ["sdk"],
+            "responses": {"200": {"description": "ok"}}
+          }
+        },
+        "/b": {
+          "get": {
+            "x-forge-group-name": "b",
+            "x-forge-method-name": "get",
+            "x-forge-only-for": ["sdk"],
+            "responses": {"200": {"description": "ok"}}
+          }
+        }
+      }
+    }"#;
+
+    let out = std::env::temp_dir().join(format!("forge-cli-conditions-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&out);
+    let result = generate(
+        &[
+            "-",
+            "--target",
+            "ts",
+            "--conditions=sdk",
+            "--out",
+            out.to_str().unwrap(),
+        ],
+        spec,
+    );
+    assert!(result.status.success(), "{}", String::from_utf8_lossy(&result.stderr));
+    assert!(
+        !out.join("a/client.ts").exists(),
+        "skipped group a should not be emitted"
+    );
+    assert!(out.join("b/client.ts").is_file(), "only-for group b should be emitted");
+    std::fs::remove_dir_all(&out).unwrap();
+}
+
+#[test]
+fn generate_filters_fields_params_and_other_targets_with_conditions() {
+    let spec = r##"{
+      "openapi": "3.0.3",
+      "info": {"title": "t", "version": "1"},
+      "paths": {
+        "/items": {
+          "post": {
+            "x-forge-group-name": "items",
+            "x-forge-method-name": "create",
+            "parameters": [
+              {"name": "keep_param", "in": "query", "schema": {"type": "string"}},
+              {"name": "drop_param", "in": "query", "x-forge-skip": ["sdk"], "schema": {"type": "string"}}
+            ],
+            "requestBody": {
+              "x-forge-only-for": ["sdk"],
+              "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Item"}}}
+            },
+            "responses": {"200": {
+              "description": "ok",
+              "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Item"}}}
+            }}
+          }
+        },
+        "/mcp-only": {
+          "get": {
+            "x-forge-group-name": "tools",
+            "x-forge-method-name": "ping",
+            "x-forge-only-for": ["mcp"],
+            "responses": {"204": {"description": "ok"}}
+          }
+        }
+      },
+      "components": {
+        "schemas": {
+          "Item": {
+            "type": "object",
+            "properties": {
+              "visible": {"type": "string"},
+              "hidden_in_sdk": {"type": "string", "x-forge-skip": ["sdk"]}
+            }
+          }
+        }
+      }
+    }"##;
+
+    let ts_out = std::env::temp_dir().join(format!("forge-cli-cond-ts-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&ts_out);
+    let result = generate(
+        &[
+            "-",
+            "--target",
+            "ts",
+            "--conditions=sdk",
+            "--out",
+            ts_out.to_str().unwrap(),
+        ],
+        spec,
+    );
+    assert!(result.status.success(), "{}", String::from_utf8_lossy(&result.stderr));
+    let client = std::fs::read_to_string(ts_out.join("items/client.ts")).unwrap();
+    let models = std::fs::read_to_string(ts_out.join("items/models.ts")).unwrap();
+    assert!(client.contains("keepParam"), "{client}");
+    assert!(!client.contains("dropParam"), "{client}");
+    assert!(models.contains("visible"), "{models}");
+    assert!(!models.contains("hiddenInSdk"), "{models}");
+    assert!(!ts_out.join("tools/client.ts").exists());
+    std::fs::remove_dir_all(&ts_out).unwrap();
+
+    // `--target mcp` with `--conditions=mcp` emits the `mcp`-only tool.
+    let mcp_out = std::env::temp_dir().join(format!("forge-cli-cond-mcp-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&mcp_out);
+    let result = generate(
+        &[
+            "-",
+            "--target",
+            "mcp",
+            "--conditions=mcp",
+            "--out",
+            mcp_out.to_str().unwrap(),
+        ],
+        spec,
+    );
+    assert!(result.status.success(), "{}", String::from_utf8_lossy(&result.stderr));
+    let index = std::fs::read_to_string(mcp_out.join("index.ts")).unwrap();
+    assert!(index.contains("tools"), "{index}");
+    std::fs::remove_dir_all(&mcp_out).unwrap();
+
+    // `--target capnweb` with `--conditions=sdk` omits the `mcp`-only group.
+    let cap_out = std::env::temp_dir().join(format!("forge-cli-cond-cap-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&cap_out);
+    let result = generate(
+        &[
+            "-",
+            "--target",
+            "capnweb",
+            "--conditions=sdk",
+            "--out",
+            cap_out.to_str().unwrap(),
+        ],
+        spec,
+    );
+    assert!(result.status.success(), "{}", String::from_utf8_lossy(&result.stderr));
+    assert!(cap_out.join("items/server.ts").is_file());
+    assert!(!cap_out.join("tools/server.ts").exists());
+    std::fs::remove_dir_all(&cap_out).unwrap();
+}
