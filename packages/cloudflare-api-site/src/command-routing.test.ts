@@ -2,8 +2,24 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { cfCommandCatalog } from './command-reference/cf-commands.ts';
 import { assertToolingRouteNamespace, CommandRouter, commandTitle } from './command-reference/routing.ts';
+import { commandPageUrls } from './command-reference/sitemap.ts';
 
 const router = new CommandRouter(cfCommandCatalog, { base: '/api' });
+
+test('the sitemap lists every command page, each at the URL it resolves at', () => {
+  const products = [
+    { id: 'd1', slug: 'd1' },
+    { id: 'workers', slug: 'workers' },
+    { id: 'ai', slug: 'ai' },
+  ];
+  const urls = commandPageUrls('https://example.com', '/api', products);
+  const listed = new Set(urls);
+
+  assert.equal(listed.size, router.commands.length);
+  assert.ok(listed.has('https://example.com/api/tooling/deploy/'));
+  assert.ok(listed.has('https://example.com/api/d1/tooling/migrations/apply/'));
+  urls.forEach((url, index) => assert.equal(router.resolve(new URL(url), products), router.commands[index], url));
+});
 
 test('command routes resolve under the API tooling namespace', () => {
   assert.equal(router.resolve(new URL('https://example.com/api/tooling/deploy/'))?.command, 'cf deploy');
