@@ -23,13 +23,13 @@
     "@astrojs/markdown-satteri": "^0.3.8",
     "@playwright/test": "1.63.0",
     "@types/node": "25.3.5",
-    "astro": "^7.2.8",
+    "astro": "^7.4.7",
     "satteri": "^0.10.5",
     "typescript": "5.9.3"
   },
   "peerDependencies": {
     "@astrojs/markdown-satteri": "^0.3.8",
-    "astro": "^7.2.8",
+    "astro": "^7.4.7",
     "satteri": "^0.10.5"
   }
 }
