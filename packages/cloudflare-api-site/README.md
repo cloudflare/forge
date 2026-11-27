@@ -106,6 +106,12 @@ approved zone mapping.
 - `src/styles/globals.css` holds the Cloudflare palette as Nimbus `--nb-*`
   tokens; `src/styles/cloudflare.css` aliases them as the `--cf-*` tokens.
 - `src/sidebar-filter.ts` filters the sidebar as the reader types.
+- `src/components/search/` is the header search: a dialog, opened with the
+  `search` key in `src/lib/shortcuts.ts`, that queries the external search
+  Worker at `PUBLIC_API_SEARCH_URL` (the full URL of its `/api/search`; search
+  is hidden when unset) and links each hit to its `path`. `src/search.ts`,
+  `src/search-highlight.ts`, and `src/search-analytics.ts` hold its request,
+  match highlighting, and best-effort `/api/stats` events.
 - Nimbus publishes agent discovery files at the origin root and under `/api`;
   on a host shared with other sites they belong in the root site's files.
 

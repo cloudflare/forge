@@ -1,6 +1,7 @@
 ---
 import Icon from '@cloudflare/nimbus-docs/components/Icon.astro';
 import { ThemeToggle } from './ui/theme-toggle';
+import Search from './search/Search.astro';
 import SiteTitle from './SiteTitle.astro';
 import { VersionSwitcher } from './ui/version-switcher';
 
@@ -19,6 +20,7 @@ const { showSidebar = true } = Astro.props;
     </div>
 
     <div class="site-header-actions">
+      <Search />
       <VersionSwitcher apiCollection="api" />
       <ThemeToggle />
       {
@@ -55,14 +57,16 @@ const { showSidebar = true } = Astro.props;
 
   .site-header-brand {
     display: flex;
-    min-width: 0;
+    flex: none;
     align-items: center;
   }
 
   .site-header-actions {
     display: flex;
-    flex-shrink: 0;
+    flex: 1 1 0;
+    min-width: 0;
     align-items: center;
+    justify-content: flex-end;
     gap: 0.5rem;
   }
 

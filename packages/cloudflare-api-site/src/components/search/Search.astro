@@ -1,0 +1,715 @@
+---
+/**
+ * API search: a header trigger and a modal dialog that queries the external
+ * search Worker at `PUBLIC_API_SEARCH_URL`. Renders nothing when it is unset.
+ * `search.client.ts` runs the dialog; result rows are built there from the
+ * templates below, so their styles are global under `.cf-search`.
+ */
+import Icon from '@cloudflare/nimbus-docs/components/Icon.astro';
+import ApiMethodChip from '@/components/ui/api-sidebar/ApiMethodChip.astro';
+import { shortcutLabel } from '@cloudflare/nimbus-docs/client';
+import { shortcuts } from '@/lib/shortcuts';
+import cloudflareLogo from '@/assets/cloudflare-logo.svg';
+
+function searchUrl(value: string | undefined): string | undefined {
+  if (!value?.trim()) return undefined;
+  try {
+    return new URL(value.trim()).toString();
+  } catch {
+    console.warn(`Ignoring PUBLIC_API_SEARCH_URL: not a URL (${value})`);
+    return undefined;
+  }
+}
+
+const apiUrl = searchUrl(import.meta.env.PUBLIC_API_SEARCH_URL);
+const key = shortcuts.search;
+// The kinds a reader can narrow to.
+const filters = [
+  { kind: 'all', label: 'All' },
+  { kind: 'resource', label: 'Resources' },
+  { kind: 'http_method', label: 'Methods' },
+] as const;
+---
+
+{
+  apiUrl && (
+    <div class="cf-search" data-cf-search data-api-url={apiUrl}>
+      <button
+        type="button"
+        class="cf-search-trigger"
+        aria-haspopup="dialog"
+        aria-label="Search"
+        data-cf-search-open
+        data-nb-shortcut-for={key || undefined}
+      >
+        <Icon name="ph:magnifying-glass" aria-hidden="true" />
+        <span class="cf-search-trigger-label" aria-hidden="true">
+          Search
+        </span>
+        {key && (
+          <kbd class="cf-search-trigger-key" data-nb-shortcut-hint={key} aria-hidden="true">
+            {shortcutLabel(key)}
+          </kbd>
+        )}
+      </button>
+
+      <dialog class="cf-search-dialog" aria-label="Search the API reference" data-cf-search-dialog>
+        <div class="cf-search-field">
+          <span class="cf-search-field-icon" aria-hidden="true">
+            <Icon name="ph:magnifying-glass" />
+            <Icon name="ph:circle-notch" />
+          </span>
+          <input
+            type="text"
+            name="api-search"
+            placeholder="Search the API"
+            autocomplete="off"
+            autocapitalize="off"
+            autocorrect="off"
+            spellcheck="false"
+            enterkeyhint="go"
+            role="combobox"
+            aria-label="Search the API reference"
+            aria-autocomplete="list"
+            aria-controls="cf-search-results"
+            aria-expanded="false"
+            data-cf-search-input
+          />
+          {/* Esc closes from the keyboard, so Tab goes straight from the query to the filters. */}
+          <button type="button" class="cf-search-close" aria-label="Close search" tabindex="-1" data-cf-search-close>
+            <kbd aria-hidden="true">esc</kbd>
+            <Icon name="ph:x" aria-hidden="true" />
+          </button>
+        </div>
+
+        <div class="cf-search-bar" data-cf-search-bar="filters">
+          <div class="cf-search-filters" role="radiogroup" aria-label="Show" data-cf-search-filters>
+            {filters.map(({ kind, label }) => (
+              <button
+                type="button"
+                role="radio"
+                aria-checked={kind === 'all' ? 'true' : 'false'}
+                tabindex={kind === 'all' ? 0 : -1}
+                data-cf-search-filter={kind}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          <span class="cf-search-count" role="status" data-cf-search-count />
+        </div>
+
+        <div class="cf-search-body" data-cf-search-body>
+          <div class="cf-search-section" hidden data-cf-search-bar="recent">
+            <span id="cf-search-recent-label">Recent</span>
+            <button type="button" class="cf-search-text-button" data-cf-search-clear-recent>
+              Clear
+            </button>
+          </div>
+          <div id="cf-search-results" class="cf-search-results" role="listbox" hidden data-cf-search-results />
+          <div class="cf-search-idle" hidden data-cf-search-message="idle">
+            <Icon name="ph:magnifying-glass" aria-hidden="true" />
+            <p>Start typing to search</p>
+          </div>
+          <p class="cf-search-message" role="status" hidden data-cf-search-message="empty">
+            <span data-cf-search-empty-text />
+            <button type="button" class="cf-search-text-button" hidden data-cf-search-widen>
+              Search everything
+            </button>
+          </p>
+          <p class="cf-search-message" role="alert" hidden data-cf-search-message="error">
+            Search isn’t responding.
+            <button type="button" class="cf-search-text-button" data-cf-search-retry>
+              Try again
+            </button>
+          </p>
+        </div>
+
+        <footer class="cf-search-footer">
+          <div class="cf-search-hints" aria-hidden="true">
+            <span>
+              <kbd>↑</kbd>
+              <kbd>↓</kbd>
+              Select
+            </span>
+            <span>
+              <kbd>↵</kbd>
+              Open
+            </span>
+          </div>
+          <a
+            class="cf-search-branding"
+            href="https://www.cloudflare.com/products/ai-search/"
+            rel="noopener noreferrer"
+            target="_blank"
+          >
+            Powered by AI Search
+            <img src={cloudflareLogo.src} alt="" width="22" height="10" />
+          </a>
+        </footer>
+      </dialog>
+
+      <template data-cf-search-lead="resource">
+        <Icon name="ph:folder" aria-hidden="true" />
+      </template>
+      <template data-cf-search-lead="http_method">
+        <ApiMethodChip method="GET" display="label" />
+      </template>
+    </div>
+  )
+}
+
+<script>
+  import './search.client';
+</script>
+
+<style is:global>
+  .cf-search-trigger {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    width: 2rem;
+    height: 2rem;
+    padding: 0;
+    border: 1px solid var(--cf-border);
+    border-radius: 0.5rem;
+    color: var(--cf-muted-foreground);
+    background: var(--cf-card);
+    font-size: 0.8125rem;
+    cursor: pointer;
+    transition:
+      color 150ms,
+      border-color 150ms;
+  }
+
+  .cf-search-trigger:hover {
+    border-color: var(--cf-border-strong);
+    color: var(--cf-foreground);
+  }
+
+  .cf-search-trigger > svg {
+    width: 0.875rem;
+    height: 0.875rem;
+  }
+
+  .cf-search-trigger-label,
+  .cf-search .cf-search-trigger-key {
+    display: none;
+  }
+
+  .cf-search kbd {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 1.25rem;
+    height: 1.25rem;
+    padding: 0 0.25rem;
+    border: 1px solid var(--cf-border);
+    border-radius: 0.25rem;
+    color: var(--cf-muted-foreground);
+    background: transparent;
+    font-family: var(--nb-font-mono);
+    font-size: 0.6875rem;
+    font-weight: 500;
+    line-height: 1;
+  }
+
+  @media (min-width: 48rem) {
+    /* The trigger takes the room the header has left, down to just its icon. */
+    .cf-search {
+      flex: 0 1 16rem;
+      min-width: 2rem;
+      container-type: inline-size;
+    }
+
+    .cf-search-trigger {
+      justify-content: flex-start;
+      width: 100%;
+      padding: 0 0.3125rem 0 0.5rem;
+    }
+  }
+
+  @container (min-width: 6.5rem) {
+    .cf-search-trigger-label {
+      display: inline;
+      flex: 1;
+      text-align: left;
+    }
+  }
+
+  @container (min-width: 9rem) {
+    .cf-search .cf-search-trigger-key:not([hidden]) {
+      display: inline-flex;
+    }
+  }
+
+  @container (max-width: 6.49rem) {
+    .cf-search-trigger {
+      width: 2rem;
+      margin-left: auto;
+      justify-content: center;
+      padding: 0;
+    }
+  }
+
+  .cf-search-dialog {
+    --cf-search-top: min(12vh, 6rem);
+    flex-direction: column;
+    width: min(48rem, calc(100vw - 2rem));
+    max-width: none;
+    /* A fixed size from the moment it opens, so results arriving move nothing. */
+    height: min(38rem, calc(100dvh - var(--cf-search-top) - 1rem));
+    max-height: none;
+    margin: var(--cf-search-top) auto auto;
+    padding: 0;
+    overflow: hidden;
+    border: 1px solid var(--cf-border);
+    border-radius: 0.75rem;
+    color: var(--cf-foreground);
+    background: var(--cf-card);
+    box-shadow: var(--nb-shadow-lg);
+  }
+
+  .cf-search-dialog[open] {
+    display: flex;
+  }
+
+  .cf-search-dialog::backdrop {
+    background: oklch(0 0 0 / 0.4);
+  }
+
+  .cf-search-dialog button {
+    font: inherit;
+    cursor: pointer;
+  }
+
+  .cf-search-dialog :focus-visible {
+    outline-offset: -2px;
+  }
+
+  .cf-search-field {
+    display: flex;
+    flex: none;
+    align-items: center;
+    gap: 0.625rem;
+    padding: 0 0.625rem 0 0.875rem;
+    color: var(--cf-muted-foreground);
+  }
+
+  .cf-search-field-icon {
+    display: inline-flex;
+    flex: none;
+  }
+
+  .cf-search-field-icon svg {
+    width: 1rem;
+    height: 1rem;
+  }
+
+  /* The spinner takes the magnifier's place, so a slow answer moves nothing. */
+  .cf-search-field-icon svg:last-child,
+  .cf-search-dialog[data-loading] .cf-search-field-icon svg:first-child {
+    display: none;
+  }
+
+  .cf-search-dialog[data-loading] .cf-search-field-icon svg:last-child {
+    display: block;
+    animation: cf-search-spin 0.8s linear infinite;
+  }
+
+  @keyframes cf-search-spin {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+
+  .cf-search-field input {
+    flex: 1;
+    min-width: 0;
+    height: 2.875rem;
+    padding: 0;
+    border: 0;
+    color: var(--cf-foreground);
+    background: transparent;
+    font-size: 1rem;
+  }
+
+  /* The dialog is the field: its caret and the selected result show focus. */
+  .cf-search-field input:focus-visible {
+    outline: 0;
+  }
+
+  .cf-search-field input::placeholder {
+    color: var(--cf-muted-foreground);
+  }
+
+  .cf-search-close {
+    display: inline-flex;
+    flex: none;
+    align-items: center;
+    justify-content: center;
+    padding: 0.25rem;
+    border: 0;
+    border-radius: 0.375rem;
+    color: var(--cf-muted-foreground);
+    background: transparent;
+  }
+
+  .cf-search-close svg {
+    display: none;
+    width: 1rem;
+    height: 1rem;
+  }
+
+  .cf-search-close:hover kbd {
+    border-color: var(--cf-border-strong);
+    color: var(--cf-foreground);
+  }
+
+  .cf-search-bar:not([hidden]) {
+    display: flex;
+    flex: none;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    min-height: 2.25rem;
+    padding: 0 0.875rem 0 0.375rem;
+    border-top: 1px solid var(--cf-border);
+    color: var(--cf-muted-foreground);
+    font-size: 0.75rem;
+  }
+
+  .cf-search-section:not([hidden]) {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.625rem 0.875rem 0.125rem;
+    color: var(--cf-muted-foreground);
+    font-size: 0.75rem;
+  }
+
+  .cf-search-section .cf-search-text-button {
+    color: inherit;
+  }
+
+  .cf-search-section .cf-search-text-button:hover {
+    color: var(--cf-foreground);
+    text-decoration: none;
+  }
+
+  .cf-search-idle:not([hidden]) {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    height: 100%;
+    padding: 1.5rem;
+    color: var(--cf-muted-foreground);
+    font-size: 0.875rem;
+    text-align: center;
+  }
+
+  .cf-search-idle svg {
+    width: 1.25rem;
+    height: 1.25rem;
+  }
+
+  .cf-search-idle p {
+    margin: 0;
+  }
+
+  .cf-search-filters {
+    display: flex;
+    gap: 0.125rem;
+  }
+
+  .cf-search-filters button {
+    height: 1.625rem;
+    padding: 0 0.5rem;
+    border: 0;
+    border-radius: 0.375rem;
+    color: inherit;
+    background: transparent;
+    font-size: 0.8125rem;
+  }
+
+  .cf-search-filters button:hover {
+    color: var(--cf-foreground);
+  }
+
+  .cf-search-filters button[aria-checked='true'] {
+    color: var(--cf-foreground);
+    background: var(--cf-accent);
+    font-weight: 500;
+  }
+
+  .cf-search-count {
+    flex: none;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .cf-search-text-button {
+    padding: 0;
+    border: 0;
+    border-radius: 0.25rem;
+    color: var(--cf-link);
+    background: transparent;
+  }
+
+  .cf-search-text-button:hover {
+    text-decoration: underline;
+  }
+
+  .cf-search-bar .cf-search-text-button {
+    color: inherit;
+  }
+
+  .cf-search-bar .cf-search-text-button:hover {
+    color: var(--cf-foreground);
+    text-decoration: none;
+  }
+
+  .cf-search-body {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scroll-padding-block: 0.375rem;
+    border-top: 1px solid var(--cf-border);
+  }
+
+  .cf-search-results {
+    padding: 0.375rem;
+  }
+
+  .cf-search-hit {
+    display: flex;
+    gap: 0.625rem;
+    padding: 0.375rem 0.5rem;
+    border-radius: 0.375rem;
+    color: inherit;
+    font-size: 0.875rem;
+    line-height: 1.25rem;
+    text-decoration: none;
+  }
+
+  .cf-search-hit[aria-selected='true'] {
+    background: var(--cf-accent);
+  }
+
+  /* One column for the method chip and the kind icons, so titles line up. */
+  .cf-search-lead {
+    display: flex;
+    flex: none;
+    align-items: center;
+    justify-content: center;
+    width: 2.25rem;
+    height: 1.25rem;
+    color: var(--cf-muted-foreground);
+  }
+
+  .cf-search-lead svg {
+    width: 1rem;
+    height: 1rem;
+  }
+
+  /* Beside an unboxed title a boxed chip looks pasted on, so here the method is
+     just its coloured label, sitting on the title's baseline. */
+  .cf-search-hit[data-kind='http_method'] {
+    align-items: first baseline;
+  }
+
+  .cf-search-hit[data-kind='http_method'] .cf-search-lead {
+    align-items: baseline;
+    height: auto;
+  }
+
+  .cf-search-lead i[data-m] {
+    height: auto;
+    border-color: transparent;
+    background: transparent;
+    font-size: 0.6875rem;
+    font-weight: 600;
+    line-height: 1.25rem;
+  }
+
+  .cf-search-main {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    min-width: 0;
+  }
+
+  .cf-search-line {
+    display: flex;
+    align-items: baseline;
+    gap: 0.5rem;
+    min-width: 0;
+  }
+
+  .cf-search-title {
+    overflow: hidden;
+    font-weight: 500;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .cf-search-code {
+    font-family: var(--nb-font-mono);
+    font-size: 0.75rem;
+    color: var(--cf-muted-foreground);
+    overflow-wrap: anywhere;
+  }
+
+  .cf-search-line .cf-search-code {
+    flex: none;
+  }
+
+  /* Where the page sits. It gives way first when the row runs out of room. */
+  .cf-search-crumbs {
+    flex: 1 9999 0%;
+    min-width: 0;
+    overflow: hidden;
+    color: var(--cf-muted-foreground);
+    font-size: 0.75rem;
+    text-align: right;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /* What matched: a touch heavier in the title, lifted out of the muted line below it. */
+  .cf-search-dialog mark {
+    color: var(--cf-foreground);
+    background: none;
+  }
+
+  .cf-search-title mark {
+    font-weight: 600;
+  }
+
+  .cf-search-message {
+    margin: 0;
+    color: var(--cf-muted-foreground);
+    font-size: 0.8125rem;
+  }
+
+  .cf-search-message {
+    padding: 1.25rem 0.875rem;
+  }
+
+  .cf-search-message button {
+    margin-left: 0.25rem;
+  }
+
+  .cf-search-footer {
+    display: flex;
+    flex: none;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    min-height: 2.25rem;
+    padding: 0 0.875rem;
+    border-top: 1px solid var(--cf-border);
+    color: var(--cf-muted-foreground);
+    font-size: 0.75rem;
+  }
+
+  .cf-search-hints {
+    display: flex;
+    gap: 0.875rem;
+  }
+
+  .cf-search-hints > span {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+  }
+
+  .cf-search-hints kbd:last-of-type {
+    margin-right: 0.125rem;
+  }
+
+  .cf-search-branding {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    margin-left: auto;
+    border-radius: 0.25rem;
+    color: inherit;
+    text-decoration: none;
+  }
+
+  .cf-search-branding img {
+    width: auto;
+    height: 0.75rem;
+  }
+
+  .cf-search-branding:hover {
+    color: var(--cf-foreground);
+  }
+
+  /* Touch: no keyboard to hint at, a close button a finger can find, and rows
+     tall enough to tap. The title wraps, since there is no room beside it. */
+  @media (hover: none), (max-width: 40rem) {
+    .cf-search-hints,
+    .cf-search-close kbd,
+    .cf-search-crumbs {
+      display: none;
+    }
+
+    .cf-search-close {
+      width: 2.25rem;
+      height: 2.25rem;
+    }
+
+    .cf-search-close svg {
+      display: block;
+    }
+
+    .cf-search-filters button {
+      height: 2rem;
+      padding: 0 0.625rem;
+    }
+
+    .cf-search-hit {
+      padding-block: 0.625rem;
+    }
+
+    .cf-search-title {
+      white-space: normal;
+    }
+
+    .cf-search-line {
+      flex-wrap: wrap;
+      column-gap: 0.5rem;
+    }
+  }
+
+  /* Phones: every pixel goes to results, so the dialog is the whole screen,
+     edge to edge, clear of the notch and home indicator. */
+  @media (max-width: 40rem) {
+    .cf-search-dialog {
+      width: 100%;
+      height: 100%;
+      max-height: none;
+      margin: 0;
+      padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom)
+        env(safe-area-inset-left);
+      border: 0;
+      border-radius: 0;
+      box-shadow: none;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .cf-search-trigger {
+      transition: none;
+    }
+
+    .cf-search-dialog[data-loading] .cf-search-field-icon svg:last-child {
+      animation-duration: 2.4s;
+    }
+  }
+</style>
