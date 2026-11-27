@@ -60,25 +60,71 @@ test.describe('routes', () => {
   }
 });
 
-test("home keeps its title, description and the sidebar's top entries", async ({ page }) => {
+test("home keeps its title and description, opens with its hero, and keeps the sidebar's top entries", async ({
+  page,
+}) => {
   await page.goto('/api/');
   await expect(page).toHaveTitle('API Reference | Cloudflare API');
   await expect(page.locator('meta[name="description"]')).toHaveAttribute(
     'content',
     'API reference generated from the Cloudflare OpenAPI spec by Forge.',
   );
-  const header = page.locator('main [data-slot="page-header"]');
-  await expect(header.locator('h1')).toHaveText('API Reference');
-  await expect(header.locator('[data-slot="page-description"]')).toHaveText(
-    'API reference generated from the Cloudflare OpenAPI spec by Forge.',
-  );
-  await expect(header).not.toContainText('Welcome to Cloudflare');
-  await expect(page.locator('main')).toContainText("Welcome to Cloudflare's API documentation site");
+  const hero = page.locator('main #hero');
+  await expect(hero.locator('h1')).toHaveText('Cloudflare API Reference');
+  await expect(page.locator('main [data-slot="page-header"]')).toHaveCount(0);
+  await expect(page.locator('main')).not.toContainText('Welcome to Cloudflare');
+  await hero.getByRole('link', { name: 'Browse endpoints' }).click();
+  await expect(page.locator('[data-nb-ix-input]')).toBeFocused();
   const nav = page.locator('[data-nb-api-nav]');
   await expect(nav.locator('> ul > li').first().locator('a[href="/api/"]')).toHaveAttribute('aria-current', 'page');
   await expect(nav.locator('> ul > li').nth(1).locator('> details > summary')).toHaveText('Developer Tooling');
   await expect(nav.locator('a[href="/api/tooling/"]').first()).toBeAttached();
   await expect(nav.locator('a[href="/api/zero-trust/"]').first()).toBeAttached();
+});
+
+test("the home's Copy prompt copies its prompt, and its marks follow the site's theme", async ({ page, context }) => {
+  await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+  await page.emulateMedia({ colorScheme: 'dark' });
+  await page.addInitScript(() => localStorage.setItem('ui-mode', 'light'));
+  // Hold the clock so the copied state can't time out before it's checked.
+  await page.clock.install();
+  await page.goto('/api/');
+  await page.clock.pauseAt(Date.now() + 60_000);
+  const button = page.locator('#hero [data-copy-prompt]');
+  await expect(button).toHaveAccessibleName('Copy prompt');
+  await expect(button.locator('img[src$="/claude/light.svg"]')).toBeVisible();
+  await expect(button.locator('img[src$="/claude/dark.svg"]')).toBeHidden();
+  await button.click();
+  await expect(button).toHaveAccessibleName('Prompt copied!');
+  await expect(page.locator('[data-copy-prompt-status]')).toHaveText('Prompt copied');
+  expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(await button.getAttribute('data-copy-prompt'));
+});
+
+test("the home's endpoint browser filters inside its card, which keeps its place and size", async ({ page }) => {
+  // Without motion, "Browse endpoints" lands at once, so the field's place is final.
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.goto('/api/');
+  await page.locator('#hero').getByRole('link', { name: 'Browse endpoints' }).click();
+  const input = page.locator('[data-nb-ix-input]');
+  await expect(input).toBeFocused();
+  await expect.poll(() => input.evaluate((el) => Math.round(el.getBoundingClientRect().top))).toBeLessThan(150);
+  const top = await input.evaluate((el) => el.getBoundingClientRect().top);
+  const body = page.locator('[data-nb-ix-body]');
+  const height = await body.evaluate((el) => el.clientHeight);
+  await input.pressSequentially('zzzzqq');
+  await expect(page.locator('[data-nb-ix-note]')).toHaveText('No endpoints match.');
+  expect(await input.evaluate((el) => el.getBoundingClientRect().top)).toBeCloseTo(top, 0);
+  expect(await body.evaluate((el) => el.clientHeight)).toBe(height);
+});
+
+test("the home's later parts keep the page header, without the hero or the home's grid", async ({ page }) => {
+  await page.goto('/api/');
+  const next = await page.locator('[data-nb-ix-more]').getAttribute('href');
+  expect(next).toBeTruthy();
+  await page.goto(next!);
+  await expect(page.locator('main [data-slot="page-header"] h1')).toContainText('endpoints');
+  await expect(page.locator('main #hero')).toHaveCount(0);
+  await expect(page.locator('main > [aria-hidden="true"]')).toHaveCount(0);
 });
 
 test('a product with commands lists its Developer Tooling group', async ({ page }) => {

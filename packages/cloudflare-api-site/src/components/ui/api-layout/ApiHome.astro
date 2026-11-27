@@ -1,20 +1,21 @@
 ---
 /**
- * ApiHome — the API home: every endpoint of the version on one page, laid out
- * like a section page, with a filter.
+ * ApiHome — the API home: every endpoint of the version, laid out like a
+ * section page, in a card of fixed height that scrolls, with a filter.
  *
  * Large specs: the list is split into parts of at most `API_HOME_CHUNK_SIZE`
  * endpoints, the size the API route passes to `getApiStaticPaths` and
  * `getApiRoute`. The first renders here; each later part is a page of its own,
  * served by the same route, fetched and appended about 1,500px before the
- * reader reaches the end. Without script, the list ends in a link to the next
- * part. The filter searches the version's page list, fetched on first focus,
- * so it finds endpoints that haven't loaded. Coming back to the page restores
- * the parts that were loaded and the scroll position.
+ * reader reaches the end of the card. Without script, the list ends in a link
+ * to the next part. The filter searches the version's page list, fetched on
+ * first focus, so it finds endpoints that haven't loaded. Coming back to the
+ * page restores the parts that were loaded and both scroll positions.
  */
 import LibraryCards from "@/components/LibraryCards.astro";
 import ApiHomeChunk from "./ApiHomeChunk.astro";
 import ApiOperationList from "./ApiOperationList.astro";
+import { LayerCard, LayerCardContent, LayerCardHeader } from "@/components/ui/layer-card";
 import { apiIndexRows, withBase } from "@cloudflare/nimbus-docs/runtime";
 import type { ApiHome } from "@cloudflare/nimbus-docs/runtime";
 import type { ApiRootPage } from "@cloudflare/nimbus-docs/api";
@@ -44,6 +45,7 @@ if (rows.length > 0 && !home) {
   <p class="nb-ix-none">No endpoints in this version.</p>
 ) : (
   <div
+    id="endpoints"
     data-slot="api-home"
     class="nb-ix"
     data-nb-ix
@@ -51,30 +53,33 @@ if (rows.length > 0 && !home) {
     data-base={base}
     data-later={JSON.stringify(later)}
   >
-    <div class="nb-ix-bar" hidden={!home.listHref}>
-      <label class="nb-ix-filter">
-        <svg viewBox="0 0 256 256" aria-hidden="true"><circle cx="116" cy="116" r="72" fill="none" stroke="currentColor" stroke-width="20" /><path d="M168 168l52 52" stroke="currentColor" stroke-width="20" stroke-linecap="round" /></svg>
-        <span class="sr-only">Filter endpoints</span>
-        <input type="search" placeholder={`Filter ${home.total} endpoints`} autocomplete="off" spellcheck="false" data-nb-ix-input />
-      </label>
-    </div>
+    <LayerCard class="nb-ix-card">
+      <LayerCardHeader class="nb-ix-head">
+        <label class="nb-ix-filter" hidden={!home.listHref}>
+          <svg viewBox="0 0 256 256" aria-hidden="true"><circle cx="116" cy="116" r="72" fill="none" stroke="currentColor" stroke-width="20" /><path d="M168 168l52 52" stroke="currentColor" stroke-width="20" stroke-linecap="round" /></svg>
+          <span class="sr-only">Search endpoints</span>
+          <input type="search" placeholder="Search for an endpoint" autocomplete="off" spellcheck="false" data-nb-ix-input />
+        </label>
+      </LayerCardHeader>
+      <LayerCardContent class="nb-ix-body" data-nb-ix-body>
+        <div data-nb-ix-feed>
+          <ApiHomeChunk chunk={home.part} grouped={grouped} />
+        </div>
 
-    <div data-nb-ix-feed>
-      <ApiHomeChunk chunk={home.part} grouped={grouped} />
-    </div>
+        {later.length > 0 && (
+          <a class="nb-ix-more" href={later[0]!.href} data-nb-ix-more data-pagefind-ignore>
+            <span data-nb-ix-more-label>Next: {later[0]!.label}</span>
+          </a>
+        )}
 
-    {later.length > 0 && (
-      <a class="nb-ix-more" href={later[0]!.href} data-nb-ix-more data-pagefind-ignore>
-        <span data-nb-ix-more-label>Next: {later[0]!.label}</span>
-      </a>
-    )}
-
-    {/* Filter results are built in the browser; search indexes the page's own list. */}
-    <div data-nb-ix-results hidden data-pagefind-ignore>
-      <div data-nb-ix-results-list></div>
-      <p class="nb-ix-note" hidden data-nb-ix-note></p>
-      <button type="button" class="nb-ix-retry" hidden data-nb-ix-retry>Retry</button>
-    </div>
+        {/* Filter results are built in the browser; search indexes the page's own list. */}
+        <div data-nb-ix-results hidden data-pagefind-ignore>
+          <div data-nb-ix-results-list></div>
+          <p class="nb-ix-note" hidden data-nb-ix-note></p>
+          <button type="button" class="nb-ix-retry" hidden data-nb-ix-retry>Retry</button>
+        </div>
+      </LayerCardContent>
+    </LayerCard>
     <p class="sr-only" aria-live="polite" data-nb-ix-status></p>
 
     {/* One result row per method, cloned and filled in by the filter. */}
@@ -113,6 +118,7 @@ if (rows.length > 0 && !home) {
     const based = (href: string) => (href.startsWith("/") ? `${base}${href}` : href);
 
     const input = root.querySelector<HTMLInputElement>("[data-nb-ix-input]")!;
+    const body = root.querySelector<HTMLElement>("[data-nb-ix-body]")!;
     const feed = root.querySelector<HTMLElement>("[data-nb-ix-feed]")!;
     const more = root.querySelector<HTMLAnchorElement>("[data-nb-ix-more]");
     const moreLabel = root.querySelector<HTMLElement>("[data-nb-ix-more-label]");
@@ -159,13 +165,14 @@ if (rows.length > 0 && !home) {
         .finally(() => {
           loading = null;
           // A short part can leave the visible link in range, where the observer won't fire again.
-          if (appended && more?.isConnected && !more.hidden && more.getBoundingClientRect().top < innerHeight + ahead)
+          if (appended && more?.isConnected && !more.hidden && more.getBoundingClientRect().top < body.getBoundingClientRect().bottom + ahead)
             void loadNext();
         });
       return loading;
     };
     const observer = more
       ? new IntersectionObserver((entries) => entries.some((e) => e.isIntersecting) && void loadNext(), {
+          root: body,
           rootMargin: `0px 0px ${ahead}px 0px`,
         })
       : null;
@@ -215,12 +222,12 @@ if (rows.length > 0 && !home) {
     // ---- Back to the page: reload what was loaded, then the scroll ----
     const saved = (() => {
       try {
-        return JSON.parse(sessionStorage.getItem(stateKey) ?? "null") as { loaded: number; y: number } | null;
+        return JSON.parse(sessionStorage.getItem(stateKey) ?? "null") as { loaded: number; y: number; inner: number } | null;
       } catch {
         return null;
       }
     })();
-    if (traversing && saved && saved.loaded > 0) {
+    if (traversing && saved && (saved.loaded > 0 || saved.inner > 0)) {
       void (async () => {
         while (loaded < Math.min(saved.loaded, later.length)) {
           const before = loaded;
@@ -228,11 +235,12 @@ if (rows.length > 0 && !home) {
           if (loaded === before) break;
         }
         window.scrollTo(0, saved.y);
+        body.scrollTop = saved.inner;
       })();
     }
     const save = () => {
       try {
-        sessionStorage.setItem(stateKey, JSON.stringify({ loaded, y: window.scrollY }));
+        sessionStorage.setItem(stateKey, JSON.stringify({ loaded, y: window.scrollY, inner: body.scrollTop }));
       } catch {}
     };
     window.addEventListener("pagehide", save, { signal: leave.signal });
@@ -283,13 +291,18 @@ if (rows.length > 0 && !home) {
       else if (matches.length > LIMIT) say(`Showing ${LIMIT} of ${matches.length} endpoints.`);
       else say(matches.length === 1 ? "1 endpoint" : `${matches.length} endpoints`, false);
     };
+    let listTop = 0;
     const terms = () => input.value.toLowerCase().trim().split(/\s+/).filter(Boolean);
     const apply = async () => {
       const current = terms();
       const filtering = current.length > 0;
+      if (filtering && !feed.hidden) listTop = body.scrollTop;
+      const back = !filtering && feed.hidden;
       feed.hidden = filtering;
       if (more) more.hidden = filtering;
       results.hidden = !filtering;
+      if (back) body.scrollTop = listTop;
+      else if (filtering) body.scrollTop = 0;
       if (!filtering) {
         list.replaceChildren();
         status.textContent = "";
@@ -329,33 +342,36 @@ if (rows.length > 0 && !home) {
 
 <style>
   .nb-ix {
+    scroll-margin-top: calc(var(--nb-header-height) + 1.5rem);
+  }
+  /* LayerCard parts take these classes; scoped styles don't reach a class
+     passed into a component, so they're matched from the scoped wrapper. */
+  .nb-ix :global(.nb-ix-head) {
+    padding: 0.5rem;
+  }
+  .nb-ix :global(.nb-ix-body) {
     display: flex;
     flex-direction: column;
-    gap: 3rem;
+    gap: 2rem;
+    height: min(40rem, calc(100dvh - var(--nb-header-height) - 6rem));
+    overflow-y: auto;
+    padding: 1.5rem 1.25rem;
   }
-  .nb-ix-bar {
-    position: sticky;
-    top: var(--nb-header-height);
-    z-index: 5;
-    /* The sidebar's filter bar spacing (`.sb-filter-bar`), so both filters
-       line up below the header; the margins keep the resting layout. */
-    margin: -0.75rem 0 -1.75rem;
-    padding: 1.25rem 0 0.75rem;
-    background: var(--nb-background);
-  }
-  /* The sidebar filter's shape (`SidebarFilter`), on the LayerCard's ring and
-     recessed fill, as the library cards above it. */
   .nb-ix-filter {
     display: flex;
+    flex: 1;
     align-items: center;
     gap: 0.5rem;
     height: 2.25rem;
     padding-inline: 0.75rem 0.5rem;
     border-radius: 0.5rem;
-    background: var(--nb-muted);
+    background: var(--nb-card);
     box-shadow: 0 0 0 1px var(--nb-border);
     color: var(--nb-muted-foreground);
     transition: background-color 0.15s, box-shadow 0.15s;
+  }
+  .nb-ix-filter[hidden] {
+    display: none;
   }
   .nb-ix-filter:focus-within {
     background: var(--nb-card);
@@ -397,6 +413,17 @@ if (rows.length > 0 && !home) {
   .nb-ix-more:hover {
     color: var(--nb-foreground);
     text-decoration: underline;
+  }
+  [data-nb-ix-results]:has([data-nb-ix-results-list]:empty) {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+  }
+  [data-nb-ix-results][hidden] {
+    display: none;
   }
   .nb-ix-none,
   .nb-ix-note {
