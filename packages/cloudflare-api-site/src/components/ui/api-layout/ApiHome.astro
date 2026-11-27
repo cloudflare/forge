@@ -343,20 +343,28 @@ if (rows.length > 0 && !home) {
     padding: 1.25rem 0 0.75rem;
     background: var(--nb-background);
   }
-  /* Drawn like the sidebar's filter (`SidebarFilter`). */
+  /* The sidebar filter's shape (`SidebarFilter`), on the LayerCard's ring and
+     recessed fill, as the library cards above it. */
   .nb-ix-filter {
     display: flex;
     align-items: center;
     gap: 0.5rem;
-    height: 2.125rem;
+    height: 2.25rem;
     padding-inline: 0.75rem 0.5rem;
-    border: 1px solid var(--nb-border);
-    border-radius: 0.375rem;
-    background: var(--nb-card);
+    border-radius: 0.5rem;
+    background: var(--nb-muted);
+    box-shadow: 0 0 0 1px var(--nb-border);
     color: var(--nb-muted-foreground);
+    transition: background-color 0.15s, box-shadow 0.15s;
   }
   .nb-ix-filter:focus-within {
-    outline: 2px solid var(--nb-ring);
+    background: var(--nb-card);
+    box-shadow: 0 0 0 1px var(--nb-ring), 0 0 0 4px color-mix(in oklab, var(--nb-ring) 25%, transparent);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .nb-ix-filter {
+      transition: none;
+    }
   }
   .nb-ix-filter svg {
     width: 1rem;
