@@ -24,6 +24,7 @@ import ApiPageHeader from "./ApiPageHeader.astro";
 import ApiHome from "./ApiHome.astro";
 import ApiOperationList from "./ApiOperationList.astro";
 import ApiHomeChunk from "./ApiHomeChunk.astro";
+import ApiHomeHero from "./ApiHomeHero.astro";
 import ApiScalarType from "./ApiScalarType.astro";
 import Icon from "@cloudflare/nimbus-docs/components/Icon.astro";
 import { authFields } from "./auth";
@@ -44,6 +45,7 @@ const { page, home } = Astro.props;
 // reader without script can walk the whole list.
 const homeChunk = page.kind === "api" && home && home.part.number > 1 ? home.part : undefined;
 const homeNext = homeChunk && home?.parts[homeChunk.number];
+const hero = page.kind === "api" && home?.part.number === 1;
 
 // "JSON" for a JSON body; any other names its media type as written
 // (`text/plain`, `multipart/form-data`).
@@ -109,13 +111,17 @@ const LEGACY_ANCHORS: Record<string, string> = {
 const terraform = page.kind === "operation" ? page.extensions?.["x-cloudflare-terraform"] : undefined;
 ---
 
-<ApiPageHeader page={page} home={home} />
+{hero ? (
+  <ApiHomeHero />
+) : (
+  <ApiPageHeader page={page} home={home} />
+)}
 
 {/* The description follows the header, styled as prose, so a long one never
     pushes the endpoint down; on one column the request sample (the `sample`
     slot) comes next, on the first screen. From 90rem the sample sits beside
     the header instead (ApiLayout). */}
-{!homeChunk && page.descriptionHtml && (
+{!homeChunk && !hero && page.descriptionHtml && (
   <div data-nb-heading-anchors class="nb-md nb-md-intro mt-8 [overflow-wrap:anywhere]" set:html={page.descriptionHtml} />
 )}
 

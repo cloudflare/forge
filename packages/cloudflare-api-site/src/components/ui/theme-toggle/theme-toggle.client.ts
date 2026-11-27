@@ -1,37 +1,43 @@
-/**
- * theme-toggle.client.ts — light/dark toggle. Writes pref to localStorage
- * ("ui-mode"); BaseLayout's pre-paint script owns DOM application so view
- * transitions, OS changes, and cross-tab edits stay in sync.
- */
-
 import { mount } from "@cloudflare/nimbus-docs/client";
+
+type Pref = "light" | "dark" | "auto";
 
 declare global {
   interface Window {
-    __nbApplyTheme?: (mode?: "light" | "dark") => void;
+    __nbApplyTheme?: (pref?: Pref) => void;
   }
+}
+
+const ORDER: readonly Pref[] = ["light", "dark", "auto"];
+
+const readPref = (): Pref => {
+  const pref = document.documentElement.dataset.nbPref;
+  return pref === "light" || pref === "dark" ? pref : "auto";
+};
+
+function labelFor(pref: Pref): string {
+  return pref === "light"
+    ? "Theme: light. Activate to switch to dark."
+    : pref === "dark"
+      ? "Theme: dark. Activate to switch to system."
+      : "Theme: system. Activate to switch to light.";
 }
 
 function initThemeToggle(button: HTMLElement): () => void {
   function handleClick() {
-    const mode = document.documentElement.getAttribute("data-mode") === "dark" ? "light" : "dark";
+    const next = ORDER[(ORDER.indexOf(readPref()) + 1) % ORDER.length]!;
     try {
-      localStorage.setItem("ui-mode", mode);
+      localStorage.setItem("ui-mode", next);
       window.__nbApplyTheme?.();
     } catch {
       // Storage is blocked (private mode, restricted contexts): keep the
       // choice for this page.
-      window.__nbApplyTheme?.(mode);
+      window.__nbApplyTheme?.(next);
     }
-    syncPressed();
+    button.setAttribute("aria-label", labelFor(next));
   }
 
-  function syncPressed() {
-    button.setAttribute("aria-pressed", String(document.documentElement.dataset.mode === "dark"));
-  }
-
-  window.__nbApplyTheme?.();
-  syncPressed();
+  button.setAttribute("aria-label", labelFor(readPref()));
   button.addEventListener("click", handleClick);
   return () => button.removeEventListener("click", handleClick);
 }

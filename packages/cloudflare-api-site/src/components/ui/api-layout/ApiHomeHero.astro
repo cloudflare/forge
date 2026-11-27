@@ -1,0 +1,40 @@
+---
+import { buttonClass } from "@/components/ui/button";
+import CopyPromptButton from "@/components/CopyPromptButton.astro";
+
+const PROMPT =
+  "Fetch and execute the appropriate instructions to set me up for Cloudflare from https://developers.cloudflare.com/agent-setup/prompt.md";
+---
+
+<section id="hero" class="pb-12 md:pt-6 lg:pb-16">
+  <h1 class="text-foreground mb-4 text-[clamp(2.75rem,5vw,3.5rem)] leading-[1.1] font-medium tracking-tight text-balance max-[420px]:text-[2.375rem]">
+    Cloudflare API Reference
+  </h1>
+
+  <p class="text-muted-foreground mb-6 max-w-[480px] text-base leading-relaxed text-pretty sm:mb-8 sm:text-lg">
+    Every endpoint for managing Cloudflare, with examples in cURL, TypeScript, Python, Go and Terraform
+  </p>
+
+  <div class="flex flex-wrap items-center gap-3" data-pagefind-ignore>
+    <a href="#endpoints" class={buttonClass("primary")} data-api-hero-browse>Browse endpoints</a>
+    <CopyPromptButton prompt={PROMPT} title="Sets up your AI agent for Cloudflare" />
+  </div>
+</section>
+
+<script>
+  function init() {
+    for (const a of document.querySelectorAll<HTMLAnchorElement>("[data-api-hero-browse]:not([data-ready])")) {
+      a.dataset.ready = "";
+      a.addEventListener("click", (e) => {
+        const input = document.querySelector<HTMLInputElement>("[data-nb-ix-input]");
+        if (!input || input.closest("[hidden]")) return;
+        e.preventDefault();
+        const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+        document.getElementById("endpoints")?.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "start" });
+        input.focus({ preventScroll: true });
+      });
+    }
+  }
+  init();
+  document.addEventListener("astro:page-load", init);
+</script>
