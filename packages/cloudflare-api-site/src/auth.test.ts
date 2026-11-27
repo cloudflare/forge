@@ -55,13 +55,9 @@ test('a scheme without a description shows its key', () => {
   );
 });
 
-test('a scheme in two alternatives keeps its scopes in each, with an anchor of its own', () => {
+test('a scheme in two alternatives keeps its scopes in each', () => {
   const section = authSection([[scheme('oauth', ['read'])], [scheme('oauth', ['write']), key]]);
   const fields = section.union!.variants.flatMap((v) => v.fields!);
-  assert.deepEqual(
-    fields.map((f) => f.anchor),
-    ['auth-oauth', 'auth-oauth-2', 'auth-api_key'],
-  );
   assert.match(fields[0]!.descriptionHtml!, /read/);
   assert.match(fields[1]!.descriptionHtml!, /write/);
 });

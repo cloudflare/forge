@@ -1,5 +1,6 @@
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import type { ApiSpec, ApiVersionSpec } from '@cloudflare/nimbus-docs/types';
+import { z } from 'astro/zod';
 import {
   buildFernContent,
   defineFernManifest,
@@ -73,17 +74,22 @@ function sectionPath(productSlug: string, slugs: string[] = []): string {
 
 const TOKEN_GROUP_EXTENSION = 'x-api-token-group';
 
+const tokenPermissionsSchema = z
+  .array(z.string().trim().min(1))
+  .min(1)
+  .transform((names) => {
+    const escaped = names.map((name) => name.replace(/[\\`*_[\]<>]/g, '\\$&'));
+    return `Accepted token permissions (at least one required): ${escaped.join(', ')}.`;
+  });
+
 /**
  * The API token permissions that can call an operation, any one of which is enough, as a sentence
  * for its description. In the description, it reaches the page, its Markdown and `llms-full.txt`,
  * which don't carry vendor extensions.
  */
 function tokenPermissions(groups: unknown): string | undefined {
-  if (!Array.isArray(groups)) return undefined;
-  const names = groups.filter((group): group is string => typeof group === 'string' && group.trim() !== '');
-  if (names.length === 0) return undefined;
-  const escaped = names.map((name) => name.replace(/[\\`*_[\]<>]/g, '\\$&'));
-  return `Accepted token permissions (at least one required): ${escaped.join(', ')}.`;
+  const parsed = tokenPermissionsSchema.safeParse(groups);
+  return parsed.success ? parsed.data : undefined;
 }
 
 export interface ForgeProduct {

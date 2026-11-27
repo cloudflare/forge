@@ -96,21 +96,15 @@ function toField(a: ApiAuthView, anchor: string): ApiFieldView {
  */
 export function authSection(auth: ApiAuthView[][]): { fields: ApiFieldView[]; union?: ApiUnionView; optional: boolean } {
   const seen = new Set<string>();
-  const alternatives = auth.filter((alt) => {
+  const alternatives: ApiAuthView[][] = [];
+  for (const alt of auth) {
     const key = JSON.stringify(alt.map((a) => [a.scheme, a.scopes]));
-    if (alt.length === 0 || seen.has(key)) return false;
+    if (alt.length === 0 || seen.has(key)) continue;
     seen.add(key);
-    return true;
-  });
+    alternatives.push(alt);
+  }
   const optional = auth.some((alt) => alt.length === 0);
-  // A scheme in several alternatives keeps its anchor in the first and numbers the rest.
-  const uses = new Map<string, number>();
-  const fields = (alt: ApiAuthView[]) =>
-    alt.map((a) => {
-      const n = (uses.get(a.scheme) ?? 0) + 1;
-      uses.set(a.scheme, n);
-      return toField(a, n === 1 ? authAnchor(a.scheme) : `${authAnchor(a.scheme)}-${n}`);
-    });
+  const fields = (alt: ApiAuthView[]) => alt.map((a) => toField(a, authAnchor(a.scheme)));
   if (alternatives.length < 2) return { fields: fields(alternatives[0] ?? []), optional };
   return {
     fields: [],
