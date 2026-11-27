@@ -182,6 +182,20 @@ Terraform natively, remove it:
    `packages/cloudflare-api-site/src/generated` from `.oxfmtrc.json`.
 6. Run `pnpm install`, then `test`, `check`, and `test:e2e`.
 
+## Home
+
+`/api/` is laid out as the developers.cloudflare.com home: its content
+container, hero, page grid and section headings. These files take their parts
+from [cloudflare-docs](https://github.com/cloudflare/cloudflare-docs) (MIT),
+cut to what the home uses, each with a header naming its source:
+
+- `src/components/landing/StructuralGrid.astro` and `FullPageLines.astro`: the
+  page grid, in the docs' `--nb-grid-line` colours (`src/styles/globals.css`).
+- `src/components/ui/api-layout/ApiHomeHero.astro`: the hero.
+- `src/components/ui/button`: the hero's and the header's buttons.
+- `src/components/CopyPromptButton.astro` and `public/icons/agents/`: the
+  copy-prompt button, with the docs' agent-setup prompt.
+
 ## Routes
 
 API pages render on request under `/api/`. Products, resources, and

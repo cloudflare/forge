@@ -11,6 +11,8 @@
 import Icon from "@cloudflare/nimbus-docs/components/Icon.astro";
 import ApiNavigation from "@/components/ApiNavigation.astro";
 import SiteLinks from "@/components/SiteLinks.astro";
+import FullPageLines from "@/components/landing/FullPageLines.astro";
+import StructuralGrid from "@/components/landing/StructuralGrid.astro";
 import { ApiCodeRail } from "@/components/ui/api-code-rail";
 import { Banner } from "@/components/ui/banner";
 import { Pagination } from "@/components/ui/pagination";
@@ -55,6 +57,8 @@ const hasTryIt = page?.kind === "operation" && page.tryIt !== undefined && Astro
 const hasRail =
   page?.kind === "operation" &&
   (page.samples.length > 0 || page.responses.some((r) => r.example !== undefined) || hasTryIt);
+
+const isHome = page?.kind === "api" && home?.part.number === 1;
 
 const pagefindAttrs: Record<string, string> = {};
 const pagefindDeprecated = !versionStatus?.isHidden && Boolean(versionStatus?.isDeprecated);
@@ -117,8 +121,10 @@ if (versionStatus?.isHidden || homePart) {
         padding box become a subgrid of this grid (a 40rem text column and the
         rail, centred): the header and body stack in the text column and the
         same sample element sits beside them from the top, sticky. */}
-    <main id="main-content" tabindex="-1" class={cn("min-w-0 flex-1", hasRail && "min-[90rem]:col-span-2 min-[90rem]:grid min-[90rem]:grid-cols-subgrid")} {...pagefindAttrs}>
-      <div class={cn(
+    <main id="main-content" tabindex="-1" class={cn("min-w-0 flex-1", isHome && "relative", hasRail && "min-[90rem]:col-span-2 min-[90rem]:grid min-[90rem]:grid-cols-subgrid")} {...pagefindAttrs}>
+      {isHome && <FullPageLines />}
+      {isHome && <StructuralGrid />}
+      <div class={isHome ? "relative z-10 mx-auto max-w-[1280px] px-4 pt-16 pb-12 min-[800px]:pt-[max(2rem,4vw)] lg:pl-[max(2rem,4vw)] lg:pr-[calc(max(2rem,4vw)+8vw)]" : cn(
         "mx-auto max-w-(--nb-content-max) px-4 md:px-8 pt-8 pb-12",
         hasRail && [
           "min-[90rem]:col-span-2 min-[90rem]:grid min-[90rem]:grid-cols-subgrid min-[90rem]:content-start min-[90rem]:mx-0 min-[90rem]:max-w-none min-[90rem]:px-0 min-[90rem]:pb-0",

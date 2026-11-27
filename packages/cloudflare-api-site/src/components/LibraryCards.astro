@@ -1,10 +1,4 @@
 ---
-/**
- * The home's libraries: a LayerCard per library, as the endpoint card is
- * built. The recessed header holds the brand mark and name; the raised layer
- * the whole install command, which scrolls rather than truncating, and its
- * copy button.
- */
 import Icon from '@cloudflare/nimbus-docs/components/Icon.astro';
 import CopyButton from './CopyButton.astro';
 import { LayerCard, LayerCardContent, LayerCardHeader } from '@/components/ui/layer-card';
@@ -38,8 +32,10 @@ const libraries = [
 ] as const;
 ---
 
-<section class="api-libraries" aria-labelledby="api-libraries-title">
-  <h2 id="api-libraries-title">Libraries</h2>
+<section class="pb-6" aria-labelledby="api-libraries-title">
+  <div class="mb-6 lg:mb-8">
+    <h2 id="api-libraries-title" class="text-foreground text-2xl leading-[1.1] font-medium text-balance md:text-3xl">Libraries</h2>
+  </div>
   <div class="library-grid">
     {
       libraries.map((library) => (
@@ -66,18 +62,6 @@ const libraries = [
 </section>
 
 <style>
-  .api-libraries {
-    margin-top: 3rem;
-  }
-
-  /* The API pages' section title, as "Request body" is set. */
-  h2 {
-    margin: 0 0 0.75rem;
-    color: var(--cf-foreground);
-    font-size: 0.875rem;
-    font-weight: 550;
-  }
-
   .library-grid {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -128,7 +112,6 @@ const libraries = [
     font-weight: 500;
   }
 
-  /* The raised layer: the command, then its copy split off, as the endpoint card's path. */
   .library-grid :global(.library-install-command) {
     flex-direction: row;
     align-items: stretch;

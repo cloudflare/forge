@@ -1,6 +1,8 @@
 @import 'tailwindcss';
 @import '../components/ui/sidebar/sidebar.css';
 
+@custom-variant dark (&:where([data-mode="dark"], [data-mode="dark"] *));
+
 /* ============================================================
  * Nimbus Theme — THE file you edit to customize your site.
  *
@@ -38,12 +40,14 @@
 
   /* Primary action / brand */
   --nb-primary: oklch(0.687 0.208 38.8);
-  --nb-primary-foreground: #1f130d;
+  --nb-primary-foreground: oklch(0.99 0.009 78.3);
   --nb-primary-hover: oklch(0.711 0.188 40.4);
 
   /* Borders / focus */
   --nb-border: oklch(0.92 0 0);
   --nb-border-strong: oklch(0.87 0 0);
+  --nb-grid-line: oklch(0 0 0 / 0.08);
+  --nb-grid-line-accent: oklch(0 0 0 / 0.12);
   --nb-selected: oklch(0.92 0 0);
   /* The focus ring and selected fill match developers.cloudflare.com. */
   --nb-ring: oklch(0.145 0 0 / 0.35);
@@ -141,11 +145,13 @@
   --nb-accent-foreground: var(--nb-foreground);
 
   --nb-primary: oklch(0.687 0.208 38.8);
-  --nb-primary-foreground: #1f130d;
+  --nb-primary-foreground: oklch(0.99 0.009 78.3);
   --nb-primary-hover: oklch(0.711 0.188 40.4);
 
   --nb-border: oklch(0.285 0 0);
   --nb-border-strong: oklch(0.371 0 0);
+  --nb-grid-line: oklch(1 0 0 / 0.1);
+  --nb-grid-line-accent: oklch(1 0 0 / 0.16);
   --nb-selected: oklch(0.285 0 0);
   --nb-ring: oklch(0.9 0 0 / 0.35);
 
