@@ -1,0 +1,211 @@
+---
+/**
+ * A list of commands, rows divided by hairlines: the command in mono, linking
+ * to its page, in a column as wide as the longest command on the page (set
+ * `--command-width` on an ancestor so every list lines up), then what it does.
+ * A copy button, vertically centred, shows on hover and keyboard focus. Hover
+ * fills the row and the hairlines either side step aside; a click leaves no
+ * highlight behind.
+ */
+import Icon from '@cloudflare/nimbus-docs/components/Icon.astro';
+
+export interface CommandRow {
+  command: string;
+  href: string;
+  /** What it does, as inline HTML. */
+  html: string;
+}
+
+interface Props {
+  rows: CommandRow[];
+}
+
+const { rows } = Astro.props;
+---
+
+<ul class="command-rows">
+  {
+    rows.map((row) => (
+      <li>
+        <a href={row.href}>
+          <code dir="ltr">{row.command}</code>
+          <span class="command-summary" set:html={row.html} />
+        </a>
+        <button
+          type="button"
+          class="group"
+          data-cf-copy-command={row.command}
+          aria-label={`Copy ${row.command}`}
+          title="Copy command"
+        >
+          <span class="pointer-events-none absolute inset-0 flex items-center justify-center transition-all duration-200 group-data-[copied]:-translate-y-full group-data-[copied]:opacity-0">
+            <Icon name="ph:copy" class="size-3.5" />
+          </span>
+          <span class="pointer-events-none absolute inset-0 flex translate-y-full items-center justify-center text-success opacity-0 transition-all duration-200 group-data-[copied]:translate-y-0 group-data-[copied]:opacity-100">
+            <Icon name="ph:check" class="size-3.5" />
+          </span>
+          <span class="sr-only" aria-live="polite" data-copy-status />
+        </button>
+      </li>
+    ))
+  }
+</ul>
+
+<style>
+  .command-rows {
+    margin: 0 -0.75rem;
+    padding: 0;
+    list-style: none;
+  }
+
+  li {
+    position: relative;
+  }
+
+  li + li::before {
+    position: absolute;
+    inset: 0 0.75rem auto;
+    border-top: 1px solid var(--nb-border);
+    content: '';
+  }
+
+  a {
+    display: grid;
+    grid-template-columns: calc(var(--command-width, 12rem) + 1.5rem) minmax(0, 1fr);
+    align-items: baseline;
+    column-gap: 1rem;
+    min-height: 2.75rem;
+    padding-block: 0.625rem;
+    padding-inline: 0.75rem 3.25rem;
+    border-radius: 0.5rem;
+    color: inherit;
+    text-decoration: none;
+    -webkit-tap-highlight-color: transparent;
+    transition: background-color 120ms ease-out;
+  }
+
+  a:focus-visible {
+    outline: none;
+    box-shadow: inset 0 0 0 2px var(--nb-ring);
+  }
+
+  code {
+    color: var(--nb-foreground);
+    background: transparent;
+    font-family: var(--nb-font-mono);
+    font-size: 0.8125rem;
+    font-weight: 500;
+    line-height: 1.5rem;
+    white-space: nowrap;
+  }
+
+  .command-summary {
+    min-width: 0;
+    color: color-mix(in oklab, var(--color-foreground) 45%, var(--color-muted-foreground));
+    font-size: 0.875rem;
+    line-height: 1.5rem;
+  }
+
+  .command-summary :global(code) {
+    padding: 0 0.25rem;
+    border: 1px solid var(--nb-border);
+    border-radius: 0.25rem;
+    background: var(--nb-muted);
+    font-size: 0.8125rem;
+    font-weight: 400;
+  }
+
+  button {
+    position: absolute;
+    top: 50%;
+    inset-inline-end: 0.5rem;
+    display: grid;
+    place-items: center;
+    width: 1.75rem;
+    height: 1.75rem;
+    padding: 0;
+    overflow: hidden;
+    border: 0;
+    border-radius: 0.375rem;
+    color: var(--nb-muted-foreground);
+    background: transparent;
+    cursor: pointer;
+    opacity: 0;
+    transform: translateY(-50%);
+    transition:
+      opacity 120ms ease-out,
+      background-color 120ms ease-out,
+      color 120ms ease-out;
+  }
+
+
+  button:focus-visible {
+    outline: none;
+    box-shadow: inset 0 0 0 2px var(--nb-ring);
+  }
+
+  /* Hover (on devices that hover, so a tap leaves nothing behind) and keyboard
+     focus only: focus a click leaves behind lights nothing. */
+  li:has(:focus-visible) a {
+    background: var(--nb-accent);
+  }
+
+  li:has(:focus-visible) button,
+  button[data-copied] {
+    opacity: 1;
+  }
+
+  li:has(:focus-visible)::before,
+  li:has(:focus-visible) + li::before {
+    opacity: 0;
+  }
+
+  @media (hover: hover) {
+    li:hover a {
+      background: var(--nb-accent);
+    }
+
+    li:hover button {
+      opacity: 1;
+    }
+
+    li:hover::before,
+    li:hover + li::before {
+      opacity: 0;
+    }
+
+    button:hover {
+      color: var(--nb-foreground);
+    }
+  }
+
+  @media (max-width: 39.99rem) {
+    a {
+      grid-template-columns: minmax(0, 1fr);
+      row-gap: 0.125rem;
+    }
+
+    button {
+      opacity: 1;
+    }
+  }
+
+  @media print {
+    button {
+      display: none;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    button span {
+      transition: none;
+    }
+  }
+</style>
+
+<script>
+  import { mount } from '@cloudflare/nimbus-docs/client';
+  import { copyOnClick } from './copy.client';
+
+  mount('.command-rows [data-cf-copy-command]', copyOnClick);
+</script>

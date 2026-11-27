@@ -1,7 +1,7 @@
 ---
 import CommandPage from '../../components/CommandPage.astro';
 import CommandDirectory from '../../components/commands/CommandDirectory.astro';
-import CopyableCommand from '../../components/commands/CopyableCommand.astro';
+import CommandLine from '../../components/commands/CommandLine.astro';
 import { commandProducts } from '../../command-sidebar.ts';
 import { getCommandRouter } from '../../command-reference/server.ts';
 
@@ -10,17 +10,14 @@ const productIds = new Set(commandProducts.map((product) => product.id));
 const commands = router.commands.filter((command) => !productIds.has(command.fullPath[0]));
 ---
 
-<CommandPage title="Developer Tooling" description="Reference for commands implemented directly by the cf CLI." href="/">
-  <div class="command-overview">
-    <CopyableCommand command="cf --help" label="Copy cf help command" />
-    <CommandDirectory router={router} commands={commands} />
-  </div>
+<CommandPage
+  title="Developer Tooling"
+  description="Reference for commands implemented directly by the cf CLI."
+  descriptionHtml="<p>Commands built into <code>cf</code> itself, rather than generated from the API. API operations have <code>cf</code> commands too, in their code samples.</p>"
+  breadcrumbs={[{ label: 'API Reference', href: '/' }]}
+  href="/"
+  markdownUrl="/tooling/index.md"
+>
+  <CommandLine slot="request" command="cf --help" label="Copy cf help command" />
+  <CommandDirectory router={router} commands={commands} />
 </CommandPage>
-
-<style>
-  .command-overview {
-    display: grid;
-    max-width: 58rem;
-    gap: 2rem;
-  }
-</style>

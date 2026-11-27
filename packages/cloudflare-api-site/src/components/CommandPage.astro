@@ -1,30 +1,59 @@
 ---
 /**
- * A command page: DocsLayout around the content, with the API sidebar in its
- * sidebar slot, opened at `href` (the API overview, or a product's section).
+ * A command page in the API pages' own shell (ApiLayout, without a code rail)
+ * and head (ApiPageHeader's markup): breadcrumbs, the title, the `request`
+ * slot where an operation shows its endpoint card, page actions, then the
+ * description as the same prose, and the body in the same column of sections.
+ * The sidebar is the API's, opened at `href` (the overview, or a product).
  */
-import DocsLayout from '@/layouts/DocsLayout.astro';
-import ApiNavigation from '@/components/ApiNavigation.astro';
-import { getApiNav } from '@cloudflare/nimbus-docs/runtime';
+import Header from '@/components/Header.astro';
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import { ApiLayout } from '@/components/ui/api-layout';
+import { Breadcrumbs } from '@/components/ui/breadcrumbs';
+import { PageActions } from '@/components/ui/page-actions';
+import { getApiNav, type Breadcrumb } from '@cloudflare/nimbus-docs/runtime';
 
 interface Props {
   title: string;
+  /** Plain text, for the page's metadata. */
   description?: string;
+  /** The description as the page shows it. */
+  descriptionHtml?: string;
+  /** The pages above this one, root first. */
+  breadcrumbs: Breadcrumb[];
   /** The API page whose sidebar the command shows, base-free (`/`, `/d1/`). */
   href: string;
   /** The command's Markdown version, base-free. */
   markdownUrl?: string;
 }
 
-const { title, description, href, markdownUrl } = Astro.props;
+const { title, description, descriptionHtml, breadcrumbs, href, markdownUrl } = Astro.props;
 const api = await getApiNav(Astro, { collection: 'api', href });
 if (!api) throw new Error(`No API sidebar for ${href}`);
 ---
 
-<DocsLayout title={title} description={description} sidebar={[]} headings={false} breadcrumbs={[]} showDescription={false} markdownUrl={markdownUrl}>
-  {/* The mobile drawer borrows `[data-nb-sidebar-nav]` from the desktop rail. */}
-  <div slot="sidebar" data-nb-sidebar-nav class="flex min-h-0 flex-1 flex-col">
-    <ApiNavigation nav={api.nav} version={api.version} />
-  </div>
-  <slot />
-</DocsLayout>
+<BaseLayout title={title} description={description} markdownUrl={markdownUrl} collection="api">
+  <Header showSidebar />
+  <ApiLayout nav={api.nav} version={api.version}>
+    <div data-pagefind-ignore class="max-w-(--api-header-measure)">
+      <Breadcrumbs items={breadcrumbs} endsAtCurrentPage={false} class="pb-2" />
+    </div>
+    <div data-slot="page-header" class="mt-6 flex flex-col gap-4">
+      <div class="flex flex-wrap items-center gap-3">
+        <h1
+          class="mb-0 leading-tight text-foreground [text-wrap:balance]"
+          style="font-size:var(--nb-h1-size);font-weight:var(--nb-h1-weight);letter-spacing:var(--nb-h1-tracking)"
+        >
+          {title}
+        </h1>
+      </div>
+      <div class="max-w-(--api-header-measure)"><slot name="request" /></div>
+      <PageActions markdownUrl={markdownUrl} />
+    </div>
+    {descriptionHtml && <div class="nb-md nb-md-intro mt-8 [overflow-wrap:anywhere]" set:html={descriptionHtml} />}
+    {/* Section headings with an id get a "#" link that copies their URL, as on API pages. */}
+    <div class="mt-8 flex flex-col gap-8" data-nb-heading-anchors>
+      <slot />
+    </div>
+  </ApiLayout>
+</BaseLayout>

@@ -29,7 +29,7 @@ const count = (n: number) => `${n} ${n === 1 ? 'attribute' : 'attributes'}`;
       return (
         <li id={id} class:list={['fl-item', depth > 0 && 'fl-item--child']}>
           <div class="fl-row">
-            <a href={`#${id}`} class="fl-anchor" aria-label={`Link to ${field.name}`} set:html={linkSvg} />
+            <a href={`#${id}`} class="fl-anchor" aria-label={`Copy link to ${field.name}`} set:html={linkSvg} />
             <div class="fl-body">
               <div class="fl-sig">
                 <div class:list={['fl-name', field.deprecated && 'fl-name--deprecated']}>{field.name}</div>

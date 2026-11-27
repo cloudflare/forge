@@ -281,6 +281,29 @@ test('a derived id in a product Nimbus keeps is renamed as the product slug is; 
   assert.equal(operations['tags.keys.list'], 'tagging/keys/methods/list');
   const paths = document.paths as Record<string, Record<string, { operationId?: string }>>;
   assert.equal(paths['/{account_or_zone}/{account_or_zone_id}/tags']?.get?.operationId, 'tagging.resources.list');
+  // A command calling it links to its page under the renamed id.
+  assert.equal(
+    prepare(source).operationPages['GET /{account_or_zone}/{account_or_zone_id}/tags'],
+    '/tagging/resources/methods/list/',
+  );
+});
+
+test("counts each section's endpoints, its resources' included, and maps each operation to its page", () => {
+  const { endpointCounts, operationPages } = prepare();
+  assert.deepEqual(endpointCounts, {
+    '/alpha/': 6,
+    '/alpha/items/': 5,
+    '/alpha/items/notes/': 1,
+    '/alpha/settings/': 1,
+    '/beta/': 8,
+    '/beta/items/': 4,
+    '/beta/zones/': 4,
+    '/tagging/': 2,
+    '/tagging/keys/': 1,
+    '/tagging/values/': 1,
+  });
+  assert.equal(operationPages['GET /alpha/items/{id}/notes'], '/alpha/items/notes/methods/list/');
+  assert.equal(operationPages['GET /tags/keys'], '/tagging/keys/methods/list/');
 });
 
 test('keeps exactly the operations astro-fern gives a primary page, keyed by operationId', () => {

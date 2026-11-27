@@ -44,8 +44,9 @@
   /* Borders / focus */
   --nb-border: oklch(0.92 0 0);
   --nb-border-strong: oklch(0.87 0 0);
-  --nb-selected: oklch(0.89 0 0);
-  --nb-ring: #9f3200;
+  --nb-selected: oklch(0.92 0 0);
+  /* The focus ring and selected fill match developers.cloudflare.com. */
+  --nb-ring: oklch(0.145 0 0 / 0.35);
 
   /* Status colors — paired (saturated for text/border + muted for bg) */
   --nb-info: oklch(0.45 0.18 255);
@@ -145,8 +146,8 @@
 
   --nb-border: oklch(0.285 0 0);
   --nb-border-strong: oklch(0.371 0 0);
-  --nb-selected: oklch(0.371 0 0);
-  --nb-ring: #ff8a50;
+  --nb-selected: oklch(0.285 0 0);
+  --nb-ring: oklch(0.9 0 0 / 0.35);
 
   --nb-info: oklch(0.75 0.12 255);
   --nb-info-foreground: oklch(0.75 0.12 255);

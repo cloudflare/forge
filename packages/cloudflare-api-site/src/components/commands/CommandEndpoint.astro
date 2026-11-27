@@ -1,0 +1,87 @@
+---
+/** The API operation a command calls: its method and path, linking to the operation's page when there is one. */
+import Icon from '@cloudflare/nimbus-docs/components/Icon.astro';
+import ApiMethodChip from '@/components/ui/api-sidebar/ApiMethodChip.astro';
+import { withBase } from '@cloudflare/nimbus-docs/runtime';
+import { operationPage } from '@/forge-pages';
+
+interface Props {
+  method: string;
+  path: string;
+}
+
+const { method, path } = Astro.props;
+const page = operationPage(method, path);
+const Tag = page ? 'a' : 'div';
+---
+
+<Tag class="command-endpoint" href={page && withBase(page, import.meta.env.BASE_URL)}>
+  <span class="command-endpoint-label">Calls</span>
+  <span class="command-endpoint-line" dir="ltr">
+    <ApiMethodChip method={method} display="label" />
+    <code>{path}</code>
+  </span>
+  {page && <Icon name="ph:caret-right" class="command-endpoint-caret" />}
+</Tag>
+
+<style>
+  .command-endpoint {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.625rem 0.75rem;
+    border-radius: 0.5rem;
+    color: inherit;
+    background: var(--nb-card);
+    box-shadow: 0 0 0 1px var(--nb-border);
+    text-decoration: none;
+    transition: box-shadow 150ms;
+  }
+
+  a.command-endpoint:hover {
+    box-shadow:
+      0 0 0 1px var(--nb-border-strong),
+      var(--nb-shadow-sm);
+  }
+
+  a.command-endpoint:focus-visible {
+    outline-offset: 2px;
+  }
+
+  .command-endpoint-label {
+    color: var(--nb-muted-foreground);
+    font-size: 0.75rem;
+    font-weight: 500;
+  }
+
+  .command-endpoint-line {
+    display: flex;
+    flex: 1;
+    min-width: 0;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  code {
+    min-width: 0;
+    overflow: hidden;
+    color: var(--nb-foreground);
+    background: transparent;
+    font-family: var(--nb-font-mono);
+    font-size: 0.75rem;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .command-endpoint :global(.command-endpoint-caret) {
+    width: 0.75rem;
+    height: 0.75rem;
+    color: var(--nb-muted-foreground);
+    transition: translate 200ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+
+  a.command-endpoint:hover :global(.command-endpoint-caret) {
+    color: var(--nb-foreground);
+    translate: 0.125rem 0;
+  }
+</style>

@@ -185,8 +185,10 @@ test('a resource page lists its endpoints, then its child resources', async ({ p
   );
   const headings = page.locator('main h2');
   await expect(headings.nth(0)).toHaveText(/^Endpoints\s*4 endpoints$/);
-  await expect(headings.nth(1)).toHaveText('Resources');
-  await expect(page.locator('main a[href="/api/zero-trust/devices/ip-profiles/"]')).toHaveText('IP Profiles');
+  await expect(headings.nth(1)).toHaveText(/^Resources\s*\d+ resources$/);
+  await expect(page.locator('main a[href="/api/zero-trust/devices/ip-profiles/"]')).toHaveText(
+    /^IP Profiles\s*\d+\s*endpoints?$/,
+  );
 });
 
 test('a resource marks its deprecated endpoints', async ({ page }) => {
@@ -250,6 +252,16 @@ test('command pages have a Markdown version, listed in llms.txt', async ({ page,
   const llms = await (await request.get('/api/llms.txt')).text();
   expect(llms).toContain('## Developer tooling');
   expect(llms).toContain('/api/d1/tooling/migrations/list/index.md');
+});
+
+test('the tooling directory has a Markdown version listing its commands', async ({ page, request }) => {
+  await page.goto('/api/tooling/');
+  await expect(page.getByRole('link', { name: 'View as Markdown' })).toHaveAttribute('href', '/api/tooling/index.md');
+  const markdown = await request.get('/api/tooling/index.md');
+  expect(markdown.headers()['content-type']).toContain('text/markdown');
+  const body = await markdown.text();
+  expect(body).toContain('# Developer Tooling');
+  expect(body).toContain('/api/tooling/deploy/index.md');
 });
 
 test('the sidebar filter finds cf commands beside API pages', async ({ page }) => {
