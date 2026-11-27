@@ -8,6 +8,7 @@
 import wordmark from './cloudflare-wordmark.svg?raw';
 import privacyOptions from './privacy-options.svg?raw';
 import { defaultFooterConfig, defaultStackedColumnPairs, type FooterColumn } from './links.ts';
+import './onetrust.css';
 
 const { columns, legalLinks, copyright } = defaultFooterConfig;
 
@@ -82,6 +83,9 @@ const oneTrustId = Astro.site?.hostname === 'developers.cloudflare.com' ? ONETRU
 <script is:inline src="https://ot.www.cloudflare.com/public/vendor/onetrust/scripttemplates/otSDKStub.js" charset="UTF-8" data-domain-script={oneTrustId}></script>
 <script is:inline>
   window.OptanonWrapper = () => {};
+</script>
+<script>
+  import './onetrust-focus.client.ts';
 </script>
 
 <style>

@@ -190,7 +190,9 @@ columns, then the copyright, the legal links and "Your privacy choices"
 `src/util/footer.ts`, so they change when that file does. "Your privacy
 choices" is the consent manager developers.cloudflare.com uses, loaded from
 `ot.www.cloudflare.com`; it shows its cookie banner on a first visit, and uses
-its test configuration on any host but developers.cloudflare.com.
+its test configuration on any host but developers.cloudflare.com. The banner and
+its preferences panel take cloudflare-docs' styles (`onetrust.css`) and focus
+handling (`onetrust-focus.client.ts`), copied from that repo.
 
 ## Routes
 
