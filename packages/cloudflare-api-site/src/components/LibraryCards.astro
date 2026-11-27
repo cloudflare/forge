@@ -2,34 +2,40 @@
 import Icon from '@cloudflare/nimbus-docs/components/Icon.astro';
 import CopyButton from './CopyButton.astro';
 
+// No version numbers: they went stale here. Each card links to its package
+// registry, which always shows the current release.
 const libraries = [
   {
     id: 'typescript',
     name: 'TypeScript',
-    version: '0.0.1',
-    install: 'npm install git+ssh://git@github.com:cloudflare/cloudflare-typescript.git',
+    install: 'npm install cloudflare',
     icon: 'simple-icons:typescript',
+    github: 'https://github.com/cloudflare/cloudflare-typescript',
+    registry: { label: 'npm', href: 'https://www.npmjs.com/package/cloudflare' },
   },
   {
     id: 'python',
     name: 'Python',
-    version: '5.4.0',
     install: 'pip install cloudflare',
     icon: 'simple-icons:python',
+    github: 'https://github.com/cloudflare/cloudflare-python',
+    registry: { label: 'PyPI', href: 'https://pypi.org/project/cloudflare/' },
   },
   {
     id: 'go',
     name: 'Go',
-    version: '7.6.0',
-    install: "go get -u 'github.com/cloudflare/cloudflare-go@v7.6.0'",
+    install: 'go get -u github.com/cloudflare/cloudflare-go/v7',
     icon: 'simple-icons:go',
+    github: 'https://github.com/cloudflare/cloudflare-go',
+    registry: { label: 'pkg.go.dev', href: 'https://pkg.go.dev/github.com/cloudflare/cloudflare-go/v7' },
   },
   {
     id: 'terraform',
     name: 'Terraform',
-    version: '5.22.0',
-    install: 'cloudflare = { source = "cloudflare/sdks/cloudflare" }',
+    install: 'cloudflare = { source = "cloudflare/cloudflare", version = "~> 5.0" }',
     icon: 'simple-icons:terraform',
+    github: 'https://github.com/cloudflare/terraform-provider-cloudflare',
+    registry: { label: 'Terraform Registry', href: 'https://registry.terraform.io/providers/cloudflare/cloudflare/latest' },
   },
 ] as const;
 ---
@@ -44,10 +50,7 @@ const libraries = [
             <span class="library-logo" aria-hidden="true">
               <Icon name={library.icon} />
             </span>
-            <div>
-              <h3>{library.name}</h3>
-              <p>{library.version}</p>
-            </div>
+            <h3>{library.name}</h3>
           </header>
           <div class="library-install-command">
             <code title={library.install}>{library.install}</code>
@@ -58,6 +61,10 @@ const libraries = [
               copiedLabel="Copied install command"
             />
           </div>
+          <p class="library-links">
+            <a href={library.github}>GitHub</a>
+            <a href={library.registry.href}>{library.registry.label}</a>
+          </p>
         </article>
       ))
     }
@@ -151,12 +158,19 @@ const libraries = [
     line-height: 1.25;
   }
 
-  header p {
-    margin-top: 0.25rem;
-    color: var(--cf-muted-foreground);
-    font-family: var(--nb-font-mono);
+  .library-links {
+    display: flex;
+    gap: 1rem;
     font-size: 0.875rem;
     line-height: 1.25;
+  }
+
+  .library-links a {
+    color: var(--cf-muted-foreground);
+  }
+
+  .library-links a:hover {
+    color: var(--cf-foreground);
   }
 
   .library-install-command {
