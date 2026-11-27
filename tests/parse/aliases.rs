@@ -60,10 +60,45 @@ const PAUSE_AND_TERMINATE: &str = r#"[
 ]"#;
 
 #[test]
-fn each_alias_is_a_method_and_the_operation_is_not() {
+fn the_operation_and_each_alias_are_methods() {
     let forge = parse(&aliased(PAUSE_AND_TERMINATE, ""));
 
-    assert_eq!(methods(&forge), ["a.pause", "a.terminate"]);
+    assert_eq!(methods(&forge), ["a.pause", "a.terminate", "a.status.edit"]);
+}
+
+#[test]
+fn each_alias_links_to_the_method_of_its_operation() {
+    let forge = parse(&aliased(PAUSE_AND_TERMINATE, ""));
+    let edit = method(&forge, "a.status.edit");
+    let pause = method(&forge, "a.pause");
+    let terminate = method(&forge, "a.terminate");
+
+    assert_eq!(edit.alias_of(), None);
+    assert_eq!(edit.aliases().collect::<Vec<_>>(), [pause, terminate]);
+    assert_eq!(pause.alias_of(), Some(edit));
+    assert_eq!(terminate.alias_of(), Some(edit));
+    assert_eq!(pause.aliases().len(), 0);
+}
+
+#[test]
+fn aliases_of_an_operation_that_is_no_method_link_to_none() {
+    let forge = parse(
+        r#"{
+          "openapi": "3.0.3",
+          "info": {"title": "t", "version": "1"},
+          "paths": {
+            "/a": {
+              "post": {
+                "x-forge-aliases": [{"x-forge-group-name": "a", "x-forge-method-name": "pause"}],
+                "responses": {"204": {"description": "ok"}}
+              }
+            }
+          }
+        }"#,
+    );
+
+    assert_eq!(methods(&forge), ["a.pause"]);
+    assert_eq!(method(&forge, "a.pause").alias_of(), None);
 }
 
 #[test]
@@ -181,7 +216,7 @@ fn alias_without_a_name_is_not_a_method() {
         "",
     ));
 
-    assert_eq!(methods(&forge), ["a.pause"]);
+    assert_eq!(methods(&forge), ["a.pause", "a.status.edit"]);
 }
 
 #[test]
@@ -196,7 +231,10 @@ fn alias_without_a_group_is_a_method_of_the_root() {
         "",
     ));
 
-    assert_eq!(methods(&forge), ["restart", "resume", "stop", "a.pause"]);
+    assert_eq!(
+        methods(&forge),
+        ["restart", "resume", "stop", "a.pause", "a.status.edit"]
+    );
     assert_eq!(method(&forge, "resume").group(), group(&forge, ""));
 }
 
@@ -207,14 +245,14 @@ fn element_that_is_not_an_object_is_ignored() {
         "",
     ));
 
-    assert_eq!(methods(&forge), ["a.pause"]);
+    assert_eq!(methods(&forge), ["a.pause", "a.status.edit"]);
 }
 
 #[test]
-fn empty_aliases_make_no_method() {
+fn empty_aliases_make_no_more_methods() {
     let forge = parse(&aliased("[]", ""));
 
-    assert_eq!(methods(&forge), Vec::<String>::new());
+    assert_eq!(methods(&forge), ["a.status.edit"]);
 }
 
 #[test]
@@ -313,10 +351,10 @@ fn repeated_key_forge_reads_in_an_alias_is_an_error() {
 }
 
 #[test]
-fn skipped_operation_still_has_its_aliases() {
+fn skipping_the_operation_skips_its_aliases() {
     let forge = parse(&aliased(PAUSE_AND_TERMINATE, r#""x-forge-skip": true,"#));
 
-    assert_eq!(methods(&forge), ["a.pause", "a.terminate"]);
+    assert_eq!(methods(&forge), Vec::<String>::new());
 }
 
 #[test]
@@ -329,7 +367,7 @@ fn skipped_alias_is_not_a_method() {
         "",
     ));
 
-    assert_eq!(methods(&forge), ["a.terminate"]);
+    assert_eq!(methods(&forge), ["a.terminate", "a.status.edit"]);
 }
 
 #[test]
@@ -351,7 +389,7 @@ fn aliases_are_not_extensions() {
     let pause = method(&forge, "a.pause");
     let names: Vec<&str> = pause.extensions().map(|(name, _)| name).collect();
     assert_eq!(names, ["x-a"]);
-    assert_eq!(methods(&forge), ["a.pause"]);
+    assert_eq!(methods(&forge), ["a.pause", "a.status.edit"]);
 }
 
 #[test]
@@ -397,7 +435,7 @@ fn operation_without_aliases_keeps_its_own_method() {
 }
 
 #[test]
-fn model_used_by_aliases_in_two_top_level_groups_is_in_the_root() {
+fn model_used_by_an_operation_and_its_alias_in_two_top_level_groups_is_in_the_root() {
     let forge = parse(
         r##"{
           "openapi": "3.0.3",
@@ -407,10 +445,7 @@ fn model_used_by_aliases_in_two_top_level_groups_is_in_the_root() {
               "get": {
                 "x-forge-group-name": ["a", "b"],
                 "x-forge-method-name": "get",
-                "x-forge-aliases": [
-                  {"x-forge-group-name": ["a", "b"], "x-forge-method-name": "get"},
-                  {"x-forge-group-name": ["x"], "x-forge-method-name": "get"}
-                ],
+                "x-forge-aliases": [{"x-forge-group-name": ["x"], "x-forge-method-name": "get"}],
                 "responses": {"200": {
                   "description": "ok",
                   "content": {"application/json": {"schema": {"$ref": "#/components/schemas/M"}}}
@@ -432,7 +467,7 @@ fn model_used_by_aliases_in_two_top_level_groups_is_in_the_root() {
 }
 
 #[test]
-fn model_used_by_aliases_in_one_group_is_in_that_group() {
+fn model_used_by_an_operation_and_its_aliases_in_one_group_is_in_that_group() {
     let forge = parse(
         r##"{
           "openapi": "3.0.3",
@@ -440,7 +475,7 @@ fn model_used_by_aliases_in_one_group_is_in_that_group() {
           "paths": {
             "/m": {
               "get": {
-                "x-forge-group-name": "x",
+                "x-forge-group-name": "a",
                 "x-forge-method-name": "get",
                 "x-forge-aliases": [
                   {"x-forge-group-name": ["a", "b"], "x-forge-method-name": "get"},
@@ -471,7 +506,7 @@ fn alias_is_named_by_its_operation_id() {
         "",
     ));
 
-    assert_eq!(methods(&forge), ["a.pause", "b.c.resume"]);
+    assert_eq!(methods(&forge), ["a.pause", "a.status.edit", "b.c.resume"]);
     let resume = method(&forge, "b.c.resume");
     let names: Vec<&str> = resume.extensions().map(|(name, _)| name).collect();
     assert_eq!(names, ["x-a"]);
@@ -484,7 +519,7 @@ fn alias_forge_names_win_over_its_operation_id() {
         "",
     ));
 
-    assert_eq!(methods(&forge), ["a.pause"]);
+    assert_eq!(methods(&forge), ["a.pause", "a.status.edit"]);
 }
 
 #[test]
@@ -494,7 +529,7 @@ fn alias_with_one_forge_name_falls_back_to_its_operation_id() {
         "",
     ));
 
-    assert_eq!(methods(&forge), ["b.resume"]);
+    assert_eq!(methods(&forge), ["a.status.edit", "b.resume"]);
 }
 
 #[test]
@@ -504,14 +539,14 @@ fn alias_does_not_take_the_operation_id_of_the_operation() {
         r#""operationId": "b.resume","#,
     ));
 
-    assert_eq!(methods(&forge), ["a.pause"]);
+    assert_eq!(methods(&forge), ["a.pause", "a.status.edit"]);
 }
 
 #[test]
 fn alias_operation_id_without_a_dot_is_a_method_of_the_root() {
     let forge = parse(&aliased(r#"[{"operationId": "pause"}]"#, ""));
 
-    assert_eq!(methods(&forge), ["pause"]);
+    assert_eq!(methods(&forge), ["pause", "a.status.edit"]);
     assert_eq!(method(&forge, "pause").group(), group(&forge, ""));
 }
 
@@ -522,7 +557,7 @@ fn skipped_alias_with_an_operation_id_is_not_a_method() {
         "",
     ));
 
-    assert_eq!(methods(&forge), ["a.resume"]);
+    assert_eq!(methods(&forge), ["a.resume", "a.status.edit"]);
 }
 
 #[test]

@@ -33,9 +33,9 @@ Pick a small resource and rename its operations' `operationId`s to
 }
 ```
 
-Mark the rest of the document's operations `x-forge-skip: true` for now: they make no method, and no
-error. Without it, an operationId like `listZones` is a method of the root group, and is checked. An
-operation with `x-forge-aliases` makes its methods from the aliases, so mark each alias instead.
+Mark the rest of the document's operations `x-forge-skip: true` for now: they make no method (and no
+aliases), and no error. Without it, an operationId like `listZones` is a method of the root group,
+and is checked.
 
 If the document is already annotated for another tool, run
 [`forge normalize`](/reference/cli/#forge-normalize) first, which rewrites those annotations into

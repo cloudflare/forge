@@ -173,6 +173,9 @@ pub struct MethodInfo {
     pub responses: Vec<ResponseInfo>,
     pub errors: Vec<ResponseInfo>,
     pub extensions: Vec<(String, Json)>,
+    #[cfg_attr(feature = "wasm", component(name = "alias-of"))]
+    pub alias_of: Option<MethodId>,
+    pub aliases: Vec<MethodId>,
 }
 
 #[derive(Clone, Debug)]
@@ -418,6 +421,8 @@ fn method_info(forge: &CoreForge, data: &MethodData) -> MethodInfo {
             .iter()
             .map(|(name, value)| (name.clone(), json(value)))
             .collect(),
+        alias_of: data.alias_of.map(|id| id.0),
+        aliases: data.aliases.iter().map(|id| id.0).collect(),
     }
 }
 
