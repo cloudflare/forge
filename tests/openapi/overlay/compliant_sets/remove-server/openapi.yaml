@@ -1,0 +1,10 @@
+openapi: 3.1.0
+info:
+  title: API servers
+  version: 1.0.0
+servers:
+  - url: 'https://api.dev.example.com'
+    description: Dev
+  - url: 'https://api.example.com'
+    description: Production
+paths: {}

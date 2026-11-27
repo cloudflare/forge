@@ -1,0 +1,6 @@
+overlay: 2
+info:
+  title: Invalid Overlay version
+  version: 1.0.0
+actions:
+  - target: '$' # Root of document

@@ -1,0 +1,11 @@
+overlay: 1.2.0
+info:
+  title: Reusable action with empty fields
+  version: 1.0.0
+components:
+  actions:
+    placeholder:
+      description: This does not do anything because of the empty fields and lack of reference, it's just to validate a schema permutation.
+      fields: {}
+actions:
+  - target: '$'

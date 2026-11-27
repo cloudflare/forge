@@ -1,6 +1,6 @@
 ---
 title: CLI
-description: The forge generate, forge normalize, forge inspect and forge-plugin commands, with each one's arguments, options, environment variables and exit status.
+description: The forge generate, forge normalize, forge openapi overlay, forge inspect and forge-plugin commands, with each one's arguments, options, environment variables and exit status.
 content_type: reference
 sidebar:
   order: 1
@@ -8,16 +8,19 @@ sidebar:
 
 | Command | What it does |
 | --- | --- |
-| [`forge generate`](#forge-generate) | Generates files from an OpenAPI document with a target. |
+| [`forge generate`](#forge-generate) | Generates files from a prepared, self-contained OpenAPI document with a target. |
 | [`forge normalize`](#forge-normalize) | Rewrites other tools' extensions into Forge's own. |
+| [`forge openapi overlay`](#forge-openapi-overlay) | Applies one or more OpenAPI Overlay documents to a spec. |
 | [`forge inspect methods`](#forge-inspect-methods) | Prints the methods a document makes, as JSON. |
 | [`forge-plugin build`](#build) | Builds a JavaScript or TypeScript plugin into a WebAssembly component. |
 | [`forge-plugin wit`](#wit) | Prints the WIT that plugins are built against. |
 
 ## forge generate
 
-Generates files from an OpenAPI document with a target. `forge` on its own lists the commands, and
-`forge --version` prints the version, such as `forge 0.2.0`.
+Generates files from a prepared, self-contained OpenAPI document with a target. Document transforms
+such as [`forge normalize`](#forge-normalize) and [`forge openapi overlay`](#forge-openapi-overlay)
+run upstream and can pipe into `-`. `forge` on its own lists the commands, and `forge --version`
+prints the version, such as `forge 0.2.0`.
 
 ```text
 forge generate --target <TARGET> --out <OUT> <SPEC>
@@ -25,7 +28,7 @@ forge generate --target <TARGET> --out <OUT> <SPEC>
 
 | Argument            | Meaning                                                                    |
 | ------------------- | -------------------------------------------------------------------------- |
-| `<SPEC>`            | The OpenAPI JSON document, or `-` to read it from standard input.          |
+| `<SPEC>`            | The prepared, self-contained OpenAPI JSON document, or `-` to read it from standard input. |
 | `--target <TARGET>` | `ts` for the [TypeScript SDK](/targets/typescript/), `capnweb` for a Cap'n Web server of that SDK, which it imports from `#sdk`, `mcp` for the [tools of an MCP server](/targets/mcp/), or `wasm://PATH` for the [plugin](/plugins/overview/) compiled to a WebAssembly component at `PATH`. |
 | `--out <OUT>`       | The directory to write to. Created if it does not exist.                   |
 | `--help`            | Prints help.                                                               |
@@ -61,6 +64,7 @@ With `wasm://`, the plugin is compiled while the document is read, in parallel.
 | Variable       | Meaning                                                                   |
 | -------------- | ------------------------------------------------------------------------- |
 | `FORGE_BINARY` | Read by the package's launcher, `bin/forge.cjs`: the native binary to run instead of the one for this platform. |
+| `FORGE_LOG`    | Diagnostic log level on standard error (`error`, `warn`, `info`, `debug`, `trace`). Defaults to `warn`, and `--log-level` overrides it. |
 
 ### Without WebAssembly support
 
@@ -89,7 +93,7 @@ forge normalize [OPTIONS] <INPUTS>...
 | `--check`                | Say what would be rewritten, and write nothing. Fails if there is anything to rewrite. |
 | `--from <SOURCE>`        | Rewrite only keys from one source. `forge normalize --help` lists them. May be repeated. |
 | `--leave-old-extensions` | Keep each rewritten key beside the native one, for tools that still read it.  |
-| `-v`, `--verbose`        | Say how many times each key was rewritten.                                    |
+| `--log-level <LEVEL>`    | Set diagnostic logging on standard error (`info` lists each rewritten key).   |
 
 Without `--write`, nothing is changed, and one document is printed to standard output, with the
 same indentation as the input:
@@ -107,6 +111,35 @@ normalized:
 openapi.json: would rewrite 2 keys
 forge: 1 of 1 file would be rewritten
 ```
+
+## forge openapi overlay
+
+Applies one or more OpenAPI Overlay documents (1.0, 1.1 or 1.2) to an OpenAPI document, in JSON or
+YAML. With one positional argument, the overlay's `extends` field names the local spec file. With
+two or more positional arguments, the first is the spec (or `-` for standard input) and the rest are
+overlays applied in order.
+
+```text
+forge openapi overlay [OPTIONS] <INPUTS>...
+```
+
+| Argument              | Meaning                                                                                |
+| --------------------- | -------------------------------------------------------------------------------------- |
+| `<INPUTS>...`         | Either `<OVERLAY>` (resolved through its `extends`) or `<SPEC> <OVERLAY>...`.          |
+| `-o`, `--out <PATH>`  | Write the overlaid document to `PATH` instead of standard output. Rewrites in place atomically when `PATH` is the spec itself, skipping the write on a no-op. |
+| `--log-level <LEVEL>` | Set diagnostic logging on standard error (`info` logs summaries, `debug` logs actions). |
+
+Without `--out`, the overlaid document is printed to standard output so it can pipe into
+`forge generate -`:
+
+```sh
+forge openapi overlay overlay.yaml | forge generate - --target ts --out sdk
+forge openapi overlay openapi.json a.yaml b.yaml | forge generate - --target ts --out sdk
+forge openapi overlay openapi.yaml patch.yaml --out merged.yaml
+```
+
+Overlay resolution never opens a network connection. `extends` and `$self` allow local `file:` URIs,
+`urn:` identifiers and relative paths only.
 
 ## forge inspect methods
 

@@ -1,0 +1,7 @@
+overlay: 1.0.0
+info:
+  title: Actions invalid description
+  version: 1.0.0
+actions:
+  - target: '$' # Root of document
+    description: 10

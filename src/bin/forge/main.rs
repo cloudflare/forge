@@ -1,4 +1,12 @@
-//! The `forge` command, which generates an SDK from an OpenAPI document.
+//! The `forge` command, which generates an SDK from a prepared, self-contained
+//! OpenAPI document.
+//!
+//! OpenAPI-to-OpenAPI transforms (`forge normalize`, `forge openapi overlay`,
+//! and future transforms such as bundling) are separate commands and functions
+//! that compose upstream of `forge generate` and `forge inspect` (for example,
+//! piped through `-`). Keeping preparation separate matches the pure,
+//! filesystem-free boundary of the Rust crate (`Forge`) and the WebAssembly
+//! library (`@cloudflare/forge`).
 //!
 //! ```text
 //! forge generate openapi.json --target ts --out sdk
@@ -7,6 +15,8 @@
 //! forge generate openapi.json --target wasm://plugin.wasm --out sdk
 //! forge normalize specs/*.json
 //! forge inspect methods openapi.json
+//! forge openapi overlay <overlay>                      # print or write the merged spec
+//! forge openapi overlay <spec> <overlay>...
 //! ```
 
 use std::fs;
@@ -19,15 +29,22 @@ use forge::{Err, Forge, Plugin};
 use strum::{EnumString, VariantNames};
 
 mod capnweb;
+mod file;
 mod inspect;
+mod log;
 mod mcp;
 mod normalize;
+mod openapi;
 mod ts;
 
-/// Generates an SDK from an OpenAPI document.
+/// Generate an SDK, apply an overlay, or run a subcommand.
 #[derive(Parser)]
 #[command(name = "forge", version, subcommand_required = true)]
 struct Args {
+    /// Set the diagnostic log level on stderr: `error`, `warn`, `info`,
+    /// `debug`, or `trace` (also configurable via `FORGE_LOG`).
+    #[arg(long, value_name = "LEVEL", value_parser = log::Level::parse, global = true)]
+    log_level: Option<log::Level>,
     #[command(subcommand)]
     command: Command,
 }
@@ -46,12 +63,14 @@ enum Command {
     Normalize(normalize::Args),
     /// Print what forge reads in a document, as JSON.
     Inspect(inspect::Args),
+    /// OpenAPI-specific commands.
+    Openapi(openapi::Args),
 }
 
 /// What `forge generate` is given.
 #[derive(clap::Args)]
 struct GenerateArgs {
-    /// The OpenAPI JSON document, or - to read it from standard input.
+    /// The OpenAPI JSON document, or `-` to read it from standard input.
     spec: PathBuf,
     /// The language of the SDK: `ts` for TypeScript, `capnweb` for a Cap'n
     /// Web server of the TypeScript SDK, which it imports from `#sdk`, `mcp`
@@ -126,6 +145,7 @@ fn main() -> ExitCode {
             std::process::exit(if err.use_stderr() { 2 } else { 0 });
         }
     };
+    log::init(log::resolve(args.log_level));
     match run(args) {
         Ok(()) => ExitCode::SUCCESS,
         Err(err) => {
@@ -154,15 +174,18 @@ fn hint_old_root_form(kind: clap::error::ErrorKind, first_arg: Option<&str>) -> 
 /// Does what `args` ask for.
 fn run(args: Args) -> Result<(), Err> {
     match args.command {
-        Command::Generate(args) => generate(&args.spec, args.target, &args.out),
+        Command::Generate(args) => generate(args),
         Command::Normalize(args) => normalize::run(args),
         Command::Inspect(args) => inspect::run(args),
+        Command::Openapi(args) => openapi::run(args),
     }
 }
 
-/// Generates the SDK for the document at `spec`, and writes it to `out`.
-fn generate(spec: &Path, target: Target, out: &Path) -> Result<(), Err> {
-    match target {
+/// Generates the SDK for the document at `args.spec`, and writes it to `args.out`.
+fn generate(args: GenerateArgs) -> Result<(), Err> {
+    let spec = args.spec.as_path();
+    let out = args.out.as_path();
+    match args.target {
         Target::Ts => run_plugin(&ts::Generator, spec, out),
         Target::Capnweb => run_plugin(&capnweb::Generator, spec, out),
         Target::Mcp => run_plugin(&mcp::Generator, spec, out),
@@ -248,6 +271,19 @@ mod tests {
             panic!("expected Generate");
         };
         assert_eq!(g.spec.as_path(), Path::new("./a.json"));
+
+        let openapi = parse(&["openapi", "overlay", "a.yaml"]).unwrap();
+        assert!(matches!(openapi.command, Command::Openapi(_)));
+        let openapi_b = parse(&["openapi", "overlay", "spec.yaml", "a.yaml", "b.yaml"]).unwrap();
+        assert!(matches!(openapi_b.command, Command::Openapi(_)));
+
+        // Global `--log-level` works before or after the subcommand and is case-insensitive.
+        let ll = parse(&["openapi", "overlay", "--log-level", "debug", "a.yaml"]).unwrap();
+        assert_eq!(ll.log_level, Some(super::log::Level::Debug));
+        let ll_upper = parse(&["--log-level", "INFO", "normalize", "a.json"]).unwrap();
+        assert_eq!(ll_upper.log_level, Some(super::log::Level::Info));
+        assert!(parse(&["openapi", "overlay", "-v", "a.yaml"]).is_err());
+        assert!(parse(&["openapi", "overlay", "--log-level", "loud", "a.yaml"]).is_err());
 
         // Each subcommand still requires its own arguments.
         assert!(parse(&["normalize"]).is_err());

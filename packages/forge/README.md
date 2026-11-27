@@ -70,7 +70,7 @@ cat openapi.json | npx forge normalize -
 Without `--write` it changes nothing and prints one document to standard
 output, so several files need `--write` or `--check`. A file with nothing to
 rewrite is left as it is, a link is followed and stays a link, and a read-only
-file is left as it is, with an error. `-v` says how many times each key was
+file is left as it is, with an error. `--log-level info` says how many times each key was
 rewritten. Documents have to be JSON: YAML is not supported yet.
 
 By default every compatibility source is normalized. Use `--from cloudflare`,
@@ -143,6 +143,30 @@ Methods come in the order of their groups, depth first from the root, and by
 name within a group. `availability` is `null` when the operation does not say.
 A document forge cannot read, such as one with two methods of the same name in
 a group, is an error, as it is for generating an SDK.
+
+## Applying overlays
+
+`forge openapi overlay` applies one or more OpenAPI Overlay documents (1.0, 1.1,
+or 1.2) to an OpenAPI spec and prints the merged document to standard output, or
+writes it to a file with `--out`.
+
+```sh
+# Overlay's `extends` names the spec.
+npx forge openapi overlay overlay.yaml
+
+# Apply one or more overlays to a spec in order.
+npx forge openapi overlay openapi.json a.yaml b.yaml
+
+# Write the merged document to a file (atomic in-place if it names the spec).
+npx forge openapi overlay openapi.json overlay.yaml --out merged.json
+
+# Pipe the merged spec into `forge generate`.
+npx forge openapi overlay overlay.yaml | npx forge generate - --target ts --out sdk
+npx forge openapi overlay openapi.json a.yaml b.yaml | npx forge generate - --target ts --out sdk
+```
+
+See [`docs/openapi/overlay.md`](https://github.com/cloudflare/forge/blob/main/docs/openapi/overlay.md)
+for version dispatch, security profile, `$ref` rebasing, and logging (`--log-level`).
 
 ## Plugins
 

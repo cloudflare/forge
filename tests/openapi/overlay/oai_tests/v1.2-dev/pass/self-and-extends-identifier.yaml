@@ -1,0 +1,10 @@
+overlay: 1.2.0
+$self: https://example.com/overlays/petstore.overlay.yaml
+info:
+  title: Overlay with identifier-based extends
+  version: 1.0.0
+extends: https://api.example.com/openapi/petstore.yaml
+actions:
+  - target: '$.info'
+    update:
+      x-overlay-applied: true

@@ -131,7 +131,7 @@ fn no_arguments_print_help_on_stdout_with_exit_zero() {
         String::from_utf8_lossy(&out.stderr)
     );
     let stdout = String::from_utf8(out.stdout).unwrap();
-    assert!(stdout.contains("Usage: forge <COMMAND>"), "{stdout}");
+    assert!(stdout.contains("Usage: forge [OPTIONS] <COMMAND>"), "{stdout}");
     assert!(stdout.contains("generate"), "{stdout}");
     assert!(stdout.contains("normalize"), "{stdout}");
     assert!(stdout.contains("inspect"), "{stdout}");

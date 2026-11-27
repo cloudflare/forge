@@ -1,0 +1,22 @@
+overlay: 1.2.0
+info:
+  title: Structured Overlay
+  version: 1.0.0
+extends: '/openapi.yaml'
+actions:
+  - target: '$' # Root of document
+    update:
+      info:
+        x-overlay-applied: structured-overlay
+      paths:
+        '/':
+          summary: 'The root resource'
+          get:
+            summary: 'Retrieve the root resource'
+            x-rate-limit: 100
+        '/pets':
+          get:
+            summary: 'Retrieve a list of pets'
+            x-rate-limit: 100
+      components:
+      tags: []

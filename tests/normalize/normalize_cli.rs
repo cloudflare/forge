@@ -128,7 +128,7 @@ fn a_file_is_rewritten_in_place_as_it_was_written() {
     assert!(err.contains("rewrote 2 keys"), "{err}");
     assert!(
         !err.contains("x-fern-sdk-method-name: 1"),
-        "the keys are listed only with -v: {err}"
+        "the keys are listed only with --log-level info: {err}"
     );
     assert!(err.contains("1 file: 1 rewritten, 0 unchanged"), "{err}");
     let leftovers: Vec<_> = fs::read_dir(&dir).unwrap().collect();
@@ -330,7 +330,7 @@ fn a_group_that_cannot_be_a_dotted_string_is_kept_and_nothing_is_said_about_it()
 }
 
 #[test]
-fn what_it_did_is_a_line_for_each_file_and_the_keys_are_listed_with_v() {
+fn what_it_did_is_a_line_for_each_file_and_the_keys_are_listed_at_info_log_level() {
     let dir = dir("verbose");
     for name in ["a.json", "b.json"] {
         fs::write(dir.join(name), FERN).unwrap();
@@ -338,7 +338,7 @@ fn what_it_did_is_a_line_for_each_file_and_the_keys_are_listed_with_v() {
     let (a, b) = (dir.join("a.json"), dir.join("b.json"));
 
     let quiet = rewrite(&[a.to_str().unwrap()], "");
-    let verbose = rewrite(&["-v", b.to_str().unwrap()], "");
+    let verbose = rewrite(&["--log-level", "info", b.to_str().unwrap()], "");
 
     let (quiet, verbose) = (text(&quiet.stderr), text(&verbose.stderr));
     assert_eq!(quiet.lines().count(), 2, "{quiet}");
@@ -448,7 +448,7 @@ fn the_usage_says_forge_normalize_and_the_help_of_forge_lists_the_command() {
         text(&general.stdout)
     );
     assert!(
-        text(&general.stdout).contains("forge <COMMAND>"),
+        text(&general.stdout).contains("forge [OPTIONS] <COMMAND>"),
         "{}",
         text(&general.stdout)
     );
@@ -692,12 +692,12 @@ fn standard_input_is_called_stdin_and_a_failure_on_it_says_so() {
 }
 
 #[test]
-fn v_says_how_many_group_paths_were_joined() {
+fn info_log_level_says_how_many_group_paths_were_joined() {
     let dir = dir("joined");
     let file = dir.join("spec.json");
     fs::write(&file, FERN).unwrap();
 
-    let out = rewrite(&["-v", file.to_str().unwrap()], "");
+    let out = rewrite(&["--log-level", "info", file.to_str().unwrap()], "");
 
     assert!(
         text(&out.stderr).contains("  1 group path written as a dotted string"),

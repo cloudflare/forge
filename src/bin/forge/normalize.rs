@@ -41,9 +41,6 @@ pub struct Args {
     /// anything to rewrite, to check that documents are normalized.
     #[arg(long)]
     check: bool,
-    /// Say how many times each key was rewritten.
-    #[arg(short, long)]
-    verbose: bool,
 }
 
 /// A file to rewrite.
@@ -72,7 +69,7 @@ pub fn run(args: Args) -> Result<(), Err> {
     };
     let say = Say {
         check: args.check,
-        verbose: args.verbose,
+        verbose: crate::log::enabled(crate::log::Level::Info),
         printed: !args.write && !args.check,
     };
     if args.inputs.iter().any(|input| input == "-") {
@@ -251,76 +248,9 @@ fn rewrite(path: &Path, options: &Options, say: Say) -> Result<Report, Err> {
     if let Some(edited) = &json
         && !say.check
     {
-        if fs::metadata(path)?.permissions().readonly() {
-            return Err("the file is read-only, so it is not rewritten".into());
-        }
-        write(path, edited)?;
+        crate::file::replace_in_place(path, edited)?;
     }
     Ok(report)
-}
-
-/// Writes `json` to the file at `path`. It is written beside it first, and put
-/// in its place, so that it is never left half written. Where a new file cannot
-/// take the place of this one, because it has other links, which would be left
-/// with the old one, or because its folder cannot be written to, it is written
-/// in place.
-fn write(path: &Path, edited: &[u8]) -> Result<(), Err> {
-    if linked(path) {
-        return Ok(write_in_place(path, edited)?);
-    }
-    match write_atomically(path, edited) {
-        Err(err) if err.kind() == io::ErrorKind::PermissionDenied => Ok(write_in_place(path, edited)?),
-        written => Ok(written?),
-    }
-}
-
-fn write_in_place(path: &Path, edited: &[u8]) -> io::Result<()> {
-    fs::File::create(path)?.write_all(edited)
-}
-
-/// Returns whether the file at `path` has other names.
-#[cfg(unix)]
-fn linked(path: &Path) -> bool {
-    use std::os::unix::fs::MetadataExt;
-
-    fs::metadata(path).is_ok_and(|metadata| metadata.nlink() > 1)
-}
-
-#[cfg(not(unix))]
-fn linked(_: &Path) -> bool {
-    false
-}
-
-fn write_atomically(path: &Path, edited: &[u8]) -> io::Result<()> {
-    let name = path.file_name().map(|name| name.to_string_lossy()).unwrap_or_default();
-    let temporary = path.with_file_name(format!(".{name}.forge-normalize-{}", std::process::id()));
-    let permissions = fs::metadata(path)?.permissions();
-    let written = create_private(&temporary)
-        .and_then(|mut file| {
-            // Before it has anything in it, so that it is not readable by more
-            // than the file it replaces is, at any time.
-            file.set_permissions(permissions)?;
-            file.write_all(edited)
-        })
-        .and_then(|()| fs::rename(&temporary, path));
-    if written.is_err() {
-        let _ = fs::remove_file(&temporary);
-    }
-    written
-}
-
-/// Creates the file at `path`, which is not there, and is not a link to
-/// another file that is, and that only its owner can read.
-fn create_private(path: &Path) -> io::Result<fs::File> {
-    let mut options = fs::OpenOptions::new();
-    options.write(true).create_new(true);
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::OpenOptionsExt;
-
-        options.mode(0o600);
-    }
-    options.open(path)
 }
 
 /// Says what was done to the document called `name`, and what was not.

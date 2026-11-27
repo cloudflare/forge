@@ -1,0 +1,15 @@
+overlay: 1.2.0
+info:
+  title: Components with reusable actions
+  version: 1.0.0
+components:
+  actions:
+    errorResponse:
+      fields:
+        description: Adds an error response
+        update:
+          '404':
+            description: Not Found
+actions:
+  - $ref: '#/components/actions/errorResponse'
+    target: '$.paths.*.get.responses'

@@ -1,0 +1,12 @@
+overlay: 1.2.0
+info:
+  title: Reusable action reference missing required target
+  version: 1.0.0
+components:
+  actions:
+    setDescription:
+      fields:
+        update:
+          description: Updated by reusable action
+actions:
+  - $ref: '#/components/actions/setDescription'

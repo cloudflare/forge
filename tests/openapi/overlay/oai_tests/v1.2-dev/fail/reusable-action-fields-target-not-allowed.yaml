@@ -1,0 +1,14 @@
+overlay: 1.2.0
+info:
+  title: Reusable action fields with target not allowed
+  version: 1.0.0
+components:
+  actions:
+    setDescription:
+      fields:
+        target: '$.info'
+        update:
+          description: Updated by reusable action
+actions:
+  - $ref: '#/components/actions/setDescription'
+    target: '$.info'
