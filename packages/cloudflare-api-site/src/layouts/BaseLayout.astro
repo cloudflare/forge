@@ -69,23 +69,25 @@ const resolvedMarkdownUrl =
         const KEY = "ui-mode";
         const media = window.matchMedia("(prefers-color-scheme: dark)");
         // A choice storage refused, kept until the page unloads.
+        const isPref = (v) => v === "light" || v === "dark" || v === "auto";
         let unsaved = null;
 
         const readPref = () => {
           if (unsaved) return unsaved;
           try {
             const v = localStorage.getItem(KEY);
-            return v === "dark" || v === "light" ? v : null;
+            return isPref(v) ? v : "auto";
           } catch {
-            return null;
+            return "auto";
           }
         };
 
-        const resolveMode = () => readPref() ?? (media.matches ? "dark" : "light");
+        const resolveMode = (pref) => (pref === "auto" ? (media.matches ? "dark" : "light") : pref);
 
         const applyTheme = () => {
           const root = document.documentElement;
-          const mode = resolveMode();
+          const pref = readPref();
+          const mode = resolveMode(pref);
           const switching = root.style.colorScheme !== "" && root.style.colorScheme !== mode;
           const still = switching ? document.createElement("style") : null;
           if (still) {
@@ -95,25 +97,22 @@ const resolvedMarkdownUrl =
           if (mode === "dark") root.setAttribute("data-mode", "dark");
           else root.removeAttribute("data-mode");
           root.style.colorScheme = mode;
-          document.querySelectorAll("[data-nb-theme-toggle]").forEach((b) => {
-            b.setAttribute("data-nb-state", mode);
-            b.setAttribute("aria-pressed", String(mode === "dark"));
-          });
+          root.setAttribute("data-nb-pref", pref);
           // Two frames: the next one is drawn with transitions off.
           if (still) requestAnimationFrame(() => requestAnimationFrame(() => still.remove()));
         };
 
         applyTheme();
         media.addEventListener("change", () => {
-          if (!readPref()) applyTheme();
+          if (readPref() === "auto") applyTheme();
         });
         window.addEventListener("storage", (e) => {
           if (e.key === KEY) applyTheme();
         });
 
-        // The toggle passes a mode only when storage refused it.
-        window.__nbApplyTheme = (mode) => {
-          if (mode === "dark" || mode === "light") unsaved = mode;
+        // The toggle passes a preference only when storage refused it.
+        window.__nbApplyTheme = (pref) => {
+          if (isPref(pref)) unsaved = pref;
           applyTheme();
         };
       })();
