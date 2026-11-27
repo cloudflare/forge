@@ -1,0 +1,106 @@
+---
+/**
+ * The developers.cloudflare.com footer (cloudflare/cloudflare-docs,
+ * src/components/Footer.astro, MIT): the Cloudflare wordmark, Cloudflare's
+ * link columns, then the copyright, the legal links and the consent manager's
+ * "Your privacy choices", so the API reference ends like every other docs page.
+ */
+import wordmark from './cloudflare-wordmark.svg?raw';
+import privacyOptions from './privacy-options.svg?raw';
+import { defaultFooterConfig, defaultStackedColumnPairs, type FooterColumn } from './links.ts';
+import './onetrust.css';
+
+const { columns, legalLinks, copyright } = defaultFooterConfig;
+
+// Pairs stack two columns in one grid cell, so seven columns fill four cells.
+const byTitle = new Map(columns.map((column) => [column.title, column]));
+const secondaries = new Set(defaultStackedColumnPairs.map((pair) => pair.secondary));
+const groups: FooterColumn[][] = columns
+  .filter((column) => !secondaries.has(column.title))
+  .map((column) => {
+    const pair = defaultStackedColumnPairs.find((p) => p.primary === column.title);
+    const secondary = pair && byTitle.get(pair.secondary);
+    return secondary ? [column, secondary] : [column];
+  });
+
+const copyrightText = copyright.replace('{year}', String(new Date().getFullYear()));
+
+// The consent manager developers.cloudflare.com uses. Its production script
+// serves only the production domain; every other host gets its test script.
+const ONETRUST_ID = 'b1e05d49-f072-4bae-9116-bdb78af15448';
+const oneTrustId = Astro.site?.hostname === 'developers.cloudflare.com' ? ONETRUST_ID : `${ONETRUST_ID}-test`;
+---
+
+<footer class="nb-footer w-full border-t border-dashed border-border bg-background" data-pagefind-ignore>
+  <div class="mx-auto flex w-full max-w-[1480px] flex-col gap-8 px-6 pt-8 pb-8">
+    <span class="block h-3 w-auto text-foreground [&>svg]:h-full [&>svg]:w-auto" role="img" aria-label="Cloudflare" set:html={wordmark} />
+
+    <div class="grid w-full grid-cols-1 gap-8 lg:ml-auto lg:w-auto lg:grid-cols-4">
+      {
+        groups.map((group) => (
+          <div class="grid grid-cols-2 gap-8 lg:max-w-[264px] lg:grid-cols-1 lg:gap-y-10">
+            {group.map((column) => (
+              <nav aria-label={column.title} class="flex flex-col">
+                <span class="pb-2 text-[13px] leading-none font-medium text-muted-foreground lg:pb-3">{column.title}</span>
+                {column.links.map((link) => (
+                  <a href={link.href} class="py-1 text-[15px] leading-snug text-foreground no-underline transition-colors hover:text-muted-foreground lg:py-1.5">
+                    {link.text}
+                  </a>
+                ))}
+              </nav>
+            ))}
+          </div>
+        ))
+      }
+    </div>
+  </div>
+
+  <div class="border-t border-dashed border-border">
+    <div class="mx-auto flex w-full max-w-[1480px] flex-col justify-between gap-3 px-6 py-4 text-[13px] leading-tight text-muted-foreground md:flex-row md:items-center lg:text-[14px]">
+      <span>{copyrightText}</span>
+      <div class="flex flex-col flex-wrap items-center gap-y-2 md:flex-row md:justify-end">
+        {
+          legalLinks.map((link, i) => (
+            <>
+              <a href={link.href} class:list={['no-underline transition-colors hover:text-foreground', i === 0 && 'font-medium text-foreground']}>
+                {link.text}
+              </a>
+              <span aria-hidden="true" class="mx-1.5 hidden md:inline">
+                |
+              </span>
+            </>
+          ))
+        }
+        <span class="inline-flex items-center gap-2">
+          <span class="inline-block h-3 w-auto [&>svg]:h-full [&>svg]:w-auto" aria-hidden="true" set:html={privacyOptions} />
+          <button id="ot-sdk-btn" class="ot-sdk-show-settings">Your privacy choices</button>
+        </span>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script is:inline src="https://ot.www.cloudflare.com/public/vendor/onetrust/scripttemplates/otSDKStub.js" charset="UTF-8" data-domain-script={oneTrustId}></script>
+<script is:inline>
+  window.OptanonWrapper = () => {};
+</script>
+<script>
+  import './onetrust-focus.client.ts';
+</script>
+
+<style>
+  /* OneTrust styles its button; keep it reading as one of the legal links. */
+  #ot-sdk-btn.ot-sdk-show-settings {
+    border: none !important;
+    color: inherit !important;
+    font: inherit !important;
+    line-height: inherit !important;
+    padding: 0 !important;
+    background-color: transparent !important;
+    cursor: pointer;
+  }
+  #ot-sdk-btn.ot-sdk-show-settings:hover {
+    color: var(--nb-foreground) !important;
+    background-color: transparent !important;
+  }
+</style>
