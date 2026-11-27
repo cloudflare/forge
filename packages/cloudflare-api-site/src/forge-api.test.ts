@@ -269,6 +269,26 @@ function prepareEntries(...entries: FernSourceOperation[]) {
   return prepareForgeApi({ paths: {} }, data, SNAPSHOT);
 }
 
+test("the API's intro drops the preview sentence and links the API's rate limits", () => {
+  const spec = [
+    "Welcome to Cloudflare's API documentation site. We are experimenting with an updated version of our API documentation - check out [the preview](https://example.com/) to test out the new experience.",
+    '',
+    'For information regarding rate limits, refer to our [API Rate Limits](https://developers.cloudflare.com/cloudflare-for-platforms/workers-for-platforms/platform/limits/#api-rate-limits).',
+  ].join('\n');
+  assert.equal(
+    apiIntro(spec),
+    [
+      "Welcome to Cloudflare's API documentation site.",
+      '',
+      'For information regarding rate limits, refer to our [API Rate Limits](https://developers.cloudflare.com/fundamentals/api/reference/limits/).',
+    ].join('\n'),
+  );
+  assert.equal(
+    apiIntro("Welcome to Cloudflare's API documentation site."),
+    "Welcome to Cloudflare's API documentation site.",
+  );
+});
+
 test('an operation without an operationId gets its page, and the spec gets the id astro-fern derives from its SDK address', () => {
   const source = structuredClone(spec);
   const { operationId: _operationId, ...apps } = operation('alpha.apps.list', ['alpha', 'apps'], 'list');
@@ -556,24 +576,4 @@ test('refuses data that would give two pages one URL or one tag two meanings', (
 
 test('the prepared spec is titled for the API home', () => {
   assert.equal((prepare().document.info as { title: string }).title, 'API Reference');
-});
-
-test("the API's intro drops the preview sentence and links the API's rate limits", () => {
-  const spec = [
-    "Welcome to Cloudflare's API documentation site. We are experimenting with an updated version of our API documentation - check out [the preview](https://example.com/) to test out the new experience.",
-    '',
-    'For information regarding rate limits, refer to our [API Rate Limits](https://developers.cloudflare.com/cloudflare-for-platforms/workers-for-platforms/platform/limits/#api-rate-limits).',
-  ].join('\n');
-  assert.equal(
-    apiIntro(spec),
-    [
-      "Welcome to Cloudflare's API documentation site.",
-      '',
-      'For information regarding rate limits, refer to our [API Rate Limits](https://developers.cloudflare.com/fundamentals/api/reference/limits/).',
-    ].join('\n'),
-  );
-  assert.equal(
-    apiIntro("Welcome to Cloudflare's API documentation site."),
-    "Welcome to Cloudflare's API documentation site.",
-  );
 });
