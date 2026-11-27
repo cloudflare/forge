@@ -47,8 +47,9 @@ reuses the last build's result.
 It returns the spec Nimbus renders, with Cloudflare titles, each page's URL as
 `x-nimbus-route` (on a moved product's tag, its new segment), `x-nimbus-order`
 for lifecycle order, request samples (the SDK ones from the retired Stainless
-site, see [Stainless snippets](#stainless-snippets)), synthesized response
-examples, and Terraform data under `x-cloudflare-terraform`. Nimbus reads the
+site, see [Stainless snippets](#stainless-snippets)) and Terraform data under
+`x-cloudflare-terraform`. Nimbus makes a response's example from its schema when
+the spec has none. Nimbus reads the
 URLs from it, so the config carries no route map. It also writes these files to
 the git-ignored `.forge/` directory:
 

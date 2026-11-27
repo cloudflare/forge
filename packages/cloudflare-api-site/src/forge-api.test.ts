@@ -87,6 +87,15 @@ const spec: Record<string, unknown> = {
             },
           },
           '404': { $ref: '#/components/responses/NotFound' },
+          '409': {
+            description: 'conflict',
+            content: {
+              'application/json': {
+                schema: { type: 'object', properties: { code: { type: 'integer' } } },
+                examples: { taken: { value: { code: 409 } } },
+              },
+            },
+          },
         },
         'x-forge-aliases': [
           { 'x-fern-sdk-group-name': ['legacy', 'items'], 'x-fern-sdk-method-name': 'get' },
@@ -422,7 +431,7 @@ test('the SDK samples are the Stainless snippets of their operation, else a comm
   ]);
 });
 
-test('samples cover every target, with placeholders, one Terraform sample joining every declaration example and its import command, and an example per JSON response; Terraform data rides the extension', () => {
+test('samples cover every target, with placeholders, one Terraform sample joining every declaration example and its import command, and response examples left to Nimbus; Terraform data rides the extension', () => {
   const { document } = prepare();
   const paths = document.paths as Record<string, Record<string, Record<string, unknown>>>;
   const create = paths['/beta/zones']!.post!;
@@ -459,13 +468,16 @@ test('samples cover every target, with placeholders, one Terraform sample joinin
   );
   assert.equal(listSamples.at(-1)!.source, '# This operation is not implemented in Terraform.');
   assert.equal(list[TERRAFORM_EXTENSION], undefined);
-  type Responses = Record<string, { content?: Record<string, { example?: unknown }> }>;
-  const example = (responses: Responses, code: string) => responses[code]!.content!['application/json']!.example;
-  assert.deepEqual(example(list.responses as Responses, '200'), {});
-  assert.deepEqual(example(list.responses as Responses, '4XX'), { success: false });
-  assert.deepEqual(example(paths['/alpha/items/{id}']!.get!.responses as Responses, '200'), { id: 'string' });
-  assert.deepEqual(example(paths['/alpha/settings']!.get!.responses as Responses, '200'), { ok: true });
-  assert.deepEqual(example((document.components as { responses: Responses }).responses, 'NotFound'), { code: 0 });
+  // Nimbus makes a response's example from its schema when the spec has none, and shows authored ones.
+  type Media = { example?: unknown; examples?: unknown };
+  type Responses = Record<string, { content?: Record<string, Media> }>;
+  const media = (responses: Responses, code: string) => responses[code]!.content!['application/json']!;
+  assert.equal(media(list.responses as Responses, '200').example, undefined);
+  assert.equal(media(paths['/alpha/items/{id}']!.get!.responses as Responses, '200').example, undefined);
+  assert.deepEqual(media(paths['/alpha/settings']!.get!.responses as Responses, '200').example, { ok: true });
+  const conflict = media(paths['/alpha/items/{id}']!.get!.responses as Responses, '409');
+  assert.equal(conflict.example, undefined);
+  assert.deepEqual(conflict.examples, { taken: { value: { code: 409 } } });
 });
 
 test('lifecycle methods get x-nimbus-order; others get none', () => {
