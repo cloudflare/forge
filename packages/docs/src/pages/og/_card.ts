@@ -28,10 +28,10 @@ const font = (file: string) => new URL(`src/pages/og/_fonts/${file}`, root);
 async function downloadTitleFont(): Promise<Uint8Array | undefined> {
   const file = process.env.OG_FONT_FILE;
   if (file) return new Uint8Array(await readFile(file));
-  const account = process.env.CLOUDFLARE_ACCOUNT_ID;
+  const account = process.env.CLOUDFLARE_API_DOCS_ACCOUNT_ID;
   const token = process.env.CLOUDFLARE_OG_FONT_TOKEN;
   if (!account || !token) {
-    console.warn(`[og] No CLOUDFLARE_OG_FONT_TOKEN or CLOUDFLARE_ACCOUNT_ID; card titles are set in Inter`);
+    console.warn(`[og] No CLOUDFLARE_OG_FONT_TOKEN or CLOUDFLARE_API_DOCS_ACCOUNT_ID; card titles are set in Inter`);
     return undefined;
   }
   try {
