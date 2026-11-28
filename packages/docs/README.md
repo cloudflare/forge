@@ -53,8 +53,8 @@ binding but its assets.
 
 The social cards set titles in FT Kunst Grotesk, as developers.cloudflare.com does. The font is
 licensed, so it isn't in this repository: the build downloads `fonts/KunstGrotesk-Medium.ttf` from
-the API docs account's `api-docs-private` R2 bucket, where the API site keeps it too, when
-`API_DOCS_CLOUDFLARE_ACCOUNT_ID` (that account's ID) and `OG_FONT_TOKEN` (an API token from that
-account with R2 read access) are set. Set both in Workers Builds, the token as a secret. Builds
-without them, such as CI and forks, set titles in Inter. To preview cards locally with the font, set
+the API docs account's `api-docs-private` R2 bucket when `CLOUDFLARE_ACCOUNT_ID` (that account's
+ID) and `CLOUDFLARE_OG_FONT_TOKEN` (an API token from that account with R2 read access) are set.
+Set both in Workers Builds, the token as a secret. Builds without them, such as CI and forks, set
+titles in Inter. To preview cards locally with the font, set
 `OG_FONT_FILE` to a copy of it.
