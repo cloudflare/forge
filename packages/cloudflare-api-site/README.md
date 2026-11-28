@@ -205,6 +205,34 @@ Agent routes:
 /api/zero-trust/devices/ip-profiles/methods/list/index.md
 ```
 
+## Share cards
+
+Each page's `og:image` is its own card at `/api/og/<route>.png`
+(`/api/og/index.png` for the home), drawn on request in the Worker with the
+developers.cloudflare.com card design. An operation's card shows its method and
+path, a `cf` command's its usage, the home its base URL, and a section the
+product it belongs to and how many operations and sections it holds. Pages
+without their own card, such as the 404 page, use the home's.
+
+A page writes its card into an `og-card` meta tag and adds a version to the
+image URL (`?v=<hash>`). The card route renders the page, reads the tag, and
+draws it with satori (`workers-og`), so a card always matches its page. A card
+requested at its page's version is cached for a year; any other is cached for
+five minutes.
+
+Titles are set in FT Kunst Grotesk, as on developers.cloudflare.com. The font is
+licensed, so it isn't in this repository: the Worker reads it from the
+`PRIVATE_ASSETS` R2 binding (bucket `api-docs-private`, key
+`fonts/KunstGrotesk-Medium.ttf`). Without it, titles are set in Inter and cards
+aren't cached long-term. The `X-OG-Image` response header says which font drew
+a card. To add the font:
+
+```sh
+cf r2 objects put fonts/KunstGrotesk-Medium.ttf --bucket-name api-docs-private --file KunstGrotesk-Medium.ttf --content-type font/ttf
+```
+
+Add `--local` to load it into the bucket `pnpm dev` uses.
+
 ## Stainless redirects
 
 The site replaces the Stainless API reference once served at these paths. Its

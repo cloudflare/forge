@@ -16,6 +16,7 @@ import { Breadcrumbs } from "@/components/ui/breadcrumbs";
 import { PageActions } from "@/components/ui/page-actions";
 import { Badge } from "@/components/ui/badge";
 import type { DocsPageProps } from "@cloudflare/nimbus-docs/types";
+import type { OgCard } from "@/og/card";
 import { getVersionStatus, getVersionAlternates, withBase } from "@cloudflare/nimbus-docs/runtime";
 
 // Previous/next pagination is not rendered, so pages do not pass `prevNext`.
@@ -25,9 +26,10 @@ type Props = Omit<DocsPageProps, "prevNext"> & {
   wide?: boolean;
   /** Shows `description` under the title. When false it only feeds page metadata. */
   showDescription?: boolean;
+  ogCard?: OgCard;
 };
 
-const { title, description, sidebar, headings, breadcrumbs, mode = "doc", banner, head = [], noindex, markdownUrl, socialImage, lastUpdated, editUrl, draft, audience, collection, entryId, wide = false, showDescription = true } = Astro.props;
+const { title, description, sidebar, headings, breadcrumbs, mode = "doc", banner, head = [], noindex, markdownUrl, socialImage, ogCard, lastUpdated, editUrl, draft, audience, collection, entryId, wide = false, showDescription = true } = Astro.props;
 
 const isCustom = mode === "custom";
 
@@ -54,7 +56,7 @@ const hasPageTitle = Astro.slots.has("page-title");
 const hasContentFooter = Astro.slots.has("content-footer");
 ---
 
-<BaseLayout title={title} description={description} noindex={noindex || draft} markdownUrl={markdownUrl} socialImage={socialImage} lastUpdated={lastUpdated} head={head} collection={collection} entryId={entryId}>
+<BaseLayout title={title} description={description} noindex={noindex || draft} markdownUrl={markdownUrl} socialImage={socialImage} ogCard={ogCard} lastUpdated={lastUpdated} head={head} collection={collection} entryId={entryId}>
   <div class="flex flex-col min-h-screen">
     {hasHeader ? <slot name="header" /> : <Header showSidebar={showSidebar} />}
 

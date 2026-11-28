@@ -1,4 +1,4 @@
-import { defineConfig } from 'cf/config';
+import { bindings, defineConfig } from 'cf/config';
 
 export default defineConfig({
   worker: {
@@ -8,5 +8,9 @@ export default defineConfig({
     // Serve Worker Previews at <preview-name>-docs.<subdomain>.workers.dev.
     // Takes effect once a production deploy applies it.
     previewUrls: true,
+    env: {
+      // The share cards' licensed title font (README, "Share cards").
+      PRIVATE_ASSETS: bindings.r2({ name: 'api-docs-private' }),
+    },
   },
 });
