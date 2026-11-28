@@ -18,8 +18,9 @@ first, with your usual OpenAPI tooling. Make it a build step, so the source stay
 
 ## 2. Start with one group
 
-Pick a small resource. Add `x-forge-group-name` and `x-forge-method-name` to its operations, so you
-do not have to change the `operationId` that other tools may use:
+Pick a small resource. Name its operations with `x-forge-group-name` and `x-forge-method-name`, or
+set each `operationId` to [`<group>.<method>`](/openapi/naming/). Use the extensions when another
+tool relies on the existing `operationId`:
 
 ```json
 "/zones": {
@@ -43,17 +44,15 @@ do not have to change the `operationId` that other tools may use:
 }
 ```
 
-If your existing toolchain already uses dotted `operationId`s, or can adopt them without a breaking
-change, [`<group>.<method>`](/openapi/naming/) names the same methods without extensions.
+If you can change the `operationId`, a dotted value names the same method without extensions.
 
 Mark the rest of the document's operations `x-forge-skip: true` for now: they make no method, and no
 error. Without it, an operationId like `listZones` is a method of the root group, and is checked. An
 operation with `x-forge-aliases` makes its methods from the aliases, so mark each alias instead.
 
-If the document uses extensions from a supported compatibility mode, follow that mode's page under
-**Compatibility Modes**, then run [`forge normalize`](/reference/cli/#forge-normalize). It rewrites
-the supported extensions into Forge's own. Operations that the compatibility mode already names do
-not need the naming extensions above. Add them only to the remaining operations.
+If the document uses supported third-party extensions, run
+[`forge normalize`](/reference/cli/#forge-normalize) first. See **Compatibility Modes** in the
+sidebar. Then name only the operations that remain unnamed.
 
 Generate. Forge reports problems only in these operations and the schemas they use, so the list is
 short, and every item is yours.

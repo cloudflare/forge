@@ -144,9 +144,9 @@ forge normalize openapi.json | forge inspect methods -
 ```
 
 Methods come in the order of their groups, depth first from the root, and by name within a group.
-`availability` is the method's release stage from `x-forge-availability`, or `null` when the
-operation does not declare one. A document Forge cannot read, such as one with two methods of the
-same name in a group, exits with status 1, as it does for `forge generate`.
+`availability` is read from `x-forge-availability`; otherwise it is `null`. A document Forge cannot
+read, such as one with two methods of the same name in a group, exits with status 1, as it does for
+`forge generate`.
 
 ## forge-plugin
 

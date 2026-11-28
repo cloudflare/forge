@@ -19,7 +19,7 @@ Check that it runs, through your package manager:
 
 <PackageManagers type="exec" pkg="forge" args="--version" />
 
-It prints the version, such as `forge 0.3.0`.
+It prints the installed version.
 
 ### Preview builds
 
@@ -55,9 +55,9 @@ C++ Redistributable.
 In the repository, `just build <target>` (or `just build-all`, or `just fetch <run>` for a CI run's)
 puts release binaries in `target/binaries/`, and `just pack --bundled` packs them into one tarball
 in `packages/forge/dist/`, the same bundled package preview builds use. Install it by path, or
-reference it as `"file:../cloudflare-forge-0.3.0.tgz"` in `devDependencies`:
+reference it as `"file:../cloudflare-forge-<version>.tgz"` in `devDependencies`:
 
-<PackageManagers pkg="/path/to/cloudflare-forge-0.3.0.tgz" dev />
+<PackageManagers pkg="/path/to/cloudflare-forge-<version>.tgz" dev />
 </Aside>
 
 ## From source
@@ -72,7 +72,7 @@ cargo build --release --features wasm
 ./target/release/forge --version
 ```
 
-The last command prints the version, such as `forge 0.3.0`.
+The last command prints the installed version.
 
 The `wasm` feature is what lets the command run [WebAssembly plugins](/plugins/overview/). It adds
 [Wasmtime](https://wasmtime.dev) to the build, so it is off by default. Without it,

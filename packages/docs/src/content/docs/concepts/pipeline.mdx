@@ -11,14 +11,15 @@ can rely on, and where an error comes from.
 
 ```text
 openapi.json ──read──► Doc ──link──► Forge ──run──► files ──write──► --out
-                    (OpenAPI objects) (the model)    (Plugin)
+                    (parsed document) (the model)    (Plugin)
 ```
 
 ## 1. Read
 
-The document is deserialized into its OpenAPI objects: paths, operations, parameters, schemas and
-so on. Only what Forge uses is kept, so a large document costs little more than the parts that
-matter. Extensions on operations are kept whole, because plugins can read them.
+Forge deserializes the OpenAPI document into internal representations of its paths, operations,
+parameters, schemas and other components. Only what Forge uses is kept, so a large document costs
+little more than the parts that matter. Extensions on operations are kept whole, because plugins
+can read them.
 
 This step catches **structural** errors, the ones where a value has the wrong JSON type: a boolean
 where a string goes, an `x-forge-aliases` that is not an array, a key Forge reads written twice.
@@ -30,8 +31,8 @@ forge: openapi.json: invalid type: string "yes", expected a boolean at line 1 co
 
 ## 2. Link
 
-Linking turns the OpenAPI objects into the [model](/concepts/the-model/). In one pass over `paths`,
-it:
+Linking turns the parsed OpenAPI document into the [model](/concepts/the-model/). In one pass over
+`paths`, it:
 
 - Decides which operations are **methods**, from their group and method name, and which group each
   belongs to, creating groups as it meets them.

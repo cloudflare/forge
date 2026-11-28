@@ -12,8 +12,8 @@ steps work in any CI.
 
 ## 1. Pin the version
 
-Install `@cloudflare/forge` from npm and pin an exact version in `package.json`, so Forge changes
-your output only when you choose to update it:
+Install `@cloudflare/forge` from npm and pin an exact version in `package.json`. Even a bug fix can
+change generated output or surface a new error, so review Forge upgrades alongside their output:
 
 ```json title="package.json"
 {

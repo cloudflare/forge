@@ -6,12 +6,10 @@ sidebar:
   order: 3
 ---
 
-Use `x-forge-method-name` and `x-forge-group-name` to name methods without changing an `operationId`
-that another tool may use. If your toolchain already uses dotted `operationId`s, or can adopt them
-without a breaking change, Forge can derive the same names without extensions, as
-[Method names](/openapi/naming/) explains. The other extensions add what OpenAPI has no field for,
-such as group descriptions and confirmation prompts. Any other `x-` key on an operation is passed
-to plugins, unread. Any other `x-` key elsewhere is ignored.
+Name methods with `x-forge-method-name` and `x-forge-group-name`, or with a dotted `operationId`.
+[Method names](/openapi/naming/) explains both options. The extensions below also control metadata
+and generation behavior. Unknown `x-` keys on operations are passed to plugins; elsewhere they are
+ignored.
 
 Forge reads only these. A document annotated for another tool can have that tool's extensions
 rewritten into these with [`forge normalize`](/reference/cli/#forge-normalize). Refer to **Compatibility

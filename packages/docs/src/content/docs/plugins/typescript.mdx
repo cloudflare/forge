@@ -79,47 +79,30 @@ from [Get started](/start/get-started/#1-write-a-document):
 
 ## The API
 
-`@cloudflare/forge/plugin` mirrors the [model](/concepts/the-model/), as plain read-only objects
-and arrays:
+`@cloudflare/forge/plugin` mirrors the [model](/concepts/the-model/) as plain read-only objects and
+arrays. These are the fields most plugins start with:
 
 ```ts
-forge.version;
-forge.description;
-forge.baseUrl;
 forge.groups; // every group, depth first, starting with the root
 
 group.name;
 group.path;
-group.description;
-group.parent;
 group.children;
-group.descendants;
 group.methods;
 group.models;
 
-method.name; method.group; method.httpMethod; method.path;
-method.summary;
-method.description;
-method.request;         // Type | undefined
-method.location(field); // { in: 'path' } | { in: 'query', exploded } | undefined
-method.headers;         // ObjectType | undefined
-method.body;            // { required, description, contents, json }
+method.name;
+method.httpMethod;
+method.path;
+method.request;
 method.responses;
 method.errors;
-method.deprecated;
-method.availability;
-method.hidden;
-method.confirmation;
-method.extension('x-my-cli');
-method.extensions;
 
 model.name;
-model.schemaName;
-model.group;
-model.description;
-model.deprecated;
 model.type;
 ```
+
+See the [plugin API reference](/reference/plugin-api/) for every field and method.
 
 Types are a union on `kind`. A `switch` with no `default` is checked for exhaustiveness, so a plugin
 that compiles handles every type:
@@ -204,8 +187,8 @@ There is no `console` in the sandbox, so throwing is also the way to see a value
 ## Things to know
 
 <Aside type="caution" title="generate must be synchronous">
-`generate` must return an iterable of files. An `async` function returns a `Promise`, so it
-currently writes no files and reports no error. The sandbox has no I/O to await.
+`generate` must return files directly. An `async` function returns a `Promise`, so Forge writes no
+files.
 </Aside>
 
 - **One call, one instance.** `generate` runs once per run, in a fresh instance, so module state
