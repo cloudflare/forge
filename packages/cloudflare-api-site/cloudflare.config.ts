@@ -9,7 +9,6 @@ export default defineConfig({
     // Takes effect once a production deploy applies it.
     previewUrls: true,
     env: {
-      // The share cards' licensed title font (README, "Share cards").
       PRIVATE_ASSETS: bindings.r2({ name: 'api-docs-private' }),
     },
   },

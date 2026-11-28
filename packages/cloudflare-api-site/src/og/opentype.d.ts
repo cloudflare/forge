@@ -1,4 +1,3 @@
-// opentype.js 2.x ships no types; this covers the surface the cards use.
 declare module 'opentype.js' {
   export interface Glyph {
     advanceWidth: number;

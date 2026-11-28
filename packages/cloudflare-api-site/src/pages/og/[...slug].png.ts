@@ -31,12 +31,6 @@ const png = (body: ArrayBuffer, cacheControl: string, diagnostic: string) =>
 
 const notFound = () => new Response('Not found', { status: 404, headers: { 'Cache-Control': 'no-store' } });
 
-/**
- * `/og/<route>.png`: the share card for the page at `/<route>/` (`index` is
- * the API's home). The card comes from the page's `og-card` meta tag; `v`
- * only decides caching. A card at the version its page asks for is cached
- * for a year, since a new version is a new URL.
- */
 export const GET: APIRoute = async ({ params, url, rewrite }) => {
   const slug = params.slug;
   if (!slug) return notFound();
@@ -60,8 +54,6 @@ export const GET: APIRoute = async ({ params, url, rewrite }) => {
     fonts: satoriFonts(titleFont),
   }).arrayBuffer();
 
-  // Only cards in the licensed font are kept long-term, so a font miss never
-  // pins an Inter card to a version.
   const font = titleFont !== inter ? 'kunst' : bucket ? 'inter' : 'inter; bucket=unbound';
   const current = font === 'kunst' && url.searchParams.get('v') === ogCardVersion(card);
   if (current && cache) {

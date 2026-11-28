@@ -1,8 +1,4 @@
-// Drawing primitives for share cards, as satori element trees. The paper,
-// title, dimension line and pills are ported from developers.cloudflare.com
-// (cloudflare/cloudflare-docs, worker/og/layout.ts, MIT), so API cards match
-// the docs' own; the endpoint card is the site's ApiEndpointCard at card size.
-
+// Ported from cloudflare/cloudflare-docs worker/og/layout.ts (MIT).
 import type { OgCard } from './card.ts';
 import type { Measure, TitleFont } from './fonts.ts';
 
@@ -22,9 +18,6 @@ const INK = '#292929';
 const DASH = '#cccccc';
 const MONO = 'IBM Plex Mono';
 
-// The Kunst Grotesk cut covers Latin letters but little punctuation, and
-// satori falls back per line segment rather than per glyph, so any word Kunst
-// can't fully draw is set in Inter instead.
 const KUNST_GLYPHS = /^[ "'()+,\-.0-9:;A-Z`a-zÀ-ÖØ-öø-ſ]*$/;
 const fontFor = (text: string): TitleFont => (KUNST_GLYPHS.test(text) ? 'FT Kunst Grotesk' : 'Inter');
 
@@ -34,7 +27,6 @@ const TITLE_WIDTH = 1000;
 const TRACKING = -0.02;
 const ELLIPSIS = '…';
 
-/** A character-count guess (`steps`) picks the starting tier, and measured overflow steps down through `tiers`. */
 export interface TitleScale {
   steps: readonly [number, number];
   tiers: readonly { fontSize: number; lineHeight: number; maxLines: number }[];
@@ -73,13 +65,11 @@ function wrap(words: string[], lineWidth: (line: string[]) => number) {
   return lines;
 }
 
-/** Lines are broken here with real glyph metrics (satori's own line-clamp misreports flow height). */
 export function layoutTitle(raw: string, measure: Measure, scale: TitleScale = TITLE_SCALE) {
   const title = raw.replace(/`/g, '').replace(/\s+/g, ' ').trim();
   const [short, long] = scale.steps;
   const start = title.length > long ? 2 : title.length > short ? 1 : 0;
   const smallest = scale.tiers[scale.tiers.length - 1]!;
-  // A word wider than a line (a long identifier) is cut with "…" rather than overflowing.
   const words = title
     .split(' ')
     .filter(Boolean)
@@ -108,8 +98,6 @@ export function layoutTitle(raw: string, measure: Measure, scale: TitleScale = T
 
 type TitleFit = ReturnType<typeof layoutTitle>;
 
-// Consecutive words in the same font share one text run so satori spaces them
-// natively; only a font change needs its own box, spaced by the measured gap.
 function titleLine(line: string[], ellipsis: boolean, space: number) {
   const runs: { font: TitleFont; text: string }[] = [];
   for (const text of line) {
@@ -191,7 +179,6 @@ export const titleBand = (fit: TitleFit, height: number) =>
     ),
   ]);
 
-/** A pinned dashed rule across the content width; the rule sits 4px below `top`. */
 export const dimensionLine = (top: number) =>
   el({ position: 'absolute', top, left: M, width: CONTENT_WIDTH, height: 10 }, [
     dashes('horizontal', { left: 0, right: 0, top: 4 }),
@@ -202,11 +189,6 @@ export const dimensionLine = (top: number) =>
 const PILL = { fontSize: 24, tracking: 0.12, chrome: 26 * 2 + 1.5 * 2 };
 const PILL_GAP = 12;
 
-/**
- * Pills that fit the row in priority order: the first that doesn't fit is
- * dropped with everything after it; a first pill wider than the row is
- * truncated with `…` so it is never lost.
- */
 export function fitPills(labels: string[], measure: Measure) {
   const width = (label: string) => {
     const text = label.toUpperCase();
@@ -228,7 +210,6 @@ export function fitPills(labels: string[], measure: Measure) {
   return kept;
 }
 
-/** Pills anchored clear of the zone X overlays with the title. */
 export const pillRow = (labels: string[]) =>
   el(
     { position: 'absolute', bottom: 120, left: M, gap: PILL_GAP },
@@ -252,7 +233,6 @@ export const pillRow = (labels: string[]) =>
     ),
   );
 
-/* The site's method palette (`--nb-m-*` in globals.css, light theme), as hex. */
 const METHOD: Record<string, { ink: string; tint: string; line: string }> = {
   get: { ink: '#006121', tint: '#ecf7ef', line: '#00996640' },
   post: { ink: '#0050b5', tint: '#edf4fe', line: '#00a6f440' },
@@ -264,7 +244,6 @@ const methodKey = (verb: string) => {
   return v === 'patch' ? 'put' : v in METHOD ? v : 'get';
 };
 
-/* The site's method arrows (ApiMethodChip): POST, PUT and PATCH share one. */
 function arrow(verb: string, color: string) {
   const v = methodKey(verb);
   const paths =
@@ -283,7 +262,6 @@ const CARD_TOP = 420;
 const CARD_HEIGHT = 84;
 const CARD_LINE = '#e5e5e5';
 
-// The site's endpoint card (ApiEndpointCard) at card size.
 export function endpointCard(code: string, method?: string) {
   const c = method ? METHOD[methodKey(method)]! : undefined;
   return el(

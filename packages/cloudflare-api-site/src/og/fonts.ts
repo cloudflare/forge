@@ -19,11 +19,6 @@ export const KUNST_GROTESK_KEY = 'fonts/KunstGrotesk-Medium.ttf';
 
 let kunstGrotesk: ArrayBuffer | undefined;
 
-/**
- * Kunst Grotesk is licensed, so it lives in a private R2 bucket rather than
- * this public repo, as on developers.cloudflare.com. Without it (local dev,
- * tests, forks, a bucket not set up yet) titles are set in Inter.
- */
 export async function loadTitleFont(bucket: FontBucket | undefined): Promise<ArrayBuffer> {
   if (kunstGrotesk) return kunstGrotesk;
   if (!bucket) return inter;
@@ -55,7 +50,6 @@ function face(data: ArrayBuffer) {
   return font;
 }
 
-/** Kerned glyph advances, without shaping (which doesn't change Latin widths). */
 export const measureWith =
   (titleFont: ArrayBuffer): Measure =>
   (text, font, fontSize) => {

@@ -15,7 +15,6 @@ import type { BasePageProps } from "@cloudflare/nimbus-docs/types";
 import { OG_CARD_META, OG_CARD_SIZE, ogCardPath, ogCardVersion, type OgCard } from "@/og/card";
 
 type Props = BasePageProps & {
-  /** The page's share card, drawn at `/og/<route>.png`. Pages without one use the home's. */
   ogCard?: OgCard;
 };
 
@@ -61,8 +60,6 @@ const resolvedMarkdownUrl =
   basedMarkdownUrl && Astro.site
     ? new URL(basedMarkdownUrl, Astro.site).href
     : basedMarkdownUrl;
-// The card's URL carries its version, so a changed card is a new URL and an
-// unchanged one stays cached.
 const pagePath = Astro.url.pathname.slice(baseUrl.replace(/\/$/, "").length) || "/";
 const socialImage =
   pageSocialImage ??
