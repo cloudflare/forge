@@ -33,8 +33,9 @@ cargo doc --no-deps --features wasm --open
 
 ## Reading a document
 
-`Forge` implements `serde::Deserialize`. Linking happens during deserialization. A document with
-errors fails with every error, one per line, in the message.
+`Forge` implements `serde::Deserialize` for a supported JSON input. Linking happens during
+deserialization. A document with errors fails with every error, one per line, in the message. Refer
+to [Input support](/start/input-support/) for the accepted formats.
 
 ```rust
 let forge: forge::Forge = serde_json::from_slice(&bytes)?;

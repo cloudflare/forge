@@ -3,27 +3,31 @@ title: Install Forge
 description: Install Forge with your package manager, or build it from source, and check that it runs.
 content_type: how-to
 sidebar:
-  order: 2
+  order: 3
 ---
 
 Forge is one native binary. Install it with your package manager, or build it from source.
 
 ## With a package manager
 
-Each build of the `@cloudflare/forge` package on pkg.pr.new carries prebuilt binaries for six
-platforms, and a small launcher that picks the right one. Releases on npm will put each platform's
-binary in a package of its own, so an install fetches only the one it needs. There is no release on
-npm yet (the `@cloudflare/forge` there is a placeholder): builds are published to
-[pkg.pr.new](https://pkg.pr.new) from the repository, and you install one by URL. The newest build
-of `main` is:
+The `@cloudflare/forge` package on npm installs a prebuilt binary for the current platform and a
+small launcher that runs it. Install the current release as a development dependency:
 
-<PackageManagers pkg="https://pkg.pr.new/cloudflare/forge/@cloudflare/forge@main" dev />
+<PackageManagers pkg="@cloudflare/forge" dev />
 
 Check that it runs, through your package manager:
 
 <PackageManagers type="exec" pkg="forge" args="--version" />
 
-It prints the version, such as `forge 0.2.0`.
+It prints the installed version.
+
+### Preview builds
+
+To test an unreleased change, install a preview from [pkg.pr.new](https://pkg.pr.new). Preview
+builds contain all six platform binaries in one package, and are installed by URL. The newest build
+of `main` is:
+
+<PackageManagers pkg="https://pkg.pr.new/cloudflare/forge/@cloudflare/forge@main" dev />
 
 Every build can be installed in three ways, each a suffix on
 `https://pkg.pr.new/cloudflare/forge/@cloudflare/forge`:
@@ -50,10 +54,10 @@ C++ Redistributable.
 <Aside type="note" title="Installing a tarball">
 In the repository, `just build <target>` (or `just build-all`, or `just fetch <run>` for a CI run's)
 puts release binaries in `target/binaries/`, and `just pack --bundled` packs them into one tarball
-in `packages/forge/dist/`, the same package pkg.pr.new serves. Install it by path, or reference it as
-`"file:../cloudflare-forge-0.2.0.tgz"` in `devDependencies`:
+in `packages/forge/dist/`, the same bundled package preview builds use. Install it by path, or
+reference it as `"file:../cloudflare-forge-<version>.tgz"` in `devDependencies`:
 
-<PackageManagers pkg="/path/to/cloudflare-forge-0.2.0.tgz" dev />
+<PackageManagers pkg="/path/to/cloudflare-forge-<version>.tgz" dev />
 </Aside>
 
 ## From source
@@ -68,7 +72,7 @@ cargo build --release --features wasm
 ./target/release/forge --version
 ```
 
-The last command prints the version, such as `forge 0.2.0`.
+The last command prints the installed version.
 
 The `wasm` feature is what lets the command run [WebAssembly plugins](/plugins/overview/). It adds
 [Wasmtime](https://wasmtime.dev) to the build, so it is off by default. Without it,

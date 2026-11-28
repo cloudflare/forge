@@ -31,8 +31,6 @@ Whatever its language, a plugin has the same parts:
 
 - Bindings for the `plugin` world, generated from the WIT.
 - An implementation of `generate(forge) -> result<list<file>, string>`.
-- Code that walks the `forge` record: `group-order`, and the `groups`, `methods`, `models` and
-  `types` lists that ids index.
 - The files it returns: each a path with `/` separators, and the content as bytes.
 
 [The Rust example](/plugins/rust/#as-a-webassembly-component) has all of them in about 50 lines,

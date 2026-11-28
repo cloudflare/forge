@@ -1,6 +1,6 @@
 ---
 title: The pipeline
-description: Forge reads, links, generates and writes, in that order, and never runs a plugin on a document with errors, so every plugin gets a checked model.
+description: Forge parses an API description, checks and organizes its operations and types, runs the chosen generator, and writes the generated files.
 content_type: concept
 sidebar:
   order: 1
@@ -10,15 +10,20 @@ Every run of Forge is the same four steps, whatever the target. Knowing them tel
 can rely on, and where an error comes from.
 
 ```text
-openapi.json ──read──► Doc ──link──► Forge ──run──► files ──write──► --out
-                       (arenas)      (the model)    (Plugin)
+API input ──read──► Doc ──link──► Forge ──run──► files ──write──► --out
+                 (source-specific)  (the model)     (Plugin)
 ```
+
+The read and link steps are specific to the source format. The model, plugin and write steps form a
+shared boundary that other input readers can build toward. [Input support](/start/input-support/)
+lists what Forge accepts today and what remains direction.
 
 ## 1. Read
 
-The document is deserialized straight into arenas of its objects: paths, operations, parameters,
-schemas, and so on. Only what Forge uses is kept, so a large document costs little more than the
-parts that matter. Extensions on operations are kept whole, because plugins can read them.
+The current reader deserializes the source into internal representations of its paths, operations,
+parameters, schemas and other components. Only what Forge uses is kept, so a large input costs
+little more than the parts that matter. Extensions on operations are kept whole, because plugins
+can read them.
 
 This step catches **structural** errors, the ones where a value has the wrong JSON type: a boolean
 where a string goes, an `x-forge-aliases` that is not an array, a key Forge reads written twice.
@@ -30,7 +35,7 @@ forge: openapi.json: invalid type: string "yes", expected a boolean at line 1 co
 
 ## 2. Link
 
-Linking turns the arenas into the [model](/concepts/the-model/). In one pass over `paths`, it:
+Linking turns the parsed source into the [model](/concepts/the-model/). In one pass over `paths`, it:
 
 - Decides which operations are **methods**, from their group and method name, and which group each
   belongs to, creating groups as it meets them.

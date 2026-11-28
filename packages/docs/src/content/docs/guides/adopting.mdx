@@ -13,23 +13,34 @@ checked.
 
 ## 1. Convert and bundle
 
-Forge reads one JSON document. If yours is YAML, or split across files, bundle it into one JSON file
-first, with your usual OpenAPI tooling. Make it a build step, so the source stays as it is.
+Forge currently reads one bundled JSON document. If your source is YAML or split across files,
+convert and bundle it first with your usual tooling. Make it a build step, so the source stays as it
+is. [Input support](/start/input-support/) has the exact boundary.
 
 ## 2. Start with one group
 
-Pick a small resource and rename its operations' `operationId`s to
-[`<group>.<method>`](/openapi/naming/):
+Pick a small resource. Name its operations with `x-forge-group-name` and `x-forge-method-name`, or
+set each `operationId` to [`<group>.<method>`](/openapi/naming/):
 
 ```json
 "/zones": {
-  "get":  { "operationId": "zones.list" },
-  "post": { "operationId": "zones.create" }
+  "get": {
+    "operationId": "listZones",
+    "x-forge-group-name": "zones",
+    "x-forge-method-name": "list"
+  },
+  "post": {
+    "operationId": "createZone",
+    "x-forge-group-name": "zones",
+    "x-forge-method-name": "create"
+  }
 },
 "/zones/{zone_id}": {
-  "get":    { "operationId": "zones.get" },
-  "patch":  { "operationId": "zones.edit" },
-  "delete": { "operationId": "zones.delete" }
+  "get": {
+    "operationId": "getZone",
+    "x-forge-group-name": "zones",
+    "x-forge-method-name": "get"
+  }
 }
 ```
 
@@ -37,10 +48,9 @@ Mark the rest of the document's operations `x-forge-skip: true` for now: they ma
 error. Without it, an operationId like `listZones` is a method of the root group, and is checked. An
 operation with `x-forge-aliases` makes its methods from the aliases, so mark each alias instead.
 
-If the document is already annotated for another tool, run
-[`forge normalize`](/reference/cli/#forge-normalize) first, which rewrites those annotations into
-Forge's own. Compatibility Modes in the sidebar lists them. Then only the operations they do not
-name need this step.
+If the document uses supported third-party extensions, run
+[`forge normalize`](/reference/cli/#forge-normalize) first. See **Compatibility Modes** in the
+sidebar. Then name only the operations that remain unnamed.
 
 Generate. Forge reports problems only in these operations and the schemas they use, so the list is
 short, and every item is yours.
@@ -55,9 +65,12 @@ Most first errors are one of these:
 
 - **Collisions.** Two methods with one name: rename one's `operationId`. Properties like `user_id`
   and `userId` that become one identifier: drop one with
-  [`x-forge-skip`](/openapi/extensions/#on-schemas), or rename the property.
-- **Unsupported parameter styles.** `deepObject` and friends are not covered. Change the parameter
-  if you can. Otherwise leave that operation out for now.
+  [`x-forge-skip`](/openapi/extensions/#on-schemas), or give one an
+  [`x-forge-property-name`](/openapi/extensions/#x-forge-property-name).
+- **Unsupported parameter styles.** `deepObject` and other styles beyond `form` are not supported
+  yet. Change the parameter if you can. Otherwise leave that operation out for now, and
+  [open an issue](https://github.com/cloudflare/forge/issues/new) with your use case to request
+  support.
 - **References.** A `$ref` into `paths`, or to another file. Move the schema into
   `components.schemas`.
 

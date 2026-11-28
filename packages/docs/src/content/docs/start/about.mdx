@@ -1,15 +1,14 @@
 ---
 title: About Forge
-description: Forge is an OpenAPI code generator that reads a document into one checked model and hands it to plugins, so every SDK, tool and server it generates agrees on names and types.
+description: Forge builds one checked API model and hands it to plugins, so every SDK, tool and server it generates agrees on names and types.
 content_type: concept
 sidebar:
   order: 1
 ---
 
-Forge is a schema-first code generator. It reads an [OpenAPI](https://spec.openapis.org/oas/latest.html)
-document, builds one typed, language-neutral model of it, and hands that model to **plugins** that
-write files: SDKs, CLIs, MCP servers, documentation, or anything else you can derive from an API
-description.
+Forge is a schema-first code generator built around one typed, language-neutral API model. It hands
+that model to **plugins** that write files: SDKs, CLIs, MCP servers, documentation, or anything else
+you can derive from an API description.
 
 It is open source under the Apache 2.0 license, and it is what Cloudflare uses to generate the
 surfaces of its own API, starting with the [`cf` CLI](https://blog.cloudflare.com/cloudflare-cf-cli-launch/).
@@ -18,15 +17,15 @@ surfaces of its own API, starting with the [`cf` CLI](https://blog.cloudflare.co
 
 An API with thousands of operations, owned by hundreds of teams, needs the same set of surfaces kept
 in step with every change: an SDK per language, a CLI, an MCP server, reference docs. Generators
-exist for each of those, but each one re-reads the document its own way, disagrees with the others
-about edge cases, and is hard to extend past the targets its authors chose.
+exist for each of those, but each one re-reads the API description its own way, disagrees with the
+others about edge cases, and is hard to extend past the targets its authors chose.
 
 Forge splits the work in two:
 
-- **The shared part** is done once, in Forge's core. It parses the document, follows every `$ref`,
+- **The shared part** is done once, in Forge's core. It reads the API description, follows every `$ref`,
   decides which operations are methods and how they are grouped, turns schemas into types, places
-  each model in the group that uses it, and reports every problem in the document at once.
-- **The language part** is done by plugins. A plugin never sees JSON Schema or OpenAPI. It sees
+  each model in the group that uses it, and reports every problem in the input at once.
+- **The language part** is done by plugins. A plugin does not parse the source format. It sees
   groups, methods, models and types, and returns a list of files.
 
 ## Pluggable by design
@@ -45,20 +44,15 @@ A WebAssembly plugin cannot read files, reach the network or see the environment
 and returns files, and Forge writes them, only under `--out`. Refer to
 [Plugins](/plugins/overview/).
 
-## OpenAPI 3.0, 3.1 and 3.2
+## Input and output
 
-Forge reads all three versions into the same model, so a plugin never needs to know which one a
-document was written in. Where the versions differ, Forge follows each one's rules:
+Today, Forge reads OpenAPI 3.0, 3.1 and 3.2 as one bundled JSON document. Convert YAML to JSON and
+bundle descriptions split across files before running Forge. Every version becomes the same shared
+model, so plugins do not need version-specific logic.
 
-- **Next to a `$ref`**, 3.0 ignores every other keyword, except a few of Forge's own, such as
-  `x-forge-sensitive`. From 3.1, Forge reads them: a
-  `description`, `default`, `readOnly` or `nullable` beside a `$ref` applies to that use of it.
-- **Nullable values** are written `nullable: true` in 3.0 and as a list of types with `null` in 3.1.
-  Forge reads both, in every version, as the same nullable type.
-- **3.2** adds the `QUERY` method, `additionalOperations`, `in: querystring` parameters and a
-  discriminator's `defaultMapping`, and Forge reads each of them.
-
-[What Forge reads](/openapi/support/) lists every keyword.
+Reading an API description is separate from generating output. Forge is designed to grow toward
+more formats and file layouts. [Input support](/start/input-support/) states the current boundary
+and what may come next.
 
 ## What exists today
 
@@ -67,21 +61,22 @@ expect the model and the plugin interface to grow.
 
 Today:
 
-- **Input:** OpenAPI 3.0, 3.1 and 3.2, as JSON.
+- **Input:** refer to [Input support](/start/input-support/) for current formats and file layouts.
 - **Built-in targets:** a TypeScript SDK (`ts`), which is experimental, a Cap'n Web server over that
   SDK (`capnweb`), and the tools of an MCP server, in TypeScript (`mcp`).
 - **Plugins:** WebAssembly components against a published WIT, with first-class libraries for
   TypeScript authors, and native plugins in Rust.
 - **A JavaScript library:** `parse` from `@cloudflare/forge` reads a document into the same model,
-  in your own process. Refer to [Read a document in JavaScript](/guides/parse/).
+  in your own process. Refer to [Read an API description in JavaScript](/guides/parse/).
 
 ## Related resources
 
-- [The pipeline](/concepts/pipeline/): how a document becomes files, step by step.
+- [The pipeline](/concepts/pipeline/): how an input becomes a model and files.
 - [Plugins](/plugins/overview/): every way to extend Forge.
 - [CLI](/reference/cli/): every command and option.
 
 ## Next steps
 
 - [Install Forge](/start/install/): the package, or a build from source.
+- [Input support](/start/input-support/): what Forge accepts today, and the direction beyond it.
 - [Get started](/start/get-started/): generate a TypeScript SDK and MCP tools from a small document.

@@ -1,16 +1,16 @@
 ---
 title: Plugins
-description: Write a Forge plugin to generate anything from an OpenAPI document, in TypeScript, in Rust, or in any language that compiles to a WebAssembly component.
+description: Write a Forge plugin to generate anything from Forge's checked API model, in TypeScript, Rust, or any language that compiles to a WebAssembly component.
 content_type: overview
 sidebar:
   order: 1
   label: Overview
 ---
 
-Forge turns an OpenAPI document into a [model](/concepts/the-model/), then runs a **plugin** on
-that model to write files. Every target is a plugin, including the built-in TypeScript SDK and MCP
-tools, so a plugin of your own gets the same checked model they do. Write one in TypeScript, in Rust,
-or in any language that compiles to a WebAssembly component. Start with
+Forge runs a **plugin** on its checked [model](/concepts/the-model/) to write files. A plugin consumes
+the model rather than parsing the source format itself. Every target is a plugin, including the
+built-in TypeScript SDK and MCP tools, so a plugin of your own gets the same checked model they do.
+Write one in TypeScript, in Rust, or in any language that compiles to a WebAssembly component. Start with
 [Get started with plugins](/plugins/get-started/).
 
 - [Get started with plugins](/plugins/get-started/): write, build and run a plugin in TypeScript.

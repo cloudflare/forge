@@ -6,9 +6,9 @@ sidebar:
   order: 9
 ---
 
-The model takes care of OpenAPI. What is left is design: what your output should look like to the
-people who use it. This page lists the decisions every target makes, and how the two built-in
-targets make them, so you can copy or deliberately differ.
+Forge gives every target a parsed, validated API model. What is left is design: what your output
+should look like to the people who use it. This page lists the decisions every target makes, and how
+the two built-in targets make them, so you can copy or deliberately differ.
 
 ## Layout: one file, or one per group?
 
@@ -32,6 +32,9 @@ Decide a casing for each kind of identifier, and spell [names](/concepts/names/)
 | Method         | `camelCase` function       | `camelCase`, joined to the group path by `_`: `accounts_members_list` |
 | Model          | `PascalCase` type          | A schema constant, by schema name       |
 | Field          | `camelCase`, mapped to the wire name by a codec | The wire name, as sent |
+
+The model does not name the output package, files, entry points or root client. Pick those for your
+target. The TypeScript target exports `createClient` from `index.ts`.
 
 Then decide what happens when two names collide **in your output**. Forge catches collisions within
 a group or object, but a casing can create new ones: a digit belongs to the word before it, so

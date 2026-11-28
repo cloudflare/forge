@@ -6,11 +6,8 @@ sidebar:
   order: 3
 ---
 
-Forge needs no extensions: methods are named by `operationId`, as
-[Method names](/openapi/naming/) explains. The extensions below add what OpenAPI has no field for,
-such as names that differ from the document's, group descriptions and confirmation prompts. Any
-other `x-` key on an operation is passed to plugins, unread. Any other `x-` key elsewhere is
-ignored.
+Forge extensions add generation controls and metadata that standard fields do not provide.
+They are optional. Unknown `x-` keys on operations are passed to plugins; elsewhere they are ignored.
 
 Forge reads only these. A document annotated for another tool can have that tool's extensions
 rewritten into these with [`forge normalize`](/reference/cli/#forge-normalize). Refer to **Compatibility
@@ -22,7 +19,7 @@ A value of the wrong JSON type, such as a string where a boolean goes, is an err
 | --- | --- | --- |
 | [`x-forge-method-name`](#x-forge-method-name-and-x-forge-group-name) | Operation, alias | String |
 | [`x-forge-group-name`](#x-forge-method-name-and-x-forge-group-name) | Operation, alias | Dotted string, or array of strings |
-| [`x-forge-skip`](#x-forge-skip) | Operation, alias | Boolean |
+| [`x-forge-skip`](#x-forge-skip) | Operation, alias, property schema | Boolean |
 | [`x-forge-availability`](#x-forge-availability) | Operation, alias | `alpha`, `beta`, `preview`, `generally-available` or `deprecated` |
 | [`x-forge-hidden`](#x-forge-hidden) | Operation, alias | Boolean |
 | [`x-forge-require-confirmation`](#x-forge-require-confirmation) | Operation, alias | String |
@@ -31,7 +28,6 @@ A value of the wrong JSON type, such as a string where a boolean goes, is an err
 | [`x-forge-model-name`](#x-forge-model-name) | Schema in `components.schemas` | String |
 | [`x-forge-property-name`](#x-forge-property-name) | Property schema | String |
 | [`x-forge-sensitive`](#x-forge-sensitive) | Property schema | Boolean |
-| [`x-forge-skip`](#x-forge-skip-1) | Property schema | Boolean |
 | [`x-forge-commands`](#x-forge-commands) | Document root | Object of group descriptions |
 
 ## On operations
