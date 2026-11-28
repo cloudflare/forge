@@ -51,10 +51,11 @@ than one of its subgroups use. The groups directly inside it are the top-level g
 
 ## Groups
 
-A group is a named collection of methods, models and subgroups. Today, groups come from each
-operation's `operationId`: an operation `accounts.members.list` creates the group
-`accounts` and, inside it, `members`. Groups exist only because methods are in them, but a group can
-hold nothing except other groups. The root is always there, even with nothing in it.
+A group is a named collection of methods, models and subgroups. Today, `x-forge-group-name` assigns
+an operation to a group, alongside `x-forge-method-name`. As an alternative, a dotted `operationId`
+names both: `accounts.members.list` creates the group `accounts` and, inside it, `members`. Groups
+exist only because methods are in them, but a group can hold nothing except other groups. The root
+is always there, even with nothing in it.
 
 | Member           | What it is                                                                     |
 | ---------------- | ------------------------------------------------------------------------------ |
