@@ -1,14 +1,14 @@
 ---
 title: How plugins work
-description: A Forge plugin is one function from Forge's model of an OpenAPI document to a list of files. The ways to write one, what it may do, and how it is run.
+description: A Forge plugin is one function from Forge's checked API model to a list of files. The ways to write one, what it may do, and how it is run.
 content_type: concept
 sidebar:
   order: 3
 ---
 
-A plugin is one function: Forge calls it with the [model](/concepts/the-model/) of an OpenAPI
-document, and it returns the files to write. Forge does everything before that, the same way for
-every output, and writes the files after.
+A plugin is one function: Forge calls it with the checked [model](/concepts/the-model/) of an API,
+and it returns the files to write. Forge reads and validates the source before that, then writes the
+returned files after. Today the source is OpenAPI, but the plugin API is the model.
 
 The built-in targets are plugins too. The TypeScript SDK generator, the Cap'n Web server generator
 and the MCP tool generator implement the same `Plugin` trait you would implement, and receive the
@@ -45,19 +45,20 @@ generate(forge) // called once, with the whole model
 It returns a list of files: a path relative to the output directory, and the content. It can fail,
 and the run stops before anything is written.
 
-That is all. A plugin does not parse OpenAPI, resolve `$ref`s, decide what is a method or name
-things. It receives a checked model, returns files, and Forge writes them. Forge refuses a returned
-path that would leave the output directory, as [Sandboxing](/concepts/sandbox/#what-forge-checks)
-explains. A native plugin is ordinary code, with the file system and the network. A WebAssembly plugin
-reaches only what Sandboxing lists.
+That is all. A plugin does not parse the source description, resolve `$ref`s, decide which operations
+are methods or assign names. It receives a checked model, returns files, and Forge writes them. Forge
+refuses a returned path that would leave the output directory, as
+[Sandboxing](/concepts/sandbox/#what-forge-checks) explains. A native plugin is ordinary code, with
+the file system and the network. A WebAssembly plugin reaches only what Sandboxing lists.
 
 ## Where each file goes
 
 Most plugins write one set of files per [group](/concepts/groups-and-methods/), by walking
 `forge.groups`, and a few for the whole API, such as an entry point or a README.
 
-A complete SDK can also return package metadata, compiler configuration, automation workflows and
-any other files needed at the output root. Forge treats them like every other returned file.
+A complete SDK generator can also return package metadata, compiler configuration, automation
+workflows and any other files needed at the output root. Forge treats them like every other returned
+file.
 
 Each model is [placed in exactly one group](/concepts/models/): the deepest one that every method
 using it shares. Writing each group's `models` alongside its methods writes every model exactly

@@ -6,10 +6,8 @@ sidebar:
   order: 3
 ---
 
-Name methods with `x-forge-method-name` and `x-forge-group-name`, or with a dotted `operationId`.
-[Method names](/openapi/naming/) explains both options. The extensions below also control metadata
-and generation behavior. Unknown `x-` keys on operations are passed to plugins; elsewhere they are
-ignored.
+Forge extensions add generation controls and metadata that standard OpenAPI fields do not provide.
+They are optional. Unknown `x-` keys on operations are passed to plugins; elsewhere they are ignored.
 
 Forge reads only these. A document annotated for another tool can have that tool's extensions
 rewritten into these with [`forge normalize`](/reference/cli/#forge-normalize). Refer to **Compatibility

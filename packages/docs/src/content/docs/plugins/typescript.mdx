@@ -187,8 +187,7 @@ There is no `console` in the sandbox, so throwing is also the way to see a value
 ## Things to know
 
 <Aside type="caution" title="generate must be synchronous">
-`generate` must return files directly. An `async` function returns a `Promise`, so Forge writes no
-files.
+Do not make `generate` async or return a `Promise`. Return the files directly.
 </Aside>
 
 - **One call, one instance.** `generate` runs once per run, in a fresh instance, so module state

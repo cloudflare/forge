@@ -13,14 +13,14 @@ checked.
 
 ## 1. Convert and bundle
 
-Forge reads one JSON document. If yours is YAML, or split across files, bundle it into one JSON file
-first, with your usual OpenAPI tooling. Make it a build step, so the source stays as it is.
+Today, Forge reads one bundled OpenAPI document as JSON. If yours is YAML or split across files,
+convert and bundle it first with your usual OpenAPI tooling. Make it a build step, so the source
+stays as it is.
 
 ## 2. Start with one group
 
 Pick a small resource. Name its operations with `x-forge-group-name` and `x-forge-method-name`, or
-set each `operationId` to [`<group>.<method>`](/openapi/naming/). Use the extensions when another
-tool relies on the existing `operationId`:
+set each `operationId` to [`<group>.<method>`](/openapi/naming/):
 
 ```json
 "/zones": {
@@ -43,8 +43,6 @@ tool relies on the existing `operationId`:
   }
 }
 ```
-
-If you can change the `operationId`, a dotted value names the same method without extensions.
 
 Mark the rest of the document's operations `x-forge-skip: true` for now: they make no method, and no
 error. Without it, an operationId like `listZones` is a method of the root group, and is checked. An

@@ -1,6 +1,6 @@
 ---
 title: The pipeline
-description: Forge reads, links, generates and writes, in that order, and never runs a plugin on a document with errors, so every plugin gets a checked model.
+description: Forge reads and links an input, runs a plugin on the checked model, then writes its files. Today, the input is one bundled OpenAPI JSON document.
 content_type: concept
 sidebar:
   order: 1
@@ -11,8 +11,13 @@ can rely on, and where an error comes from.
 
 ```text
 openapi.json ──read──► Doc ──link──► Forge ──run──► files ──write──► --out
-                    (parsed document) (the model)    (Plugin)
+                    (OpenAPI today)  (the model)     (Plugin)
 ```
+
+The read and link steps are specific to the input format. Forge currently has one input path: one
+bundled OpenAPI 3.0, 3.1 or 3.2 document as JSON. Other formats and multiple source files are not
+supported yet. The model, plugin and write steps form a shared boundary that future input support
+can build toward, but the model may need to grow for new kinds of API description.
 
 ## 1. Read
 

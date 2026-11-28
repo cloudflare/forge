@@ -1,15 +1,16 @@
 ---
-title: Read a document in JavaScript
+title: Read an OpenAPI document in JavaScript
 description: Parse an OpenAPI document into Forge's model in your own JavaScript process with parse from @cloudflare/forge, without the forge command or a plugin.
 content_type: how-to
 sidebar:
   order: 3
 ---
 
-`parse` from `@cloudflare/forge` reads an OpenAPI document into [the model](/concepts/the-model/)
-in your own process. It returns the same `Forge` a [TypeScript plugin](/plugins/typescript/)
-receives, with the same groups, methods, models and types. Use it when a tool needs the model but
-does not generate files, such as a docs site that lists an API's methods.
+`parse` from `@cloudflare/forge` reads one bundled OpenAPI JSON document into
+[the model](/concepts/the-model/) in your own process. It does not bundle or combine source files.
+It returns the same `Forge` a [TypeScript plugin](/plugins/typescript/) receives, with the same
+groups, methods, models and types. Use it when a tool needs the model but does not generate files,
+such as a docs site that lists an API's methods.
 
 It runs Forge compiled to WebAssembly, so it needs neither the `forge` binary nor a plugin.
 
@@ -57,8 +58,8 @@ GET /pets list
 
 Every type and property of the result is in the [Plugin API](/reference/plugin-api/#the-model).
 `@cloudflare/forge` exports the same model types as `@cloudflare/forge/plugin`. Each call returns a
-separate Forge model, so several documents can be read side by side, such as one for each version of
-an API.
+separate Forge model. Several documents can be read side by side, such as one for each version of an
+API, but they are not combined into one model.
 
 ## Errors
 

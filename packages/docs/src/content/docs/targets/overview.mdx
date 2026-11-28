@@ -1,14 +1,14 @@
 ---
 title: Targets
-description: "Pick what Forge generates from an OpenAPI document with --target: a TypeScript SDK, a Cap'n Web server, MCP tools, or any plugin."
+description: "Pick what Forge generates from its checked API model with --target: a TypeScript SDK, a Cap'n Web server, MCP tools, or any plugin."
 content_type: overview
 sidebar:
   order: 1
   label: Overview
 ---
 
-A target is what Forge generates from an OpenAPI document. You pick one per run with `--target`, and
-every target reads the same document, so its group and method names shape the TypeScript client,
+A target is what Forge generates from its checked API model. You pick one per run with `--target`,
+and every target reads the same model, so its group and method names shape the TypeScript client,
 the MCP tool names and your own plugin's output alike. Three targets are built in, and a
 [plugin](/plugins/overview/) can generate anything else:
 
