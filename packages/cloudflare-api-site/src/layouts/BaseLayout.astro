@@ -12,16 +12,20 @@ import {
 import AgentDirective from "@/components/AgentDirective.astro";
 import NimbusHead from "@cloudflare/nimbus-docs/components/NimbusHead.astro";
 import type { BasePageProps } from "@cloudflare/nimbus-docs/types";
+import { OG_CARD_META, OG_CARD_SIZE, ogCardPath, ogCardVersion, type OgCard } from "@/og/card";
 
-type Props = BasePageProps;
+type Props = BasePageProps & {
+  ogCard?: OgCard;
+};
 
 const {
   title,
   description,
   noindex,
   markdownUrl,
-  socialImage,
-  socialImageSize,
+  socialImage: pageSocialImage,
+  socialImageSize: pageSocialImageSize,
+  ogCard,
   lastUpdated,
   head: pageHead = [],
   collection,
@@ -56,6 +60,11 @@ const resolvedMarkdownUrl =
   basedMarkdownUrl && Astro.site
     ? new URL(basedMarkdownUrl, Astro.site).href
     : basedMarkdownUrl;
+const pagePath = Astro.url.pathname.slice(baseUrl.replace(/\/$/, "").length) || "/";
+const socialImage =
+  pageSocialImage ??
+  (ogCard ? `${ogCardPath(pagePath)}?v=${ogCardVersion(ogCard)}` : ogCardPath("/"));
+const socialImageSize = pageSocialImageSize ?? (pageSocialImage ? undefined : OG_CARD_SIZE);
 ---
 
 <!doctype html>
@@ -133,6 +142,7 @@ const resolvedMarkdownUrl =
       apiVersion={apiVersion}
       coordinate={coordinate}
     />
+    {ogCard && <meta name={OG_CARD_META} content={JSON.stringify(ogCard)} />}
     {/* NimbusHead links favicon.ico; add the square PNG used by cloudflare.com. */}
     <link
       rel="icon"

@@ -3,6 +3,7 @@ import { getApiRoute } from '@cloudflare/nimbus-docs/runtime';
 import Header from '@/components/Header.astro';
 import { API_HOME_CHUNK_SIZE, ApiLayout } from '@/components/ui/api-layout';
 import BaseLayout from '@/layouts/BaseLayout.astro';
+import { apiPageCard } from '@/og/card';
 import { toPlainText } from '@/plain-text';
 
 const result = await getApiRoute(Astro, 'api', { homeChunkSize: API_HOME_CHUNK_SIZE });
@@ -26,6 +27,7 @@ const { title, description } =
   collection={collection}
   apiVersion={version ?? undefined}
   coordinate={coordinate}
+  ogCard={apiPageCard(page)}
 >
   <Header showSidebar />
   <ApiLayout page={page} nav={nav} collection={collection} version={version} coordinate={coordinate} home={home} />

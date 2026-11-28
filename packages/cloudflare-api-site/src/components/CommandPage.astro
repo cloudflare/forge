@@ -12,6 +12,7 @@ import { ApiLayout } from '@/components/ui/api-layout';
 import { Breadcrumbs } from '@/components/ui/breadcrumbs';
 import { PageActions } from '@/components/ui/page-actions';
 import { getApiNav, type Breadcrumb } from '@cloudflare/nimbus-docs/runtime';
+import type { OgCard } from '@/og/card';
 
 interface Props {
   title: string;
@@ -25,14 +26,15 @@ interface Props {
   href: string;
   /** The command's Markdown version, base-free. */
   markdownUrl?: string;
+  ogCard?: OgCard;
 }
 
-const { title, description, descriptionHtml, breadcrumbs, href, markdownUrl } = Astro.props;
+const { title, description, descriptionHtml, breadcrumbs, href, markdownUrl, ogCard } = Astro.props;
 const api = await getApiNav(Astro, { collection: 'api', href });
 if (!api) throw new Error(`No API sidebar for ${href}`);
 ---
 
-<BaseLayout title={title} description={description} markdownUrl={markdownUrl} collection="api">
+<BaseLayout title={title} description={description} markdownUrl={markdownUrl} collection="api" ogCard={ogCard}>
   <Header showSidebar />
   <ApiLayout nav={api.nav} version={api.version}>
     <div data-pagefind-ignore class="max-w-(--api-header-measure)">

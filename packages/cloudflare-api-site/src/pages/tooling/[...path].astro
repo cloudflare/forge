@@ -8,6 +8,7 @@ import { commandProducts } from '../../command-sidebar.ts';
 import { commandTitle } from '../../command-reference/routing.ts';
 import { stripBase } from '@cloudflare/nimbus-docs/runtime';
 import { getCommandRouter } from '../../command-reference/server.ts';
+import { commandCard } from '../../og/card.ts';
 
 const router = await getCommandRouter();
 const command = router.resolve(Astro.url, commandProducts);
@@ -23,6 +24,7 @@ const product = commandProducts.find((item) => item.id === command.fullPath[0]);
   breadcrumbs={commandBreadcrumbs(command, product)}
   href={product ? `/${product.slug}/` : '/'}
   markdownUrl={markdownUrl}
+  ogCard={commandCard(commandTitle(command), command)}
 >
   <CommandLine slot="request" command={command.command} tail={command.usage.slice(command.command.length).trim()} label="Copy command" />
   <CommandReference command={command} />
