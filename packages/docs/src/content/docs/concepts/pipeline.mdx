@@ -1,6 +1,6 @@
 ---
 title: The pipeline
-description: Forge reads and links an input, runs a plugin on the checked model, then writes its files. Today, the input is one bundled OpenAPI JSON document.
+description: Forge reads and links an input, runs a plugin on the checked model, then writes its files.
 content_type: concept
 sidebar:
   order: 1
@@ -10,19 +10,18 @@ Every run of Forge is the same four steps, whatever the target. Knowing them tel
 can rely on, and where an error comes from.
 
 ```text
-openapi.json ──read──► Doc ──link──► Forge ──run──► files ──write──► --out
-                    (OpenAPI today)  (the model)     (Plugin)
+API input ──read──► Doc ──link──► Forge ──run──► files ──write──► --out
+                 (source-specific)  (the model)     (Plugin)
 ```
 
-The read and link steps are specific to the input format. Forge currently has one input path: one
-bundled OpenAPI 3.0, 3.1 or 3.2 document as JSON. Other formats and multiple source files are not
-supported yet. The model, plugin and write steps form a shared boundary that future input support
-can build toward, but the model may need to grow for new kinds of API description.
+The read and link steps are specific to the source format. The model, plugin and write steps form a
+shared boundary that other input readers can build toward. [Input support](/start/input-support/)
+lists what Forge accepts today and what remains direction.
 
 ## 1. Read
 
-Forge deserializes the OpenAPI document into internal representations of its paths, operations,
-parameters, schemas and other components. Only what Forge uses is kept, so a large document costs
+The current reader deserializes the source into internal representations of its paths, operations,
+parameters, schemas and other components. Only what Forge uses is kept, so a large input costs
 little more than the parts that matter. Extensions on operations are kept whole, because plugins
 can read them.
 
@@ -36,8 +35,7 @@ forge: openapi.json: invalid type: string "yes", expected a boolean at line 1 co
 
 ## 2. Link
 
-Linking turns the parsed OpenAPI document into the [model](/concepts/the-model/). In one pass over
-`paths`, it:
+Linking turns the parsed source into the [model](/concepts/the-model/). In one pass over `paths`, it:
 
 - Decides which operations are **methods**, from their group and method name, and which group each
   belongs to, creating groups as it meets them.

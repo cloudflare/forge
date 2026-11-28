@@ -1,0 +1,36 @@
+---
+title: Input support
+description: The API description formats and file layouts Forge accepts today, and the broader input support it is designed to grow toward.
+content_type: concept
+sidebar:
+  order: 2
+---
+
+Forge turns an API description into its shared [model](/concepts/the-model/). Input readers own that
+conversion; targets and plugins consume the model instead of parsing source files.
+
+## Supported today
+
+Each generation or `parse` call accepts one bundled OpenAPI 3.0, 3.1 or 3.2 document as JSON.
+
+- Convert YAML to JSON before passing it to Forge.
+- Bundle descriptions split across files into one document. References to other files are not read.
+- Pass one document per run. Separate runs produce separate models; Forge does not combine them.
+
+The [OpenAPI section](/openapi/overview/) documents the fields, extensions and versions Forge reads.
+
+## Direction
+
+Forge aims to support AsyncAPI, other API description formats and multiple source files. None of
+those are supported inputs yet. Adding them may require both new readers and changes to the shared
+model; this page describes direction, not a compatibility promise.
+
+Keeping readers separate from targets means a generator can focus on groups, methods, models and
+types. As input support grows, plugins should continue to consume that checked model rather than
+each implementing source parsing independently.
+
+## Related resources
+
+- [The pipeline](/concepts/pipeline/): where reading ends and the shared model begins.
+- [The model](/concepts/the-model/): what every target and plugin receives.
+- [Adopt Forge on an existing API](/guides/adopting/): convert, bundle and introduce Forge gradually.

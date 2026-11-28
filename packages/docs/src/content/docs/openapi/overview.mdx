@@ -9,12 +9,6 @@ sidebar:
 Forge reads OpenAPI **3.0, 3.1 and 3.2**, as **JSON**. Swagger 2.0 and YAML are not read. Convert a
 YAML document to JSON first, with any YAML tool.
 
-<Aside type="note" title="Current input support">
-OpenAPI is Forge's only input format today, and each run accepts one bundled document. AsyncAPI,
-other API description formats and multiple source files are not supported yet. Forge's shared model
-is intended to make more input formats possible without making plugins parse them.
-</Aside>
-
 It needs very little: for each operation you want in an SDK, the group it is in and its name.
 Everything else is optional, and improves the output.
 
@@ -102,6 +96,7 @@ one and its fix.
 
 ## Related resources
 
+- [Input support](/start/input-support/): current formats and file layouts, and future direction.
 - [Method names](/openapi/naming/): how operationIds become groups and methods.
 - [Extensions](/openapi/extensions/): every extension Forge reads.
 - [Troubleshooting OpenAPI documents](/openapi/errors/): each error, and its fix.

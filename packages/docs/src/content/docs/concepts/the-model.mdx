@@ -7,10 +7,9 @@ sidebar:
 ---
 
 The model is the boundary between Forge's input and its generators, and the only thing a plugin
-sees. Today, Forge builds it from one bundled OpenAPI JSON document. It is shaped like an SDK rather
-than like OpenAPI: there are no paths, parameters or schemas at the top, but groups of methods and
-the models those methods use. Future input formats may require the model to grow, but plugins do
-not parse the source format themselves.
+sees. It is shaped for generators rather than like the source description: there are no paths,
+parameters or schemas at the top, but groups of methods and the models those methods use. Future
+input formats may require the model to grow, but plugins do not parse the source format themselves.
 
 ```text
 Forge                     version, description, base URL
@@ -37,8 +36,7 @@ and `type` where Rust has `ty()`.
 
 ## The forge
 
-The whole API after Forge has read it. With the current OpenAPI reader, it has three facts from the
-document and its groups:
+The whole API after Forge has read it. It has three facts from the input and its groups:
 
 | In Rust                  | In TypeScript       | What it is                                                                |
 | ------------------------ | ------------------- | ------------------------------------------------------------------------- |
@@ -53,8 +51,8 @@ than one of its subgroups use. The groups directly inside it are the top-level g
 
 ## Groups
 
-A group is a named collection of methods, models and subgroups. The current OpenAPI reader creates
-groups from each operation's `operationId`: an operation `accounts.members.list` creates the group
+A group is a named collection of methods, models and subgroups. Today, groups come from each
+operation's `operationId`: an operation `accounts.members.list` creates the group
 `accounts` and, inside it, `members`. Groups exist only because methods are in them, but a group can
 hold nothing except other groups. The root is always there, even with nothing in it.
 

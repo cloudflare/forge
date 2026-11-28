@@ -8,7 +8,7 @@ sidebar:
 
 A plugin is one function: Forge calls it with the checked [model](/concepts/the-model/) of an API,
 and it returns the files to write. Forge reads and validates the source before that, then writes the
-returned files after. Today the source is OpenAPI, but the plugin API is the model.
+returned files after. The plugin API is the model, not the source format.
 
 The built-in targets are plugins too. The TypeScript SDK generator, the Cap'n Web server generator
 and the MCP tool generator implement the same `Plugin` trait you would implement, and receive the
